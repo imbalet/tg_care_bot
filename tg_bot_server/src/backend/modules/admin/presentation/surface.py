@@ -42,9 +42,19 @@ from backend.modules.files.infrastructure import (
     FileModel,
     SqlAlchemyFileRepository,
 )
+from backend.modules.orders.infrastructure import (
+    OrderCareObjectModel,
+    OrderMatchModel,
+    OrderModel,
+    OrderOptionValueModel,
+    OrderStatusHistoryModel,
+)
 from backend.modules.performers.infrastructure import (
+    PerformerCalendarOverrideModel,
     PerformerInvitationModel,
     PerformerModel,
+    PerformerScheduleModel,
+    PerformerServiceModel,
 )
 
 
@@ -203,6 +213,25 @@ def create_admin_surface(container: Container) -> Admin:
     admin.add_view(ReadOnlyModelView(PerformerModel, label="Performers"))
     admin.add_view(
         ReadOnlyModelView(PerformerInvitationModel, label="Performer invitations"),
+    )
+    admin.add_view(CatalogModelView(PerformerServiceModel, label="Performer services"))
+    admin.add_view(
+        CatalogModelView(PerformerScheduleModel, label="Performer schedules")
+    )
+    admin.add_view(
+        CatalogModelView(
+            PerformerCalendarOverrideModel,
+            label="Performer calendar overrides",
+        ),
+    )
+    admin.add_view(ReadOnlyModelView(OrderModel, label="Orders"))
+    admin.add_view(ReadOnlyModelView(OrderMatchModel, label="Order matches"))
+    admin.add_view(ReadOnlyModelView(OrderCareObjectModel, label="Order care objects"))
+    admin.add_view(
+        ReadOnlyModelView(OrderOptionValueModel, label="Order option values")
+    )
+    admin.add_view(
+        ReadOnlyModelView(OrderStatusHistoryModel, label="Order status history"),
     )
     admin.add_view(ReadOnlyModelView(CareObjectModel, label="Care objects"))
     admin.add_view(ReadOnlyModelView(AddressModel, label="Addresses"))

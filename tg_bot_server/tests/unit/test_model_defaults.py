@@ -3,7 +3,9 @@ from decimal import Decimal
 from typing import Any
 
 from backend.common.application import new_uuid, utc_now
+from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.admin.infrastructure import AdminAuditLogModel, AdminModel
+from backend.modules.care_objects.infrastructure import CareObjectModel
 from backend.modules.catalog.infrastructure import (
     BusinessSettingModel,
     CityModel,
@@ -18,9 +20,20 @@ from backend.modules.customers.infrastructure import (
     CustomerModel,
     LegalAcceptanceModel,
 )
+from backend.modules.files.infrastructure import FileLinkModel, FileModel
+from backend.modules.orders.infrastructure import (
+    OrderCareObjectModel,
+    OrderMatchModel,
+    OrderModel,
+    OrderOptionValueModel,
+    OrderStatusHistoryModel,
+)
 from backend.modules.performers.infrastructure import (
+    PerformerCalendarOverrideModel,
     PerformerInvitationModel,
     PerformerModel,
+    PerformerScheduleModel,
+    PerformerServiceModel,
 )
 from backend.modules.system_checks.infrastructure import SystemCheckRecordModel
 from backend.modules.telegram_topics.infrastructure import TelegramTopicModel
@@ -42,6 +55,18 @@ ALL_MODELS = (
     PerformerModel,
     PerformerInvitationModel,
     TelegramTopicModel,
+    CareObjectModel,
+    AddressModel,
+    FileModel,
+    FileLinkModel,
+    PerformerServiceModel,
+    PerformerScheduleModel,
+    PerformerCalendarOverrideModel,
+    OrderModel,
+    OrderMatchModel,
+    OrderCareObjectModel,
+    OrderOptionValueModel,
+    OrderStatusHistoryModel,
 )
 
 UPDATED_AT_MODELS = (
@@ -57,6 +82,14 @@ UPDATED_AT_MODELS = (
     PerformerModel,
     PerformerInvitationModel,
     TelegramTopicModel,
+    CareObjectModel,
+    AddressModel,
+    PerformerServiceModel,
+    PerformerScheduleModel,
+    PerformerCalendarOverrideModel,
+    OrderModel,
+    OrderMatchModel,
+    OrderOptionValueModel,
 )
 
 
@@ -108,6 +141,11 @@ def test_safe_status_and_service_defaults_are_declared() -> None:
     assert _default_arg(PerformerModel.__table__.c.status) == "profile_pending"
     assert _default_arg(PerformerModel.__table__.c.is_accepting_orders) is False
     assert _default_arg(PerformerInvitationModel.__table__.c.status) == "pending"
+    assert _default_arg(PerformerServiceModel.__table__.c.is_approved) is False
+    assert _default_arg(PerformerServiceModel.__table__.c.is_enabled) is False
+    assert _default_arg(PerformerScheduleModel.__table__.c.is_active) is True
+    assert _default_arg(OrderModel.__table__.c.status) == "draft"
+    assert _default_arg(OrderModel.__table__.c.requires_admin_attention) is False
     assert _default_arg(TelegramTopicModel.__table__.c.status) == "fallback"
     assert LegalAcceptanceModel.__table__.c.accepted_at.default is not None
     assert _same_callable(
