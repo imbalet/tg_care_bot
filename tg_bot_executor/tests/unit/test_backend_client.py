@@ -211,6 +211,51 @@ async def test_work_address_methods_use_backend_contract() -> None:
     await client.close()
 
 
+@pytest.mark.asyncio
+async def test_avatar_methods_use_backend_contract() -> None:
+    file_id = uuid4()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            assert request.url.path == "/api/performers/by-telegram/123/avatar"
+            assert b"payload" in request.content
+            return httpx.Response(
+                201,
+                json={
+                    "id": str(file_id),
+                    "bucket": "files",
+                    "storage_key": "avatars/x.jpg",
+                    "mime_type": "image/jpeg",
+                    "size_bytes": 7,
+                    "checksum": "abc",
+                    "status": "uploaded",
+                },
+            )
+        if request.method == "DELETE":
+            assert request.url.path == "/api/performers/by-telegram/123/avatar"
+            return httpx.Response(200, json={"status": "deleted"})
+        raise AssertionError("Unexpected request")
+
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(handler),
+    )
+
+    uploaded = await client.upload_avatar(
+        telegram_id=123,
+        filename="avatar.jpg",
+        content=b"payload",
+        content_type="image/jpeg",
+    )
+    await client.delete_avatar(telegram_id=123)
+
+    assert uploaded.id == file_id
+    assert uploaded.status == "uploaded"
+    await client.close()
+
+
 def address_json(address_id: object, city_id: object) -> dict[str, object]:
     return {
         "id": str(address_id),

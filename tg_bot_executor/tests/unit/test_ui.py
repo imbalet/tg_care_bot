@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from executor_bot.infrastructure.http import PerformerProfileDTO
 from executor_bot.presentation.ui import (
+    avatar_keyboard,
     contact_methods_keyboard,
     executor_profile_text,
     legal_documents_text,
@@ -13,6 +14,7 @@ from executor_bot.presentation.ui import (
     work_addresses_keyboard,
 )
 from executor_bot.presentation.ui.keyboards import (
+    AVATAR_UPLOAD,
     REGISTRATION_ACCEPT_LEGAL,
     REGISTRATION_CITY_PREFIX,
     REGISTRATION_CONFIRM,
@@ -79,6 +81,12 @@ def test_work_address_card_text_escapes_user_values() -> None:
     text = work_address_card_text(Address(address_text="Дом <script>"))
 
     assert "Дом &lt;script&gt;" in text
+
+
+def test_avatar_keyboard_is_inline_first() -> None:
+    keyboard = avatar_keyboard()
+
+    assert keyboard.inline_keyboard[0][0].callback_data == AVATAR_UPLOAD
 
 
 def test_registration_keyboards_are_inline_first() -> None:

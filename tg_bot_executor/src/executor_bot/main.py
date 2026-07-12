@@ -11,6 +11,7 @@ from executor_bot.infrastructure.http import BackendClient
 from executor_bot.infrastructure.redis import create_fsm_storage
 from executor_bot.presentation.handlers import (
     addresses_router,
+    avatar_router,
     fallback_router,
     registration_router,
     start_router,
@@ -34,6 +35,7 @@ async def amain() -> None:
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)
     dispatcher.include_router(addresses_router)
+    dispatcher.include_router(avatar_router)
     dispatcher.include_router(fallback_router)
 
     bot = Bot(

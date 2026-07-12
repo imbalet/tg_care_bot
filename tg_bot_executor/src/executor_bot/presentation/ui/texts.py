@@ -210,6 +210,22 @@ def work_address_current_text() -> str:
     return "Текущий рабочий адрес обновлен."
 
 
+def avatar_menu_text() -> str:
+    return "<b>Аватар профиля</b>\n\nЗагрузите или удалите фото профиля."
+
+
+def avatar_upload_step_text() -> str:
+    return "Отправьте фото или файл JPEG, PNG, WebP до 5 МБ."
+
+
+def avatar_uploaded_text() -> str:
+    return "Аватар сохранен."
+
+
+def avatar_deleted_text() -> str:
+    return "Аватар удален."
+
+
 def registration_complete_text() -> str:
     return (
         "✅ <b>Регистрация отправлена</b>\n\n"
@@ -260,6 +276,10 @@ def unavailable_action_text() -> str:
 __all__ = [
     "about_step_text",
     "backend_rejected_registration_text",
+    "avatar_deleted_text",
+    "avatar_menu_text",
+    "avatar_upload_step_text",
+    "avatar_uploaded_text",
     "executor_main_menu_text",
     "executor_profile_text",
     "fallback_text",

@@ -72,6 +72,14 @@ class AddressDTO:
     comment: str | None
 
 
+@dataclass(frozen=True)
+class FileDTO:
+    id: UUID
+    mime_type: str
+    size_bytes: int | None
+    status: str
+
+
 class BackendClient:
     def __init__(
         self,
@@ -262,6 +270,37 @@ class BackendClient:
         )
         self._raise_for_status(response)
 
+    async def upload_avatar(
+        self,
+        *,
+        telegram_id: int,
+        filename: str,
+        content: bytes,
+        content_type: str,
+    ) -> FileDTO:
+        response = await self._request(
+            "POST",
+            f"/api/performers/by-telegram/{telegram_id}/avatar",
+            files={"file": (filename, content, content_type)},
+        )
+        self._raise_for_status(response)
+        data = response.json()
+        return FileDTO(
+            id=UUID(str(data["id"])),
+            mime_type=str(data["mime_type"]),
+            size_bytes=int(data["size_bytes"])
+            if data.get("size_bytes") is not None
+            else None,
+            status=str(data["status"]),
+        )
+
+    async def delete_avatar(self, *, telegram_id: int) -> None:
+        response = await self._request(
+            "DELETE",
+            f"/api/performers/by-telegram/{telegram_id}/avatar",
+        )
+        self._raise_for_status(response)
+
     async def _request(
         self,
         method: str,
@@ -269,9 +308,16 @@ class BackendClient:
         *,
         json: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
+        files: dict[str, tuple[str, bytes, str]] | None = None,
     ) -> httpx.Response:
         try:
-            return await self._client.request(method, url, json=json, params=params)
+            return await self._client.request(
+                method,
+                url,
+                json=json,
+                params=params,
+                files=files,
+            )
         except httpx.HTTPError as exc:
             raise BackendUnavailableError("Backend is unavailable") from exc
 
@@ -333,6 +379,7 @@ __all__ = [
     "AddressSuggestionDTO",
     "BackendClient",
     "CityDTO",
+    "FileDTO",
     "LegalDocumentDTO",
     "PerformerProfileDTO",
     "RegistrationStateDTO",

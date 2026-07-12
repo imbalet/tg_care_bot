@@ -18,6 +18,9 @@ WORK_ADDRESS_CURRENT_PREFIX = "work_addresses:current:"
 WORK_ADDRESS_CITY_PREFIX = "work_addresses:city:"
 WORK_ADDRESS_SUGGESTION_PREFIX = "work_addresses:suggestion:"
 WORK_ADDRESS_SKIP = "work_addresses:skip"
+AVATAR_OPEN = "avatar:open"
+AVATAR_UPLOAD = "avatar:upload"
+AVATAR_DELETE = "avatar:delete"
 
 
 class CityButtonView(Protocol):
@@ -113,6 +116,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
                     callback_data=WORK_ADDRESSES_OPEN,
                 ),
             ],
+            [InlineKeyboardButton(text="Аватар", callback_data=AVATAR_OPEN)],
             [InlineKeyboardButton(text="Профиль", callback_data="profile:open")],
             [InlineKeyboardButton(text="Помощь", callback_data=HELP)],
         ],
@@ -206,9 +210,22 @@ def work_address_skip_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def avatar_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Загрузить", callback_data=AVATAR_UPLOAD)],
+            [InlineKeyboardButton(text="Удалить", callback_data=AVATAR_DELETE)],
+            [InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)],
+        ],
+    )
+
+
 __all__ = [
     "HELP",
     "MAIN_MENU",
+    "AVATAR_DELETE",
+    "AVATAR_OPEN",
+    "AVATAR_UPLOAD",
     "REGISTRATION_ACCEPT_LEGAL",
     "REGISTRATION_CITY_PREFIX",
     "REGISTRATION_CONFIRM",
@@ -222,6 +239,7 @@ __all__ = [
     "WORK_ADDRESS_SELECT_PREFIX",
     "WORK_ADDRESS_SKIP",
     "WORK_ADDRESS_SUGGESTION_PREFIX",
+    "avatar_keyboard",
     "contact_methods_keyboard",
     "fallback_keyboard",
     "legal_acceptance_keyboard",

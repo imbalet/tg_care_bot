@@ -3,6 +3,7 @@ from .client import (
     AddressDTO,
     AddressSuggestionDTO,
     BackendClient,
+    FileDTO,
     PerformerProfileDTO,
     TelegramTopicDTO,
 )
@@ -15,6 +16,7 @@ from .errors import (
 
 __all__ = [
     "BackendClient",
+    "FileDTO",
     "BackendClientError",
     "BackendUnauthorizedError",
     "BackendUnavailableError",

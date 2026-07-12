@@ -1,4 +1,5 @@
 from .keyboards import (
+    avatar_keyboard,
     contact_methods_keyboard,
     fallback_keyboard,
     legal_acceptance_keyboard,
@@ -13,6 +14,10 @@ from .keyboards import (
 )
 from .texts import (
     about_step_text,
+    avatar_deleted_text,
+    avatar_menu_text,
+    avatar_upload_step_text,
+    avatar_uploaded_text,
     backend_rejected_registration_text,
     executor_main_menu_text,
     executor_profile_text,
@@ -45,6 +50,11 @@ from .texts import (
 __all__ = [
     "about_step_text",
     "backend_rejected_registration_text",
+    "avatar_deleted_text",
+    "avatar_keyboard",
+    "avatar_menu_text",
+    "avatar_upload_step_text",
+    "avatar_uploaded_text",
     "contact_methods_keyboard",
     "executor_main_menu_text",
     "executor_profile_text",
