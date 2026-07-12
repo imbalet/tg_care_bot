@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import utc_now
@@ -99,12 +99,68 @@ class SqlAlchemyFileRepository:
         await self._session.flush()
         return _link_to_dto(model)
 
+    async def replace_avatar_link(
+        self,
+        *,
+        file_id: UUID,
+        entity_type: str,
+        entity_id: UUID,
+    ) -> FileLinkDTO:
+        await self._session.execute(
+            delete(FileLinkModel).where(
+                FileLinkModel.entity_type == entity_type,
+                FileLinkModel.entity_id == entity_id,
+                FileLinkModel.purpose == "avatar",
+            ),
+        )
+        return await self.add_link(
+            CreateFileLinkCommand(
+                file_id=file_id,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                purpose="avatar",
+            ),
+        )
+
     async def mark_deleted(self, file_id: UUID) -> None:
         model = await self._session.get(FileModel, file_id)
         if model is None:
             raise NotFoundError("File not found")
         model.status = "deleted"
         model.deleted_at = utc_now()
+
+    async def get_avatar_for_entity(
+        self,
+        *,
+        entity_type: str,
+        entity_id: UUID,
+    ) -> FileDTO | None:
+        result = await self._session.execute(
+            select(FileModel)
+            .join(FileLinkModel, FileLinkModel.file_id == FileModel.id)
+            .where(
+                FileLinkModel.entity_type == entity_type,
+                FileLinkModel.entity_id == entity_id,
+                FileLinkModel.purpose == "avatar",
+                FileModel.deleted_at.is_(None),
+            ),
+        )
+        model = result.scalar_one_or_none()
+        return _file_to_dto(model) if model is not None else None
+
+    async def delete_avatar_link(
+        self,
+        *,
+        entity_type: str,
+        entity_id: UUID,
+    ) -> None:
+        await self._session.execute(
+            delete(FileLinkModel).where(
+                FileLinkModel.entity_type == entity_type,
+                FileLinkModel.entity_id == entity_id,
+                FileLinkModel.purpose == "avatar",
+            ),
+        )
 
     async def list_links_for_entity(
         self,

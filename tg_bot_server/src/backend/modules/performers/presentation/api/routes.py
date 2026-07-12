@@ -2,11 +2,13 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from pydantic import BaseModel, Field
 
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
+from backend.common.domain import NotFoundError
+from backend.common.infrastructure import S3ObjectStorage
 from backend.common.presentation import require_service_key
 from backend.modules.addresses.application import (
     AddressDTO,
@@ -21,6 +23,11 @@ from backend.modules.admin.presentation.api.routes import (
     AdminResponse,
     require_admin_csrf,
 )
+from backend.modules.files.application import (
+    UploadPerformerAvatarCommand,
+    UploadPerformerAvatarUseCase,
+)
+from backend.modules.files.infrastructure import SqlAlchemyFileRepository
 from backend.modules.geo.infrastructure import DaDataGeocoder
 from backend.modules.performers.application import (
     ActivatePerformerUseCase,
@@ -95,6 +102,16 @@ class AddressResponse(BaseModel):
     deleted_at: str | None
     created_at: str
     updated_at: str
+
+
+class FileResponse(BaseModel):
+    id: str
+    bucket: str
+    storage_key: str | None
+    mime_type: str
+    size_bytes: int | None
+    checksum: str | None
+    status: str
 
 
 class InvitationResponse(BaseModel):
@@ -337,6 +354,68 @@ async def delete_address(
     return {"status": "deleted"}
 
 
+@router.post("/performers/by-telegram/{telegram_id}/avatar", status_code=201)
+async def upload_avatar(
+    telegram_id: int,
+    container: Annotated[Container, Depends(get_container)],
+    file: Annotated[UploadFile, File()],
+) -> FileResponse:
+    content = await file.read()
+    async with container.session_factory() as session:
+        stored_file = await UploadPerformerAvatarUseCase(
+            SqlAlchemyPerformerRepository(session),
+            SqlAlchemyFileRepository(session),
+            _storage(container),
+        ).execute(
+            UploadPerformerAvatarCommand(
+                telegram_id=telegram_id,
+                content=content,
+                content_type=file.content_type or "",
+                original_name=file.filename,
+                telegram_file_id=None,
+            ),
+        )
+        await session.commit()
+    return FileResponse(
+        id=str(stored_file.id),
+        bucket=stored_file.bucket,
+        storage_key=stored_file.storage_key,
+        mime_type=stored_file.mime_type,
+        size_bytes=stored_file.size_bytes,
+        checksum=stored_file.checksum,
+        status=stored_file.status,
+    )
+
+
+@router.delete("/performers/by-telegram/{telegram_id}/avatar")
+async def delete_avatar(
+    telegram_id: int,
+    container: Annotated[Container, Depends(get_container)],
+) -> dict[str, str]:
+    async with container.session_factory() as session:
+        performer = await SqlAlchemyPerformerRepository(
+            session,
+        ).get_performer_by_telegram_id(telegram_id)
+        if performer is None:
+            raise NotFoundError("Performer is not registered")
+        file_repository = SqlAlchemyFileRepository(session)
+        avatar = await file_repository.get_avatar_for_entity(
+            entity_type="performer",
+            entity_id=performer.id,
+        )
+        if avatar is None:
+            raise NotFoundError("Avatar not found")
+        if avatar.storage_key is not None:
+            await _storage(container).delete(avatar.storage_key)
+        await file_repository.delete_avatar_link(
+            entity_type="performer",
+            entity_id=performer.id,
+        )
+        await file_repository.mark_deleted(avatar.id)
+        await session.commit()
+    return {"status": "deleted"}
+
+
 def _registration_state_response(
     state: RegistrationStateDTO,
 ) -> RegistrationStateResponse:
@@ -423,6 +502,18 @@ def _geocoder(container: Container) -> DaDataGeocoder:
         base_url=settings.dadata_base_url,
         timeout_seconds=settings.dadata_timeout_seconds,
         retry_count=settings.dadata_retry_count,
+    )
+
+
+def _storage(container: Container) -> S3ObjectStorage:
+    settings = container.settings
+    return S3ObjectStorage(
+        endpoint_url=settings.s3_endpoint_url,
+        access_key_id=settings.s3_access_key_id,
+        secret_access_key=settings.s3_secret_access_key,
+        bucket=settings.s3_bucket,
+        region=settings.s3_region,
+        signed_url_ttl_seconds=settings.s3_signed_url_ttl_seconds,
     )
 
 

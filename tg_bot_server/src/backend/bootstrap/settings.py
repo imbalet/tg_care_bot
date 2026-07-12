@@ -56,6 +56,17 @@ class Settings(BaseSettings):
         validation_alias="DADATA_TIMEOUT_SECONDS",
     )
     dadata_retry_count: int = Field(default=1, validation_alias="DADATA_RETRY_COUNT")
+    s3_endpoint_url: str = Field(default="", validation_alias="S3_ENDPOINT_URL")
+    s3_access_key_id: str = Field(default="", validation_alias="S3_ACCESS_KEY_ID")
+    s3_secret_access_key: str = Field(
+        default="", validation_alias="S3_SECRET_ACCESS_KEY"
+    )
+    s3_bucket: str = Field(default="we-are-close-files", validation_alias="S3_BUCKET")
+    s3_region: str = Field(default="us-east-1", validation_alias="S3_REGION")
+    s3_signed_url_ttl_seconds: int = Field(
+        default=900,
+        validation_alias="S3_SIGNED_URL_TTL_SECONDS",
+    )
 
     @property
     def database_url(self) -> str:
