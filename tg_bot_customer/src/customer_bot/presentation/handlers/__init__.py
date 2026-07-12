@@ -1,6 +1,12 @@
 __all__: list[str] = []
+from .care_objects import router as care_objects_router
 from .fallback import router as fallback_router
 from .registration import router as registration_router
 from .start import router as start_router
 
-__all__ = ["fallback_router", "registration_router", "start_router"]
+__all__ = [
+    "care_objects_router",
+    "fallback_router",
+    "registration_router",
+    "start_router",
+]

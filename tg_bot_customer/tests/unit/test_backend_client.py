@@ -224,6 +224,81 @@ async def test_ensure_telegram_topics_sends_chat_id() -> None:
     await client.close()
 
 
+@pytest.mark.asyncio
+async def test_care_object_methods_use_backend_contract() -> None:
+    care_object_id = uuid4()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            assert request.url.path == "/api/customers/by-telegram/123/care-objects"
+            assert request.url.params["object_type"] == "pet"
+            return httpx.Response(200, json=[care_object_json(care_object_id)])
+        if request.method == "POST":
+            payload = json_body(request)
+            assert payload["object_type"] == "pet"
+            assert payload["display_name"] == "Barsik"
+            return httpx.Response(201, json=care_object_json(care_object_id))
+        if request.method == "PATCH":
+            assert str(care_object_id) in request.url.path
+            payload = json_body(request)
+            assert payload["display_name"] == "Updated"
+            return httpx.Response(200, json=care_object_json(care_object_id))
+        if request.method == "DELETE":
+            assert str(care_object_id) in request.url.path
+            return httpx.Response(200, json={"status": "deleted"})
+        raise AssertionError("Unexpected request")
+
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(handler),
+    )
+
+    listed = await client.list_care_objects(telegram_id=123, object_type="pet")
+    created = await client.create_care_object(
+        telegram_id=123,
+        object_type="pet",
+        display_name="Barsik",
+        age_group="adult",
+        species="cat",
+        pet_size="small",
+    )
+    updated = await client.update_care_object(
+        telegram_id=123,
+        care_object_id=care_object_id,
+        display_name="Updated",
+        age_group="adult",
+        species="cat",
+        pet_size="small",
+    )
+    await client.delete_care_object(telegram_id=123, care_object_id=care_object_id)
+
+    assert listed[0].id == care_object_id
+    assert created.object_type == "pet"
+    assert updated.id == care_object_id
+    await client.close()
+
+
+def care_object_json(care_object_id: object) -> dict[str, object]:
+    return {
+        "id": str(care_object_id),
+        "customer_id": str(uuid4()),
+        "object_type": "pet",
+        "display_name": "Barsik",
+        "age_group": "adult",
+        "species": "cat",
+        "breed": None,
+        "pet_size": "small",
+        "mobility_assistance_required": None,
+        "routine_notes": None,
+        "behavior_notes": None,
+        "deleted_at": None,
+        "created_at": "2026-07-13T00:00:00+00:00",
+        "updated_at": "2026-07-13T00:00:00+00:00",
+    }
+
+
 def json_body(request: httpx.Request) -> dict[str, object]:
     import json
 

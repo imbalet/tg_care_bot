@@ -10,6 +10,38 @@ REGISTRATION_CONFIRM = "registration:summary:confirm"
 REGISTRATION_EDIT = "registration:summary:edit"
 MAIN_MENU = "navigation:main_menu"
 HELP = "navigation:help"
+CARE_OBJECTS_OPEN = "care_objects:open"
+CARE_OBJECT_ADD_PREFIX = "care_objects:add:"
+CARE_OBJECT_SELECT_PREFIX = "care_objects:select:"
+CARE_OBJECT_EDIT_PREFIX = "care_objects:edit:"
+CARE_OBJECT_DELETE_PREFIX = "care_objects:delete:"
+CARE_OBJECT_AGE_PREFIX = "care_objects:age:"
+CARE_OBJECT_SIZE_PREFIX = "care_objects:size:"
+CARE_OBJECT_MOBILITY_PREFIX = "care_objects:mobility:"
+CARE_OBJECT_SKIP = "care_objects:skip"
+
+CARE_OBJECT_TYPE_LABELS = {
+    "child": "Ребенок",
+    "ward": "Подопечный",
+    "pet": "Питомец",
+}
+
+CARE_OBJECT_AGE_LABELS = {
+    "infant": "До 1 года",
+    "preschool": "Дошкольник",
+    "school_age": "Школьник",
+    "teenager": "Подросток",
+    "adult": "Взрослый",
+    "senior": "Пожилой",
+    "unknown": "Не указано",
+}
+
+CARE_OBJECT_SIZE_LABELS = {
+    "small": "Маленький",
+    "medium": "Средний",
+    "large": "Крупный",
+    "unknown": "Не указано",
+}
 
 
 class CityButtonView(Protocol):
@@ -94,6 +126,12 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [InlineKeyboardButton(text="Создать заказ", callback_data="orders:create")],
             [InlineKeyboardButton(text="Мои заказы", callback_data="orders:list")],
+            [
+                InlineKeyboardButton(
+                    text="Объекты ухода",
+                    callback_data=CARE_OBJECTS_OPEN,
+                ),
+            ],
             [InlineKeyboardButton(text="Профиль", callback_data="profile:open")],
             [InlineKeyboardButton(text="Помощь", callback_data=HELP)],
         ],
@@ -109,7 +147,134 @@ def fallback_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def care_objects_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text="Добавить ребенка",
+                callback_data=f"{CARE_OBJECT_ADD_PREFIX}child",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text="Добавить подопечного",
+                callback_data=f"{CARE_OBJECT_ADD_PREFIX}ward",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text="Добавить питомца",
+                callback_data=f"{CARE_OBJECT_ADD_PREFIX}pet",
+            ),
+        ],
+    ]
+    for index, item in enumerate(items):
+        display_name = getattr(item, "display_name", f"#{index + 1}")
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=str(display_name),
+                    callback_data=f"{CARE_OBJECT_SELECT_PREFIX}{index}",
+                ),
+            ],
+        )
+    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def care_object_card_keyboard(index: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Редактировать имя",
+                    callback_data=f"{CARE_OBJECT_EDIT_PREFIX}{index}",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Удалить",
+                    callback_data=f"{CARE_OBJECT_DELETE_PREFIX}{index}",
+                ),
+            ],
+            [InlineKeyboardButton(text="К списку", callback_data=CARE_OBJECTS_OPEN)],
+        ],
+    )
+
+
+def care_object_age_keyboard(object_type: str) -> InlineKeyboardMarkup:
+    age_keys = (
+        ("infant", "preschool", "school_age", "teenager")
+        if object_type == "child"
+        else ("adult", "senior", "unknown")
+    )
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=CARE_OBJECT_AGE_LABELS[age_group],
+                    callback_data=f"{CARE_OBJECT_AGE_PREFIX}{age_group}",
+                ),
+            ]
+            for age_group in age_keys
+        ],
+    )
+
+
+def care_object_size_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=label,
+                    callback_data=f"{CARE_OBJECT_SIZE_PREFIX}{value}",
+                ),
+            ]
+            for value, label in CARE_OBJECT_SIZE_LABELS.items()
+        ],
+    )
+
+
+def care_object_mobility_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Нужна помощь",
+                    callback_data=f"{CARE_OBJECT_MOBILITY_PREFIX}yes",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Не нужна",
+                    callback_data=f"{CARE_OBJECT_MOBILITY_PREFIX}no",
+                ),
+            ],
+        ],
+    )
+
+
+def care_object_skip_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Пропустить", callback_data=CARE_OBJECT_SKIP)],
+        ],
+    )
+
+
 __all__ = [
+    "CARE_OBJECTS_OPEN",
+    "CARE_OBJECT_ADD_PREFIX",
+    "CARE_OBJECT_AGE_LABELS",
+    "CARE_OBJECT_AGE_PREFIX",
+    "CARE_OBJECT_DELETE_PREFIX",
+    "CARE_OBJECT_EDIT_PREFIX",
+    "CARE_OBJECT_MOBILITY_PREFIX",
+    "CARE_OBJECT_SELECT_PREFIX",
+    "CARE_OBJECT_SIZE_LABELS",
+    "CARE_OBJECT_SIZE_PREFIX",
+    "CARE_OBJECT_SKIP",
+    "CARE_OBJECT_TYPE_LABELS",
     "HELP",
     "MAIN_MENU",
     "REGISTRATION_ACCEPT_LEGAL",
@@ -117,6 +282,12 @@ __all__ = [
     "REGISTRATION_CONFIRM",
     "REGISTRATION_CONTACT_PREFIX",
     "REGISTRATION_EDIT",
+    "care_object_age_keyboard",
+    "care_object_card_keyboard",
+    "care_object_mobility_keyboard",
+    "care_object_size_keyboard",
+    "care_object_skip_keyboard",
+    "care_objects_keyboard",
     "contact_methods_keyboard",
     "fallback_keyboard",
     "legal_acceptance_keyboard",

@@ -3,6 +3,8 @@ from uuid import uuid4
 
 from customer_bot.infrastructure.http import CustomerProfileDTO
 from customer_bot.presentation.ui import (
+    care_object_card_text,
+    care_objects_keyboard,
     contact_methods_keyboard,
     customer_profile_text,
     legal_documents_text,
@@ -11,6 +13,8 @@ from customer_bot.presentation.ui import (
     summary_text,
 )
 from customer_bot.presentation.ui.keyboards import (
+    CARE_OBJECT_ADD_PREFIX,
+    CARE_OBJECT_SELECT_PREFIX,
     REGISTRATION_ACCEPT_LEGAL,
     REGISTRATION_CITY_PREFIX,
     REGISTRATION_CONFIRM,
@@ -27,6 +31,17 @@ class Document:
 @dataclass(frozen=True)
 class City:
     name: str
+
+
+@dataclass(frozen=True)
+class CareObject:
+    display_name: str
+    object_type: str = "pet"
+    age_group: str = "adult"
+    species: str | None = "cat"
+    breed: str | None = None
+    pet_size: str | None = "small"
+    mobility_assistance_required: bool | None = None
 
 
 def test_legal_documents_text_escapes_html() -> None:
@@ -80,3 +95,20 @@ def test_customer_profile_text_escapes_user_values() -> None:
 
     assert "Иван &lt;script&gt;" in text
     assert "@name" in text
+
+
+def test_care_object_keyboard_is_inline_first() -> None:
+    keyboard = care_objects_keyboard([CareObject(display_name="Барсик")])
+
+    assert keyboard.inline_keyboard[0][0].callback_data == (
+        f"{CARE_OBJECT_ADD_PREFIX}child"
+    )
+    assert keyboard.inline_keyboard[3][0].callback_data == (
+        f"{CARE_OBJECT_SELECT_PREFIX}0"
+    )
+
+
+def test_care_object_card_text_escapes_user_values() -> None:
+    text = care_object_card_text(CareObject(display_name="Барсик <script>"))
+
+    assert "Барсик &lt;script&gt;" in text

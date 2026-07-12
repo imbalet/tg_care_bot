@@ -47,6 +47,20 @@ class TelegramTopicDTO:
     status: str
 
 
+@dataclass(frozen=True)
+class CareObjectDTO:
+    id: UUID
+    object_type: str
+    display_name: str
+    age_group: str
+    species: str | None
+    breed: str | None
+    pet_size: str | None
+    mobility_assistance_required: bool | None
+    routine_notes: str | None
+    behavior_notes: str | None
+
+
 class BackendClient:
     def __init__(
         self,
@@ -159,15 +173,106 @@ class BackendClient:
         self._raise_for_status(response)
         return tuple(_topic_from_json(item) for item in response.json())
 
+    async def list_care_objects(
+        self,
+        *,
+        telegram_id: int,
+        object_type: str | None = None,
+    ) -> tuple[CareObjectDTO, ...]:
+        params = {"object_type": object_type} if object_type is not None else None
+        response = await self._request(
+            "GET",
+            f"/api/customers/by-telegram/{telegram_id}/care-objects",
+            params=params,
+        )
+        self._raise_for_status(response)
+        return tuple(_care_object_from_json(item) for item in response.json())
+
+    async def create_care_object(
+        self,
+        *,
+        telegram_id: int,
+        object_type: str,
+        display_name: str,
+        age_group: str,
+        species: str | None = None,
+        breed: str | None = None,
+        pet_size: str | None = None,
+        mobility_assistance_required: bool | None = None,
+        routine_notes: str | None = None,
+        behavior_notes: str | None = None,
+    ) -> CareObjectDTO:
+        response = await self._request(
+            "POST",
+            f"/api/customers/by-telegram/{telegram_id}/care-objects",
+            json={
+                "object_type": object_type,
+                "display_name": display_name,
+                "age_group": age_group,
+                "species": species,
+                "breed": breed,
+                "pet_size": pet_size,
+                "mobility_assistance_required": mobility_assistance_required,
+                "routine_notes": routine_notes,
+                "behavior_notes": behavior_notes,
+            },
+        )
+        self._raise_for_status(response)
+        return _care_object_from_json(response.json())
+
+    async def update_care_object(
+        self,
+        *,
+        telegram_id: int,
+        care_object_id: UUID,
+        display_name: str,
+        age_group: str,
+        species: str | None = None,
+        breed: str | None = None,
+        pet_size: str | None = None,
+        mobility_assistance_required: bool | None = None,
+        routine_notes: str | None = None,
+        behavior_notes: str | None = None,
+    ) -> CareObjectDTO:
+        response = await self._request(
+            "PATCH",
+            f"/api/customers/by-telegram/{telegram_id}/care-objects/{care_object_id}",
+            json={
+                "display_name": display_name,
+                "age_group": age_group,
+                "species": species,
+                "breed": breed,
+                "pet_size": pet_size,
+                "mobility_assistance_required": mobility_assistance_required,
+                "routine_notes": routine_notes,
+                "behavior_notes": behavior_notes,
+            },
+        )
+        self._raise_for_status(response)
+        return _care_object_from_json(response.json())
+
+    async def delete_care_object(
+        self,
+        *,
+        telegram_id: int,
+        care_object_id: UUID,
+    ) -> None:
+        response = await self._request(
+            "DELETE",
+            f"/api/customers/by-telegram/{telegram_id}/care-objects/{care_object_id}",
+        )
+        self._raise_for_status(response)
+
     async def _request(
         self,
         method: str,
         url: str,
         *,
         json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> httpx.Response:
         try:
-            return await self._client.request(method, url, json=json)
+            return await self._client.request(method, url, json=json, params=params)
         except httpx.HTTPError as exc:
             raise BackendUnavailableError("Backend is unavailable") from exc
 
@@ -209,8 +314,30 @@ def _topic_from_json(data: dict[str, object]) -> TelegramTopicDTO:
     )
 
 
+def _care_object_from_json(data: dict[str, object]) -> CareObjectDTO:
+    return CareObjectDTO(
+        id=UUID(str(data["id"])),
+        object_type=str(data["object_type"]),
+        display_name=str(data["display_name"]),
+        age_group=str(data["age_group"]),
+        species=data["species"] if isinstance(data["species"], str) else None,
+        breed=data["breed"] if isinstance(data["breed"], str) else None,
+        pet_size=data["pet_size"] if isinstance(data["pet_size"], str) else None,
+        mobility_assistance_required=data["mobility_assistance_required"]
+        if isinstance(data["mobility_assistance_required"], bool)
+        else None,
+        routine_notes=data["routine_notes"]
+        if isinstance(data["routine_notes"], str)
+        else None,
+        behavior_notes=data["behavior_notes"]
+        if isinstance(data["behavior_notes"], str)
+        else None,
+    )
+
+
 __all__ = [
     "BackendClient",
+    "CareObjectDTO",
     "CityDTO",
     "CustomerProfileDTO",
     "LegalDocumentDTO",

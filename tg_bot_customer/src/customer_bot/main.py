@@ -10,6 +10,7 @@ from customer_bot.bootstrap import get_settings
 from customer_bot.infrastructure.http import BackendClient
 from customer_bot.infrastructure.redis import create_fsm_storage
 from customer_bot.presentation.handlers import (
+    care_objects_router,
     fallback_router,
     registration_router,
     start_router,
@@ -32,6 +33,7 @@ async def amain() -> None:
     dispatcher.update.middleware(TelegramUsernameSyncMiddleware(redis))
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)
+    dispatcher.include_router(care_objects_router)
     dispatcher.include_router(fallback_router)
 
     bot = Bot(
