@@ -137,6 +137,23 @@ class SqlAlchemyPerformerRepository:
         model.updated_at = utc_now()
         return _performer_to_dto(model)
 
+    async def update_username(
+        self,
+        *,
+        telegram_id: int,
+        telegram_username: str | None,
+    ) -> PerformerDTO | None:
+        result = await self._session.execute(
+            select(PerformerModel).where(PerformerModel.telegram_id == telegram_id),
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+        if model.telegram_username != telegram_username:
+            model.telegram_username = telegram_username
+            model.updated_at = utc_now()
+        return _performer_to_dto(model)
+
     async def get_city_is_active(self, city_id: UUID) -> bool:
         result = await self._session.execute(
             select(CityModel.is_active).where(CityModel.id == city_id),

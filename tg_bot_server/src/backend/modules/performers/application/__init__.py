@@ -7,6 +7,8 @@ from .use_cases import (
     GetRegistrationStateUseCase,
     RegisterPerformerCommand,
     RegisterPerformerUseCase,
+    UpdatePerformerUsernameCommand,
+    UpdatePerformerUsernameUseCase,
 )
 
 __all__ = [
@@ -20,4 +22,6 @@ __all__ = [
     "RegisterPerformerCommand",
     "RegisterPerformerUseCase",
     "RegistrationStateDTO",
+    "UpdatePerformerUsernameCommand",
+    "UpdatePerformerUsernameUseCase",
 ]

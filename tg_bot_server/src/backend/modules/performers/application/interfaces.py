@@ -45,6 +45,14 @@ class PerformerRepository(Protocol):
     async def activate(self, performer_id: UUID) -> PerformerDTO | None:
         pass
 
+    async def update_username(
+        self,
+        *,
+        telegram_id: int,
+        telegram_username: str | None,
+    ) -> PerformerDTO | None:
+        pass
+
     async def get_city_is_active(self, city_id: UUID) -> bool:
         pass
 

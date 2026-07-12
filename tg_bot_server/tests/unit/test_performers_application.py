@@ -12,6 +12,8 @@ from backend.modules.performers.application import (
     PerformerDTO,
     RegisterPerformerCommand,
     RegisterPerformerUseCase,
+    UpdatePerformerUsernameCommand,
+    UpdatePerformerUsernameUseCase,
 )
 
 
@@ -97,6 +99,21 @@ class FakePerformerRepository:
                 self.performers[telegram_id] = active
                 return active
         return None
+
+    async def update_username(
+        self,
+        *,
+        telegram_id: int,
+        telegram_username: str | None,
+    ) -> PerformerDTO | None:
+        performer = self.performers.get(telegram_id)
+        if performer is None:
+            return None
+        updated = PerformerDTO(
+            **{**performer.__dict__, "telegram_username": telegram_username},
+        )
+        self.performers[telegram_id] = updated
+        return updated
 
     async def get_city_is_active(self, city_id: UUID) -> bool:
         return city_id in self.active_city_ids
@@ -193,3 +210,35 @@ async def test_repeated_registration_returns_existing_performer() -> None:
     second = await use_case.execute(make_register_command(city_id, documents))
 
     assert second.id == first.id
+
+
+@pytest.mark.asyncio
+async def test_update_performer_username_to_value_and_null() -> None:
+    repository, city_id, documents = make_repository()
+    await CreateInvitationUseCase(repository).execute(
+        CreateInvitationCommand(
+            telegram_id=123,
+            created_by_admin_id=uuid4(),
+            expires_at=None,
+        ),
+    )
+    performer = await RegisterPerformerUseCase(repository).execute(
+        make_register_command(city_id, documents),
+    )
+    use_case = UpdatePerformerUsernameUseCase(repository)
+
+    with_value = await use_case.execute(
+        UpdatePerformerUsernameCommand(
+            telegram_id=performer.telegram_id,
+            telegram_username="new_name",
+        ),
+    )
+    without_value = await use_case.execute(
+        UpdatePerformerUsernameCommand(
+            telegram_id=performer.telegram_id,
+            telegram_username=None,
+        ),
+    )
+
+    assert with_value.telegram_username == "new_name"
+    assert without_value.telegram_username is None

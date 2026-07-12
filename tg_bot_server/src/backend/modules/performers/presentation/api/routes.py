@@ -18,6 +18,8 @@ from backend.modules.performers.application import (
     RegisterPerformerCommand,
     RegisterPerformerUseCase,
     RegistrationStateDTO,
+    UpdatePerformerUsernameCommand,
+    UpdatePerformerUsernameUseCase,
 )
 from backend.modules.performers.infrastructure import SqlAlchemyPerformerRepository
 
@@ -43,6 +45,10 @@ class RegisterPerformerRequest(BaseModel):
     about_text: str = Field(min_length=1)
     telegram_username: str | None = None
     accepted_legal_document_ids: list[UUID]
+
+
+class UpdateTelegramUsernameRequest(BaseModel):
+    telegram_username: str | None = None
 
 
 class InvitationResponse(BaseModel):
@@ -137,6 +143,25 @@ async def activate(
         performer = await ActivatePerformerUseCase(
             SqlAlchemyPerformerRepository(session),
         ).execute(performer_id)
+        await session.commit()
+    return _performer_response(performer)
+
+
+@router.patch("/performers/by-telegram/{telegram_id}/telegram-username")
+async def update_telegram_username(
+    telegram_id: int,
+    request: UpdateTelegramUsernameRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> PerformerResponse:
+    async with container.session_factory() as session:
+        performer = await UpdatePerformerUsernameUseCase(
+            SqlAlchemyPerformerRepository(session),
+        ).execute(
+            UpdatePerformerUsernameCommand(
+                telegram_id=telegram_id,
+                telegram_username=request.telegram_username,
+            ),
+        )
         await session.commit()
     return _performer_response(performer)
 

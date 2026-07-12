@@ -141,6 +141,26 @@ class ActivatePerformerUseCase:
         return performer
 
 
+@dataclass(frozen=True)
+class UpdatePerformerUsernameCommand:
+    telegram_id: int
+    telegram_username: str | None
+
+
+class UpdatePerformerUsernameUseCase:
+    def __init__(self, repository: PerformerRepository) -> None:
+        self._repository = repository
+
+    async def execute(self, command: UpdatePerformerUsernameCommand) -> PerformerDTO:
+        performer = await self._repository.update_username(
+            telegram_id=command.telegram_id,
+            telegram_username=command.telegram_username,
+        )
+        if performer is None:
+            raise NotFoundError("Performer not found")
+        return performer
+
+
 __all__ = [
     "ActivatePerformerUseCase",
     "CreateInvitationCommand",
@@ -148,4 +168,6 @@ __all__ = [
     "GetRegistrationStateUseCase",
     "RegisterPerformerCommand",
     "RegisterPerformerUseCase",
+    "UpdatePerformerUsernameCommand",
+    "UpdatePerformerUsernameUseCase",
 ]
