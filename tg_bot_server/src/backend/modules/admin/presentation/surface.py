@@ -17,6 +17,7 @@ from backend.modules.admin.application import (
     LogoutAdminUseCase,
 )
 from backend.modules.admin.infrastructure import (
+    AdminAuditLogModel,
     Argon2PasswordHasher,
     RedisAdminSessionStore,
     SqlAlchemyAdminRepository,
@@ -32,6 +33,11 @@ from backend.modules.catalog.infrastructure import (
     ServiceCategoryModel,
     ServiceModel,
     ServiceOptionModel,
+)
+from backend.modules.customers.infrastructure import CustomerModel
+from backend.modules.performers.infrastructure import (
+    PerformerInvitationModel,
+    PerformerModel,
 )
 
 
@@ -139,7 +145,32 @@ class BusinessSettingView(CatalogModelView):
         _pks: list[Any],
     ) -> str:
         await SeedMvpCatalogUseCase(request.state.session).execute()
+        admin = getattr(request.state, "admin_user", None)
+        request.state.session.add(
+            AdminAuditLogModel(
+                admin_id=admin.id if admin is not None else None,
+                action="seed_mvp_catalog",
+                entity_type="catalog",
+                entity_id=None,
+                reason=None,
+                audit_metadata={},
+            ),
+        )
         return "MVP catalog seed completed"
+
+
+class ReadOnlyModelView(ModelView):
+    def can_create(self, request: Request) -> bool:
+        return False
+
+    def can_edit(self, request: Request) -> bool:
+        return False
+
+    def can_delete(self, request: Request) -> bool:
+        return False
+
+    def is_accessible(self, request: Request) -> bool:
+        return getattr(request.state, "admin_user", None) is not None
 
 
 def create_admin_surface(container: Container) -> Admin:
@@ -160,6 +191,12 @@ def create_admin_surface(container: Container) -> Admin:
     )
     admin.add_view(BusinessSettingView(BusinessSettingModel, label="Business settings"))
     admin.add_view(LegalDocumentView(LegalDocumentModel, label="Legal documents"))
+    admin.add_view(ReadOnlyModelView(CustomerModel, label="Customers"))
+    admin.add_view(ReadOnlyModelView(PerformerModel, label="Performers"))
+    admin.add_view(
+        ReadOnlyModelView(PerformerInvitationModel, label="Performer invitations"),
+    )
+    admin.add_view(ReadOnlyModelView(AdminAuditLogModel, label="Admin audit"))
     return admin
 
 

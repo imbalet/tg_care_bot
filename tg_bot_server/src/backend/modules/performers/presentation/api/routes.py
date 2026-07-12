@@ -8,6 +8,11 @@ from pydantic import BaseModel, Field
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
 from backend.common.presentation import require_service_key
+from backend.modules.admin.infrastructure import SqlAlchemyAdminAuditRepository
+from backend.modules.admin.presentation.api.routes import (
+    AdminResponse,
+    require_admin_csrf,
+)
 from backend.modules.performers.application import (
     ActivatePerformerUseCase,
     CreateInvitationCommand,
@@ -28,6 +33,7 @@ router = APIRouter(
     tags=["performers"],
     dependencies=[Depends(require_service_key)],
 )
+admin_router = APIRouter(prefix="/admin/performers", tags=["admin-performers"])
 
 
 class CreateInvitationRequest(BaseModel):
@@ -97,6 +103,34 @@ async def create_invitation(
     return _invitation_response(invitation)
 
 
+@admin_router.post("/invitations", status_code=201)
+async def create_invitation_as_admin(
+    request: CreateInvitationRequest,
+    container: Annotated[Container, Depends(get_container)],
+    current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
+) -> InvitationResponse:
+    admin_id = UUID(current[0].id)
+    async with container.session_factory() as session:
+        invitation = await CreateInvitationUseCase(
+            SqlAlchemyPerformerRepository(session),
+        ).execute(
+            CreateInvitationCommand(
+                telegram_id=request.telegram_id,
+                created_by_admin_id=admin_id,
+                expires_at=request.expires_at,
+            ),
+        )
+        await SqlAlchemyAdminAuditRepository(session).add(
+            admin_id=admin_id,
+            action="create_performer_invitation",
+            entity_type="performer_invitation",
+            entity_id=invitation.id,
+            audit_metadata={"telegram_id": request.telegram_id},
+        )
+        await session.commit()
+    return _invitation_response(invitation)
+
+
 @router.get("/performers/by-telegram/{telegram_id}/registration-state")
 async def registration_state(
     telegram_id: int,
@@ -143,6 +177,27 @@ async def activate(
         performer = await ActivatePerformerUseCase(
             SqlAlchemyPerformerRepository(session),
         ).execute(performer_id)
+        await session.commit()
+    return _performer_response(performer)
+
+
+@admin_router.post("/{performer_id}/activate")
+async def activate_as_admin(
+    performer_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+    current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
+) -> PerformerResponse:
+    admin_id = UUID(current[0].id)
+    async with container.session_factory() as session:
+        performer = await ActivatePerformerUseCase(
+            SqlAlchemyPerformerRepository(session),
+        ).execute(performer_id)
+        await SqlAlchemyAdminAuditRepository(session).add(
+            admin_id=admin_id,
+            action="activate_performer",
+            entity_type="performer",
+            entity_id=performer.id,
+        )
         await session.commit()
     return _performer_response(performer)
 
@@ -209,4 +264,4 @@ def _performer_response(performer: PerformerDTO) -> PerformerResponse:
     )
 
 
-__all__ = ["router"]
+__all__ = ["admin_router", "router"]

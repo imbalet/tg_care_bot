@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any
 
 from backend.common.application import new_uuid, utc_now
-from backend.modules.admin.infrastructure import AdminModel
+from backend.modules.admin.infrastructure import AdminAuditLogModel, AdminModel
 from backend.modules.catalog.infrastructure import (
     BusinessSettingModel,
     CityModel,
@@ -23,10 +23,12 @@ from backend.modules.performers.infrastructure import (
     PerformerModel,
 )
 from backend.modules.system_checks.infrastructure import SystemCheckRecordModel
+from backend.modules.telegram_topics.infrastructure import TelegramTopicModel
 
 ALL_MODELS = (
     SystemCheckRecordModel,
     AdminModel,
+    AdminAuditLogModel,
     CityModel,
     DistrictModel,
     ServiceCategoryModel,
@@ -39,6 +41,7 @@ ALL_MODELS = (
     LegalAcceptanceModel,
     PerformerModel,
     PerformerInvitationModel,
+    TelegramTopicModel,
 )
 
 UPDATED_AT_MODELS = (
@@ -53,6 +56,7 @@ UPDATED_AT_MODELS = (
     CustomerModel,
     PerformerModel,
     PerformerInvitationModel,
+    TelegramTopicModel,
 )
 
 
@@ -104,6 +108,7 @@ def test_safe_status_and_service_defaults_are_declared() -> None:
     assert _default_arg(PerformerModel.__table__.c.status) == "profile_pending"
     assert _default_arg(PerformerModel.__table__.c.is_accepting_orders) is False
     assert _default_arg(PerformerInvitationModel.__table__.c.status) == "pending"
+    assert _default_arg(TelegramTopicModel.__table__.c.status) == "fallback"
     assert LegalAcceptanceModel.__table__.c.accepted_at.default is not None
     assert _same_callable(
         LegalAcceptanceModel.__table__.c.accepted_at.default.arg,

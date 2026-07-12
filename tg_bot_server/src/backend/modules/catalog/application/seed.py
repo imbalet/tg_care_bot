@@ -10,6 +10,7 @@ from backend.common.application import Clock, SystemClock, new_uuid
 from backend.modules.catalog.infrastructure.persistence.models import (
     BusinessSettingModel,
     CityModel,
+    DistrictModel,
     LegalDocumentModel,
     ObjectCountMultiplierModel,
     ServiceCategoryModel,
@@ -48,6 +49,7 @@ class SeedMvpCatalogUseCase:
     async def execute(self) -> None:
         now = self._clock.now()
         await self._seed_cities(now)
+        await self._seed_districts(now)
         categories = await self._seed_categories(now)
         services = await self._seed_services(categories, now)
         await self._seed_options(services, now)
@@ -63,6 +65,32 @@ class SeedMvpCatalogUseCase:
                     name="Москва",
                     slug="moscow",
                     timezone="Europe/Moscow",
+                    is_active=True,
+                    created_at=now,
+                    updated_at=now,
+                ),
+            )
+
+    async def _seed_districts(self, now: datetime) -> None:
+        city = cast(
+            CityModel | None, await self._get_by(CityModel, CityModel.slug, "moscow")
+        )
+        if city is None:
+            return
+        for name in ("Центр", "Север", "Юг", "Запад", "Восток"):
+            exists = await self._session.execute(
+                select(DistrictModel).where(
+                    DistrictModel.city_id == city.id,
+                    DistrictModel.name == name,
+                ),
+            )
+            if exists.scalar_one_or_none() is not None:
+                continue
+            self._session.add(
+                DistrictModel(
+                    id=new_uuid(),
+                    city_id=city.id,
+                    name=name,
                     is_active=True,
                     created_at=now,
                     updated_at=now,
