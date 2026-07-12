@@ -1,26 +1,55 @@
+from dataclasses import dataclass
 from uuid import UUID
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message
+from aiogram.types import CallbackQuery, Message
 
-from customer_bot.application.registration import (
-    CONTACT_METHODS,
-    format_cities,
-    format_contact_methods,
-    format_legal_documents,
-    format_summary,
-    parse_city_choice,
-)
 from customer_bot.infrastructure.http import (
     BackendClient,
     BackendClientError,
     BackendValidationError,
 )
 from customer_bot.presentation.middlewares import TelegramUserContext
+from customer_bot.presentation.ui import (
+    backend_rejected_registration_text,
+    contact_methods_keyboard,
+    full_name_step_text,
+    invalid_text_input_text,
+    legal_acceptance_keyboard,
+    legal_documents_text,
+    phone_step_text,
+    registration_complete_text,
+    registration_summary_keyboard,
+    registration_unavailable_text,
+    retry_later_text,
+    select_city_keyboard,
+    select_city_text,
+    select_contact_method_text,
+    summary_text,
+    use_buttons_text,
+)
+from customer_bot.presentation.ui.keyboards import (
+    REGISTRATION_ACCEPT_LEGAL,
+    REGISTRATION_CITY_PREFIX,
+    REGISTRATION_CONFIRM,
+    REGISTRATION_CONTACT_PREFIX,
+    REGISTRATION_EDIT,
+)
 
 router = Router(name="registration")
+
+CONTACT_METHOD_LABELS = {
+    "telegram": "Telegram",
+    "phone": "Телефон",
+    "both": "Telegram и телефон",
+}
+
+
+@dataclass(frozen=True)
+class _CityView:
+    name: str
 
 
 class CustomerRegistration(StatesGroup):
@@ -41,7 +70,7 @@ async def start_registration(
         cities = await backend_client.list_active_cities()
         documents = await backend_client.list_active_legal_documents()
     except BackendClientError:
-        await message.answer("Сервис временно недоступен. Попробуйте позже.")
+        await message.answer(retry_later_text())
         return
     await state.set_state(CustomerRegistration.legal_acceptance)
     await state.update_data(
@@ -49,28 +78,37 @@ async def start_registration(
         city_names=[city.name for city in cities],
         legal_document_ids=[str(document.id) for document in documents],
     )
-    await message.answer(format_legal_documents(documents))
+    await message.answer(
+        legal_documents_text(documents),
+        reply_markup=legal_acceptance_keyboard(),
+    )
 
 
-@router.message(CustomerRegistration.legal_acceptance, F.text.casefold() == "согласен")
-async def accept_legal(message: Message, state: FSMContext) -> None:
+@router.callback_query(
+    CustomerRegistration.legal_acceptance,
+    F.data == REGISTRATION_ACCEPT_LEGAL,
+)
+async def accept_legal(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
     await state.set_state(CustomerRegistration.full_name)
-    await message.answer("Введите ФИО.")
+    message = _callback_message(callback)
+    if message is not None:
+        await message.answer(full_name_step_text())
 
 
 @router.message(CustomerRegistration.legal_acceptance)
 async def reject_legal(message: Message) -> None:
-    await message.answer("Для регистрации нужно написать: Согласен")
+    await message.answer(use_buttons_text(), reply_markup=legal_acceptance_keyboard())
 
 
 @router.message(CustomerRegistration.full_name)
 async def enter_full_name(message: Message, state: FSMContext) -> None:
     if not message.text or not message.text.strip():
-        await message.answer("Введите ФИО текстом.")
+        await message.answer(invalid_text_input_text("Введите ФИО текстом."))
         return
     await state.update_data(full_name=message.text.strip())
     await state.set_state(CustomerRegistration.phone)
-    await message.answer("Введите телефон.")
+    await message.answer(phone_step_text())
 
 
 @router.message(CustomerRegistration.phone)
@@ -82,60 +120,110 @@ async def enter_phone(message: Message, state: FSMContext) -> None:
     await state.update_data(phone=message.text.strip())
     await state.set_state(CustomerRegistration.city)
     await message.answer(
-        format_cities_from_state(data),
+        select_city_text(),
+        reply_markup=select_city_keyboard(_cities_from_state(data)),
     )
 
 
-@router.message(CustomerRegistration.city)
-async def enter_city(message: Message, state: FSMContext) -> None:
+@router.callback_query(
+    CustomerRegistration.city,
+    F.data.startswith(REGISTRATION_CITY_PREFIX),
+)
+async def enter_city(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
     data = await state.get_data()
     city_ids = _string_list(data["city_ids"])
-    city_id = parse_city_choice(message.text or "", city_ids)
-    if city_id is None:
-        await message.answer(format_cities_from_state(data))
+    city_index = _callback_index(callback.data, REGISTRATION_CITY_PREFIX)
+    if city_index is None or city_index < 0 or city_index >= len(city_ids):
+        message = _callback_message(callback)
+        if message is not None:
+            await message.answer(
+                registration_unavailable_text(),
+                reply_markup=select_city_keyboard(_cities_from_state(data)),
+            )
         return
-    city_index = city_ids.index(str(city_id))
+    city_id = city_ids[city_index]
     await state.update_data(
-        city_id=str(city_id),
+        city_id=city_id,
         city_name=_string_list(data["city_names"])[city_index],
     )
     await state.set_state(CustomerRegistration.contact_method)
-    await message.answer(format_contact_methods())
+    message = _callback_message(callback)
+    if message is not None:
+        await message.answer(
+            select_contact_method_text(),
+            reply_markup=contact_methods_keyboard(),
+        )
 
 
-@router.message(CustomerRegistration.contact_method)
-async def enter_contact_method(message: Message, state: FSMContext) -> None:
-    method = CONTACT_METHODS.get(message.text or "")
-    if method is None:
-        await message.answer(format_contact_methods())
-        return
-    value, label = method
-    await state.update_data(contact_method=value, contact_method_label=label)
+@router.message(CustomerRegistration.city)
+async def unknown_city_action(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
-    await state.set_state(CustomerRegistration.summary)
     await message.answer(
-        format_summary(
-            data,
-            city_name=str(data["city_name"]),
-            contact_label=label,
-        ),
+        use_buttons_text(),
+        reply_markup=select_city_keyboard(_cities_from_state(data)),
     )
 
 
-@router.message(CustomerRegistration.summary, F.text.casefold() == "редактировать")
-async def edit_registration(message: Message, state: FSMContext) -> None:
+@router.callback_query(
+    CustomerRegistration.contact_method,
+    F.data.startswith(REGISTRATION_CONTACT_PREFIX),
+)
+async def enter_contact_method(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    contact_method = _callback_value(callback.data, REGISTRATION_CONTACT_PREFIX)
+    if contact_method is None:
+        message = _callback_message(callback)
+        if message is not None:
+            await message.answer(
+                use_buttons_text(),
+                reply_markup=contact_methods_keyboard(),
+            )
+        return
+    label = CONTACT_METHOD_LABELS.get(contact_method)
+    if label is None:
+        message = _callback_message(callback)
+        if message is not None:
+            await message.answer(
+                use_buttons_text(),
+                reply_markup=contact_methods_keyboard(),
+            )
+        return
+    await state.update_data(contact_method=contact_method, contact_method_label=label)
+    data = await state.get_data()
+    await state.set_state(CustomerRegistration.summary)
+    message = _callback_message(callback)
+    if message is not None:
+        await message.answer(
+            summary_text(data),
+            reply_markup=registration_summary_keyboard(),
+        )
+
+
+@router.message(CustomerRegistration.contact_method)
+async def unknown_contact_method_action(message: Message) -> None:
+    await message.answer(use_buttons_text(), reply_markup=contact_methods_keyboard())
+
+
+@router.callback_query(CustomerRegistration.summary, F.data == REGISTRATION_EDIT)
+async def edit_registration(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
     await state.set_state(CustomerRegistration.full_name)
-    await message.answer("Введите ФИО.")
+    message = _callback_message(callback)
+    if message is not None:
+        await message.answer(full_name_step_text())
 
 
-@router.message(CustomerRegistration.summary, F.text.casefold() == "подтвердить")
+@router.callback_query(CustomerRegistration.summary, F.data == REGISTRATION_CONFIRM)
 async def confirm_registration(
-    message: Message,
+    callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendClient,
     telegram_user_context: TelegramUserContext,
 ) -> None:
+    await callback.answer()
     data = await state.get_data()
+    message = _callback_message(callback)
     try:
         await backend_client.register_customer(
             telegram_id=telegram_user_context.telegram_id,
@@ -150,31 +238,46 @@ async def confirm_registration(
             ),
         )
     except BackendValidationError:
-        await message.answer(
-            "Backend отклонил данные. Начните регистрацию заново: /start",
-        )
+        if message is not None:
+            await message.answer(backend_rejected_registration_text())
         await state.clear()
         return
     except BackendClientError:
-        await message.answer("Сервис временно недоступен. Попробуйте позже.")
+        if message is not None:
+            await message.answer(retry_later_text())
         return
     await state.clear()
-    await message.answer("Регистрация завершена. Главное меню пока в разработке.")
+    if message is not None:
+        await message.answer(registration_complete_text())
 
 
 @router.message(CustomerRegistration.summary)
 async def unknown_summary_action(message: Message) -> None:
-    await message.answer("Напишите: Подтвердить или Редактировать")
-
-
-def format_cities_from_state(data: dict[str, object]) -> str:
-    class _City:
-        def __init__(self, name: str) -> None:
-            self.name = name
-
-    return format_cities(
-        tuple(_City(name) for name in _string_list(data["city_names"])),
+    await message.answer(
+        use_buttons_text(),
+        reply_markup=registration_summary_keyboard(),
     )
+
+
+def _cities_from_state(data: dict[str, object]) -> tuple[_CityView, ...]:
+    return tuple(_CityView(name) for name in _string_list(data["city_names"]))
+
+
+def _callback_index(data: str | None, prefix: str) -> int | None:
+    value = _callback_value(data, prefix)
+    if value is None or not value.isdigit():
+        return None
+    return int(value)
+
+
+def _callback_value(data: str | None, prefix: str) -> str | None:
+    if data is None or not data.startswith(prefix):
+        return None
+    return data.removeprefix(prefix)
+
+
+def _callback_message(callback: CallbackQuery) -> Message | None:
+    return callback.message if isinstance(callback.message, Message) else None
 
 
 def _string_list(value: object) -> list[str]:

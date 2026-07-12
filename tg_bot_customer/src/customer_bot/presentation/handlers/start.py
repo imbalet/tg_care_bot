@@ -6,6 +6,11 @@ from aiogram.types import Message
 from customer_bot.infrastructure.http import BackendClient, BackendClientError
 from customer_bot.presentation.handlers.registration import start_registration
 from customer_bot.presentation.middlewares import TelegramUserContext
+from customer_bot.presentation.ui import (
+    customer_main_menu_text,
+    main_menu_keyboard,
+    retry_later_text,
+)
 
 router = Router(name="start")
 
@@ -22,11 +27,13 @@ async def start(
             telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await message.answer("Сервис временно недоступен. Попробуйте позже.")
+        await message.answer(retry_later_text())
         return
     if profile is not None:
         await state.clear()
-        await message.answer("Вы зарегистрированы. Главное меню пока в разработке.")
+        await message.answer(
+            customer_main_menu_text(), reply_markup=main_menu_keyboard()
+        )
         return
     await start_registration(message, state, backend_client)
 
