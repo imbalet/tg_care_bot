@@ -14,6 +14,12 @@ from backend.bootstrap.settings import get_settings
 from backend.common.infrastructure.logging import configure_logging
 from backend.common.presentation import register_error_handlers, require_service_key
 from backend.modules.admin.presentation.api import router as admin_router
+from backend.modules.catalog.presentation.api import (
+    legal_router,
+)
+from backend.modules.catalog.presentation.api import (
+    router as catalog_router,
+)
 from backend.modules.system_checks.presentation.api import (
     router as system_checks_router,
 )
@@ -37,6 +43,8 @@ def create_app() -> FastAPI:
     app = FastAPI(title="We Are Close API", lifespan=lifespan)
     register_error_handlers(app)
     app.include_router(admin_router)
+    app.include_router(catalog_router)
+    app.include_router(legal_router)
     app.include_router(system_checks_router)
 
     @app.middleware("http")
