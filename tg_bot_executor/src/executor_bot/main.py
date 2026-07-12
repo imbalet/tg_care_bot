@@ -8,7 +8,11 @@ from aiogram.fsm.strategy import FSMStrategy
 from executor_bot.bootstrap import get_settings
 from executor_bot.infrastructure.http import BackendClient
 from executor_bot.infrastructure.redis import create_fsm_storage
-from executor_bot.presentation.handlers import fallback_router, start_router
+from executor_bot.presentation.handlers import (
+    fallback_router,
+    registration_router,
+    start_router,
+)
 from executor_bot.presentation.middlewares import TelegramUserContextMiddleware
 
 
@@ -21,6 +25,7 @@ async def amain() -> None:
     )
     dispatcher.update.middleware(TelegramUserContextMiddleware())
     dispatcher.include_router(start_router)
+    dispatcher.include_router(registration_router)
     dispatcher.include_router(fallback_router)
 
     bot = Bot(

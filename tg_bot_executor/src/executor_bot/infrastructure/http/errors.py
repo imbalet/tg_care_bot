@@ -10,8 +10,13 @@ class BackendUnauthorizedError(BackendClientError):
     """Backend rejected the service credentials."""
 
 
+class BackendValidationError(BackendClientError):
+    """Backend rejected user-provided data."""
+
+
 __all__ = [
     "BackendClientError",
     "BackendUnauthorizedError",
     "BackendUnavailableError",
+    "BackendValidationError",
 ]

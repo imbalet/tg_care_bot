@@ -4,6 +4,7 @@ from .errors import (
     BackendClientError,
     BackendUnauthorizedError,
     BackendUnavailableError,
+    BackendValidationError,
 )
 
 __all__ = [
@@ -11,4 +12,5 @@ __all__ = [
     "BackendClientError",
     "BackendUnauthorizedError",
     "BackendUnavailableError",
+    "BackendValidationError",
 ]
