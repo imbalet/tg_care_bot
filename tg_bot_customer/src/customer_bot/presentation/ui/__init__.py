@@ -9,6 +9,7 @@ from .keyboards import (
 from .texts import (
     backend_rejected_registration_text,
     customer_main_menu_text,
+    customer_profile_text,
     fallback_text,
     full_name_step_text,
     help_text,
@@ -29,6 +30,7 @@ __all__ = [
     "backend_rejected_registration_text",
     "contact_methods_keyboard",
     "customer_main_menu_text",
+    "customer_profile_text",
     "fallback_keyboard",
     "fallback_text",
     "full_name_step_text",

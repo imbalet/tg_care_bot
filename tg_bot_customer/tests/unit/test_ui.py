@@ -1,7 +1,10 @@
 from dataclasses import dataclass
+from uuid import uuid4
 
+from customer_bot.infrastructure.http import CustomerProfileDTO
 from customer_bot.presentation.ui import (
     contact_methods_keyboard,
+    customer_profile_text,
     legal_documents_text,
     registration_summary_keyboard,
     select_city_keyboard,
@@ -59,3 +62,21 @@ def test_registration_keyboards_are_inline_first() -> None:
     assert contact_keyboard.inline_keyboard[0][0].callback_data is not None
     assert summary_keyboard.inline_keyboard[0][0].callback_data == REGISTRATION_CONFIRM
     assert REGISTRATION_ACCEPT_LEGAL == "registration:legal:accept"
+
+
+def test_customer_profile_text_escapes_user_values() -> None:
+    text = customer_profile_text(
+        CustomerProfileDTO(
+            id=uuid4(),
+            telegram_id=123,
+            full_name="Иван <script>",
+            phone="+7",
+            telegram_username="name",
+            contact_method="telegram",
+            city_id=uuid4(),
+            status="active",
+        ),
+    )
+
+    assert "Иван &lt;script&gt;" in text
+    assert "@name" in text

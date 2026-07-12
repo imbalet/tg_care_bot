@@ -38,6 +38,15 @@ class CustomerProfileDTO:
     status: str
 
 
+@dataclass(frozen=True)
+class TelegramTopicDTO:
+    id: UUID
+    topic_kind: str
+    chat_id: int
+    message_thread_id: int | None
+    status: str
+
+
 class BackendClient:
     def __init__(
         self,
@@ -136,6 +145,20 @@ class BackendClient:
         self._raise_for_status(response)
         return _customer_from_json(response.json())
 
+    async def ensure_telegram_topics(
+        self,
+        *,
+        telegram_id: int,
+        chat_id: int,
+    ) -> tuple[TelegramTopicDTO, ...]:
+        response = await self._request(
+            "POST",
+            f"/api/telegram-topics/customer/{telegram_id}/ensure",
+            json={"chat_id": chat_id},
+        )
+        self._raise_for_status(response)
+        return tuple(_topic_from_json(item) for item in response.json())
+
     async def _request(
         self,
         method: str,
@@ -174,9 +197,22 @@ def _customer_from_json(data: dict[str, object]) -> CustomerProfileDTO:
     )
 
 
+def _topic_from_json(data: dict[str, object]) -> TelegramTopicDTO:
+    return TelegramTopicDTO(
+        id=UUID(str(data["id"])),
+        topic_kind=str(data["topic_kind"]),
+        chat_id=int(cast(str | int, data["chat_id"])),
+        message_thread_id=int(cast(str | int, data["message_thread_id"]))
+        if data["message_thread_id"] is not None
+        else None,
+        status=str(data["status"]),
+    )
+
+
 __all__ = [
     "BackendClient",
     "CityDTO",
     "CustomerProfileDTO",
     "LegalDocumentDTO",
+    "TelegramTopicDTO",
 ]

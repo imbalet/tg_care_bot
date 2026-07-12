@@ -17,6 +17,32 @@ class LegalDocumentView(Protocol):
         pass
 
 
+class CustomerProfileView(Protocol):
+    @property
+    def full_name(self) -> str:
+        pass
+
+    @property
+    def phone(self) -> str:
+        pass
+
+    @property
+    def telegram_username(self) -> str | None:
+        pass
+
+    @property
+    def contact_method(self) -> str:
+        pass
+
+    @property
+    def city_id(self) -> object:
+        pass
+
+    @property
+    def status(self) -> str:
+        pass
+
+
 def retry_later_text() -> str:
     return "⚠️ <b>Сервис временно недоступен</b>\n\nПопробуйте еще раз чуть позже."
 
@@ -81,6 +107,23 @@ def customer_main_menu_text() -> str:
     )
 
 
+def customer_profile_text(profile: CustomerProfileView) -> str:
+    username = profile.telegram_username
+    username_text = f"@{escape(username)}" if isinstance(username, str) else "не указан"
+    return "\n".join(
+        (
+            "<b>Профиль заказчика</b>",
+            "",
+            f"ФИО: {escape(profile.full_name)}",
+            f"Телефон: {escape(profile.phone)}",
+            f"Город ID: {escape(str(profile.city_id))}",
+            f"Контакт: {escape(profile.contact_method)}",
+            f"Telegram: {username_text}",
+            f"Статус: {escape(profile.status)}",
+        ),
+    )
+
+
 def registration_complete_text() -> str:
     return "✅ <b>Регистрация завершена</b>\n\nОткрываю главное меню."
 
@@ -127,6 +170,7 @@ def unavailable_action_text() -> str:
 __all__ = [
     "backend_rejected_registration_text",
     "customer_main_menu_text",
+    "customer_profile_text",
     "fallback_text",
     "full_name_step_text",
     "help_text",

@@ -237,6 +237,11 @@ async def confirm_registration(
                 for document_id in _string_list(data["legal_document_ids"])
             ),
         )
+        if telegram_user_context.chat_id is not None:
+            await backend_client.ensure_telegram_topics(
+                telegram_id=telegram_user_context.telegram_id,
+                chat_id=telegram_user_context.chat_id,
+            )
     except BackendValidationError:
         if message is not None:
             await message.answer(backend_rejected_registration_text())
