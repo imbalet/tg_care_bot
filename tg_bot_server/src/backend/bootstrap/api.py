@@ -18,6 +18,9 @@ from backend.modules.admin.presentation.surface import (
     admin_csrf_middleware,
     create_admin_surface,
 )
+from backend.modules.availability.presentation.api import (
+    router as availability_router,
+)
 from backend.modules.catalog.presentation.api import (
     legal_router,
 )
@@ -59,6 +62,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="We Are Close API", lifespan=lifespan)
     register_error_handlers(app)
     app.include_router(admin_router)
+    app.include_router(availability_router)
     app.include_router(catalog_router)
     app.include_router(legal_router)
     app.include_router(customers_router)
