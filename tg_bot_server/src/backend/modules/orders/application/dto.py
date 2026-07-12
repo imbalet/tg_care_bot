@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 
@@ -11,6 +13,9 @@ class ServicePricingDTO:
     service_name: str
     price_type: str
     base_price: Decimal
+    location_policy: str
+    schedule_policy: str
+    photo_policy: str
     duration_step_minutes: int
     min_duration_minutes: int | None
     max_duration_minutes: int | None
@@ -37,4 +42,53 @@ class PricePreviewDTO:
     hold_limit_checked: bool
 
 
-__all__ = ["PricePreviewDTO", "ServicePricingDTO"]
+@dataclass(frozen=True)
+class OrderCareObjectSnapshot:
+    care_object_id: UUID
+    object_type: str
+    display_name_at_order: str | None
+    summary_at_order: str | None
+
+
+@dataclass(frozen=True)
+class DraftOrderData:
+    customer_id: UUID
+    service_id: UUID
+    start_at: datetime
+    end_at: datetime
+    care_object_ids: tuple[UUID, ...]
+    address_id: UUID | None
+    customer_comment: str | None
+    report_photo_consent: bool | None
+    option_values: dict[UUID, Any]
+
+
+@dataclass(frozen=True)
+class OrderDTO:
+    id: UUID
+    customer_id: UUID | None
+    service_id: UUID
+    service_code: str
+    service_name: str
+    schedule_policy: str
+    photo_policy: str | None
+    matching_mode: str | None
+    status: str
+    address_id: UUID | None
+    location_source: str
+    start_at: datetime
+    end_at: datetime
+    objects_count: int
+    total_amount: Decimal
+    performer_amount: Decimal
+    platform_fee_amount: Decimal
+    matching_deadline_at: datetime
+
+
+__all__ = [
+    "DraftOrderData",
+    "OrderCareObjectSnapshot",
+    "OrderDTO",
+    "PricePreviewDTO",
+    "ServicePricingDTO",
+]

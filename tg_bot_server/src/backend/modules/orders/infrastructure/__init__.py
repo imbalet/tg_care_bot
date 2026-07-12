@@ -4,6 +4,7 @@ from .persistence import (
     OrderModel,
     OrderOptionValueModel,
     OrderStatusHistoryModel,
+    SqlAlchemyOrderRepository,
     SqlAlchemyPricingRepository,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "OrderModel",
     "OrderOptionValueModel",
     "OrderStatusHistoryModel",
+    "SqlAlchemyOrderRepository",
     "SqlAlchemyPricingRepository",
 ]

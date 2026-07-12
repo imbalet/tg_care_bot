@@ -26,6 +26,7 @@ class OrderModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     service_code: Mapped[str] = mapped_column(Text, nullable=False)
     service_name: Mapped[str] = mapped_column(Text, nullable=False)
     schedule_policy: Mapped[str] = mapped_column(Text, nullable=False)
+    photo_policy: Mapped[str | None] = mapped_column(Text, nullable=True)
     matching_mode: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="draft")
     selected_performer_id: Mapped[UUID | None] = mapped_column(
