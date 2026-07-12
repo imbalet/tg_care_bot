@@ -27,7 +27,10 @@ class PerformerModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
         default="profile_pending",
     )
     is_accepting_orders: Mapped[bool] = mapped_column(nullable=False, default=False)
-    current_address_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    current_address_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("addresses.id"),
+        nullable=True,
+    )
     payment_recipient_id: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
