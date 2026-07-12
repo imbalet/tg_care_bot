@@ -24,6 +24,7 @@ from backend.modules.catalog.presentation.api import (
 from backend.modules.catalog.presentation.api import (
     router as catalog_router,
 )
+from backend.modules.customers.presentation.api import router as customers_router
 from backend.modules.system_checks.presentation.api import (
     router as system_checks_router,
 )
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_router)
     app.include_router(catalog_router)
     app.include_router(legal_router)
+    app.include_router(customers_router)
     app.include_router(system_checks_router)
 
     @app.middleware("http")
