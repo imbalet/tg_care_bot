@@ -13,10 +13,12 @@ def _default_postgres_password() -> str:
 
 @dataclass(frozen=True)
 class IntegrationDatabase:
-    db_host: str = "localhost"
-    db_port: str = "15432"
-    db_name: str = "we_are_close"
-    db_user: str = "postgres"
+    db_host: str = field(default_factory=lambda: os.environ.get("DB_HOST", "localhost"))
+    db_port: str = field(default_factory=lambda: os.environ.get("DB_PORT", "15432"))
+    db_name: str = field(
+        default_factory=lambda: os.environ.get("DB_NAME", "we_are_close")
+    )
+    db_user: str = field(default_factory=lambda: os.environ.get("DB_USER", "postgres"))
     db_pass: str = field(default_factory=_default_postgres_password)
 
     def apply_to_environment(self) -> None:
