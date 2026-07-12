@@ -37,6 +37,7 @@ class PerformerProfileDTO:
     about_text: str | None
     status: str
     is_accepting_orders: bool
+    current_address_id: UUID | None
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,23 @@ class TelegramTopicDTO:
     chat_id: int
     message_thread_id: int | None
     status: str
+
+
+@dataclass(frozen=True)
+class AddressSuggestionDTO:
+    value: str
+    unrestricted_value: str
+
+
+@dataclass(frozen=True)
+class AddressDTO:
+    id: UUID
+    city_id: UUID
+    address_text: str
+    entrance: str | None
+    floor: str | None
+    apartment: str | None
+    comment: str | None
 
 
 class BackendClient:
@@ -170,15 +188,90 @@ class BackendClient:
         self._raise_for_status(response)
         return tuple(_topic_from_json(item) for item in response.json())
 
+    async def suggest_addresses(
+        self,
+        *,
+        city_id: UUID,
+        query: str,
+    ) -> tuple[AddressSuggestionDTO, ...]:
+        response = await self._request(
+            "GET",
+            "/api/geocoding/address-suggestions",
+            params={"city_id": str(city_id), "query": query},
+        )
+        self._raise_for_status(response)
+        return tuple(
+            AddressSuggestionDTO(
+                value=str(item["value"]),
+                unrestricted_value=str(item["unrestricted_value"]),
+            )
+            for item in response.json()
+        )
+
+    async def list_work_addresses(self, *, telegram_id: int) -> tuple[AddressDTO, ...]:
+        response = await self._request(
+            "GET",
+            f"/api/performers/by-telegram/{telegram_id}/addresses",
+        )
+        self._raise_for_status(response)
+        return tuple(_address_from_json(item) for item in response.json())
+
+    async def create_work_address(
+        self,
+        *,
+        telegram_id: int,
+        city_id: UUID,
+        unrestricted_value: str,
+        entrance: str | None,
+        floor: str | None,
+        apartment: str | None,
+        comment: str | None,
+    ) -> AddressDTO:
+        response = await self._request(
+            "POST",
+            f"/api/performers/by-telegram/{telegram_id}/addresses",
+            json={
+                "city_id": str(city_id),
+                "unrestricted_value": unrestricted_value,
+                "entrance": entrance,
+                "floor": floor,
+                "apartment": apartment,
+                "comment": comment,
+            },
+        )
+        self._raise_for_status(response)
+        return _address_from_json(response.json())
+
+    async def set_current_work_address(
+        self,
+        *,
+        telegram_id: int,
+        address_id: UUID,
+    ) -> AddressDTO:
+        response = await self._request(
+            "PATCH",
+            f"/api/performers/by-telegram/{telegram_id}/current-address/{address_id}",
+        )
+        self._raise_for_status(response)
+        return _address_from_json(response.json())
+
+    async def delete_work_address(self, *, telegram_id: int, address_id: UUID) -> None:
+        response = await self._request(
+            "DELETE",
+            f"/api/performers/by-telegram/{telegram_id}/addresses/{address_id}",
+        )
+        self._raise_for_status(response)
+
     async def _request(
         self,
         method: str,
         url: str,
         *,
         json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> httpx.Response:
         try:
-            return await self._client.request(method, url, json=json)
+            return await self._client.request(method, url, json=json, params=params)
         except httpx.HTTPError as exc:
             raise BackendUnavailableError("Backend is unavailable") from exc
 
@@ -205,6 +298,9 @@ def _performer_from_json(data: dict[str, object]) -> PerformerProfileDTO:
         about_text=data["about_text"] if isinstance(data["about_text"], str) else None,
         status=str(data["status"]),
         is_accepting_orders=bool(data["is_accepting_orders"]),
+        current_address_id=UUID(str(data["current_address_id"]))
+        if data.get("current_address_id") is not None
+        else None,
     )
 
 
@@ -220,7 +316,21 @@ def _topic_from_json(data: dict[str, object]) -> TelegramTopicDTO:
     )
 
 
+def _address_from_json(data: dict[str, object]) -> AddressDTO:
+    return AddressDTO(
+        id=UUID(str(data["id"])),
+        city_id=UUID(str(data["city_id"])),
+        address_text=str(data["address_text"]),
+        entrance=data["entrance"] if isinstance(data["entrance"], str) else None,
+        floor=data["floor"] if isinstance(data["floor"], str) else None,
+        apartment=data["apartment"] if isinstance(data["apartment"], str) else None,
+        comment=data["comment"] if isinstance(data["comment"], str) else None,
+    )
+
+
 __all__ = [
+    "AddressDTO",
+    "AddressSuggestionDTO",
     "BackendClient",
     "CityDTO",
     "LegalDocumentDTO",

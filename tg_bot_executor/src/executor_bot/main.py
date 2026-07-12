@@ -10,6 +10,7 @@ from executor_bot.bootstrap import get_settings
 from executor_bot.infrastructure.http import BackendClient
 from executor_bot.infrastructure.redis import create_fsm_storage
 from executor_bot.presentation.handlers import (
+    addresses_router,
     fallback_router,
     registration_router,
     start_router,
@@ -32,6 +33,7 @@ async def amain() -> None:
     dispatcher.update.middleware(TelegramUsernameSyncMiddleware(redis))
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)
+    dispatcher.include_router(addresses_router)
     dispatcher.include_router(fallback_router)
 
     bot = Bot(

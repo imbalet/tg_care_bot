@@ -5,6 +5,11 @@ from .keyboards import (
     main_menu_keyboard,
     registration_summary_keyboard,
     select_city_keyboard,
+    work_address_card_keyboard,
+    work_address_city_keyboard,
+    work_address_skip_keyboard,
+    work_address_suggestions_keyboard,
+    work_addresses_keyboard,
 )
 from .texts import (
     about_step_text,
@@ -26,6 +31,15 @@ from .texts import (
     summary_text,
     unavailable_action_text,
     use_buttons_text,
+    work_address_card_text,
+    work_address_city_step_text,
+    work_address_created_text,
+    work_address_current_text,
+    work_address_deleted_text,
+    work_address_extra_step_text,
+    work_address_query_step_text,
+    work_address_suggestion_step_text,
+    work_addresses_list_text,
 )
 
 __all__ = [
@@ -54,4 +68,18 @@ __all__ = [
     "summary_text",
     "unavailable_action_text",
     "use_buttons_text",
+    "work_address_card_keyboard",
+    "work_address_card_text",
+    "work_address_city_keyboard",
+    "work_address_city_step_text",
+    "work_address_created_text",
+    "work_address_current_text",
+    "work_address_deleted_text",
+    "work_address_extra_step_text",
+    "work_address_query_step_text",
+    "work_address_skip_keyboard",
+    "work_address_suggestion_step_text",
+    "work_address_suggestions_keyboard",
+    "work_addresses_keyboard",
+    "work_addresses_list_text",
 ]

@@ -50,6 +50,10 @@ class ExecutorProfileView(Protocol):
     def is_accepting_orders(self) -> bool:
         pass
 
+    @property
+    def current_address_id(self) -> object | None:
+        pass
+
 
 def retry_later_text() -> str:
     return "⚠️ <b>Сервис временно недоступен</b>\n\nПопробуйте еще раз чуть позже."
@@ -149,8 +153,61 @@ def executor_profile_text(profile: ExecutorProfileView) -> str:
             f"Telegram: {username_text}",
             f"Статус: {escape(profile.status)}",
             f"Прием заказов: {accepting_orders}",
+            f"Текущий рабочий адрес ID: {escape(str(profile.current_address_id))}",
         ),
     )
+
+
+def work_addresses_list_text(count: int) -> str:
+    if count == 0:
+        return "<b>Рабочий адрес</b>\n\nДобавьте адрес для профиля исполнителя."
+    return "<b>Рабочие адреса</b>\n\nВыберите адрес или добавьте новый."
+
+
+def work_address_card_text(item: object) -> str:
+    address_text = escape(str(getattr(item, "address_text", "")))
+    entrance = getattr(item, "entrance", None)
+    floor = getattr(item, "floor", None)
+    apartment = getattr(item, "apartment", None)
+    comment = getattr(item, "comment", None)
+    lines = ["<b>Рабочий адрес</b>", "", address_text]
+    if isinstance(entrance, str):
+        lines.append(f"Подъезд: {escape(entrance)}")
+    if isinstance(floor, str):
+        lines.append(f"Этаж: {escape(floor)}")
+    if isinstance(apartment, str):
+        lines.append(f"Квартира: {escape(apartment)}")
+    if isinstance(comment, str):
+        lines.append(f"Комментарий: {escape(comment)}")
+    return "\n".join(lines)
+
+
+def work_address_city_step_text() -> str:
+    return "<b>Город</b>\n\nВыберите город рабочего адреса."
+
+
+def work_address_query_step_text() -> str:
+    return "<b>Адрес</b>\n\nВведите улицу, дом или полный адрес."
+
+
+def work_address_suggestion_step_text() -> str:
+    return "<b>Подсказки адреса</b>\n\nВыберите подходящий вариант."
+
+
+def work_address_extra_step_text(field_name: str) -> str:
+    return f"<b>{escape(field_name)}</b>\n\nВведите значение или пропустите."
+
+
+def work_address_created_text() -> str:
+    return "Рабочий адрес сохранен."
+
+
+def work_address_deleted_text() -> str:
+    return "Рабочий адрес удален."
+
+
+def work_address_current_text() -> str:
+    return "Текущий рабочий адрес обновлен."
 
 
 def registration_complete_text() -> str:
@@ -220,4 +277,13 @@ __all__ = [
     "summary_text",
     "unavailable_action_text",
     "use_buttons_text",
+    "work_address_card_text",
+    "work_address_city_step_text",
+    "work_address_created_text",
+    "work_address_current_text",
+    "work_address_deleted_text",
+    "work_address_extra_step_text",
+    "work_address_query_step_text",
+    "work_address_suggestion_step_text",
+    "work_addresses_list_text",
 ]

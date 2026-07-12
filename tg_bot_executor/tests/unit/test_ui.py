@@ -9,11 +9,15 @@ from executor_bot.presentation.ui import (
     registration_summary_keyboard,
     select_city_keyboard,
     summary_text,
+    work_address_card_text,
+    work_addresses_keyboard,
 )
 from executor_bot.presentation.ui.keyboards import (
     REGISTRATION_ACCEPT_LEGAL,
     REGISTRATION_CITY_PREFIX,
     REGISTRATION_CONFIRM,
+    WORK_ADDRESS_ADD,
+    WORK_ADDRESS_SELECT_PREFIX,
 )
 
 
@@ -27,6 +31,15 @@ class Document:
 @dataclass(frozen=True)
 class City:
     name: str
+
+
+@dataclass(frozen=True)
+class Address:
+    address_text: str
+    entrance: str | None = None
+    floor: str | None = None
+    apartment: str | None = None
+    comment: str | None = None
 
 
 def test_legal_documents_text_escapes_html() -> None:
@@ -51,6 +64,21 @@ def test_registration_summary_escapes_user_values() -> None:
 
     assert "Иван &lt;script&gt;" in text
     assert "Опыт &lt;5 лет&gt;" in text
+
+
+def test_work_addresses_keyboard_is_inline_first() -> None:
+    keyboard = work_addresses_keyboard([Address(address_text="Тверская")])
+
+    assert keyboard.inline_keyboard[0][0].callback_data == WORK_ADDRESS_ADD
+    assert keyboard.inline_keyboard[1][0].callback_data == (
+        f"{WORK_ADDRESS_SELECT_PREFIX}0"
+    )
+
+
+def test_work_address_card_text_escapes_user_values() -> None:
+    text = work_address_card_text(Address(address_text="Дом <script>"))
+
+    assert "Дом &lt;script&gt;" in text
 
 
 def test_registration_keyboards_are_inline_first() -> None:
@@ -79,6 +107,7 @@ def test_executor_profile_text_escapes_user_values() -> None:
             about_text="Опыт <5 лет>",
             status="profile_pending",
             is_accepting_orders=False,
+            current_address_id=None,
         ),
     )
 
