@@ -81,5 +81,5 @@ PostgreSQL/Redis ports:
 RUN_POSTGRES_TESTS=1 uv run pytest tests/integration
 ```
 
-Seed data is intentionally postponed until iteration 1, where catalog and admin
-tables are introduced.
+Alembic migrations create the default admin and seed the MVP catalog data needed
+for local startup.

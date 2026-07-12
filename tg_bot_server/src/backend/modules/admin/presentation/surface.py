@@ -26,7 +26,6 @@ from backend.modules.admin.infrastructure import (
 )
 from backend.modules.admin.presentation.api.routes import ADMIN_SESSION_COOKIE
 from backend.modules.care_objects.infrastructure import CareObjectModel
-from backend.modules.catalog.application import SeedMvpCatalogUseCase
 from backend.modules.catalog.infrastructure import (
     BusinessSettingModel,
     CityModel,
@@ -138,35 +137,6 @@ class LegalDocumentView(CatalogModelView):
     exclude_fields_from_create = ["id", "created_at"]
 
 
-class BusinessSettingView(CatalogModelView):
-    actions = ["seed_mvp_catalog"]
-
-    @action(
-        name="seed_mvp_catalog",
-        text="Seed MVP catalog",
-        confirmation="Run idempotent MVP catalog seed?",
-        submit_btn_text="Seed",
-    )
-    async def seed_mvp_catalog_action(
-        self,
-        request: Request,
-        _pks: list[Any],
-    ) -> str:
-        await SeedMvpCatalogUseCase(request.state.session).execute()
-        admin = getattr(request.state, "admin_user", None)
-        request.state.session.add(
-            AdminAuditLogModel(
-                admin_id=admin.id if admin is not None else None,
-                action="seed_mvp_catalog",
-                entity_type="catalog",
-                entity_id=None,
-                reason=None,
-                audit_metadata={},
-            ),
-        )
-        return "MVP catalog seed completed"
-
-
 class ReadOnlyModelView(ModelView):
     def can_create(self, request: Request) -> bool:
         return False
@@ -227,7 +197,7 @@ def create_admin_surface(container: Container) -> Admin:
     admin.add_view(
         CatalogModelView(ObjectCountMultiplierModel, label="Object count multipliers"),
     )
-    admin.add_view(BusinessSettingView(BusinessSettingModel, label="Business settings"))
+    admin.add_view(CatalogModelView(BusinessSettingModel, label="Business settings"))
     admin.add_view(LegalDocumentView(LegalDocumentModel, label="Legal documents"))
     admin.add_view(ReadOnlyModelView(CustomerModel, label="Customers"))
     admin.add_view(ReadOnlyModelView(PerformerModel, label="Performers"))

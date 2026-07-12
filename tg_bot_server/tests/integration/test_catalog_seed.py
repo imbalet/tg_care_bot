@@ -5,14 +5,15 @@ from sqlalchemy import func, select
 
 from backend.bootstrap.settings import get_settings
 from backend.common.infrastructure.database import create_engine, create_session_factory
-from backend.modules.catalog.application import SeedMvpCatalogUseCase
 from backend.modules.catalog.infrastructure import (
     BusinessSettingModel,
     CityModel,
+    DistrictModel,
     LegalDocumentModel,
     ObjectCountMultiplierModel,
     ServiceCategoryModel,
     ServiceModel,
+    ServiceOptionModel,
 )
 from tests.integration.database import IntegrationDatabase, migrate_to_head
 
@@ -22,7 +23,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_mvp_catalog_seed_is_idempotent() -> None:
+def test_mvp_catalog_is_seeded_by_migrations() -> None:
     get_settings.cache_clear()
     database = IntegrationDatabase()
     database.apply_to_environment()
@@ -34,19 +35,20 @@ def test_mvp_catalog_seed_is_idempotent() -> None:
         session_factory = create_session_factory(engine)
         try:
             async with session_factory() as session:
-                await SeedMvpCatalogUseCase(session).execute()
-                await SeedMvpCatalogUseCase(session).execute()
-                await session.commit()
-
-            async with session_factory() as session:
                 city_count = await session.scalar(
                     select(func.count()).select_from(CityModel),
+                )
+                district_count = await session.scalar(
+                    select(func.count()).select_from(DistrictModel),
                 )
                 category_count = await session.scalar(
                     select(func.count()).select_from(ServiceCategoryModel),
                 )
                 service_count = await session.scalar(
                     select(func.count()).select_from(ServiceModel),
+                )
+                option_count = await session.scalar(
+                    select(func.count()).select_from(ServiceOptionModel),
                 )
                 multiplier_count = await session.scalar(
                     select(func.count()).select_from(ObjectCountMultiplierModel),
@@ -58,8 +60,10 @@ def test_mvp_catalog_seed_is_idempotent() -> None:
                     select(func.count()).select_from(LegalDocumentModel),
                 )
             assert city_count == 1
+            assert district_count == 5
             assert category_count == 3
             assert service_count == 6
+            assert option_count == 11
             assert multiplier_count == 6
             assert setting_count == 22
             assert document_count == 4
