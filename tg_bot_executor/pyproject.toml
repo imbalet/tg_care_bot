@@ -1,0 +1,91 @@
+[project]
+name = "tg-bot-executor"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "imbalet", email = "zhmaevva@gmail.com" },
+    { name = "1DamnDaniel3" },
+]
+requires-python = ">=3.14"
+dependencies = [
+    "aiogram>=3.29.1",
+    "httpx>=0.28.1",
+    "pydantic-settings>=2.14.2",
+    "redis>=8.0.1",
+    "structlog>=26.1.0",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "mypy>=2.2.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "pytest-mock>=3.15.1",
+    "ruff>=0.15.21",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.package-data]
+executor_bot = ["py.typed"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "ANN", "D", "S", "T20"]
+ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "B905",
+    "N818",
+    "ANN401",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "ANN", "D"]
+
+[tool.mypy]
+python_version = "3.14"
+mypy_path = "src"
+files = ["src", "tests"]
+exclude = "build/.*|dist/.*|node_modules/.*|__pycache__/.*|venv/.*|.venv/.*"
+incremental = true
+cache_dir = ".mypy_cache"
+plugins = ["pydantic.mypy"]
+strict = true
+enable_error_code = ["possibly-undefined", "redundant-expr", "truthy-bool"]
+warn_unused_configs = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+disallow_incomplete_defs = true
+ignore_missing_imports = true
+namespace_packages = true
+explicit_package_bases = true
+warn_redundant_casts = true
+no_implicit_optional = true
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
