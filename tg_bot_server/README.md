@@ -35,6 +35,7 @@ Migrations must target PostgreSQL. SQLite is not used for persistence checks.
 From this repository:
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -42,6 +43,14 @@ This starts PostgreSQL, Redis, MinIO, API and worker. Compose does not use
 `env_file`; secrets and names are interpolated from the shell environment or
 Docker Compose's default `.env` file. Docker service hosts and internal ports
 are defined in `docker-compose.yml`.
+
+For CI or one-off local smoke checks, pass the example values explicitly:
+
+```bash
+docker compose --env-file .env.example config
+docker compose --env-file .env.example up --build
+docker compose --env-file .env.example down
+```
 
 Telegram bot services are behind the `bots` profile because real bot tokens are
 required:
@@ -64,3 +73,13 @@ Published development ports:
 make lint
 uv run pytest
 ```
+
+PostgreSQL integration tests are opt-in and require the local compose
+PostgreSQL/Redis ports:
+
+```bash
+RUN_POSTGRES_TESTS=1 uv run pytest tests/integration
+```
+
+Seed data is intentionally postponed until iteration 1, where catalog and admin
+tables are introduced.

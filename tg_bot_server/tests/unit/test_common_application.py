@@ -3,8 +3,10 @@ from uuid import UUID
 
 from backend.common.application import (
     Clock,
+    ObjectStorage,
     QueryService,
     Repository,
+    StoredObject,
     SystemClock,
     new_uuid,
     utc_now,
@@ -40,5 +42,7 @@ def test_common_contracts_are_publicly_importable() -> None:
     assert Clock is not None
     assert QueryService is not None
     assert Repository is not None
+    assert ObjectStorage is not None
+    assert StoredObject is not None
     assert SystemClock is not None
     assert isinstance(utc_now(), datetime)

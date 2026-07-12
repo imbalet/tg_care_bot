@@ -6,7 +6,7 @@ import structlog
 from backend.bootstrap.container import create_container
 from backend.bootstrap.settings import get_settings
 from backend.common.infrastructure.logging import configure_logging
-from backend.worker.jobs import NoopWorkerJob, WorkerJob
+from backend.worker.jobs import NoopWorkerJob, RetryPolicy, WorkerJob, run_with_retry
 
 logger = structlog.get_logger(__name__)
 
@@ -16,9 +16,11 @@ class Worker:
         self,
         poll_interval_seconds: float,
         jobs: list[WorkerJob] | None = None,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
         self._poll_interval_seconds = poll_interval_seconds
         self._jobs = jobs or [NoopWorkerJob()]
+        self._retry_policy = retry_policy or RetryPolicy()
         self._stop_event = asyncio.Event()
 
     def stop(self) -> None:
@@ -39,7 +41,12 @@ class Worker:
 
     async def run_once(self) -> None:
         for job in self._jobs:
-            await job.run_once()
+            await run_with_retry(
+                job.run_once,
+                self._retry_policy,
+                logger,
+                job.name,
+            )
             logger.info("worker_job_completed", job_name=job.name)
         logger.info("worker_iteration_completed")
 
