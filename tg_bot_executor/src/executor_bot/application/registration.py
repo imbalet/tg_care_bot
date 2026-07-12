@@ -36,13 +36,11 @@ def format_legal_documents(documents: Sequence[LegalDocumentView]) -> str:
             f"{index}. {document.document_type} {document.version}: "
             f"{document.content_url}",
         )
-    lines.append("")
-    lines.append("Напишите: Согласен")
     return "\n".join(lines)
 
 
 def format_cities(cities: Sequence[CityView]) -> str:
-    lines = ["Выберите город номером:"]
+    lines = ["Выберите город:"]
     for index, city in enumerate(cities, start=1):
         lines.append(f"{index}. {city.name}")
     return "\n".join(lines)
