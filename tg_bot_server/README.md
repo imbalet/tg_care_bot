@@ -61,8 +61,6 @@ Published development ports:
 ## Checks
 
 ```bash
-uv run ruff format --check .
-uv run ruff check .
-uv run mypy src tests
+make lint
 uv run pytest
 ```
