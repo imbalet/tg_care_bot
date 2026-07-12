@@ -151,6 +151,20 @@ def test_logout_requires_csrf(client: TestClient) -> None:
     assert response.status_code == 403
 
 
+def test_admin_mutation_rejects_cross_site_request(client: TestClient) -> None:
+    FakeAdminRepository.admin = make_admin()
+    session_cookie, _csrf_token = login(client)
+
+    response = client.post(
+        "/admin/logout",
+        headers={"Sec-Fetch-Site": "cross-site"},
+        cookies={routes.ADMIN_SESSION_COOKIE: session_cookie},
+    )
+
+    assert response.status_code == 403
+    assert response.text == "CSRF check failed"
+
+
 def test_logout_deletes_session_with_valid_csrf(client: TestClient) -> None:
     FakeAdminRepository.admin = make_admin()
     session_cookie, csrf_token = login(client)
@@ -162,3 +176,10 @@ def test_logout_deletes_session_with_valid_csrf(client: TestClient) -> None:
     )
 
     assert response.status_code == 204
+
+
+def test_catalog_admin_requires_login(client: TestClient) -> None:
+    response = client.get("/admin/catalog/", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert "/admin/catalog/login" in response.headers["location"]

@@ -14,6 +14,10 @@ from backend.bootstrap.settings import get_settings
 from backend.common.infrastructure.logging import configure_logging
 from backend.common.presentation import register_error_handlers, require_service_key
 from backend.modules.admin.presentation.api import router as admin_router
+from backend.modules.admin.presentation.surface import (
+    admin_csrf_middleware,
+    create_admin_surface,
+)
 from backend.modules.catalog.presentation.api import (
     legal_router,
 )
@@ -33,6 +37,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings.log_level)
     container = create_container(settings)
     app.state.container = container
+    if not getattr(app.state, "admin_surface_mounted", False):
+        create_admin_surface(container).mount_to(app)
+        app.state.admin_surface_mounted = True
     try:
         yield
     finally:
@@ -46,6 +53,13 @@ def create_app() -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(legal_router)
     app.include_router(system_checks_router)
+
+    @app.middleware("http")
+    async def check_admin_csrf(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        return await admin_csrf_middleware(request, call_next)
 
     @app.middleware("http")
     async def bind_request_id(
