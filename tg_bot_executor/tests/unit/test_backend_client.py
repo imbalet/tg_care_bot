@@ -116,3 +116,49 @@ async def test_register_performer_maps_validation_error() -> None:
             accepted_legal_document_ids=(uuid4(),),
         )
     await client.close()
+
+
+@pytest.mark.asyncio
+async def test_ensure_telegram_topics_sends_chat_id() -> None:
+    topic_id = uuid4()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/telegram-topics/performer/123/ensure"
+        assert json_body(request) == {"chat_id": 456}
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": str(topic_id),
+                    "account_type": "performer",
+                    "owner_id": str(uuid4()),
+                    "topic_kind": "notifications",
+                    "chat_id": 456,
+                    "message_thread_id": None,
+                    "status": "fallback",
+                },
+            ],
+        )
+
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(handler),
+    )
+
+    topics = await client.ensure_telegram_topics(telegram_id=123, chat_id=456)
+
+    assert topics[0].id == topic_id
+    assert topics[0].topic_kind == "notifications"
+    assert topics[0].message_thread_id is None
+    await client.close()
+
+
+def json_body(request: httpx.Request) -> dict[str, object]:
+    import json
+
+    data = json.loads(request.content.decode())
+    if not isinstance(data, dict):
+        raise AssertionError("Expected object body")
+    return data

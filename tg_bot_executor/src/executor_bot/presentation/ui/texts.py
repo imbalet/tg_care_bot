@@ -17,6 +17,40 @@ class LegalDocumentView(Protocol):
         pass
 
 
+class ExecutorProfileView(Protocol):
+    @property
+    def full_name(self) -> str:
+        pass
+
+    @property
+    def phone(self) -> str:
+        pass
+
+    @property
+    def telegram_username(self) -> str | None:
+        pass
+
+    @property
+    def contact_method(self) -> str:
+        pass
+
+    @property
+    def city_id(self) -> object:
+        pass
+
+    @property
+    def about_text(self) -> str | None:
+        pass
+
+    @property
+    def status(self) -> str:
+        pass
+
+    @property
+    def is_accepting_orders(self) -> bool:
+        pass
+
+
 def retry_later_text() -> str:
     return "⚠️ <b>Сервис временно недоступен</b>\n\nПопробуйте еще раз чуть позже."
 
@@ -97,6 +131,28 @@ def executor_main_menu_text() -> str:
     )
 
 
+def executor_profile_text(profile: ExecutorProfileView) -> str:
+    username = profile.telegram_username
+    username_text = f"@{escape(username)}" if isinstance(username, str) else "не указан"
+    about = profile.about_text
+    about_text = escape(about) if isinstance(about, str) else "не указано"
+    accepting_orders = "включен" if profile.is_accepting_orders else "выключен"
+    return "\n".join(
+        (
+            "<b>Профиль исполнителя</b>",
+            "",
+            f"ФИО: {escape(profile.full_name)}",
+            f"Телефон: {escape(profile.phone)}",
+            f"Город ID: {escape(str(profile.city_id))}",
+            f"Контакт: {escape(profile.contact_method)}",
+            f"О себе: {about_text}",
+            f"Telegram: {username_text}",
+            f"Статус: {escape(profile.status)}",
+            f"Прием заказов: {accepting_orders}",
+        ),
+    )
+
+
 def registration_complete_text() -> str:
     return (
         "✅ <b>Регистрация отправлена</b>\n\n"
@@ -148,6 +204,7 @@ __all__ = [
     "about_step_text",
     "backend_rejected_registration_text",
     "executor_main_menu_text",
+    "executor_profile_text",
     "fallback_text",
     "full_name_step_text",
     "help_text",
