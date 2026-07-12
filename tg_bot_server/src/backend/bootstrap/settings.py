@@ -41,6 +41,10 @@ class Settings(BaseSettings):
         validation_alias="WORKER_POLL_INTERVAL_SECONDS",
     )
     worker_batch_limit: int = Field(default=50, validation_alias="WORKER_BATCH_LIMIT")
+    admin_session_ttl_seconds: int = Field(
+        default=86_400,
+        validation_alias="ADMIN_SESSION_TTL_SECONDS",
+    )
 
     @property
     def database_url(self) -> str:
