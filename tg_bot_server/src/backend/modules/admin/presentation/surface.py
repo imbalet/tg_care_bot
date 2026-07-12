@@ -1,5 +1,6 @@
 from collections.abc import Awaitable, Callable
 from typing import Any
+from uuid import UUID
 
 from fastapi import Request
 from starlette.responses import Response
@@ -10,6 +11,7 @@ from starlette_admin.exceptions import LoginFailed
 
 from backend.bootstrap.container import Container
 from backend.common.domain import AuthenticationError, AuthorizationError
+from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.admin.application import (
     GetCurrentAdminUseCase,
     LoginAdminCommand,
@@ -23,6 +25,7 @@ from backend.modules.admin.infrastructure import (
     SqlAlchemyAdminRepository,
 )
 from backend.modules.admin.presentation.api.routes import ADMIN_SESSION_COOKIE
+from backend.modules.care_objects.infrastructure import CareObjectModel
 from backend.modules.catalog.application import SeedMvpCatalogUseCase
 from backend.modules.catalog.infrastructure import (
     BusinessSettingModel,
@@ -35,6 +38,11 @@ from backend.modules.catalog.infrastructure import (
     ServiceOptionModel,
 )
 from backend.modules.customers.infrastructure import CustomerModel
+from backend.modules.files.infrastructure import (
+    FileLinkModel,
+    FileModel,
+    SqlAlchemyFileRepository,
+)
 from backend.modules.performers.infrastructure import (
     PerformerInvitationModel,
     PerformerModel,
@@ -173,6 +181,36 @@ class ReadOnlyModelView(ModelView):
         return getattr(request.state, "admin_user", None) is not None
 
 
+class FileReviewView(ReadOnlyModelView):
+    actions = ["hide_file"]
+
+    @action(
+        name="hide_file",
+        text="Hide file",
+        confirmation="Hide selected files from active use?",
+        submit_btn_text="Hide",
+    )
+    async def hide_file_action(self, request: Request, pks: list[Any]) -> str:
+        repository = SqlAlchemyFileRepository(request.state.session)
+        admin = getattr(request.state, "admin_user", None)
+        hidden_count = 0
+        for raw_pk in pks:
+            file_id = UUID(str(raw_pk))
+            await repository.mark_deleted(file_id)
+            request.state.session.add(
+                AdminAuditLogModel(
+                    admin_id=admin.id if admin is not None else None,
+                    action="hide_file",
+                    entity_type="file",
+                    entity_id=file_id,
+                    reason=None,
+                    audit_metadata={},
+                ),
+            )
+            hidden_count += 1
+        return f"Hidden files: {hidden_count}"
+
+
 def create_admin_surface(container: Container) -> Admin:
     admin = Admin(
         engine=container.engine,
@@ -196,6 +234,10 @@ def create_admin_surface(container: Container) -> Admin:
     admin.add_view(
         ReadOnlyModelView(PerformerInvitationModel, label="Performer invitations"),
     )
+    admin.add_view(ReadOnlyModelView(CareObjectModel, label="Care objects"))
+    admin.add_view(ReadOnlyModelView(AddressModel, label="Addresses"))
+    admin.add_view(FileReviewView(FileModel, label="Files"))
+    admin.add_view(ReadOnlyModelView(FileLinkModel, label="File links"))
     admin.add_view(ReadOnlyModelView(AdminAuditLogModel, label="Admin audit"))
     return admin
 
