@@ -161,6 +161,10 @@ class ReadOnlyModelView(ModelView):
         return getattr(request.state, "admin_user", None) is not None
 
 
+class UseCaseManagedModelView(ReadOnlyModelView):
+    """Admin mutations for this model must go through application use cases."""
+
+
 class FileReviewView(ReadOnlyModelView):
     actions = ["hide_file"]
 
@@ -214,7 +218,9 @@ def create_admin_surface(container: Container) -> Admin:
     admin.add_view(
         ReadOnlyModelView(PerformerInvitationModel, label="Performer invitations"),
     )
-    admin.add_view(CatalogModelView(PerformerServiceModel, label="Performer services"))
+    admin.add_view(
+        UseCaseManagedModelView(PerformerServiceModel, label="Performer services")
+    )
     admin.add_view(
         CatalogModelView(PerformerScheduleModel, label="Performer schedules")
     )
