@@ -22,7 +22,10 @@ class MessageRegistry:
         await self._redis.set(self._key(semantic_key), value)
 
     async def remove(self, semantic_key: str) -> None:
-        await self._redis.delete(self._key(semantic_key))
+        await self._redis.delete(self.key_for(semantic_key))
+
+    def key_for(self, semantic_key: str) -> str:
+        return self._key(semantic_key)
 
     def _key(self, semantic_key: str) -> str:
         return f"{self._prefix}:{semantic_key}"
