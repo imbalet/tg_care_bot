@@ -26,6 +26,14 @@ ADDRESS_DELETE_PREFIX = "addresses:delete:"
 ADDRESS_CITY_PREFIX = "addresses:city:"
 ADDRESS_SUGGESTION_PREFIX = "addresses:suggestion:"
 ADDRESS_SKIP = "addresses:skip"
+ORDER_CREATE = "orders:create"
+ORDER_SERVICE_PREFIX = "orders:service:"
+ORDER_OBJECT_PREFIX = "orders:object:"
+ORDER_ADDRESS_PREFIX = "orders:address:"
+ORDER_PHOTO_CONSENT_PREFIX = "orders:photo_consent:"
+ORDER_COMMENT_SKIP = "orders:comment:skip"
+ORDER_PUBLISH_POOL = "orders:publish:pool"
+ORDER_PUBLISH_DIRECT_PREFIX = "orders:publish:direct:"
 
 CARE_OBJECT_TYPE_LABELS = {
     "child": "Ребенок",
@@ -131,7 +139,7 @@ def registration_summary_keyboard() -> InlineKeyboardMarkup:
 def main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Создать заказ", callback_data="orders:create")],
+            [InlineKeyboardButton(text="Создать заказ", callback_data=ORDER_CREATE)],
             [InlineKeyboardButton(text="Мои заказы", callback_data="orders:list")],
             [
                 InlineKeyboardButton(
@@ -336,6 +344,106 @@ def address_skip_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def order_services_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
+    rows = []
+    for index, item in enumerate(items):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=_item_label(item, "name", index),
+                    callback_data=f"{ORDER_SERVICE_PREFIX}{index}",
+                ),
+            ],
+        )
+    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def order_objects_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
+    rows = []
+    for index, item in enumerate(items):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=_item_label(item, "display_name", index),
+                    callback_data=f"{ORDER_OBJECT_PREFIX}{index}",
+                ),
+            ],
+        )
+    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def order_addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
+    rows = []
+    for index, item in enumerate(items):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=_item_label(item, "address_text", index),
+                    callback_data=f"{ORDER_ADDRESS_PREFIX}{index}",
+                ),
+            ],
+        )
+    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def order_photo_consent_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Разрешаю",
+                    callback_data=f"{ORDER_PHOTO_CONSENT_PREFIX}yes",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Не разрешаю",
+                    callback_data=f"{ORDER_PHOTO_CONSENT_PREFIX}no",
+                ),
+            ],
+        ],
+    )
+
+
+def order_comment_skip_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Пропустить", callback_data=ORDER_COMMENT_SKIP)],
+        ],
+    )
+
+
+def order_publish_keyboard(performers: Sequence[object]) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text="Опубликовать в пул", callback_data=ORDER_PUBLISH_POOL
+            )
+        ]
+    ]
+    for index, performer in enumerate(performers):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"Предложить: {_item_label(performer, 'full_name', index)}",
+                    callback_data=f"{ORDER_PUBLISH_DIRECT_PREFIX}{index}",
+                ),
+            ],
+        )
+    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def _item_label(item: object, key: str, index: int) -> str:
+    if isinstance(item, dict):
+        value = item.get(key)
+        return str(value) if value is not None else f"#{index + 1}"
+    return str(getattr(item, key, f"#{index + 1}"))
+
+
 __all__ = [
     "CARE_OBJECTS_OPEN",
     "CARE_OBJECT_ADD_PREFIX",
@@ -363,6 +471,14 @@ __all__ = [
     "ADDRESS_SELECT_PREFIX",
     "ADDRESS_SKIP",
     "ADDRESS_SUGGESTION_PREFIX",
+    "ORDER_ADDRESS_PREFIX",
+    "ORDER_COMMENT_SKIP",
+    "ORDER_CREATE",
+    "ORDER_OBJECT_PREFIX",
+    "ORDER_PHOTO_CONSENT_PREFIX",
+    "ORDER_PUBLISH_DIRECT_PREFIX",
+    "ORDER_PUBLISH_POOL",
+    "ORDER_SERVICE_PREFIX",
     "address_card_keyboard",
     "address_city_keyboard",
     "address_skip_keyboard",
@@ -378,6 +494,12 @@ __all__ = [
     "fallback_keyboard",
     "legal_acceptance_keyboard",
     "main_menu_keyboard",
+    "order_addresses_keyboard",
+    "order_comment_skip_keyboard",
+    "order_objects_keyboard",
+    "order_photo_consent_keyboard",
+    "order_publish_keyboard",
+    "order_services_keyboard",
     "registration_summary_keyboard",
     "select_city_keyboard",
 ]

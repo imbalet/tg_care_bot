@@ -43,6 +43,54 @@ class CustomerProfileView(Protocol):
         pass
 
 
+class PricePreviewView(Protocol):
+    @property
+    def service_name(self) -> str:
+        pass
+
+    @property
+    def duration_minutes(self) -> int:
+        pass
+
+    @property
+    def objects_count(self) -> int:
+        pass
+
+    @property
+    def service_amount(self) -> object:
+        pass
+
+    @property
+    def platform_fee_amount(self) -> object:
+        pass
+
+    @property
+    def total_amount(self) -> object:
+        pass
+
+
+class OrderView(Protocol):
+    @property
+    def id(self) -> object:
+        pass
+
+    @property
+    def service_name(self) -> str:
+        pass
+
+    @property
+    def status(self) -> str:
+        pass
+
+    @property
+    def matching_mode(self) -> str | None:
+        pass
+
+    @property
+    def total_amount(self) -> object:
+        pass
+
+
 def retry_later_text() -> str:
     return "⚠️ <b>Сервис временно недоступен</b>\n\nПопробуйте еще раз чуть позже."
 
@@ -247,6 +295,99 @@ def address_deleted_text() -> str:
     return "Адрес удален из активного списка."
 
 
+def order_services_step_text() -> str:
+    return "<b>Новый заказ</b>\n\nВыберите услугу."
+
+
+def order_no_services_text() -> str:
+    return "<b>Новый заказ</b>\n\nСейчас нет активных услуг для заказа."
+
+
+def order_objects_step_text() -> str:
+    return "<b>Кого нужно взять в работу</b>\n\nВыберите карточку объекта ухода."
+
+
+def order_no_objects_text(object_type: str) -> str:
+    return (
+        "<b>Новый заказ</b>\n\n"
+        f"Нет подходящих карточек типа: {escape(object_type)}. "
+        "Добавьте карточку в разделе «Объекты ухода»."
+    )
+
+
+def order_start_step_text() -> str:
+    return "<b>Дата и время</b>\n\nВведите начало в формате ГГГГ-ММ-ДД ЧЧ:ММ."
+
+
+def order_duration_step_text() -> str:
+    return "<b>Длительность</b>\n\nВведите количество часов целым числом."
+
+
+def order_address_step_text() -> str:
+    return "<b>Адрес</b>\n\nВыберите адрес заказа."
+
+
+def order_no_addresses_text() -> str:
+    return "<b>Новый заказ</b>\n\nДобавьте адрес в разделе «Адреса»."
+
+
+def order_photo_consent_step_text() -> str:
+    return "<b>Фотоотчет</b>\n\nЭта услуга требует согласия на фотоотчет."
+
+
+def order_comment_step_text() -> str:
+    return (
+        "<b>Комментарий</b>\n\n"
+        "Добавьте детали для исполнителя или пропустите шаг. Не указывайте "
+        "медицинские сведения."
+    )
+
+
+def order_draft_summary_text(
+    *,
+    price: PricePreviewView,
+    performers_count: int,
+) -> str:
+    return "\n".join(
+        (
+            "<b>Проверьте заказ</b>",
+            "",
+            f"Услуга: {escape(price.service_name)}",
+            f"Длительность: {price.duration_minutes} мин.",
+            f"Объектов: {price.objects_count}",
+            f"Услуга: {escape(str(price.service_amount))}",
+            f"Комиссия: {escape(str(price.platform_fee_amount))}",
+            f"Итого: {escape(str(price.total_amount))}",
+            f"Подходящих исполнителей: {performers_count}",
+            "",
+            "Выберите способ публикации.",
+        ),
+    )
+
+
+def order_published_text(order: OrderView) -> str:
+    mode = order.matching_mode or "pool"
+    return "\n".join(
+        (
+            "<b>Заказ опубликован</b>",
+            "",
+            f"ID: {escape(str(order.id))}",
+            f"Услуга: {escape(order.service_name)}",
+            f"Статус: {escape(order.status)}",
+            f"Подбор: {escape(mode)}",
+            f"Итого: {escape(str(order.total_amount))}",
+        ),
+    )
+
+
+def invalid_datetime_text() -> str:
+    return "Введите дату и время в формате ГГГГ-ММ-ДД ЧЧ:ММ."
+
+
+def invalid_duration_text() -> str:
+    return "Введите длительность целым числом от 1 до 24."
+
+
 def registration_complete_text() -> str:
     return "✅ <b>Регистрация завершена</b>\n\nОткрываю главное меню."
 
@@ -318,6 +459,20 @@ __all__ = [
     "help_text",
     "invalid_text_input_text",
     "legal_documents_text",
+    "invalid_datetime_text",
+    "invalid_duration_text",
+    "order_address_step_text",
+    "order_comment_step_text",
+    "order_draft_summary_text",
+    "order_duration_step_text",
+    "order_no_addresses_text",
+    "order_no_objects_text",
+    "order_no_services_text",
+    "order_objects_step_text",
+    "order_photo_consent_step_text",
+    "order_published_text",
+    "order_services_step_text",
+    "order_start_step_text",
     "phone_step_text",
     "registration_complete_text",
     "registration_unavailable_text",

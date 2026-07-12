@@ -10,6 +10,7 @@ from customer_bot.presentation.ui import (
     contact_methods_keyboard,
     customer_profile_text,
     legal_documents_text,
+    order_services_keyboard,
     registration_summary_keyboard,
     select_city_keyboard,
     summary_text,
@@ -19,6 +20,7 @@ from customer_bot.presentation.ui.keyboards import (
     ADDRESS_SELECT_PREFIX,
     CARE_OBJECT_ADD_PREFIX,
     CARE_OBJECT_SELECT_PREFIX,
+    ORDER_SERVICE_PREFIX,
     REGISTRATION_ACCEPT_LEGAL,
     REGISTRATION_CITY_PREFIX,
     REGISTRATION_CONFIRM,
@@ -132,6 +134,13 @@ def test_addresses_keyboard_is_inline_first() -> None:
 
     assert keyboard.inline_keyboard[0][0].callback_data == ADDRESS_ADD
     assert keyboard.inline_keyboard[1][0].callback_data == f"{ADDRESS_SELECT_PREFIX}0"
+
+
+def test_order_services_keyboard_uses_dict_labels() -> None:
+    keyboard = order_services_keyboard([{"name": "Питомцы: Передержка"}])
+
+    assert keyboard.inline_keyboard[0][0].text == "Питомцы: Передержка"
+    assert keyboard.inline_keyboard[0][0].callback_data == f"{ORDER_SERVICE_PREFIX}0"
 
 
 def test_address_card_text_escapes_user_values() -> None:

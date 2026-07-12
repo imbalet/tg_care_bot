@@ -13,6 +13,7 @@ from customer_bot.presentation.handlers import (
     addresses_router,
     care_objects_router,
     fallback_router,
+    orders_router,
     registration_router,
     start_router,
 )
@@ -36,6 +37,7 @@ async def amain() -> None:
     dispatcher.include_router(registration_router)
     dispatcher.include_router(care_objects_router)
     dispatcher.include_router(addresses_router)
+    dispatcher.include_router(orders_router)
     dispatcher.include_router(fallback_router)
 
     bot = Bot(

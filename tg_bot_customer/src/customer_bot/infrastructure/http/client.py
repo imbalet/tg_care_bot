@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
 from typing import Any, cast
 from uuid import UUID
 
@@ -24,6 +26,33 @@ class LegalDocumentDTO:
     document_type: str
     version: str
     content_url: str
+
+
+@dataclass(frozen=True)
+class ServiceDTO:
+    id: UUID
+    code: str
+    name: str
+    description: str
+    price_type: str
+    base_price: Decimal
+    location_policy: str
+    photo_policy: str
+    schedule_policy: str
+    allows_multiday: bool
+    min_duration_minutes: int | None
+    max_duration_minutes: int | None
+    duration_step_minutes: int | None
+
+
+@dataclass(frozen=True)
+class ServiceCategoryDTO:
+    id: UUID
+    code: str
+    name: str
+    care_object_type: str
+    max_objects_per_order: int
+    services: tuple[ServiceDTO, ...]
 
 
 @dataclass(frozen=True)
@@ -76,6 +105,42 @@ class AddressDTO:
     floor: str | None
     apartment: str | None
     comment: str | None
+
+
+@dataclass(frozen=True)
+class PricePreviewDTO:
+    service_id: UUID
+    service_code: str
+    service_name: str
+    duration_minutes: int
+    objects_count: int
+    service_amount: Decimal
+    platform_fee_amount: Decimal
+    total_amount: Decimal
+
+
+@dataclass(frozen=True)
+class OrderDTO:
+    id: UUID
+    customer_id: UUID | None
+    service_id: UUID
+    service_name: str
+    matching_mode: str | None
+    status: str
+    start_at: datetime
+    end_at: datetime
+    objects_count: int
+    total_amount: Decimal
+
+
+@dataclass(frozen=True)
+class SuitablePerformerDTO:
+    performer_id: UUID
+    full_name: str
+    service_id: UUID
+    service_name: str
+    performer_max_objects: int
+    distance_km: Decimal | None
 
 
 class BackendClient:
@@ -132,6 +197,13 @@ class BackendClient:
             )
             for item in response.json()
         )
+
+    async def list_catalog_categories(self) -> tuple[ServiceCategoryDTO, ...]:
+        response = await self._request("GET", "/api/catalog")
+        self._raise_for_status(response)
+        payload = response.json()
+        categories = payload["categories"] if isinstance(payload, dict) else []
+        return tuple(_service_category_from_json(item) for item in categories)
 
     async def register_customer(
         self,
@@ -341,6 +413,110 @@ class BackendClient:
         )
         self._raise_for_status(response)
 
+    async def preview_order_price(
+        self,
+        *,
+        service_id: UUID,
+        start_at: datetime,
+        end_at: datetime,
+        objects_count: int,
+    ) -> PricePreviewDTO:
+        response = await self._request(
+            "POST",
+            "/api/orders/price-preview",
+            json={
+                "service_id": str(service_id),
+                "start_at": start_at.isoformat(),
+                "end_at": end_at.isoformat(),
+                "objects_count": objects_count,
+            },
+        )
+        self._raise_for_status(response)
+        return _price_preview_from_json(response.json())
+
+    async def create_order_draft(
+        self,
+        *,
+        customer_id: UUID,
+        service_id: UUID,
+        start_at: datetime,
+        end_at: datetime,
+        care_object_ids: tuple[UUID, ...],
+        address_id: UUID | None,
+        customer_comment: str | None,
+        report_photo_consent: bool | None,
+    ) -> OrderDTO:
+        response = await self._request(
+            "POST",
+            "/api/orders/drafts",
+            json={
+                "customer_id": str(customer_id),
+                "service_id": str(service_id),
+                "start_at": start_at.isoformat(),
+                "end_at": end_at.isoformat(),
+                "care_object_ids": [str(item) for item in care_object_ids],
+                "address_id": str(address_id) if address_id is not None else None,
+                "customer_comment": customer_comment,
+                "report_photo_consent": report_photo_consent,
+                "option_values": {},
+            },
+        )
+        self._raise_for_status(response)
+        return _order_from_json(response.json())
+
+    async def publish_order_pool(self, *, order_id: UUID) -> OrderDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/drafts/{order_id}/publish-pool",
+        )
+        self._raise_for_status(response)
+        return _order_from_json(response.json())
+
+    async def publish_order_direct(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+    ) -> OrderDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/drafts/{order_id}/publish-direct",
+            json={"performer_id": str(performer_id)},
+        )
+        self._raise_for_status(response)
+        return _order_from_json(response.json())
+
+    async def find_suitable_performers(
+        self,
+        *,
+        city_id: UUID,
+        service_id: UUID,
+        start_at: datetime,
+        end_at: datetime,
+        objects_count: int,
+        care_object_ids: tuple[UUID, ...],
+        address_id: UUID | None,
+    ) -> tuple[SuitablePerformerDTO, ...]:
+        params: dict[str, Any] = {
+            "city_id": str(city_id),
+            "service_id": str(service_id),
+            "starts_at": start_at.isoformat(),
+            "ends_at": end_at.isoformat(),
+            "objects_count": objects_count,
+            "limit": 5,
+        }
+        if care_object_ids:
+            params["care_object_ids"] = [str(item) for item in care_object_ids]
+        if address_id is not None:
+            params["address_id"] = str(address_id)
+        response = await self._request(
+            "GET",
+            "/api/availability/suitable-performers",
+            params=params,
+        )
+        self._raise_for_status(response)
+        return tuple(_suitable_performer_from_json(item) for item in response.json())
+
     async def _request(
         self,
         method: str,
@@ -392,6 +568,42 @@ def _topic_from_json(data: dict[str, object]) -> TelegramTopicDTO:
     )
 
 
+def _service_category_from_json(data: dict[str, object]) -> ServiceCategoryDTO:
+    services = data["services"] if isinstance(data["services"], list) else []
+    return ServiceCategoryDTO(
+        id=UUID(str(data["id"])),
+        code=str(data["code"]),
+        name=str(data["name"]),
+        care_object_type=str(data["care_object_type"]),
+        max_objects_per_order=int(cast(str | int, data["max_objects_per_order"])),
+        services=tuple(_service_from_json(item) for item in services),
+    )
+
+
+def _service_from_json(data: dict[str, object]) -> ServiceDTO:
+    return ServiceDTO(
+        id=UUID(str(data["id"])),
+        code=str(data["code"]),
+        name=str(data["name"]),
+        description=str(data["description"]),
+        price_type=str(data["price_type"]),
+        base_price=Decimal(str(data["base_price"])),
+        location_policy=str(data["location_policy"]),
+        photo_policy=str(data["photo_policy"]),
+        schedule_policy=str(data["schedule_policy"]),
+        allows_multiday=bool(data["allows_multiday"]),
+        min_duration_minutes=int(cast(str | int, data["min_duration_minutes"]))
+        if data["min_duration_minutes"] is not None
+        else None,
+        max_duration_minutes=int(cast(str | int, data["max_duration_minutes"]))
+        if data["max_duration_minutes"] is not None
+        else None,
+        duration_step_minutes=int(cast(str | int, data["duration_step_minutes"]))
+        if data["duration_step_minutes"] is not None
+        else None,
+    )
+
+
 def _care_object_from_json(data: dict[str, object]) -> CareObjectDTO:
     return CareObjectDTO(
         id=UUID(str(data["id"])),
@@ -425,6 +637,51 @@ def _address_from_json(data: dict[str, object]) -> AddressDTO:
     )
 
 
+def _price_preview_from_json(data: dict[str, object]) -> PricePreviewDTO:
+    return PricePreviewDTO(
+        service_id=UUID(str(data["service_id"])),
+        service_code=str(data["service_code"]),
+        service_name=str(data["service_name"]),
+        duration_minutes=int(cast(str | int, data["duration_minutes"])),
+        objects_count=int(cast(str | int, data["objects_count"])),
+        service_amount=Decimal(str(data["service_amount"])),
+        platform_fee_amount=Decimal(str(data["platform_fee_amount"])),
+        total_amount=Decimal(str(data["total_amount"])),
+    )
+
+
+def _order_from_json(data: dict[str, object]) -> OrderDTO:
+    return OrderDTO(
+        id=UUID(str(data["id"])),
+        customer_id=UUID(str(data["customer_id"]))
+        if data["customer_id"] is not None
+        else None,
+        service_id=UUID(str(data["service_id"])),
+        service_name=str(data["service_name"]),
+        matching_mode=data["matching_mode"]
+        if isinstance(data["matching_mode"], str)
+        else None,
+        status=str(data["status"]),
+        start_at=datetime.fromisoformat(str(data["start_at"])),
+        end_at=datetime.fromisoformat(str(data["end_at"])),
+        objects_count=int(cast(str | int, data["objects_count"])),
+        total_amount=Decimal(str(data["total_amount"])),
+    )
+
+
+def _suitable_performer_from_json(data: dict[str, object]) -> SuitablePerformerDTO:
+    return SuitablePerformerDTO(
+        performer_id=UUID(str(data["performer_id"])),
+        full_name=str(data["full_name"]),
+        service_id=UUID(str(data["service_id"])),
+        service_name=str(data["service_name"]),
+        performer_max_objects=int(cast(str | int, data["performer_max_objects"])),
+        distance_km=Decimal(str(data["distance_km"]))
+        if data["distance_km"] is not None
+        else None,
+    )
+
+
 __all__ = [
     "AddressDTO",
     "AddressSuggestionDTO",
@@ -433,5 +690,10 @@ __all__ = [
     "CityDTO",
     "CustomerProfileDTO",
     "LegalDocumentDTO",
+    "OrderDTO",
+    "PricePreviewDTO",
+    "ServiceCategoryDTO",
+    "ServiceDTO",
+    "SuitablePerformerDTO",
     "TelegramTopicDTO",
 ]

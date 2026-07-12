@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import uuid4
 
 import httpx
@@ -329,6 +330,127 @@ async def test_address_methods_use_backend_contract() -> None:
     await client.close()
 
 
+@pytest.mark.asyncio
+async def test_order_methods_use_backend_contract() -> None:
+    category_id = uuid4()
+    service_id = uuid4()
+    customer_id = uuid4()
+    order_id = uuid4()
+    performer_id = uuid4()
+    address_id = uuid4()
+    care_object_id = uuid4()
+    start_at = datetime.fromisoformat("2026-07-14T10:00:00+03:00")
+    end_at = datetime.fromisoformat("2026-07-14T12:00:00+03:00")
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/catalog":
+            return httpx.Response(
+                200,
+                json={
+                    "categories": [
+                        {
+                            "id": str(category_id),
+                            "code": "pets",
+                            "name": "Питомцы",
+                            "care_object_type": "pet",
+                            "max_objects_per_order": 3,
+                            "is_active": True,
+                            "sort_order": 10,
+                            "services": [service_json(service_id)],
+                        },
+                    ],
+                },
+            )
+        if request.url.path == "/api/orders/price-preview":
+            payload = json_body(request)
+            assert payload["service_id"] == str(service_id)
+            assert payload["objects_count"] == 1
+            return httpx.Response(200, json=price_json(service_id))
+        if request.url.path == "/api/orders/drafts":
+            payload = json_body(request)
+            assert payload["customer_id"] == str(customer_id)
+            assert payload["care_object_ids"] == [str(care_object_id)]
+            assert payload["address_id"] == str(address_id)
+            return httpx.Response(
+                201, json=order_json(order_id, customer_id, service_id)
+            )
+        if request.url.path == f"/api/orders/drafts/{order_id}/publish-pool":
+            return httpx.Response(
+                200, json=order_json(order_id, customer_id, service_id)
+            )
+        if request.url.path == f"/api/orders/drafts/{order_id}/publish-direct":
+            assert json_body(request)["performer_id"] == str(performer_id)
+            return httpx.Response(
+                200, json=order_json(order_id, customer_id, service_id)
+            )
+        if request.url.path == "/api/availability/suitable-performers":
+            assert request.url.params["city_id"]
+            assert request.url.params["service_id"] == str(service_id)
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "performer_id": str(performer_id),
+                        "full_name": "Executor User",
+                        "service_id": str(service_id),
+                        "service_code": "pet_sitting",
+                        "service_name": "Передержка",
+                        "performer_max_objects": 2,
+                        "distance_km": "1.5",
+                        "current_address_id": None,
+                    },
+                ],
+            )
+        raise AssertionError(f"Unexpected request {request.method} {request.url}")
+
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(handler),
+    )
+
+    categories = await client.list_catalog_categories()
+    price = await client.preview_order_price(
+        service_id=service_id,
+        start_at=start_at,
+        end_at=end_at,
+        objects_count=1,
+    )
+    draft = await client.create_order_draft(
+        customer_id=customer_id,
+        service_id=service_id,
+        start_at=start_at,
+        end_at=end_at,
+        care_object_ids=(care_object_id,),
+        address_id=address_id,
+        customer_comment="comment",
+        report_photo_consent=True,
+    )
+    pool = await client.publish_order_pool(order_id=order_id)
+    direct = await client.publish_order_direct(
+        order_id=order_id,
+        performer_id=performer_id,
+    )
+    performers = await client.find_suitable_performers(
+        city_id=uuid4(),
+        service_id=service_id,
+        start_at=start_at,
+        end_at=end_at,
+        objects_count=1,
+        care_object_ids=(care_object_id,),
+        address_id=address_id,
+    )
+
+    assert categories[0].services[0].id == service_id
+    assert price.total_amount == 1200
+    assert draft.id == order_id
+    assert pool.status == "searching"
+    assert direct.matching_mode == "pool"
+    assert performers[0].performer_id == performer_id
+    await client.close()
+
+
 def address_json(address_id: object, city_id: object) -> dict[str, object]:
     return {
         "id": str(address_id),
@@ -369,6 +491,72 @@ def care_object_json(care_object_id: object) -> dict[str, object]:
         "deleted_at": None,
         "created_at": "2026-07-13T00:00:00+00:00",
         "updated_at": "2026-07-13T00:00:00+00:00",
+    }
+
+
+def service_json(service_id: object) -> dict[str, object]:
+    return {
+        "id": str(service_id),
+        "code": "pet_sitting",
+        "name": "Передержка",
+        "description": "Описание",
+        "price_type": "hourly",
+        "base_price": "500.00",
+        "location_policy": "customer_address",
+        "photo_policy": "requires_customer_consent",
+        "schedule_policy": "working_hours",
+        "allows_multiday": False,
+        "min_duration_minutes": 60,
+        "max_duration_minutes": 480,
+        "duration_step_minutes": 60,
+        "is_active": True,
+        "sort_order": 10,
+    }
+
+
+def price_json(service_id: object) -> dict[str, object]:
+    return {
+        "service_id": str(service_id),
+        "service_code": "pet_sitting",
+        "service_name": "Передержка",
+        "price_type": "hourly",
+        "duration_minutes": 120,
+        "billable_minutes": 120,
+        "started_24h_units": None,
+        "objects_count": 1,
+        "object_multiplier": "1.00",
+        "base_price": "500.00",
+        "service_amount": "1000.00",
+        "platform_fee_percent": "20.00",
+        "platform_fee_amount": "200.00",
+        "performer_amount": "1000.00",
+        "total_amount": "1200.00",
+        "hold_limit_checked": True,
+    }
+
+
+def order_json(
+    order_id: object, customer_id: object, service_id: object
+) -> dict[str, object]:
+    return {
+        "id": str(order_id),
+        "customer_id": str(customer_id),
+        "service_id": str(service_id),
+        "service_code": "pet_sitting",
+        "service_name": "Передержка",
+        "schedule_policy": "working_hours",
+        "photo_policy": "requires_customer_consent",
+        "matching_mode": "pool",
+        "status": "searching",
+        "address_id": str(uuid4()),
+        "location_source": "customer_address",
+        "start_at": "2026-07-14T10:00:00+03:00",
+        "end_at": "2026-07-14T12:00:00+03:00",
+        "objects_count": 1,
+        "total_amount": "1200.00",
+        "performer_amount": "1000.00",
+        "platform_fee_amount": "200.00",
+        "matching_deadline_at": "2026-07-14T09:30:00+03:00",
     }
 
 

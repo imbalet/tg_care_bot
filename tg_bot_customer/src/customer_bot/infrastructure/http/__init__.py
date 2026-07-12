@@ -5,6 +5,11 @@ from .client import (
     BackendClient,
     CareObjectDTO,
     CustomerProfileDTO,
+    OrderDTO,
+    PricePreviewDTO,
+    ServiceCategoryDTO,
+    ServiceDTO,
+    SuitablePerformerDTO,
     TelegramTopicDTO,
 )
 from .errors import (
@@ -26,5 +31,10 @@ __all__ = [
     "AddressSuggestionDTO",
     "CareObjectDTO",
     "CustomerProfileDTO",
+    "OrderDTO",
+    "PricePreviewDTO",
+    "ServiceCategoryDTO",
+    "ServiceDTO",
+    "SuitablePerformerDTO",
     "TelegramTopicDTO",
 ]

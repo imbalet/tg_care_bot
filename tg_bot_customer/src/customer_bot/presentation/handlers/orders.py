@@ -1,0 +1,540 @@
+from datetime import datetime, timedelta
+from uuid import UUID
+from zoneinfo import ZoneInfo
+
+from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import CallbackQuery, Message
+
+from customer_bot.infrastructure.http import (
+    BackendClient,
+    BackendClientError,
+    BackendValidationError,
+    CareObjectDTO,
+    ServiceCategoryDTO,
+    SuitablePerformerDTO,
+)
+from customer_bot.presentation.middlewares import TelegramUserContext
+from customer_bot.presentation.ui import (
+    invalid_datetime_text,
+    invalid_duration_text,
+    order_address_step_text,
+    order_addresses_keyboard,
+    order_comment_skip_keyboard,
+    order_comment_step_text,
+    order_draft_summary_text,
+    order_duration_step_text,
+    order_no_addresses_text,
+    order_no_objects_text,
+    order_no_services_text,
+    order_objects_keyboard,
+    order_objects_step_text,
+    order_photo_consent_keyboard,
+    order_photo_consent_step_text,
+    order_publish_keyboard,
+    order_published_text,
+    order_services_keyboard,
+    order_services_step_text,
+    order_start_step_text,
+    retry_later_text,
+    use_buttons_text,
+)
+from customer_bot.presentation.ui.keyboards import (
+    ORDER_ADDRESS_PREFIX,
+    ORDER_COMMENT_SKIP,
+    ORDER_CREATE,
+    ORDER_OBJECT_PREFIX,
+    ORDER_PHOTO_CONSENT_PREFIX,
+    ORDER_PUBLISH_DIRECT_PREFIX,
+    ORDER_PUBLISH_POOL,
+    ORDER_SERVICE_PREFIX,
+)
+
+router = Router(name="orders")
+
+LOCAL_TZ = ZoneInfo("Europe/Moscow")
+MAX_DURATION_HOURS = 24
+
+
+class OrderCreation(StatesGroup):
+    service = State()
+    object = State()
+    start = State()
+    duration = State()
+    address = State()
+    photo_consent = State()
+    comment = State()
+    publish = State()
+
+
+@router.callback_query(F.data == ORDER_CREATE)
+async def start_order_creation(
+    callback: CallbackQuery,
+    state: FSMContext,
+    backend_client: BackendClient,
+) -> None:
+    await callback.answer()
+    message = _callback_message(callback)
+    if message is None:
+        return
+    try:
+        categories = await backend_client.list_catalog_categories()
+    except BackendClientError:
+        await message.answer(retry_later_text())
+        return
+    services = _service_states(categories)
+    if not services:
+        await message.answer(order_no_services_text())
+        return
+    await state.set_state(OrderCreation.service)
+    await state.update_data(order_services=services, order_draft={})
+    await message.answer(
+        order_services_step_text(),
+        reply_markup=order_services_keyboard(services),
+    )
+
+
+@router.callback_query(OrderCreation.service, F.data.startswith(ORDER_SERVICE_PREFIX))
+async def select_service(
+    callback: CallbackQuery,
+    state: FSMContext,
+    backend_client: BackendClient,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await callback.answer()
+    message = _callback_message(callback)
+    service = await _item_from_callback(
+        callback, state, "order_services", ORDER_SERVICE_PREFIX
+    )
+    if message is None or service is None:
+        return
+    draft = _draft(await state.get_data())
+    draft.update(
+        {
+            "service_id": service["id"],
+            "service_name": service["name"],
+            "care_object_type": service["care_object_type"],
+            "location_policy": service["location_policy"],
+            "photo_policy": service["photo_policy"],
+        },
+    )
+    try:
+        objects = await backend_client.list_care_objects(
+            telegram_id=telegram_user_context.telegram_id,
+            object_type=str(service["care_object_type"]),
+        )
+    except BackendClientError:
+        await message.answer(retry_later_text())
+        return
+    if not objects:
+        await message.answer(order_no_objects_text(str(service["care_object_type"])))
+        return
+    await state.set_state(OrderCreation.object)
+    await state.update_data(
+        order_draft=draft,
+        order_objects=[_care_object_state(item) for item in objects],
+    )
+    await message.answer(
+        order_objects_step_text(),
+        reply_markup=order_objects_keyboard(objects),
+    )
+
+
+@router.callback_query(OrderCreation.object, F.data.startswith(ORDER_OBJECT_PREFIX))
+async def select_object(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    message = _callback_message(callback)
+    item = await _item_from_callback(
+        callback, state, "order_objects", ORDER_OBJECT_PREFIX
+    )
+    if message is None or item is None:
+        return
+    data = await state.get_data()
+    draft = _draft(data)
+    draft["care_object_ids"] = [str(item["id"])]
+    draft["objects_count"] = 1
+    await state.set_state(OrderCreation.start)
+    await state.update_data(order_draft=draft)
+    await message.answer(order_start_step_text())
+
+
+@router.message(OrderCreation.start)
+async def enter_start(message: Message, state: FSMContext) -> None:
+    if not message.text:
+        await message.answer(invalid_datetime_text())
+        return
+    start_at = _parse_local_datetime(message.text)
+    if start_at is None:
+        await message.answer(invalid_datetime_text())
+        return
+    data = await state.get_data()
+    draft = _draft(data)
+    draft["start_at"] = start_at.isoformat()
+    await state.set_state(OrderCreation.duration)
+    await state.update_data(order_draft=draft)
+    await message.answer(order_duration_step_text())
+
+
+@router.message(OrderCreation.duration)
+async def enter_duration(
+    message: Message,
+    state: FSMContext,
+    backend_client: BackendClient,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    hours = _parse_duration_hours(message.text)
+    if hours is None:
+        await message.answer(invalid_duration_text())
+        return
+    data = await state.get_data()
+    draft = _draft(data)
+    start_at = datetime.fromisoformat(str(draft["start_at"]))
+    end_at = start_at + timedelta(hours=hours)
+    draft["end_at"] = end_at.isoformat()
+    await state.update_data(order_draft=draft)
+    if draft.get("location_policy") != "customer_address":
+        await _ask_photo_or_comment(message, state)
+        return
+    try:
+        addresses = await backend_client.list_addresses(
+            telegram_id=telegram_user_context.telegram_id,
+        )
+    except BackendClientError:
+        await message.answer(retry_later_text())
+        return
+    if not addresses:
+        await message.answer(order_no_addresses_text())
+        return
+    await state.set_state(OrderCreation.address)
+    await state.update_data(
+        order_addresses=[
+            {
+                "id": str(address.id),
+                "address_text": address.address_text,
+            }
+            for address in addresses
+        ],
+    )
+    await message.answer(
+        order_address_step_text(),
+        reply_markup=order_addresses_keyboard(addresses),
+    )
+
+
+@router.callback_query(OrderCreation.address, F.data.startswith(ORDER_ADDRESS_PREFIX))
+async def select_address(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    message = _callback_message(callback)
+    item = await _item_from_callback(
+        callback, state, "order_addresses", ORDER_ADDRESS_PREFIX
+    )
+    if message is None or item is None:
+        return
+    data = await state.get_data()
+    draft = _draft(data)
+    draft["address_id"] = item["id"]
+    await state.update_data(order_draft=draft)
+    await _ask_photo_or_comment(message, state)
+
+
+@router.callback_query(
+    OrderCreation.photo_consent,
+    F.data.startswith(ORDER_PHOTO_CONSENT_PREFIX),
+)
+async def select_photo_consent(callback: CallbackQuery, state: FSMContext) -> None:
+    await callback.answer()
+    message = _callback_message(callback)
+    value = _callback_value(callback.data, ORDER_PHOTO_CONSENT_PREFIX)
+    if message is None or value not in {"yes", "no"}:
+        return
+    data = await state.get_data()
+    draft = _draft(data)
+    draft["report_photo_consent"] = value == "yes"
+    await state.set_state(OrderCreation.comment)
+    await state.update_data(order_draft=draft)
+    await message.answer(
+        order_comment_step_text(),
+        reply_markup=order_comment_skip_keyboard(),
+    )
+
+
+@router.message(OrderCreation.comment)
+async def enter_comment(
+    message: Message,
+    state: FSMContext,
+    backend_client: BackendClient,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    data = await state.get_data()
+    draft = _draft(data)
+    if message.text and message.text.strip():
+        draft["customer_comment"] = message.text.strip()
+    await _create_draft_and_show_summary(
+        message,
+        state,
+        backend_client,
+        telegram_user_context,
+        draft,
+    )
+
+
+@router.callback_query(OrderCreation.comment, F.data == ORDER_COMMENT_SKIP)
+async def skip_comment(
+    callback: CallbackQuery,
+    state: FSMContext,
+    backend_client: BackendClient,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await callback.answer()
+    message = _callback_message(callback)
+    if message is None:
+        return
+    data = await state.get_data()
+    await _create_draft_and_show_summary(
+        message,
+        state,
+        backend_client,
+        telegram_user_context,
+        _draft(data),
+    )
+
+
+@router.callback_query(OrderCreation.publish, F.data == ORDER_PUBLISH_POOL)
+async def publish_pool(
+    callback: CallbackQuery,
+    state: FSMContext,
+    backend_client: BackendClient,
+) -> None:
+    await callback.answer()
+    message = _callback_message(callback)
+    if message is None:
+        return
+    data = await state.get_data()
+    draft = _draft(data)
+    try:
+        order = await backend_client.publish_order_pool(
+            order_id=UUID(str(draft["order_id"])),
+        )
+    except BackendClientError:
+        await message.answer(retry_later_text())
+        return
+    await state.clear()
+    await message.answer(order_published_text(order))
+
+
+@router.callback_query(
+    OrderCreation.publish,
+    F.data.startswith(ORDER_PUBLISH_DIRECT_PREFIX),
+)
+async def publish_direct(
+    callback: CallbackQuery,
+    state: FSMContext,
+    backend_client: BackendClient,
+) -> None:
+    await callback.answer()
+    message = _callback_message(callback)
+    performer = await _item_from_callback(
+        callback,
+        state,
+        "order_performers",
+        ORDER_PUBLISH_DIRECT_PREFIX,
+    )
+    if message is None or performer is None:
+        return
+    data = await state.get_data()
+    draft = _draft(data)
+    try:
+        order = await backend_client.publish_order_direct(
+            order_id=UUID(str(draft["order_id"])),
+            performer_id=UUID(str(performer["performer_id"])),
+        )
+    except BackendClientError:
+        await message.answer(retry_later_text())
+        return
+    await state.clear()
+    await message.answer(order_published_text(order))
+
+
+async def _ask_photo_or_comment(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    draft = _draft(data)
+    if draft.get("photo_policy") == "requires_customer_consent":
+        await state.set_state(OrderCreation.photo_consent)
+        await message.answer(
+            order_photo_consent_step_text(),
+            reply_markup=order_photo_consent_keyboard(),
+        )
+        return
+    draft["report_photo_consent"] = None
+    await state.set_state(OrderCreation.comment)
+    await state.update_data(order_draft=draft)
+    await message.answer(
+        order_comment_step_text(),
+        reply_markup=order_comment_skip_keyboard(),
+    )
+
+
+async def _create_draft_and_show_summary(
+    message: Message,
+    state: FSMContext,
+    backend_client: BackendClient,
+    telegram_user_context: TelegramUserContext,
+    draft: dict[str, object],
+) -> None:
+    try:
+        profile = await backend_client.get_customer_profile(
+            telegram_user_context.telegram_id,
+        )
+        if profile is None:
+            await message.answer(use_buttons_text())
+            return
+        start_at = datetime.fromisoformat(str(draft["start_at"]))
+        end_at = datetime.fromisoformat(str(draft["end_at"]))
+        care_object_ids = tuple(
+            UUID(str(item)) for item in _string_list(draft["care_object_ids"])
+        )
+        address_id = UUID(str(draft["address_id"])) if draft.get("address_id") else None
+        objects_count = int(str(draft["objects_count"]))
+        consent_value = draft.get("report_photo_consent")
+        report_photo_consent = (
+            consent_value if isinstance(consent_value, bool) else None
+        )
+        price = await backend_client.preview_order_price(
+            service_id=UUID(str(draft["service_id"])),
+            start_at=start_at,
+            end_at=end_at,
+            objects_count=objects_count,
+        )
+        order = await backend_client.create_order_draft(
+            customer_id=profile.id,
+            service_id=UUID(str(draft["service_id"])),
+            start_at=start_at,
+            end_at=end_at,
+            care_object_ids=care_object_ids,
+            address_id=address_id,
+            customer_comment=str(draft["customer_comment"])
+            if draft.get("customer_comment")
+            else None,
+            report_photo_consent=report_photo_consent,
+        )
+        performers = await backend_client.find_suitable_performers(
+            city_id=profile.city_id,
+            service_id=UUID(str(draft["service_id"])),
+            start_at=start_at,
+            end_at=end_at,
+            objects_count=objects_count,
+            care_object_ids=care_object_ids,
+            address_id=address_id,
+        )
+    except BackendValidationError:
+        await message.answer(use_buttons_text())
+        return
+    except BackendClientError:
+        await message.answer(retry_later_text())
+        return
+    draft["order_id"] = str(order.id)
+    await state.set_state(OrderCreation.publish)
+    await state.update_data(
+        order_draft=draft,
+        order_performers=[_performer_state(item) for item in performers],
+    )
+    await message.answer(
+        order_draft_summary_text(price=price, performers_count=len(performers)),
+        reply_markup=order_publish_keyboard(performers),
+    )
+
+
+def _service_states(
+    categories: tuple[ServiceCategoryDTO, ...],
+) -> list[dict[str, object]]:
+    services: list[dict[str, object]] = []
+    for category in categories:
+        for service in category.services:
+            services.append(
+                {
+                    "id": str(service.id),
+                    "name": f"{category.name}: {service.name}",
+                    "care_object_type": category.care_object_type,
+                    "location_policy": service.location_policy,
+                    "photo_policy": service.photo_policy,
+                },
+            )
+    return services
+
+
+def _care_object_state(item: CareObjectDTO) -> dict[str, object]:
+    return {"id": str(item.id), "display_name": item.display_name}
+
+
+def _performer_state(item: SuitablePerformerDTO) -> dict[str, object]:
+    return {"performer_id": str(item.performer_id), "full_name": item.full_name}
+
+
+async def _item_from_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+    key: str,
+    prefix: str,
+) -> dict[str, object] | None:
+    data = await state.get_data()
+    items = data.get(key)
+    index = _callback_index(callback.data, prefix)
+    if index is None or not isinstance(items, list) or index >= len(items):
+        return None
+    item = items[index]
+    return item if isinstance(item, dict) else None
+
+
+def _parse_local_datetime(value: str) -> datetime | None:
+    try:
+        parsed = datetime.strptime(value.strip(), "%Y-%m-%d %H:%M")
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=LOCAL_TZ)
+
+
+def _parse_duration_hours(value: str | None) -> int | None:
+    if value is None:
+        return None
+    try:
+        hours = int(value.strip())
+    except ValueError:
+        return None
+    if hours < 1 or hours > MAX_DURATION_HOURS:
+        return None
+    return hours
+
+
+def _draft(data: dict[str, object]) -> dict[str, object]:
+    draft = data.get("order_draft")
+    return dict(draft) if isinstance(draft, dict) else {}
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
+
+
+def _callback_index(data: str | None, prefix: str) -> int | None:
+    value = _callback_value(data, prefix)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _callback_value(data: str | None, prefix: str) -> str | None:
+    if data is None or not data.startswith(prefix):
+        return None
+    return data.removeprefix(prefix)
+
+
+def _callback_message(callback: CallbackQuery) -> Message | None:
+    return callback.message if isinstance(callback.message, Message) else None
+
+
+__all__ = ["router"]
