@@ -29,6 +29,7 @@ from backend.modules.catalog.presentation.api import (
 )
 from backend.modules.customers.presentation.api import router as customers_router
 from backend.modules.geo.presentation.api import router as geo_router
+from backend.modules.orders.presentation.api import router as orders_router
 from backend.modules.performers.presentation.api import (
     admin_router as admin_performers_router,
 )
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(legal_router)
     app.include_router(customers_router)
     app.include_router(geo_router)
+    app.include_router(orders_router)
     app.include_router(performers_router)
     app.include_router(admin_performers_router)
     app.include_router(telegram_topics_router)

@@ -5,6 +5,7 @@ from .models import (
     OrderOptionValueModel,
     OrderStatusHistoryModel,
 )
+from .pricing_repositories import SqlAlchemyPricingRepository
 
 __all__ = [
     "OrderCareObjectModel",
@@ -12,4 +13,5 @@ __all__ = [
     "OrderModel",
     "OrderOptionValueModel",
     "OrderStatusHistoryModel",
+    "SqlAlchemyPricingRepository",
 ]
