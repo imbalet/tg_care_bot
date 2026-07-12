@@ -133,6 +133,20 @@ class BackendClient:
         self._raise_for_status(response)
         return _performer_from_json(response.json())
 
+    async def update_performer_username(
+        self,
+        *,
+        telegram_id: int,
+        telegram_username: str | None,
+    ) -> PerformerProfileDTO:
+        response = await self._request(
+            "PATCH",
+            f"/api/performers/by-telegram/{telegram_id}/telegram-username",
+            json={"telegram_username": telegram_username},
+        )
+        self._raise_for_status(response)
+        return _performer_from_json(response.json())
+
     async def _request(
         self,
         method: str,

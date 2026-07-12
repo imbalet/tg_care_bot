@@ -4,6 +4,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.strategy import FSMStrategy
+from redis.asyncio import Redis
 
 from executor_bot.bootstrap import get_settings
 from executor_bot.infrastructure.http import BackendClient
@@ -13,17 +14,22 @@ from executor_bot.presentation.handlers import (
     registration_router,
     start_router,
 )
-from executor_bot.presentation.middlewares import TelegramUserContextMiddleware
+from executor_bot.presentation.middlewares import (
+    TelegramUserContextMiddleware,
+    TelegramUsernameSyncMiddleware,
+)
 
 
 async def amain() -> None:
     settings = get_settings()
     storage = create_fsm_storage(settings.redis_url)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
     dispatcher = Dispatcher(
         storage=storage,
         fsm_strategy=FSMStrategy.USER_IN_TOPIC,
     )
     dispatcher.update.middleware(TelegramUserContextMiddleware())
+    dispatcher.update.middleware(TelegramUsernameSyncMiddleware(redis))
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)
     dispatcher.include_router(fallback_router)
@@ -41,6 +47,7 @@ async def amain() -> None:
         await dispatcher.start_polling(bot, backend_client=backend_client)
     finally:
         await backend_client.close()
+        await redis.aclose()
         await bot.session.close()
         await storage.close()
 
