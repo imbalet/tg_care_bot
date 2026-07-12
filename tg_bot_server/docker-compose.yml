@@ -1,0 +1,132 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+
+  api:
+    build:
+      context: .
+    environment:
+      APP_ENV: ${APP_ENV:?APP_ENV is required}
+      APP_NAME: ${APP_NAME:?APP_NAME is required}
+      LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:?POSTGRES_DB is required}
+      DB_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      DB_PASS: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      SERVICE_KEY: ${SERVICE_KEY:?SERVICE_KEY is required}
+      WORKER_POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:?WORKER_POLL_INTERVAL_SECONDS is required}
+      WORKER_BATCH_LIMIT: ${WORKER_BATCH_LIMIT:?WORKER_BATCH_LIMIT is required}
+    command: ["python", "-m", "backend.main"]
+    ports:
+      - "18000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+    environment:
+      APP_ENV: ${APP_ENV:?APP_ENV is required}
+      APP_NAME: ${APP_NAME:?APP_NAME is required}
+      LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:?POSTGRES_DB is required}
+      DB_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      DB_PASS: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      SERVICE_KEY: ${SERVICE_KEY:?SERVICE_KEY is required}
+      WORKER_POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:?WORKER_POLL_INTERVAL_SECONDS is required}
+      WORKER_BATCH_LIMIT: ${WORKER_BATCH_LIMIT:?WORKER_BATCH_LIMIT is required}
+    command: ["python", "-m", "backend.worker.main"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  customer_bot:
+    build:
+      context: ../tg_bot_customer
+    profiles: ["bots"]
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
+      BOT_TOKEN: ${CUSTOMER_BOT_TOKEN:?CUSTOMER_BOT_TOKEN is required}
+      BACKEND_SCHEME: http
+      BACKEND_HOST: api
+      BACKEND_PORT: "8000"
+      SERVICE_KEY: ${SERVICE_KEY:?SERVICE_KEY is required}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "1"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REQUEST_TIMEOUT_SECONDS: ${BOT_REQUEST_TIMEOUT_SECONDS:?BOT_REQUEST_TIMEOUT_SECONDS is required}
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  executor_bot:
+    build:
+      context: ../tg_bot_executor
+    profiles: ["bots"]
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
+      BOT_TOKEN: ${EXECUTOR_BOT_TOKEN:?EXECUTOR_BOT_TOKEN is required}
+      BACKEND_SCHEME: http
+      BACKEND_HOST: api
+      BACKEND_PORT: "8000"
+      SERVICE_KEY: ${SERVICE_KEY:?SERVICE_KEY is required}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "2"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REQUEST_TIMEOUT_SECONDS: ${BOT_REQUEST_TIMEOUT_SECONDS:?BOT_REQUEST_TIMEOUT_SECONDS is required}
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy

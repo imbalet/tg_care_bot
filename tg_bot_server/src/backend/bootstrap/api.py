@@ -1,0 +1,77 @@
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
+from typing import Annotated
+from uuid import uuid4
+
+import structlog
+from fastapi import Depends, FastAPI, Request
+from sqlalchemy import text
+from starlette.responses import Response
+
+from backend.bootstrap.container import Container, create_container
+from backend.bootstrap.dependencies import get_container
+from backend.bootstrap.settings import get_settings
+from backend.common.infrastructure.logging import configure_logging
+from backend.common.presentation import register_error_handlers, require_service_key
+from backend.modules.system_checks.presentation.api import (
+    router as system_checks_router,
+)
+
+logger = structlog.get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
+    configure_logging(settings.log_level)
+    container = create_container(settings)
+    app.state.container = container
+    try:
+        yield
+    finally:
+        await container.close()
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="We Are Close API", lifespan=lifespan)
+    register_error_handlers(app)
+    app.include_router(system_checks_router)
+
+    @app.middleware("http")
+    async def bind_request_id(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        request_id = request.headers.get("X-Request-ID", str(uuid4()))
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(request_id=request_id)
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+    @app.get("/health/live")
+    async def live() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/health/ready")
+    async def ready(
+        container: Annotated[Container, Depends(get_container)],
+    ) -> dict[str, str | dict[str, str]]:
+        dependencies: dict[str, str] = {}
+        async with container.session_factory() as session:
+            await session.execute(text("select 1"))
+            dependencies["postgres"] = "ok"
+        await container.redis.ping()
+        dependencies["redis"] = "ok"
+        return {"status": "ok", "dependencies": dependencies}
+
+    @app.get("/internal/ping", dependencies=[Depends(require_service_key)])
+    async def internal_ping() -> dict[str, str]:
+        return {"status": "ok"}
+
+    return app
+
+
+app = create_app()
+
+__all__ = ["app", "create_app", "get_container"]
