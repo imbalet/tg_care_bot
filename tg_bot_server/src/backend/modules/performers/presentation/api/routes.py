@@ -8,11 +8,20 @@ from pydantic import BaseModel, Field
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
 from backend.common.presentation import require_service_key
+from backend.modules.addresses.application import (
+    AddressDTO,
+    CreateOwnerAddressCommand,
+    CreatePerformerAddressUseCase,
+    DeletePerformerAddressUseCase,
+    SetPerformerCurrentAddressUseCase,
+)
+from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
 from backend.modules.admin.infrastructure import SqlAlchemyAdminAuditRepository
 from backend.modules.admin.presentation.api.routes import (
     AdminResponse,
     require_admin_csrf,
 )
+from backend.modules.geo.infrastructure import DaDataGeocoder
 from backend.modules.performers.application import (
     ActivatePerformerUseCase,
     CreateInvitationCommand,
@@ -57,6 +66,37 @@ class UpdateTelegramUsernameRequest(BaseModel):
     telegram_username: str | None = None
 
 
+class CreateAddressRequest(BaseModel):
+    city_id: UUID
+    unrestricted_value: str = Field(min_length=1)
+    entrance: str | None = None
+    floor: str | None = None
+    apartment: str | None = None
+    comment: str | None = None
+
+
+class AddressResponse(BaseModel):
+    id: str
+    owner_type: str
+    customer_id: str | None
+    performer_id: str | None
+    city_id: str
+    district_id: str | None
+    address_text: str
+    fias_id: str | None
+    latitude: str | None
+    longitude: str | None
+    geocoding_provider: str | None
+    geocoding_quality: str | None
+    entrance: str | None
+    floor: str | None
+    apartment: str | None
+    comment: str | None
+    deleted_at: str | None
+    created_at: str
+    updated_at: str
+
+
 class InvitationResponse(BaseModel):
     id: str
     telegram_id: int
@@ -76,6 +116,7 @@ class PerformerResponse(BaseModel):
     about_text: str | None
     status: str
     is_accepting_orders: bool
+    current_address_id: str | None
 
 
 class RegistrationStateResponse(BaseModel):
@@ -221,6 +262,81 @@ async def update_telegram_username(
     return _performer_response(performer)
 
 
+@router.get("/performers/by-telegram/{telegram_id}/addresses")
+async def list_addresses(
+    telegram_id: int,
+    container: Annotated[Container, Depends(get_container)],
+) -> list[AddressResponse]:
+    async with container.session_factory() as session:
+        performer = await SqlAlchemyPerformerRepository(
+            session,
+        ).get_performer_by_telegram_id(telegram_id)
+        if performer is None:
+            from backend.common.domain import NotFoundError
+
+            raise NotFoundError("Performer is not registered")
+        addresses = await SqlAlchemyAddressRepository(session).list_for_performer(
+            performer.id,
+        )
+    return [_address_response(address) for address in addresses]
+
+
+@router.post("/performers/by-telegram/{telegram_id}/addresses", status_code=201)
+async def create_address(
+    telegram_id: int,
+    request: CreateAddressRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> AddressResponse:
+    async with container.session_factory() as session:
+        address = await CreatePerformerAddressUseCase(
+            SqlAlchemyPerformerRepository(session),
+            SqlAlchemyAddressRepository(session),
+            _geocoder(container),
+        ).execute(
+            CreateOwnerAddressCommand(
+                telegram_id=telegram_id,
+                city_id=request.city_id,
+                unrestricted_value=request.unrestricted_value,
+                entrance=request.entrance,
+                floor=request.floor,
+                apartment=request.apartment,
+                comment=request.comment,
+            ),
+        )
+        await session.commit()
+    return _address_response(address)
+
+
+@router.patch("/performers/by-telegram/{telegram_id}/current-address/{address_id}")
+async def set_current_address(
+    telegram_id: int,
+    address_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> AddressResponse:
+    async with container.session_factory() as session:
+        address = await SetPerformerCurrentAddressUseCase(
+            SqlAlchemyPerformerRepository(session),
+            SqlAlchemyAddressRepository(session),
+        ).execute(telegram_id=telegram_id, address_id=address_id)
+        await session.commit()
+    return _address_response(address)
+
+
+@router.delete("/performers/by-telegram/{telegram_id}/addresses/{address_id}")
+async def delete_address(
+    telegram_id: int,
+    address_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> dict[str, str]:
+    async with container.session_factory() as session:
+        await DeletePerformerAddressUseCase(
+            SqlAlchemyPerformerRepository(session),
+            SqlAlchemyAddressRepository(session),
+        ).execute(telegram_id=telegram_id, address_id=address_id)
+        await session.commit()
+    return {"status": "deleted"}
+
+
 def _registration_state_response(
     state: RegistrationStateDTO,
 ) -> RegistrationStateResponse:
@@ -261,6 +377,52 @@ def _performer_response(performer: PerformerDTO) -> PerformerResponse:
         about_text=performer.about_text,
         status=performer.status,
         is_accepting_orders=performer.is_accepting_orders,
+        current_address_id=str(performer.current_address_id)
+        if performer.current_address_id is not None
+        else None,
+    )
+
+
+def _address_response(address: AddressDTO) -> AddressResponse:
+    return AddressResponse(
+        id=str(address.id),
+        owner_type=address.owner_type,
+        customer_id=str(address.customer_id)
+        if address.customer_id is not None
+        else None,
+        performer_id=str(address.performer_id)
+        if address.performer_id is not None
+        else None,
+        city_id=str(address.city_id),
+        district_id=str(address.district_id)
+        if address.district_id is not None
+        else None,
+        address_text=address.address_text,
+        fias_id=address.fias_id,
+        latitude=str(address.latitude) if address.latitude is not None else None,
+        longitude=str(address.longitude) if address.longitude is not None else None,
+        geocoding_provider=address.geocoding_provider,
+        geocoding_quality=address.geocoding_quality,
+        entrance=address.entrance,
+        floor=address.floor,
+        apartment=address.apartment,
+        comment=address.comment,
+        deleted_at=address.deleted_at.isoformat()
+        if address.deleted_at is not None
+        else None,
+        created_at=address.created_at.isoformat(),
+        updated_at=address.updated_at.isoformat(),
+    )
+
+
+def _geocoder(container: Container) -> DaDataGeocoder:
+    settings = container.settings
+    return DaDataGeocoder(
+        api_key=settings.dadata_api_key,
+        secret_key=settings.dadata_secret_key,
+        base_url=settings.dadata_base_url,
+        timeout_seconds=settings.dadata_timeout_seconds,
+        retry_count=settings.dadata_retry_count,
     )
 
 

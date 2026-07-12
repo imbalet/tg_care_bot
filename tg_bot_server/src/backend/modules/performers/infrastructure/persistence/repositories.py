@@ -154,6 +154,18 @@ class SqlAlchemyPerformerRepository:
             model.updated_at = utc_now()
         return _performer_to_dto(model)
 
+    async def set_current_address(
+        self,
+        *,
+        performer_id: UUID,
+        address_id: UUID,
+    ) -> None:
+        model = await self._session.get(PerformerModel, performer_id)
+        if model is None:
+            return
+        model.current_address_id = address_id
+        model.updated_at = utc_now()
+
     async def get_city_is_active(self, city_id: UUID) -> bool:
         result = await self._session.execute(
             select(CityModel.is_active).where(CityModel.id == city_id),
@@ -179,6 +191,7 @@ def _performer_to_dto(model: PerformerModel) -> PerformerDTO:
         about_text=model.about_text,
         status=model.status,
         is_accepting_orders=model.is_accepting_orders,
+        current_address_id=model.current_address_id,
     )
 
 

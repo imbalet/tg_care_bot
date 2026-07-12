@@ -24,6 +24,7 @@ class PerformerDTO:
     about_text: str | None
     status: str
     is_accepting_orders: bool
+    current_address_id: UUID | None
 
 
 @dataclass(frozen=True)

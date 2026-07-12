@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.common.application import utc_now
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.addresses.application import AddressDTO, CreateAddressCommand
+from backend.modules.catalog.infrastructure import CityModel
 
 from .models import AddressModel
 
@@ -85,6 +86,15 @@ class SqlAlchemyAddressRepository:
         if model is None or model.deleted_at is not None:
             raise NotFoundError("Address not found")
         model.deleted_at = utc_now()
+
+    async def get_city_name(self, city_id: UUID) -> str | None:
+        result = await self._session.execute(
+            select(CityModel.name).where(
+                CityModel.id == city_id,
+                CityModel.is_active.is_(True),
+            ),
+        )
+        return result.scalar_one_or_none()
 
     async def list_for_customer(
         self,

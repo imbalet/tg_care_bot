@@ -53,6 +53,14 @@ class PerformerRepository(Protocol):
     ) -> PerformerDTO | None:
         pass
 
+    async def set_current_address(
+        self,
+        *,
+        performer_id: UUID,
+        address_id: UUID,
+    ) -> None:
+        pass
+
     async def get_city_is_active(self, city_id: UUID) -> bool:
         pass
 

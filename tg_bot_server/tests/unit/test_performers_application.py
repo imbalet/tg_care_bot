@@ -88,6 +88,7 @@ class FakePerformerRepository:
             about_text=about_text,
             status="profile_pending",
             is_accepting_orders=False,
+            current_address_id=None,
         )
         self.performers[telegram_id] = performer
         return performer
@@ -114,6 +115,19 @@ class FakePerformerRepository:
         )
         self.performers[telegram_id] = updated
         return updated
+
+    async def set_current_address(
+        self,
+        *,
+        performer_id: UUID,
+        address_id: UUID,
+    ) -> None:
+        for telegram_id, performer in self.performers.items():
+            if performer.id == performer_id:
+                self.performers[telegram_id] = PerformerDTO(
+                    **{**performer.__dict__, "current_address_id": address_id},
+                )
+                return
 
     async def get_city_is_active(self, city_id: UUID) -> bool:
         return city_id in self.active_city_ids

@@ -14,6 +14,9 @@ class AddressRepository(Protocol):
     async def soft_delete(self, address_id: UUID) -> None:
         pass
 
+    async def get_city_name(self, city_id: UUID) -> str | None:
+        pass
+
 
 class AddressQueryService(Protocol):
     async def list_for_customer(

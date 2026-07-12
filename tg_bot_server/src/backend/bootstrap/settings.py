@@ -45,6 +45,17 @@ class Settings(BaseSettings):
         default=86_400,
         validation_alias="ADMIN_SESSION_TTL_SECONDS",
     )
+    dadata_api_key: str = Field(default="", validation_alias="DADATA_API_KEY")
+    dadata_secret_key: str = Field(default="", validation_alias="DADATA_SECRET_KEY")
+    dadata_base_url: str = Field(
+        default="https://suggestions.dadata.ru",
+        validation_alias="DADATA_BASE_URL",
+    )
+    dadata_timeout_seconds: float = Field(
+        default=2.0,
+        validation_alias="DADATA_TIMEOUT_SECONDS",
+    )
+    dadata_retry_count: int = Field(default=1, validation_alias="DADATA_RETRY_COUNT")
 
     @property
     def database_url(self) -> str:

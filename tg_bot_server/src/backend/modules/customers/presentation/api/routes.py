@@ -7,6 +7,13 @@ from pydantic import BaseModel, Field
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
 from backend.common.presentation import require_service_key
+from backend.modules.addresses.application import (
+    AddressDTO,
+    CreateCustomerAddressUseCase,
+    CreateOwnerAddressCommand,
+    DeleteCustomerAddressUseCase,
+)
+from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
 from backend.modules.care_objects.application import (
     CareObjectDTO,
     CreateCustomerCareObjectCommand,
@@ -26,6 +33,7 @@ from backend.modules.customers.application import (
 )
 from backend.modules.customers.application.dto import CustomerDTO
 from backend.modules.customers.infrastructure import SqlAlchemyCustomerRepository
+from backend.modules.geo.infrastructure import DaDataGeocoder
 
 router = APIRouter(
     prefix="/api/customers",
@@ -91,6 +99,37 @@ class CareObjectResponse(BaseModel):
     updated_at: str
 
 
+class CreateAddressRequest(BaseModel):
+    city_id: UUID
+    unrestricted_value: str = Field(min_length=1)
+    entrance: str | None = None
+    floor: str | None = None
+    apartment: str | None = None
+    comment: str | None = None
+
+
+class AddressResponse(BaseModel):
+    id: str
+    owner_type: str
+    customer_id: str | None
+    performer_id: str | None
+    city_id: str
+    district_id: str | None
+    address_text: str
+    fias_id: str | None
+    latitude: str | None
+    longitude: str | None
+    geocoding_provider: str | None
+    geocoding_quality: str | None
+    entrance: str | None
+    floor: str | None
+    apartment: str | None
+    comment: str | None
+    deleted_at: str | None
+    created_at: str
+    updated_at: str
+
+
 def _to_response(customer: CustomerDTO) -> CustomerResponse:
     return CustomerResponse(
         id=str(customer.id),
@@ -122,6 +161,49 @@ def _care_object_to_response(care_object: CareObjectDTO) -> CareObjectResponse:
         else None,
         created_at=care_object.created_at.isoformat(),
         updated_at=care_object.updated_at.isoformat(),
+    )
+
+
+def _address_to_response(address: AddressDTO) -> AddressResponse:
+    return AddressResponse(
+        id=str(address.id),
+        owner_type=address.owner_type,
+        customer_id=str(address.customer_id)
+        if address.customer_id is not None
+        else None,
+        performer_id=str(address.performer_id)
+        if address.performer_id is not None
+        else None,
+        city_id=str(address.city_id),
+        district_id=str(address.district_id)
+        if address.district_id is not None
+        else None,
+        address_text=address.address_text,
+        fias_id=address.fias_id,
+        latitude=str(address.latitude) if address.latitude is not None else None,
+        longitude=str(address.longitude) if address.longitude is not None else None,
+        geocoding_provider=address.geocoding_provider,
+        geocoding_quality=address.geocoding_quality,
+        entrance=address.entrance,
+        floor=address.floor,
+        apartment=address.apartment,
+        comment=address.comment,
+        deleted_at=address.deleted_at.isoformat()
+        if address.deleted_at is not None
+        else None,
+        created_at=address.created_at.isoformat(),
+        updated_at=address.updated_at.isoformat(),
+    )
+
+
+def _geocoder(container: Container) -> DaDataGeocoder:
+    settings = container.settings
+    return DaDataGeocoder(
+        api_key=settings.dadata_api_key,
+        secret_key=settings.dadata_secret_key,
+        base_url=settings.dadata_base_url,
+        timeout_seconds=settings.dadata_timeout_seconds,
+        retry_count=settings.dadata_retry_count,
     )
 
 
@@ -263,6 +345,62 @@ async def delete_care_object(
             SqlAlchemyCustomerRepository(session),
             SqlAlchemyCareObjectRepository(session),
         ).execute(telegram_id=telegram_id, care_object_id=care_object_id)
+        await session.commit()
+    return {"status": "deleted"}
+
+
+@router.get("/by-telegram/{telegram_id}/addresses")
+async def list_addresses(
+    telegram_id: int,
+    container: Annotated[Container, Depends(get_container)],
+) -> list[AddressResponse]:
+    async with container.session_factory() as session:
+        customer = await GetCustomerProfileUseCase(
+            SqlAlchemyCustomerRepository(session),
+        ).execute(telegram_id)
+        addresses = await SqlAlchemyAddressRepository(session).list_for_customer(
+            customer.id,
+        )
+    return [_address_to_response(address) for address in addresses]
+
+
+@router.post("/by-telegram/{telegram_id}/addresses", status_code=201)
+async def create_address(
+    telegram_id: int,
+    request: CreateAddressRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> AddressResponse:
+    async with container.session_factory() as session:
+        address = await CreateCustomerAddressUseCase(
+            SqlAlchemyCustomerRepository(session),
+            SqlAlchemyAddressRepository(session),
+            _geocoder(container),
+        ).execute(
+            CreateOwnerAddressCommand(
+                telegram_id=telegram_id,
+                city_id=request.city_id,
+                unrestricted_value=request.unrestricted_value,
+                entrance=request.entrance,
+                floor=request.floor,
+                apartment=request.apartment,
+                comment=request.comment,
+            ),
+        )
+        await session.commit()
+    return _address_to_response(address)
+
+
+@router.delete("/by-telegram/{telegram_id}/addresses/{address_id}")
+async def delete_address(
+    telegram_id: int,
+    address_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> dict[str, str]:
+    async with container.session_factory() as session:
+        await DeleteCustomerAddressUseCase(
+            SqlAlchemyCustomerRepository(session),
+            SqlAlchemyAddressRepository(session),
+        ).execute(telegram_id=telegram_id, address_id=address_id)
         await session.commit()
     return {"status": "deleted"}
 
