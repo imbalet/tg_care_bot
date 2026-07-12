@@ -14,6 +14,7 @@ from executor_bot.presentation.handlers import (
     avatar_router,
     fallback_router,
     registration_router,
+    services_calendar_router,
     start_router,
 )
 from executor_bot.presentation.middlewares import (
@@ -36,6 +37,7 @@ async def amain() -> None:
     dispatcher.include_router(registration_router)
     dispatcher.include_router(addresses_router)
     dispatcher.include_router(avatar_router)
+    dispatcher.include_router(services_calendar_router)
     dispatcher.include_router(fallback_router)
 
     bot = Bot(

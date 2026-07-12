@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
 from typing import Any, cast
 from uuid import UUID
 
@@ -78,6 +79,27 @@ class FileDTO:
     mime_type: str
     size_bytes: int | None
     status: str
+
+
+@dataclass(frozen=True)
+class PerformerServiceDTO:
+    service_id: UUID
+    service_code: str
+    service_name: str
+    service_location_policy: str
+    is_approved: bool
+    is_enabled: bool
+    admin_max_objects: int
+    performer_max_objects: int
+    constraints: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class PerformerScheduleDTO:
+    schedule_type: str
+    work_days: tuple[int, ...] | None
+    work_start_time: str
+    work_end_time: str
 
 
 class BackendClient:
@@ -301,6 +323,100 @@ class BackendClient:
         )
         self._raise_for_status(response)
 
+    async def list_performer_services(
+        self,
+        *,
+        telegram_id: int,
+    ) -> tuple[PerformerServiceDTO, ...]:
+        response = await self._request(
+            "GET",
+            f"/api/performers/by-telegram/{telegram_id}/services",
+        )
+        self._raise_for_status(response)
+        return tuple(_performer_service_from_json(item) for item in response.json())
+
+    async def set_service_enabled(
+        self,
+        *,
+        telegram_id: int,
+        service_id: UUID,
+        is_enabled: bool,
+    ) -> PerformerServiceDTO:
+        response = await self._request(
+            "PATCH",
+            f"/api/performers/by-telegram/{telegram_id}/services/{service_id}/enabled",
+            json={"is_enabled": is_enabled},
+        )
+        self._raise_for_status(response)
+        return _performer_service_from_json(response.json())
+
+    async def set_service_max_objects(
+        self,
+        *,
+        telegram_id: int,
+        service_id: UUID,
+        performer_max_objects: int,
+    ) -> PerformerServiceDTO:
+        response = await self._request(
+            "PATCH",
+            f"/api/performers/by-telegram/{telegram_id}/services/{service_id}/max-objects",
+            json={"performer_max_objects": performer_max_objects},
+        )
+        self._raise_for_status(response)
+        return _performer_service_from_json(response.json())
+
+    async def set_accepting_orders(
+        self,
+        *,
+        telegram_id: int,
+        is_accepting_orders: bool,
+    ) -> PerformerProfileDTO:
+        response = await self._request(
+            "PATCH",
+            f"/api/performers/by-telegram/{telegram_id}/accepting-orders",
+            json={"is_accepting_orders": is_accepting_orders},
+        )
+        self._raise_for_status(response)
+        return _performer_from_json(response.json())
+
+    async def set_schedule(
+        self,
+        *,
+        telegram_id: int,
+        schedule_type: str,
+        work_days: tuple[int, ...] | None,
+        work_start_time: time,
+        work_end_time: time,
+    ) -> PerformerScheduleDTO:
+        response = await self._request(
+            "PATCH",
+            f"/api/performers/by-telegram/{telegram_id}/schedule",
+            json={
+                "schedule_type": schedule_type,
+                "work_days": list(work_days) if work_days is not None else None,
+                "work_start_time": work_start_time.isoformat(),
+                "work_end_time": work_end_time.isoformat(),
+            },
+        )
+        self._raise_for_status(response)
+        return _schedule_from_json(response.json())
+
+    async def add_tomorrow_unavailable(self, *, telegram_id: int) -> None:
+        tomorrow = date.today() + timedelta(days=1)
+        starts_at = datetime.combine(tomorrow, time.min)
+        ends_at = starts_at + timedelta(days=1)
+        response = await self._request(
+            "POST",
+            f"/api/performers/by-telegram/{telegram_id}/calendar-overrides",
+            json={
+                "override_type": "unavailable",
+                "starts_at": starts_at.isoformat(),
+                "ends_at": ends_at.isoformat(),
+                "comment": "Telegram quick action",
+            },
+        )
+        self._raise_for_status(response)
+
     async def _request(
         self,
         method: str,
@@ -374,6 +490,33 @@ def _address_from_json(data: dict[str, object]) -> AddressDTO:
     )
 
 
+def _performer_service_from_json(data: dict[str, object]) -> PerformerServiceDTO:
+    constraints = data.get("constraints")
+    return PerformerServiceDTO(
+        service_id=UUID(str(data["service_id"])),
+        service_code=str(data["service_code"]),
+        service_name=str(data["service_name"]),
+        service_location_policy=str(data["service_location_policy"]),
+        is_approved=bool(data["is_approved"]),
+        is_enabled=bool(data["is_enabled"]),
+        admin_max_objects=int(cast(str | int, data["admin_max_objects"])),
+        performer_max_objects=int(cast(str | int, data["performer_max_objects"])),
+        constraints=constraints if isinstance(constraints, dict) else {},
+    )
+
+
+def _schedule_from_json(data: dict[str, object]) -> PerformerScheduleDTO:
+    work_days = data.get("work_days")
+    return PerformerScheduleDTO(
+        schedule_type=str(data["schedule_type"]),
+        work_days=tuple(int(item) for item in work_days)
+        if isinstance(work_days, list)
+        else None,
+        work_start_time=str(data["work_start_time"]),
+        work_end_time=str(data["work_end_time"]),
+    )
+
+
 __all__ = [
     "AddressDTO",
     "AddressSuggestionDTO",
@@ -382,6 +525,8 @@ __all__ = [
     "FileDTO",
     "LegalDocumentDTO",
     "PerformerProfileDTO",
+    "PerformerScheduleDTO",
+    "PerformerServiceDTO",
     "RegistrationStateDTO",
     "TelegramTopicDTO",
 ]

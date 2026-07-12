@@ -21,6 +21,16 @@ WORK_ADDRESS_SKIP = "work_addresses:skip"
 AVATAR_OPEN = "avatar:open"
 AVATAR_UPLOAD = "avatar:upload"
 AVATAR_DELETE = "avatar:delete"
+SERVICES_OPEN = "services:open"
+SERVICES_TOGGLE_PREFIX = "services:toggle:"
+SERVICES_LIMIT_PREFIX = "services:limit:"
+ACCEPTING_ON = "services:accepting:on"
+ACCEPTING_OFF = "services:accepting:off"
+CALENDAR_OPEN = "calendar:open"
+CALENDAR_EVERY_DAY = "calendar:schedule:every_day"
+CALENDAR_WEEKDAYS = "calendar:schedule:weekdays"
+CALENDAR_WEEKENDS = "calendar:schedule:weekends"
+CALENDAR_UNAVAILABLE_TOMORROW = "calendar:override:unavailable_tomorrow"
 
 
 class CityButtonView(Protocol):
@@ -109,7 +119,8 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
                 )
             ],
             [InlineKeyboardButton(text="Мои заказы", callback_data="orders:list")],
-            [InlineKeyboardButton(text="Календарь", callback_data="calendar:open")],
+            [InlineKeyboardButton(text="Услуги", callback_data=SERVICES_OPEN)],
+            [InlineKeyboardButton(text="Календарь", callback_data=CALENDAR_OPEN)],
             [
                 InlineKeyboardButton(
                     text="Рабочий адрес",
@@ -220,12 +231,90 @@ def avatar_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def services_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text="Принимать заказы",
+                callback_data=ACCEPTING_ON,
+            ),
+            InlineKeyboardButton(
+                text="Пауза",
+                callback_data=ACCEPTING_OFF,
+            ),
+        ],
+    ]
+    for index, item in enumerate(items):
+        enabled = bool(getattr(item, "is_enabled", False))
+        name = str(getattr(item, "service_name", f"#{index + 1}"))
+        toggle_text = "Отключить" if enabled else "Включить"
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=f"{toggle_text}: {name}",
+                    callback_data=f"{SERVICES_TOGGLE_PREFIX}{index}",
+                ),
+            ],
+        )
+        current_limit = int(getattr(item, "performer_max_objects", 1))
+        if current_limit > 1:
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        text=f"Лимит -1: {name}",
+                        callback_data=f"{SERVICES_LIMIT_PREFIX}{index}",
+                    ),
+                ],
+            )
+    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def calendar_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Каждый день 09-18",
+                    callback_data=CALENDAR_EVERY_DAY,
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Будни 09-18",
+                    callback_data=CALENDAR_WEEKDAYS,
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Выходные 09-18",
+                    callback_data=CALENDAR_WEEKENDS,
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Завтра недоступен",
+                    callback_data=CALENDAR_UNAVAILABLE_TOMORROW,
+                ),
+            ],
+            [InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)],
+        ],
+    )
+
+
 __all__ = [
     "HELP",
     "MAIN_MENU",
     "AVATAR_DELETE",
     "AVATAR_OPEN",
     "AVATAR_UPLOAD",
+    "ACCEPTING_OFF",
+    "ACCEPTING_ON",
+    "CALENDAR_EVERY_DAY",
+    "CALENDAR_OPEN",
+    "CALENDAR_UNAVAILABLE_TOMORROW",
+    "CALENDAR_WEEKDAYS",
+    "CALENDAR_WEEKENDS",
     "REGISTRATION_ACCEPT_LEGAL",
     "REGISTRATION_CITY_PREFIX",
     "REGISTRATION_CONFIRM",
@@ -239,13 +328,18 @@ __all__ = [
     "WORK_ADDRESS_SELECT_PREFIX",
     "WORK_ADDRESS_SKIP",
     "WORK_ADDRESS_SUGGESTION_PREFIX",
+    "SERVICES_LIMIT_PREFIX",
+    "SERVICES_OPEN",
+    "SERVICES_TOGGLE_PREFIX",
     "avatar_keyboard",
+    "calendar_keyboard",
     "contact_methods_keyboard",
     "fallback_keyboard",
     "legal_acceptance_keyboard",
     "main_menu_keyboard",
     "registration_summary_keyboard",
     "select_city_keyboard",
+    "services_keyboard",
     "work_address_card_keyboard",
     "work_address_city_keyboard",
     "work_address_skip_keyboard",

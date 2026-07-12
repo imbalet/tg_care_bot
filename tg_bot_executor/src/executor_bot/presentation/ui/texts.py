@@ -226,6 +226,34 @@ def avatar_deleted_text() -> str:
     return "Аватар удален."
 
 
+def services_text(items: Sequence[object]) -> str:
+    if not items:
+        return "<b>Услуги</b>\n\nПока нет одобренных услуг."
+    lines = ["<b>Услуги</b>", ""]
+    for item in items:
+        enabled = "включена" if getattr(item, "is_enabled", False) else "выключена"
+        limit = escape(str(getattr(item, "performer_max_objects", 1)))
+        lines.append(
+            (
+                f"{escape(str(getattr(item, 'service_name', 'Услуга')))}: "
+                f"{enabled}, лимит {limit}"
+            ),
+        )
+    return "\n".join(lines)
+
+
+def services_updated_text() -> str:
+    return "Настройки услуг обновлены."
+
+
+def calendar_text() -> str:
+    return "<b>Календарь</b>\n\nВыберите шаблон или быстрое исключение."
+
+
+def calendar_updated_text() -> str:
+    return "Календарь обновлен."
+
+
 def registration_complete_text() -> str:
     return (
         "✅ <b>Регистрация отправлена</b>\n\n"
@@ -280,6 +308,8 @@ __all__ = [
     "avatar_menu_text",
     "avatar_upload_step_text",
     "avatar_uploaded_text",
+    "calendar_text",
+    "calendar_updated_text",
     "executor_main_menu_text",
     "executor_profile_text",
     "fallback_text",
@@ -294,6 +324,8 @@ __all__ = [
     "retry_later_text",
     "select_city_text",
     "select_contact_method_text",
+    "services_text",
+    "services_updated_text",
     "summary_text",
     "unavailable_action_text",
     "use_buttons_text",
