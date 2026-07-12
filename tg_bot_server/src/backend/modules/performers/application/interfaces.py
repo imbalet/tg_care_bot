@@ -1,8 +1,12 @@
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
-from backend.modules.performers.application.dto import InvitationDTO, PerformerDTO
+from backend.modules.performers.application.dto import (
+    InvitationDTO,
+    PerformerDTO,
+    PerformerServiceDTO,
+)
 
 
 class PerformerRepository(Protocol):
@@ -65,6 +69,58 @@ class PerformerRepository(Protocol):
         pass
 
     async def list_active_legal_document_ids(self) -> tuple[UUID, ...]:
+        pass
+
+    async def list_services_for_performer(
+        self,
+        performer_id: UUID,
+    ) -> tuple[PerformerServiceDTO, ...]:
+        pass
+
+    async def list_services_by_telegram_id(
+        self,
+        telegram_id: int,
+    ) -> tuple[PerformerServiceDTO, ...] | None:
+        pass
+
+    async def approve_service(
+        self,
+        *,
+        performer_id: UUID,
+        service_id: UUID,
+        admin_max_objects: int,
+        constraints: dict[str, Any],
+        approved_by_admin_id: UUID,
+    ) -> PerformerServiceDTO | None:
+        pass
+
+    async def set_service_enabled_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+        service_id: UUID,
+        is_enabled: bool,
+    ) -> PerformerServiceDTO | None:
+        pass
+
+    async def set_service_max_objects_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+        service_id: UUID,
+        performer_max_objects: int,
+    ) -> PerformerServiceDTO | None:
+        pass
+
+    async def set_accepting_orders_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+        is_accepting_orders: bool,
+    ) -> PerformerDTO | None:
+        pass
+
+    async def get_service_order_limit(self, service_id: UUID) -> int | None:
         pass
 
 

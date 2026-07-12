@@ -1,27 +1,46 @@
-from .dto import InvitationDTO, PerformerDTO, RegistrationStateDTO
+from .dto import InvitationDTO, PerformerDTO, PerformerServiceDTO, RegistrationStateDTO
 from .interfaces import PerformerRepository
 from .use_cases import (
     ActivatePerformerUseCase,
+    ApprovePerformerServiceCommand,
+    ApprovePerformerServiceUseCase,
     CreateInvitationCommand,
     CreateInvitationUseCase,
     GetRegistrationStateUseCase,
+    ListPerformerServicesUseCase,
     RegisterPerformerCommand,
     RegisterPerformerUseCase,
+    SetPerformerAcceptingOrdersCommand,
+    SetPerformerAcceptingOrdersUseCase,
+    SetPerformerServiceEnabledCommand,
+    SetPerformerServiceEnabledUseCase,
+    SetPerformerServiceMaxObjectsCommand,
+    SetPerformerServiceMaxObjectsUseCase,
     UpdatePerformerUsernameCommand,
     UpdatePerformerUsernameUseCase,
 )
 
 __all__ = [
     "ActivatePerformerUseCase",
+    "ApprovePerformerServiceCommand",
+    "ApprovePerformerServiceUseCase",
     "CreateInvitationCommand",
     "CreateInvitationUseCase",
     "GetRegistrationStateUseCase",
     "InvitationDTO",
+    "ListPerformerServicesUseCase",
     "PerformerDTO",
     "PerformerRepository",
+    "PerformerServiceDTO",
     "RegisterPerformerCommand",
     "RegisterPerformerUseCase",
     "RegistrationStateDTO",
+    "SetPerformerAcceptingOrdersCommand",
+    "SetPerformerAcceptingOrdersUseCase",
+    "SetPerformerServiceEnabledCommand",
+    "SetPerformerServiceEnabledUseCase",
+    "SetPerformerServiceMaxObjectsCommand",
+    "SetPerformerServiceMaxObjectsUseCase",
     "UpdatePerformerUsernameCommand",
     "UpdatePerformerUsernameUseCase",
 ]

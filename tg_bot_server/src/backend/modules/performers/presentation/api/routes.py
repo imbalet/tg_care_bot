@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, UploadFile
@@ -21,6 +21,7 @@ from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
 from backend.modules.admin.infrastructure import SqlAlchemyAdminAuditRepository
 from backend.modules.admin.presentation.api.routes import (
     AdminResponse,
+    get_current_admin,
     require_admin_csrf,
 )
 from backend.modules.files.application import (
@@ -31,14 +32,24 @@ from backend.modules.files.infrastructure import SqlAlchemyFileRepository
 from backend.modules.geo.infrastructure import DaDataGeocoder
 from backend.modules.performers.application import (
     ActivatePerformerUseCase,
+    ApprovePerformerServiceCommand,
+    ApprovePerformerServiceUseCase,
     CreateInvitationCommand,
     CreateInvitationUseCase,
     GetRegistrationStateUseCase,
     InvitationDTO,
+    ListPerformerServicesUseCase,
     PerformerDTO,
+    PerformerServiceDTO,
     RegisterPerformerCommand,
     RegisterPerformerUseCase,
     RegistrationStateDTO,
+    SetPerformerAcceptingOrdersCommand,
+    SetPerformerAcceptingOrdersUseCase,
+    SetPerformerServiceEnabledCommand,
+    SetPerformerServiceEnabledUseCase,
+    SetPerformerServiceMaxObjectsCommand,
+    SetPerformerServiceMaxObjectsUseCase,
     UpdatePerformerUsernameCommand,
     UpdatePerformerUsernameUseCase,
 )
@@ -71,6 +82,23 @@ class RegisterPerformerRequest(BaseModel):
 
 class UpdateTelegramUsernameRequest(BaseModel):
     telegram_username: str | None = None
+
+
+class ApprovePerformerServiceRequest(BaseModel):
+    admin_max_objects: int = Field(ge=1)
+    constraints: dict[str, Any] = Field(default_factory=dict)
+
+
+class SetPerformerServiceEnabledRequest(BaseModel):
+    is_enabled: bool
+
+
+class SetPerformerServiceMaxObjectsRequest(BaseModel):
+    performer_max_objects: int = Field(ge=1)
+
+
+class SetAcceptingOrdersRequest(BaseModel):
+    is_accepting_orders: bool
 
 
 class CreateAddressRequest(BaseModel):
@@ -134,6 +162,22 @@ class PerformerResponse(BaseModel):
     status: str
     is_accepting_orders: bool
     current_address_id: str | None
+
+
+class PerformerServiceResponse(BaseModel):
+    id: str
+    performer_id: str
+    service_id: str
+    service_code: str
+    service_name: str
+    service_location_policy: str
+    is_approved: bool
+    is_enabled: bool
+    admin_max_objects: int
+    performer_max_objects: int
+    constraints: dict[str, Any]
+    approved_by_admin_id: str | None
+    approved_at: str | None
 
 
 class RegistrationStateResponse(BaseModel):
@@ -260,6 +304,55 @@ async def activate_as_admin(
     return _performer_response(performer)
 
 
+@admin_router.post("/{performer_id}/services/{service_id}/approve")
+async def approve_service_as_admin(
+    performer_id: UUID,
+    service_id: UUID,
+    request: ApprovePerformerServiceRequest,
+    container: Annotated[Container, Depends(get_container)],
+    current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
+) -> PerformerServiceResponse:
+    admin_id = UUID(current[0].id)
+    async with container.session_factory() as session:
+        service = await ApprovePerformerServiceUseCase(
+            SqlAlchemyPerformerRepository(session),
+        ).execute(
+            ApprovePerformerServiceCommand(
+                performer_id=performer_id,
+                service_id=service_id,
+                admin_max_objects=request.admin_max_objects,
+                constraints=request.constraints,
+                approved_by_admin_id=admin_id,
+            ),
+        )
+        await SqlAlchemyAdminAuditRepository(session).add(
+            admin_id=admin_id,
+            action="approve_performer_service",
+            entity_type="performer_service",
+            entity_id=service.id,
+            audit_metadata={
+                "performer_id": str(performer_id),
+                "service_id": str(service_id),
+                "admin_max_objects": request.admin_max_objects,
+            },
+        )
+        await session.commit()
+    return _performer_service_response(service)
+
+
+@admin_router.get("/{performer_id}/services")
+async def list_services_as_admin(
+    performer_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+    _current: Annotated[tuple[AdminResponse, str, str], Depends(get_current_admin)],
+) -> list[PerformerServiceResponse]:
+    async with container.session_factory() as session:
+        services = await ListPerformerServicesUseCase(
+            SqlAlchemyPerformerRepository(session),
+        ).execute_for_performer(performer_id)
+    return [_performer_service_response(service) for service in services]
+
+
 @router.patch("/performers/by-telegram/{telegram_id}/telegram-username")
 async def update_telegram_username(
     telegram_id: int,
@@ -273,6 +366,79 @@ async def update_telegram_username(
             UpdatePerformerUsernameCommand(
                 telegram_id=telegram_id,
                 telegram_username=request.telegram_username,
+            ),
+        )
+        await session.commit()
+    return _performer_response(performer)
+
+
+@router.get("/performers/by-telegram/{telegram_id}/services")
+async def list_services_by_telegram(
+    telegram_id: int,
+    container: Annotated[Container, Depends(get_container)],
+) -> list[PerformerServiceResponse]:
+    async with container.session_factory() as session:
+        services = await ListPerformerServicesUseCase(
+            SqlAlchemyPerformerRepository(session),
+        ).execute_by_telegram_id(telegram_id)
+    return [_performer_service_response(service) for service in services]
+
+
+@router.patch("/performers/by-telegram/{telegram_id}/services/{service_id}/enabled")
+async def set_service_enabled(
+    telegram_id: int,
+    service_id: UUID,
+    request: SetPerformerServiceEnabledRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> PerformerServiceResponse:
+    async with container.session_factory() as session:
+        service = await SetPerformerServiceEnabledUseCase(
+            SqlAlchemyPerformerRepository(session),
+        ).execute(
+            SetPerformerServiceEnabledCommand(
+                telegram_id=telegram_id,
+                service_id=service_id,
+                is_enabled=request.is_enabled,
+            ),
+        )
+        await session.commit()
+    return _performer_service_response(service)
+
+
+@router.patch("/performers/by-telegram/{telegram_id}/services/{service_id}/max-objects")
+async def set_service_max_objects(
+    telegram_id: int,
+    service_id: UUID,
+    request: SetPerformerServiceMaxObjectsRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> PerformerServiceResponse:
+    async with container.session_factory() as session:
+        service = await SetPerformerServiceMaxObjectsUseCase(
+            SqlAlchemyPerformerRepository(session),
+        ).execute(
+            SetPerformerServiceMaxObjectsCommand(
+                telegram_id=telegram_id,
+                service_id=service_id,
+                performer_max_objects=request.performer_max_objects,
+            ),
+        )
+        await session.commit()
+    return _performer_service_response(service)
+
+
+@router.patch("/performers/by-telegram/{telegram_id}/accepting-orders")
+async def set_accepting_orders(
+    telegram_id: int,
+    request: SetAcceptingOrdersRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> PerformerResponse:
+    async with container.session_factory() as session:
+        performer = await SetPerformerAcceptingOrdersUseCase(
+            SqlAlchemyPerformerRepository(session),
+        ).execute(
+            SetPerformerAcceptingOrdersCommand(
+                telegram_id=telegram_id,
+                is_accepting_orders=request.is_accepting_orders,
             ),
         )
         await session.commit()
@@ -458,6 +624,30 @@ def _performer_response(performer: PerformerDTO) -> PerformerResponse:
         is_accepting_orders=performer.is_accepting_orders,
         current_address_id=str(performer.current_address_id)
         if performer.current_address_id is not None
+        else None,
+    )
+
+
+def _performer_service_response(
+    service: PerformerServiceDTO,
+) -> PerformerServiceResponse:
+    return PerformerServiceResponse(
+        id=str(service.id),
+        performer_id=str(service.performer_id),
+        service_id=str(service.service_id),
+        service_code=service.service_code,
+        service_name=service.service_name,
+        service_location_policy=service.service_location_policy,
+        is_approved=service.is_approved,
+        is_enabled=service.is_enabled,
+        admin_max_objects=service.admin_max_objects,
+        performer_max_objects=service.performer_max_objects,
+        constraints=service.constraints,
+        approved_by_admin_id=str(service.approved_by_admin_id)
+        if service.approved_by_admin_id is not None
+        else None,
+        approved_at=service.approved_at.isoformat()
+        if service.approved_at is not None
         else None,
     )
 

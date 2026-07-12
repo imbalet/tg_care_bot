@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from backend.common.application import Clock, SystemClock
@@ -7,6 +8,7 @@ from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.performers.application.dto import (
     InvitationDTO,
     PerformerDTO,
+    PerformerServiceDTO,
     RegistrationStateDTO,
 )
 from backend.modules.performers.application.interfaces import PerformerRepository
@@ -161,13 +163,204 @@ class UpdatePerformerUsernameUseCase:
         return performer
 
 
+@dataclass(frozen=True)
+class ApprovePerformerServiceCommand:
+    performer_id: UUID
+    service_id: UUID
+    admin_max_objects: int
+    constraints: dict[str, Any]
+    approved_by_admin_id: UUID
+
+
+class ApprovePerformerServiceUseCase:
+    def __init__(self, repository: PerformerRepository) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        command: ApprovePerformerServiceCommand,
+    ) -> PerformerServiceDTO:
+        if command.admin_max_objects < 1:
+            raise ValidationError("Admin max objects must be positive")
+        service_order_limit = await self._repository.get_service_order_limit(
+            command.service_id,
+        )
+        if service_order_limit is None:
+            raise NotFoundError("Service not found")
+        if command.admin_max_objects > service_order_limit:
+            raise ValidationError("Admin max objects exceeds service order limit")
+        service = await self._repository.approve_service(
+            performer_id=command.performer_id,
+            service_id=command.service_id,
+            admin_max_objects=command.admin_max_objects,
+            constraints=command.constraints,
+            approved_by_admin_id=command.approved_by_admin_id,
+        )
+        if service is None:
+            raise NotFoundError("Performer not found")
+        return service
+
+
+class ListPerformerServicesUseCase:
+    def __init__(self, repository: PerformerRepository) -> None:
+        self._repository = repository
+
+    async def execute_for_performer(
+        self,
+        performer_id: UUID,
+    ) -> tuple[PerformerServiceDTO, ...]:
+        return await self._repository.list_services_for_performer(performer_id)
+
+    async def execute_by_telegram_id(
+        self,
+        telegram_id: int,
+    ) -> tuple[PerformerServiceDTO, ...]:
+        services = await self._repository.list_services_by_telegram_id(telegram_id)
+        if services is None:
+            raise NotFoundError("Performer not found")
+        return services
+
+
+@dataclass(frozen=True)
+class SetPerformerServiceEnabledCommand:
+    telegram_id: int
+    service_id: UUID
+    is_enabled: bool
+
+
+class SetPerformerServiceEnabledUseCase:
+    def __init__(self, repository: PerformerRepository) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        command: SetPerformerServiceEnabledCommand,
+    ) -> PerformerServiceDTO:
+        performer = await self._repository.get_performer_by_telegram_id(
+            command.telegram_id,
+        )
+        if performer is None:
+            raise NotFoundError("Performer not found")
+        service = await self._find_service(command.telegram_id, command.service_id)
+        if command.is_enabled:
+            if not service.is_approved:
+                raise ValidationError("Service is not approved")
+            if (
+                service.service_location_policy == "performer_address"
+                and performer.current_address_id is None
+            ):
+                raise ValidationError("Current performer address is required")
+        return await self._set_enabled(command)
+
+    async def _find_service(
+        self,
+        telegram_id: int,
+        service_id: UUID,
+    ) -> PerformerServiceDTO:
+        services = await self._repository.list_services_by_telegram_id(telegram_id)
+        if services is None:
+            raise NotFoundError("Performer not found")
+        for service in services:
+            if service.service_id == service_id:
+                return service
+        raise NotFoundError("Approved performer service not found")
+
+    async def _set_enabled(
+        self,
+        command: SetPerformerServiceEnabledCommand,
+    ) -> PerformerServiceDTO:
+        service = await self._repository.set_service_enabled_by_telegram_id(
+            telegram_id=command.telegram_id,
+            service_id=command.service_id,
+            is_enabled=command.is_enabled,
+        )
+        if service is None:
+            raise NotFoundError("Approved performer service not found")
+        return service
+
+
+@dataclass(frozen=True)
+class SetPerformerServiceMaxObjectsCommand:
+    telegram_id: int
+    service_id: UUID
+    performer_max_objects: int
+
+
+class SetPerformerServiceMaxObjectsUseCase:
+    def __init__(self, repository: PerformerRepository) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        command: SetPerformerServiceMaxObjectsCommand,
+    ) -> PerformerServiceDTO:
+        if command.performer_max_objects < 1:
+            raise ValidationError("Performer max objects must be positive")
+        services = await self._repository.list_services_by_telegram_id(
+            command.telegram_id,
+        )
+        if services is None:
+            raise NotFoundError("Performer not found")
+        current = next(
+            (
+                service
+                for service in services
+                if service.service_id == command.service_id
+            ),
+            None,
+        )
+        if current is None:
+            raise NotFoundError("Approved performer service not found")
+        if command.performer_max_objects > current.admin_max_objects:
+            raise ValidationError("Performer max objects exceeds admin limit")
+        service = await self._repository.set_service_max_objects_by_telegram_id(
+            telegram_id=command.telegram_id,
+            service_id=command.service_id,
+            performer_max_objects=command.performer_max_objects,
+        )
+        if service is None:
+            raise NotFoundError("Approved performer service not found")
+        return service
+
+
+@dataclass(frozen=True)
+class SetPerformerAcceptingOrdersCommand:
+    telegram_id: int
+    is_accepting_orders: bool
+
+
+class SetPerformerAcceptingOrdersUseCase:
+    def __init__(self, repository: PerformerRepository) -> None:
+        self._repository = repository
+
+    async def execute(
+        self, command: SetPerformerAcceptingOrdersCommand
+    ) -> PerformerDTO:
+        performer = await self._repository.set_accepting_orders_by_telegram_id(
+            telegram_id=command.telegram_id,
+            is_accepting_orders=command.is_accepting_orders,
+        )
+        if performer is None:
+            raise NotFoundError("Active performer not found")
+        return performer
+
+
 __all__ = [
     "ActivatePerformerUseCase",
+    "ApprovePerformerServiceCommand",
+    "ApprovePerformerServiceUseCase",
     "CreateInvitationCommand",
     "CreateInvitationUseCase",
     "GetRegistrationStateUseCase",
+    "ListPerformerServicesUseCase",
     "RegisterPerformerCommand",
     "RegisterPerformerUseCase",
+    "SetPerformerAcceptingOrdersCommand",
+    "SetPerformerAcceptingOrdersUseCase",
+    "SetPerformerServiceEnabledCommand",
+    "SetPerformerServiceEnabledUseCase",
+    "SetPerformerServiceMaxObjectsCommand",
+    "SetPerformerServiceMaxObjectsUseCase",
     "UpdatePerformerUsernameCommand",
     "UpdatePerformerUsernameUseCase",
 ]

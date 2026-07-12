@@ -3,15 +3,24 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from backend.common.domain import ValidationError
+from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.performers.application import (
+    ApprovePerformerServiceCommand,
+    ApprovePerformerServiceUseCase,
     CreateInvitationCommand,
     CreateInvitationUseCase,
     GetRegistrationStateUseCase,
     InvitationDTO,
     PerformerDTO,
+    PerformerServiceDTO,
     RegisterPerformerCommand,
     RegisterPerformerUseCase,
+    SetPerformerAcceptingOrdersCommand,
+    SetPerformerAcceptingOrdersUseCase,
+    SetPerformerServiceEnabledCommand,
+    SetPerformerServiceEnabledUseCase,
+    SetPerformerServiceMaxObjectsCommand,
+    SetPerformerServiceMaxObjectsUseCase,
     UpdatePerformerUsernameCommand,
     UpdatePerformerUsernameUseCase,
 )
@@ -21,6 +30,9 @@ class FakePerformerRepository:
     def __init__(self) -> None:
         self.invitations: dict[int, InvitationDTO] = {}
         self.performers: dict[int, PerformerDTO] = {}
+        self.performer_services: dict[tuple[UUID, UUID], PerformerServiceDTO] = {}
+        self.service_order_limits: dict[UUID, int] = {}
+        self.service_location_policies: dict[UUID, str] = {}
         self.active_city_ids: set[UUID] = set()
         self.active_document_ids: tuple[UUID, ...] = ()
 
@@ -134,6 +146,123 @@ class FakePerformerRepository:
 
     async def list_active_legal_document_ids(self) -> tuple[UUID, ...]:
         return self.active_document_ids
+
+    async def list_services_for_performer(
+        self,
+        performer_id: UUID,
+    ) -> tuple[PerformerServiceDTO, ...]:
+        return tuple(
+            service
+            for (current_performer_id, _service_id), service in (
+                self.performer_services.items()
+            )
+            if current_performer_id == performer_id
+        )
+
+    async def list_services_by_telegram_id(
+        self,
+        telegram_id: int,
+    ) -> tuple[PerformerServiceDTO, ...] | None:
+        performer = self.performers.get(telegram_id)
+        if performer is None:
+            return None
+        return await self.list_services_for_performer(performer.id)
+
+    async def approve_service(
+        self,
+        *,
+        performer_id: UUID,
+        service_id: UUID,
+        admin_max_objects: int,
+        constraints: dict[str, object],
+        approved_by_admin_id: UUID,
+    ) -> PerformerServiceDTO | None:
+        if not any(
+            performer.id == performer_id for performer in self.performers.values()
+        ):
+            return None
+        key = (performer_id, service_id)
+        existing = self.performer_services.get(key)
+        performer_max_objects = min(
+            existing.performer_max_objects
+            if existing is not None
+            else admin_max_objects,
+            admin_max_objects,
+        )
+        service = PerformerServiceDTO(
+            id=existing.id if existing is not None else uuid4(),
+            performer_id=performer_id,
+            service_id=service_id,
+            service_code="pet_boarding",
+            service_name="Передержка",
+            service_location_policy=self.service_location_policies.get(
+                service_id,
+                "customer_address",
+            ),
+            is_approved=True,
+            is_enabled=existing.is_enabled if existing is not None else False,
+            admin_max_objects=admin_max_objects,
+            performer_max_objects=performer_max_objects,
+            constraints=constraints,
+            approved_by_admin_id=approved_by_admin_id,
+            approved_at=datetime.now(UTC),
+        )
+        self.performer_services[key] = service
+        return service
+
+    async def set_service_enabled_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+        service_id: UUID,
+        is_enabled: bool,
+    ) -> PerformerServiceDTO | None:
+        performer = self.performers.get(telegram_id)
+        if performer is None:
+            return None
+        service = self.performer_services.get((performer.id, service_id))
+        if service is None or not service.is_approved:
+            return None
+        updated = PerformerServiceDTO(**{**service.__dict__, "is_enabled": is_enabled})
+        self.performer_services[(performer.id, service_id)] = updated
+        return updated
+
+    async def set_service_max_objects_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+        service_id: UUID,
+        performer_max_objects: int,
+    ) -> PerformerServiceDTO | None:
+        performer = self.performers.get(telegram_id)
+        if performer is None:
+            return None
+        service = self.performer_services.get((performer.id, service_id))
+        if service is None or not service.is_approved:
+            return None
+        updated = PerformerServiceDTO(
+            **{**service.__dict__, "performer_max_objects": performer_max_objects},
+        )
+        self.performer_services[(performer.id, service_id)] = updated
+        return updated
+
+    async def set_accepting_orders_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+        is_accepting_orders: bool,
+    ) -> PerformerDTO | None:
+        performer = self.performers.get(telegram_id)
+        if performer is None or performer.status != "active":
+            return None
+        updated = PerformerDTO(
+            **{**performer.__dict__, "is_accepting_orders": is_accepting_orders},
+        )
+        self.performers[telegram_id] = updated
+        return updated
+
+    async def get_service_order_limit(self, service_id: UUID) -> int | None:
+        return self.service_order_limits.get(service_id)
 
 
 def make_repository() -> tuple[FakePerformerRepository, UUID, tuple[UUID, ...]]:
@@ -256,3 +385,169 @@ async def test_update_performer_username_to_value_and_null() -> None:
 
     assert with_value.telegram_username == "new_name"
     assert without_value.telegram_username is None
+
+
+@pytest.mark.asyncio
+async def test_admin_approves_performer_service_with_limit_cap() -> None:
+    repository, city_id, documents = make_repository()
+    service_id = uuid4()
+    repository.service_order_limits[service_id] = 2
+    await CreateInvitationUseCase(repository).execute(
+        CreateInvitationCommand(
+            telegram_id=123,
+            created_by_admin_id=uuid4(),
+            expires_at=None,
+        ),
+    )
+    performer = await RegisterPerformerUseCase(repository).execute(
+        make_register_command(city_id, documents),
+    )
+
+    service = await ApprovePerformerServiceUseCase(repository).execute(
+        ApprovePerformerServiceCommand(
+            performer_id=performer.id,
+            service_id=service_id,
+            admin_max_objects=2,
+            constraints={"accepted_pet_sizes": ["small"]},
+            approved_by_admin_id=uuid4(),
+        ),
+    )
+
+    assert service.is_approved is True
+    assert service.admin_max_objects == 2
+
+    with pytest.raises(ValidationError):
+        await ApprovePerformerServiceUseCase(repository).execute(
+            ApprovePerformerServiceCommand(
+                performer_id=performer.id,
+                service_id=service_id,
+                admin_max_objects=3,
+                constraints={},
+                approved_by_admin_id=uuid4(),
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_performer_can_only_reduce_own_service_limit() -> None:
+    repository, city_id, documents = make_repository()
+    service_id = uuid4()
+    repository.service_order_limits[service_id] = 3
+    await CreateInvitationUseCase(repository).execute(
+        CreateInvitationCommand(
+            telegram_id=123,
+            created_by_admin_id=uuid4(),
+            expires_at=None,
+        ),
+    )
+    performer = await RegisterPerformerUseCase(repository).execute(
+        make_register_command(city_id, documents),
+    )
+    await ApprovePerformerServiceUseCase(repository).execute(
+        ApprovePerformerServiceCommand(
+            performer_id=performer.id,
+            service_id=service_id,
+            admin_max_objects=3,
+            constraints={},
+            approved_by_admin_id=uuid4(),
+        ),
+    )
+
+    reduced = await SetPerformerServiceMaxObjectsUseCase(repository).execute(
+        SetPerformerServiceMaxObjectsCommand(
+            telegram_id=performer.telegram_id,
+            service_id=service_id,
+            performer_max_objects=2,
+        ),
+    )
+
+    assert reduced.performer_max_objects == 2
+
+    with pytest.raises(ValidationError):
+        await SetPerformerServiceMaxObjectsUseCase(repository).execute(
+            SetPerformerServiceMaxObjectsCommand(
+                telegram_id=performer.telegram_id,
+                service_id=service_id,
+                performer_max_objects=4,
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_boarding_service_requires_current_address_to_enable() -> None:
+    repository, city_id, documents = make_repository()
+    service_id = uuid4()
+    repository.service_order_limits[service_id] = 3
+    repository.service_location_policies[service_id] = "performer_address"
+    await CreateInvitationUseCase(repository).execute(
+        CreateInvitationCommand(
+            telegram_id=123,
+            created_by_admin_id=uuid4(),
+            expires_at=None,
+        ),
+    )
+    performer = await RegisterPerformerUseCase(repository).execute(
+        make_register_command(city_id, documents),
+    )
+    await ApprovePerformerServiceUseCase(repository).execute(
+        ApprovePerformerServiceCommand(
+            performer_id=performer.id,
+            service_id=service_id,
+            admin_max_objects=3,
+            constraints={},
+            approved_by_admin_id=uuid4(),
+        ),
+    )
+
+    with pytest.raises(ValidationError):
+        await SetPerformerServiceEnabledUseCase(repository).execute(
+            SetPerformerServiceEnabledCommand(
+                telegram_id=performer.telegram_id,
+                service_id=service_id,
+                is_enabled=True,
+            ),
+        )
+
+    await repository.set_current_address(performer_id=performer.id, address_id=uuid4())
+    enabled = await SetPerformerServiceEnabledUseCase(repository).execute(
+        SetPerformerServiceEnabledCommand(
+            telegram_id=performer.telegram_id,
+            service_id=service_id,
+            is_enabled=True,
+        ),
+    )
+
+    assert enabled.is_enabled is True
+
+
+@pytest.mark.asyncio
+async def test_only_active_performer_can_accept_orders() -> None:
+    repository, city_id, documents = make_repository()
+    await CreateInvitationUseCase(repository).execute(
+        CreateInvitationCommand(
+            telegram_id=123,
+            created_by_admin_id=uuid4(),
+            expires_at=None,
+        ),
+    )
+    performer = await RegisterPerformerUseCase(repository).execute(
+        make_register_command(city_id, documents),
+    )
+
+    with pytest.raises(NotFoundError):
+        await SetPerformerAcceptingOrdersUseCase(repository).execute(
+            SetPerformerAcceptingOrdersCommand(
+                telegram_id=performer.telegram_id,
+                is_accepting_orders=True,
+            ),
+        )
+
+    await repository.activate(performer.id)
+    updated = await SetPerformerAcceptingOrdersUseCase(repository).execute(
+        SetPerformerAcceptingOrdersCommand(
+            telegram_id=performer.telegram_id,
+            is_accepting_orders=True,
+        ),
+    )
+
+    assert updated.is_accepting_orders is True

@@ -1,16 +1,27 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import new_uuid, utc_now
-from backend.modules.catalog.infrastructure import CityModel, LegalDocumentModel
+from backend.modules.catalog.infrastructure import (
+    CityModel,
+    LegalDocumentModel,
+    ServiceCategoryModel,
+    ServiceModel,
+)
 from backend.modules.customers.infrastructure import LegalAcceptanceModel
-from backend.modules.performers.application.dto import InvitationDTO, PerformerDTO
+from backend.modules.performers.application.dto import (
+    InvitationDTO,
+    PerformerDTO,
+    PerformerServiceDTO,
+)
 from backend.modules.performers.infrastructure.persistence.models import (
     PerformerInvitationModel,
     PerformerModel,
+    PerformerServiceModel,
 )
 
 
@@ -178,6 +189,173 @@ class SqlAlchemyPerformerRepository:
         )
         return tuple(result.scalars())
 
+    async def list_services_for_performer(
+        self,
+        performer_id: UUID,
+    ) -> tuple[PerformerServiceDTO, ...]:
+        result = await self._session.execute(
+            _performer_service_statement().where(
+                PerformerServiceModel.performer_id == performer_id,
+            ),
+        )
+        return tuple(_performer_service_to_dto(*row) for row in result.tuples())
+
+    async def list_services_by_telegram_id(
+        self,
+        telegram_id: int,
+    ) -> tuple[PerformerServiceDTO, ...] | None:
+        performer = await self._get_performer_model_by_telegram_id(telegram_id)
+        if performer is None:
+            return None
+        return await self.list_services_for_performer(performer.id)
+
+    async def approve_service(
+        self,
+        *,
+        performer_id: UUID,
+        service_id: UUID,
+        admin_max_objects: int,
+        constraints: dict[str, Any],
+        approved_by_admin_id: UUID,
+    ) -> PerformerServiceDTO | None:
+        performer = await self._session.get(PerformerModel, performer_id)
+        if performer is None:
+            return None
+        now = utc_now()
+        model = await self._get_performer_service_model(
+            performer_id=performer_id,
+            service_id=service_id,
+        )
+        if model is None:
+            model = PerformerServiceModel(
+                id=new_uuid(),
+                performer_id=performer_id,
+                service_id=service_id,
+                is_approved=True,
+                is_enabled=False,
+                admin_max_objects=admin_max_objects,
+                performer_max_objects=admin_max_objects,
+                constraints=constraints,
+                approved_by_admin_id=approved_by_admin_id,
+                approved_at=now,
+                created_at=now,
+                updated_at=now,
+            )
+            self._session.add(model)
+        else:
+            model.is_approved = True
+            model.admin_max_objects = admin_max_objects
+            if model.performer_max_objects > admin_max_objects:
+                model.performer_max_objects = admin_max_objects
+            model.constraints = constraints
+            model.approved_by_admin_id = approved_by_admin_id
+            model.approved_at = now
+            model.updated_at = now
+        await self._session.flush()
+        return await self._get_performer_service_dto(model.id)
+
+    async def set_service_enabled_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+        service_id: UUID,
+        is_enabled: bool,
+    ) -> PerformerServiceDTO | None:
+        performer = await self._get_performer_model_by_telegram_id(telegram_id)
+        if performer is None:
+            return None
+        model = await self._get_performer_service_model(
+            performer_id=performer.id,
+            service_id=service_id,
+        )
+        if model is None or not model.is_approved:
+            return None
+        model.is_enabled = is_enabled
+        model.updated_at = utc_now()
+        await self._session.flush()
+        return await self._get_performer_service_dto(model.id)
+
+    async def set_service_max_objects_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+        service_id: UUID,
+        performer_max_objects: int,
+    ) -> PerformerServiceDTO | None:
+        performer = await self._get_performer_model_by_telegram_id(telegram_id)
+        if performer is None:
+            return None
+        model = await self._get_performer_service_model(
+            performer_id=performer.id,
+            service_id=service_id,
+        )
+        if model is None or not model.is_approved:
+            return None
+        model.performer_max_objects = performer_max_objects
+        model.updated_at = utc_now()
+        await self._session.flush()
+        return await self._get_performer_service_dto(model.id)
+
+    async def set_accepting_orders_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+        is_accepting_orders: bool,
+    ) -> PerformerDTO | None:
+        performer = await self._get_performer_model_by_telegram_id(telegram_id)
+        if performer is None or performer.status != "active":
+            return None
+        performer.is_accepting_orders = is_accepting_orders
+        performer.updated_at = utc_now()
+        return _performer_to_dto(performer)
+
+    async def get_service_order_limit(self, service_id: UUID) -> int | None:
+        result = await self._session.execute(
+            select(ServiceCategoryModel.max_objects_per_order)
+            .join(ServiceModel, ServiceModel.category_id == ServiceCategoryModel.id)
+            .where(
+                ServiceModel.id == service_id,
+                ServiceModel.is_active.is_(True),
+                ServiceCategoryModel.is_active.is_(True),
+            ),
+        )
+        return result.scalar_one_or_none()
+
+    async def _get_performer_model_by_telegram_id(
+        self,
+        telegram_id: int,
+    ) -> PerformerModel | None:
+        result = await self._session.execute(
+            select(PerformerModel).where(PerformerModel.telegram_id == telegram_id),
+        )
+        return result.scalar_one_or_none()
+
+    async def _get_performer_service_model(
+        self,
+        *,
+        performer_id: UUID,
+        service_id: UUID,
+    ) -> PerformerServiceModel | None:
+        result = await self._session.execute(
+            select(PerformerServiceModel).where(
+                PerformerServiceModel.performer_id == performer_id,
+                PerformerServiceModel.service_id == service_id,
+            ),
+        )
+        return result.scalar_one_or_none()
+
+    async def _get_performer_service_dto(
+        self,
+        performer_service_id: UUID,
+    ) -> PerformerServiceDTO:
+        result = await self._session.execute(
+            _performer_service_statement().where(
+                PerformerServiceModel.id == performer_service_id,
+            ),
+        )
+        row = result.tuples().one()
+        return _performer_service_to_dto(*row)
+
 
 def _performer_to_dto(model: PerformerModel) -> PerformerDTO:
     return PerformerDTO(
@@ -202,6 +380,37 @@ def _invitation_to_dto(model: PerformerInvitationModel) -> InvitationDTO:
         status=model.status,
         expires_at=model.expires_at,
         accepted_performer_id=model.accepted_performer_id,
+    )
+
+
+def _performer_service_statement() -> Select[
+    tuple[PerformerServiceModel, ServiceModel]
+]:
+    return (
+        select(PerformerServiceModel, ServiceModel)
+        .join(ServiceModel, ServiceModel.id == PerformerServiceModel.service_id)
+        .order_by(ServiceModel.code)
+    )
+
+
+def _performer_service_to_dto(
+    model: PerformerServiceModel,
+    service: ServiceModel,
+) -> PerformerServiceDTO:
+    return PerformerServiceDTO(
+        id=model.id,
+        performer_id=model.performer_id,
+        service_id=model.service_id,
+        service_code=service.code,
+        service_name=service.name,
+        service_location_policy=service.location_policy,
+        is_approved=model.is_approved,
+        is_enabled=model.is_enabled,
+        admin_max_objects=model.admin_max_objects,
+        performer_max_objects=model.performer_max_objects,
+        constraints=model.constraints,
+        approved_by_admin_id=model.approved_by_admin_id,
+        approved_at=model.approved_at,
     )
 
 

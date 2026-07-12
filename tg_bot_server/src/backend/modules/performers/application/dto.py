@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 
@@ -34,4 +35,26 @@ class RegistrationStateDTO:
     performer: PerformerDTO | None
 
 
-__all__ = ["InvitationDTO", "PerformerDTO", "RegistrationStateDTO"]
+@dataclass(frozen=True)
+class PerformerServiceDTO:
+    id: UUID
+    performer_id: UUID
+    service_id: UUID
+    service_code: str
+    service_name: str
+    service_location_policy: str
+    is_approved: bool
+    is_enabled: bool
+    admin_max_objects: int
+    performer_max_objects: int
+    constraints: dict[str, Any]
+    approved_by_admin_id: UUID | None
+    approved_at: datetime | None
+
+
+__all__ = [
+    "InvitationDTO",
+    "PerformerDTO",
+    "PerformerServiceDTO",
+    "RegistrationStateDTO",
+]
