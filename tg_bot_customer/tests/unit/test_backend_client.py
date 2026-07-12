@@ -280,6 +280,79 @@ async def test_care_object_methods_use_backend_contract() -> None:
     await client.close()
 
 
+@pytest.mark.asyncio
+async def test_address_methods_use_backend_contract() -> None:
+    city_id = uuid4()
+    address_id = uuid4()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/geocoding/address-suggestions":
+            assert request.url.params["city_id"] == str(city_id)
+            return httpx.Response(
+                200,
+                json=[{"value": "Москва, Тверская, 1", "unrestricted_value": "full"}],
+            )
+        if request.method == "GET":
+            return httpx.Response(200, json=[address_json(address_id, city_id)])
+        if request.method == "POST":
+            payload = json_body(request)
+            assert payload["unrestricted_value"] == "full"
+            return httpx.Response(201, json=address_json(address_id, city_id))
+        if request.method == "DELETE":
+            assert str(address_id) in request.url.path
+            return httpx.Response(200, json={"status": "deleted"})
+        raise AssertionError("Unexpected request")
+
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(handler),
+    )
+
+    suggestions = await client.suggest_addresses(city_id=city_id, query="Тверская")
+    addresses = await client.list_addresses(telegram_id=123)
+    created = await client.create_address(
+        telegram_id=123,
+        city_id=city_id,
+        unrestricted_value="full",
+        entrance=None,
+        floor=None,
+        apartment=None,
+        comment=None,
+    )
+    await client.delete_address(telegram_id=123, address_id=address_id)
+
+    assert suggestions[0].unrestricted_value == "full"
+    assert addresses[0].id == address_id
+    assert created.address_text == "Москва, Тверская, 1"
+    await client.close()
+
+
+def address_json(address_id: object, city_id: object) -> dict[str, object]:
+    return {
+        "id": str(address_id),
+        "owner_type": "customer",
+        "customer_id": str(uuid4()),
+        "performer_id": None,
+        "city_id": str(city_id),
+        "district_id": None,
+        "address_text": "Москва, Тверская, 1",
+        "fias_id": None,
+        "latitude": "55.1",
+        "longitude": "37.1",
+        "geocoding_provider": "fake",
+        "geocoding_quality": "0",
+        "entrance": None,
+        "floor": None,
+        "apartment": None,
+        "comment": None,
+        "deleted_at": None,
+        "created_at": "2026-07-13T00:00:00+00:00",
+        "updated_at": "2026-07-13T00:00:00+00:00",
+    }
+
+
 def care_object_json(care_object_id: object) -> dict[str, object]:
     return {
         "id": str(care_object_id),

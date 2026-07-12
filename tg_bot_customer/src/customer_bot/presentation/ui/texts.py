@@ -199,6 +199,54 @@ def care_object_card_text(item: object) -> str:
     return "\n".join(lines)
 
 
+def addresses_list_text(count: int) -> str:
+    if count == 0:
+        return "<b>Адреса</b>\n\nДобавьте адрес до создания заказа."
+    return "<b>Адреса</b>\n\nВыберите адрес или добавьте новый."
+
+
+def address_card_text(item: object) -> str:
+    address_text = escape(str(getattr(item, "address_text", "")))
+    entrance = getattr(item, "entrance", None)
+    floor = getattr(item, "floor", None)
+    apartment = getattr(item, "apartment", None)
+    comment = getattr(item, "comment", None)
+    lines = ["<b>Адрес</b>", "", address_text]
+    if isinstance(entrance, str):
+        lines.append(f"Подъезд: {escape(entrance)}")
+    if isinstance(floor, str):
+        lines.append(f"Этаж: {escape(floor)}")
+    if isinstance(apartment, str):
+        lines.append(f"Квартира: {escape(apartment)}")
+    if isinstance(comment, str):
+        lines.append(f"Комментарий: {escape(comment)}")
+    return "\n".join(lines)
+
+
+def address_city_step_text() -> str:
+    return "<b>Город</b>\n\nВыберите город адреса."
+
+
+def address_query_step_text() -> str:
+    return "<b>Адрес</b>\n\nВведите улицу, дом или полный адрес."
+
+
+def address_suggestion_step_text() -> str:
+    return "<b>Подсказки адреса</b>\n\nВыберите подходящий вариант."
+
+
+def address_extra_step_text(field_name: str) -> str:
+    return f"<b>{escape(field_name)}</b>\n\nВведите значение или пропустите."
+
+
+def address_created_text() -> str:
+    return "Адрес сохранен."
+
+
+def address_deleted_text() -> str:
+    return "Адрес удален из активного списка."
+
+
 def registration_complete_text() -> str:
     return "✅ <b>Регистрация завершена</b>\n\nОткрываю главное меню."
 
@@ -255,6 +303,14 @@ __all__ = [
     "care_object_size_step_text",
     "care_object_species_step_text",
     "care_objects_list_text",
+    "address_card_text",
+    "address_city_step_text",
+    "address_created_text",
+    "address_deleted_text",
+    "address_extra_step_text",
+    "address_query_step_text",
+    "address_suggestion_step_text",
+    "addresses_list_text",
     "customer_main_menu_text",
     "customer_profile_text",
     "fallback_text",

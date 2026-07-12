@@ -3,6 +3,8 @@ from uuid import uuid4
 
 from customer_bot.infrastructure.http import CustomerProfileDTO
 from customer_bot.presentation.ui import (
+    address_card_text,
+    addresses_keyboard,
     care_object_card_text,
     care_objects_keyboard,
     contact_methods_keyboard,
@@ -13,6 +15,8 @@ from customer_bot.presentation.ui import (
     summary_text,
 )
 from customer_bot.presentation.ui.keyboards import (
+    ADDRESS_ADD,
+    ADDRESS_SELECT_PREFIX,
     CARE_OBJECT_ADD_PREFIX,
     CARE_OBJECT_SELECT_PREFIX,
     REGISTRATION_ACCEPT_LEGAL,
@@ -42,6 +46,15 @@ class CareObject:
     breed: str | None = None
     pet_size: str | None = "small"
     mobility_assistance_required: bool | None = None
+
+
+@dataclass(frozen=True)
+class Address:
+    address_text: str
+    entrance: str | None = None
+    floor: str | None = None
+    apartment: str | None = None
+    comment: str | None = None
 
 
 def test_legal_documents_text_escapes_html() -> None:
@@ -112,3 +125,16 @@ def test_care_object_card_text_escapes_user_values() -> None:
     text = care_object_card_text(CareObject(display_name="Барсик <script>"))
 
     assert "Барсик &lt;script&gt;" in text
+
+
+def test_addresses_keyboard_is_inline_first() -> None:
+    keyboard = addresses_keyboard([Address(address_text="Тверская")])
+
+    assert keyboard.inline_keyboard[0][0].callback_data == ADDRESS_ADD
+    assert keyboard.inline_keyboard[1][0].callback_data == f"{ADDRESS_SELECT_PREFIX}0"
+
+
+def test_address_card_text_escapes_user_values() -> None:
+    text = address_card_text(Address(address_text="Дом <script>"))
+
+    assert "Дом &lt;script&gt;" in text

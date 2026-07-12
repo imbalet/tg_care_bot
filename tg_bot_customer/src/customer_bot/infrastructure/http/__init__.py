@@ -1,5 +1,12 @@
 __all__: list[str] = []
-from .client import BackendClient, CareObjectDTO, CustomerProfileDTO, TelegramTopicDTO
+from .client import (
+    AddressDTO,
+    AddressSuggestionDTO,
+    BackendClient,
+    CareObjectDTO,
+    CustomerProfileDTO,
+    TelegramTopicDTO,
+)
 from .errors import (
     BackendClientError,
     BackendNotFoundError,
@@ -15,6 +22,8 @@ __all__ = [
     "BackendUnauthorizedError",
     "BackendUnavailableError",
     "BackendValidationError",
+    "AddressDTO",
+    "AddressSuggestionDTO",
     "CareObjectDTO",
     "CustomerProfileDTO",
     "TelegramTopicDTO",

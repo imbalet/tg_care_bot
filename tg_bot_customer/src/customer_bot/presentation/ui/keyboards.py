@@ -19,6 +19,13 @@ CARE_OBJECT_AGE_PREFIX = "care_objects:age:"
 CARE_OBJECT_SIZE_PREFIX = "care_objects:size:"
 CARE_OBJECT_MOBILITY_PREFIX = "care_objects:mobility:"
 CARE_OBJECT_SKIP = "care_objects:skip"
+ADDRESSES_OPEN = "addresses:open"
+ADDRESS_ADD = "addresses:add"
+ADDRESS_SELECT_PREFIX = "addresses:select:"
+ADDRESS_DELETE_PREFIX = "addresses:delete:"
+ADDRESS_CITY_PREFIX = "addresses:city:"
+ADDRESS_SUGGESTION_PREFIX = "addresses:suggestion:"
+ADDRESS_SKIP = "addresses:skip"
 
 CARE_OBJECT_TYPE_LABELS = {
     "child": "Ребенок",
@@ -132,6 +139,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
                     callback_data=CARE_OBJECTS_OPEN,
                 ),
             ],
+            [InlineKeyboardButton(text="Адреса", callback_data=ADDRESSES_OPEN)],
             [InlineKeyboardButton(text="Профиль", callback_data="profile:open")],
             [InlineKeyboardButton(text="Помощь", callback_data=HELP)],
         ],
@@ -262,6 +270,72 @@ def care_object_skip_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text="Добавить адрес", callback_data=ADDRESS_ADD)]]
+    for index, item in enumerate(items):
+        address_text = getattr(item, "address_text", f"#{index + 1}")
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=str(address_text),
+                    callback_data=f"{ADDRESS_SELECT_PREFIX}{index}",
+                ),
+            ],
+        )
+    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def address_card_keyboard(index: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Удалить",
+                    callback_data=f"{ADDRESS_DELETE_PREFIX}{index}",
+                ),
+            ],
+            [InlineKeyboardButton(text="К списку", callback_data=ADDRESSES_OPEN)],
+        ],
+    )
+
+
+def address_city_keyboard(cities: Sequence[CityButtonView]) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=city.name,
+                    callback_data=f"{ADDRESS_CITY_PREFIX}{index}",
+                ),
+            ]
+            for index, city in enumerate(cities)
+        ],
+    )
+
+
+def address_suggestions_keyboard(suggestions: Sequence[object]) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=str(getattr(suggestion, "value", index + 1)),
+                    callback_data=f"{ADDRESS_SUGGESTION_PREFIX}{index}",
+                ),
+            ]
+            for index, suggestion in enumerate(suggestions)
+        ],
+    )
+
+
+def address_skip_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Пропустить", callback_data=ADDRESS_SKIP)],
+        ],
+    )
+
+
 __all__ = [
     "CARE_OBJECTS_OPEN",
     "CARE_OBJECT_ADD_PREFIX",
@@ -282,6 +356,18 @@ __all__ = [
     "REGISTRATION_CONFIRM",
     "REGISTRATION_CONTACT_PREFIX",
     "REGISTRATION_EDIT",
+    "ADDRESSES_OPEN",
+    "ADDRESS_ADD",
+    "ADDRESS_CITY_PREFIX",
+    "ADDRESS_DELETE_PREFIX",
+    "ADDRESS_SELECT_PREFIX",
+    "ADDRESS_SKIP",
+    "ADDRESS_SUGGESTION_PREFIX",
+    "address_card_keyboard",
+    "address_city_keyboard",
+    "address_skip_keyboard",
+    "address_suggestions_keyboard",
+    "addresses_keyboard",
     "care_object_age_keyboard",
     "care_object_card_keyboard",
     "care_object_mobility_keyboard",

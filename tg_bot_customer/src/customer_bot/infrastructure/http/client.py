@@ -61,6 +61,23 @@ class CareObjectDTO:
     behavior_notes: str | None
 
 
+@dataclass(frozen=True)
+class AddressSuggestionDTO:
+    value: str
+    unrestricted_value: str
+
+
+@dataclass(frozen=True)
+class AddressDTO:
+    id: UUID
+    city_id: UUID
+    address_text: str
+    entrance: str | None
+    floor: str | None
+    apartment: str | None
+    comment: str | None
+
+
 class BackendClient:
     def __init__(
         self,
@@ -263,6 +280,67 @@ class BackendClient:
         )
         self._raise_for_status(response)
 
+    async def suggest_addresses(
+        self,
+        *,
+        city_id: UUID,
+        query: str,
+    ) -> tuple[AddressSuggestionDTO, ...]:
+        response = await self._request(
+            "GET",
+            "/api/geocoding/address-suggestions",
+            params={"city_id": str(city_id), "query": query},
+        )
+        self._raise_for_status(response)
+        return tuple(
+            AddressSuggestionDTO(
+                value=str(item["value"]),
+                unrestricted_value=str(item["unrestricted_value"]),
+            )
+            for item in response.json()
+        )
+
+    async def list_addresses(self, *, telegram_id: int) -> tuple[AddressDTO, ...]:
+        response = await self._request(
+            "GET",
+            f"/api/customers/by-telegram/{telegram_id}/addresses",
+        )
+        self._raise_for_status(response)
+        return tuple(_address_from_json(item) for item in response.json())
+
+    async def create_address(
+        self,
+        *,
+        telegram_id: int,
+        city_id: UUID,
+        unrestricted_value: str,
+        entrance: str | None,
+        floor: str | None,
+        apartment: str | None,
+        comment: str | None,
+    ) -> AddressDTO:
+        response = await self._request(
+            "POST",
+            f"/api/customers/by-telegram/{telegram_id}/addresses",
+            json={
+                "city_id": str(city_id),
+                "unrestricted_value": unrestricted_value,
+                "entrance": entrance,
+                "floor": floor,
+                "apartment": apartment,
+                "comment": comment,
+            },
+        )
+        self._raise_for_status(response)
+        return _address_from_json(response.json())
+
+    async def delete_address(self, *, telegram_id: int, address_id: UUID) -> None:
+        response = await self._request(
+            "DELETE",
+            f"/api/customers/by-telegram/{telegram_id}/addresses/{address_id}",
+        )
+        self._raise_for_status(response)
+
     async def _request(
         self,
         method: str,
@@ -335,7 +413,21 @@ def _care_object_from_json(data: dict[str, object]) -> CareObjectDTO:
     )
 
 
+def _address_from_json(data: dict[str, object]) -> AddressDTO:
+    return AddressDTO(
+        id=UUID(str(data["id"])),
+        city_id=UUID(str(data["city_id"])),
+        address_text=str(data["address_text"]),
+        entrance=data["entrance"] if isinstance(data["entrance"], str) else None,
+        floor=data["floor"] if isinstance(data["floor"], str) else None,
+        apartment=data["apartment"] if isinstance(data["apartment"], str) else None,
+        comment=data["comment"] if isinstance(data["comment"], str) else None,
+    )
+
+
 __all__ = [
+    "AddressDTO",
+    "AddressSuggestionDTO",
     "BackendClient",
     "CareObjectDTO",
     "CityDTO",
