@@ -17,6 +17,15 @@ class CareObjectRepository(Protocol):
     async def soft_delete(self, care_object_id: UUID) -> None:
         pass
 
+    async def list_for_customer(
+        self,
+        customer_id: UUID,
+        *,
+        active_only: bool = True,
+        object_type: str | None = None,
+    ) -> tuple[CareObjectDTO, ...]:
+        pass
+
 
 class CareObjectQueryService(Protocol):
     async def list_for_customer(
