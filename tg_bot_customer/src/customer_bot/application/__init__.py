@@ -1,8 +1,10 @@
-from customer_bot.application.dto import (
+from .dto import (
     AddressDTO,
     AddressSuggestionDTO,
     CareObjectDTO,
+    CityDTO,
     CustomerProfileDTO,
+    LegalDocumentDTO,
     OrderDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
@@ -11,26 +13,13 @@ from customer_bot.application.dto import (
     TelegramTopicDTO,
 )
 
-from .client import BackendClient
-from .errors import (
-    BackendClientError,
-    BackendNotFoundError,
-    BackendUnauthorizedError,
-    BackendUnavailableError,
-    BackendValidationError,
-)
-
 __all__ = [
-    "BackendClient",
-    "BackendClientError",
-    "BackendNotFoundError",
-    "BackendUnauthorizedError",
-    "BackendUnavailableError",
-    "BackendValidationError",
     "AddressDTO",
     "AddressSuggestionDTO",
     "CareObjectDTO",
+    "CityDTO",
     "CustomerProfileDTO",
+    "LegalDocumentDTO",
     "OrderDTO",
     "PricePreviewDTO",
     "ServiceCategoryDTO",

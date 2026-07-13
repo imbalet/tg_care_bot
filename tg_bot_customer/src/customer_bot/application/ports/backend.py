@@ -1,0 +1,177 @@
+from datetime import datetime
+from typing import Protocol
+from uuid import UUID
+
+from customer_bot.application.dto import (
+    AddressDTO,
+    AddressSuggestionDTO,
+    CareObjectDTO,
+    CityDTO,
+    CustomerProfileDTO,
+    LegalDocumentDTO,
+    OrderDTO,
+    PricePreviewDTO,
+    ServiceCategoryDTO,
+    SuitablePerformerDTO,
+    TelegramTopicDTO,
+)
+
+
+class BackendPort(Protocol):
+    async def ping(self) -> None: ...
+
+    async def get_customer_profile(
+        self,
+        telegram_id: int,
+    ) -> CustomerProfileDTO | None: ...
+
+    async def list_active_cities(self) -> tuple[CityDTO, ...]: ...
+
+    async def list_active_legal_documents(self) -> tuple[LegalDocumentDTO, ...]: ...
+
+    async def list_catalog_categories(self) -> tuple[ServiceCategoryDTO, ...]: ...
+
+    async def register_customer(
+        self,
+        *,
+        telegram_id: int,
+        full_name: str,
+        phone: str,
+        city_id: UUID,
+        contact_method: str,
+        telegram_username: str | None,
+        accepted_legal_document_ids: tuple[UUID, ...],
+    ) -> CustomerProfileDTO: ...
+
+    async def update_customer_username(
+        self,
+        *,
+        telegram_id: int,
+        telegram_username: str | None,
+    ) -> CustomerProfileDTO: ...
+
+    async def ensure_telegram_topics(
+        self,
+        *,
+        telegram_id: int,
+        chat_id: int,
+    ) -> tuple[TelegramTopicDTO, ...]: ...
+
+    async def update_telegram_topic_mapping(
+        self,
+        *,
+        topic_id: UUID,
+        chat_id: int,
+        message_thread_id: int | None,
+        status: str,
+    ) -> TelegramTopicDTO: ...
+
+    async def list_care_objects(
+        self,
+        *,
+        telegram_id: int,
+        object_type: str | None = None,
+    ) -> tuple[CareObjectDTO, ...]: ...
+
+    async def create_care_object(
+        self,
+        *,
+        telegram_id: int,
+        object_type: str,
+        display_name: str,
+        age_group: str,
+        species: str | None = None,
+        breed: str | None = None,
+        pet_size: str | None = None,
+        mobility_assistance_required: bool | None = None,
+        routine_notes: str | None = None,
+        behavior_notes: str | None = None,
+    ) -> CareObjectDTO: ...
+
+    async def update_care_object(
+        self,
+        *,
+        telegram_id: int,
+        care_object_id: UUID,
+        display_name: str,
+        age_group: str,
+        species: str | None = None,
+        breed: str | None = None,
+        pet_size: str | None = None,
+        mobility_assistance_required: bool | None = None,
+        routine_notes: str | None = None,
+        behavior_notes: str | None = None,
+    ) -> CareObjectDTO: ...
+
+    async def delete_care_object(
+        self,
+        *,
+        telegram_id: int,
+        care_object_id: UUID,
+    ) -> None: ...
+
+    async def suggest_addresses(
+        self,
+        *,
+        city_id: UUID,
+        query: str,
+    ) -> tuple[AddressSuggestionDTO, ...]: ...
+
+    async def list_addresses(self, *, telegram_id: int) -> tuple[AddressDTO, ...]: ...
+
+    async def create_address(
+        self,
+        *,
+        telegram_id: int,
+        city_id: UUID,
+        unrestricted_value: str,
+        entrance: str | None,
+        floor: str | None,
+        apartment: str | None,
+        comment: str | None,
+    ) -> AddressDTO: ...
+
+    async def delete_address(self, *, telegram_id: int, address_id: UUID) -> None: ...
+
+    async def preview_order_price(
+        self,
+        *,
+        service_id: UUID,
+        start_at: datetime,
+        end_at: datetime,
+        objects_count: int,
+    ) -> PricePreviewDTO: ...
+
+    async def create_order_draft(
+        self,
+        *,
+        customer_id: UUID,
+        service_id: UUID,
+        start_at: datetime,
+        end_at: datetime,
+        care_object_ids: tuple[UUID, ...],
+        address_id: UUID | None,
+        customer_comment: str | None,
+        report_photo_consent: bool | None,
+    ) -> OrderDTO: ...
+
+    async def publish_order_pool(self, *, order_id: UUID) -> OrderDTO: ...
+
+    async def publish_order_direct(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+    ) -> OrderDTO: ...
+
+    async def find_suitable_performers(
+        self,
+        *,
+        city_id: UUID,
+        service_id: UUID,
+        start_at: datetime,
+        end_at: datetime,
+        objects_count: int,
+        care_object_ids: tuple[UUID, ...],
+        address_id: UUID | None,
+    ) -> tuple[SuitablePerformerDTO, ...]: ...

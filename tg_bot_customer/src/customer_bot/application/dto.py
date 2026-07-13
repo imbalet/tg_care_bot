@@ -1,0 +1,133 @@
+from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
+from uuid import UUID
+
+
+@dataclass(frozen=True)
+class CityDTO:
+    id: UUID
+    name: str
+
+
+@dataclass(frozen=True)
+class LegalDocumentDTO:
+    id: UUID
+    document_type: str
+    version: str
+    content_url: str
+
+
+@dataclass(frozen=True)
+class ServiceDTO:
+    id: UUID
+    code: str
+    name: str
+    description: str
+    price_type: str
+    base_price: Decimal
+    location_policy: str
+    photo_policy: str
+    schedule_policy: str
+    allows_multiday: bool
+    min_duration_minutes: int | None
+    max_duration_minutes: int | None
+    duration_step_minutes: int | None
+
+
+@dataclass(frozen=True)
+class ServiceCategoryDTO:
+    id: UUID
+    code: str
+    name: str
+    care_object_type: str
+    max_objects_per_order: int
+    services: tuple[ServiceDTO, ...]
+
+
+@dataclass(frozen=True)
+class CustomerProfileDTO:
+    id: UUID
+    telegram_id: int
+    full_name: str
+    phone: str
+    telegram_username: str | None
+    contact_method: str
+    city_id: UUID
+    status: str
+
+
+@dataclass(frozen=True)
+class TelegramTopicDTO:
+    id: UUID
+    topic_kind: str
+    chat_id: int
+    message_thread_id: int | None
+    status: str
+
+
+@dataclass(frozen=True)
+class CareObjectDTO:
+    id: UUID
+    object_type: str
+    display_name: str
+    age_group: str
+    species: str | None
+    breed: str | None
+    pet_size: str | None
+    mobility_assistance_required: bool | None
+    routine_notes: str | None
+    behavior_notes: str | None
+
+
+@dataclass(frozen=True)
+class AddressSuggestionDTO:
+    value: str
+    unrestricted_value: str
+
+
+@dataclass(frozen=True)
+class AddressDTO:
+    id: UUID
+    city_id: UUID
+    address_text: str
+    entrance: str | None
+    floor: str | None
+    apartment: str | None
+    comment: str | None
+
+
+@dataclass(frozen=True)
+class PricePreviewDTO:
+    service_id: UUID
+    service_code: str
+    service_name: str
+    duration_minutes: int
+    objects_count: int
+    service_amount: Decimal
+    platform_fee_amount: Decimal
+    total_amount: Decimal
+
+
+@dataclass(frozen=True)
+class OrderDTO:
+    id: UUID
+    customer_id: UUID | None
+    service_id: UUID
+    service_name: str
+    matching_mode: str | None
+    status: str
+    start_at: datetime
+    end_at: datetime
+    objects_count: int
+    total_amount: Decimal
+
+
+@dataclass(frozen=True)
+class SuitablePerformerDTO:
+    performer_id: UUID
+    full_name: str
+    service_id: UUID
+    service_name: str
+    performer_max_objects: int
+    distance_km: Decimal | None
