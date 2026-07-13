@@ -12,6 +12,7 @@ from customer_bot.infrastructure.http import (
     CareObjectDTO,
 )
 from customer_bot.presentation.middlewares import TelegramUserContext
+from customer_bot.presentation.services import MenuManager
 from customer_bot.presentation.ui import (
     care_object_age_keyboard,
     care_object_age_step_text,
@@ -65,22 +66,33 @@ async def open_care_objects(
     callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendClient,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
     if message is None:
         return
+    topic_kind = await menu_manager.topic_key(
+        telegram_id=telegram_user_context.telegram_id,
+        message_thread_id=telegram_user_context.message_thread_id,
+    )
+    object_type = {
+        "children": "child",
+        "wards": "ward",
+        "pets": "pet",
+    }.get(topic_kind)
     try:
         items = await backend_client.list_care_objects(
             telegram_id=telegram_user_context.telegram_id,
+            object_type=object_type,
         )
     except BackendClientError:
         await message.answer(retry_later_text())
         return
     await state.update_data(care_objects=[_care_object_state(item) for item in items])
     await message.answer(
-        care_objects_list_text(len(items)),
+        care_objects_list_text(len(items), topic_kind),
         reply_markup=care_objects_keyboard(items),
     )
 

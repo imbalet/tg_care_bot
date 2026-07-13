@@ -12,6 +12,9 @@ def test_ui_state_keys_use_customer_namespace() -> None:
         == "customer_bot:ui_state:123:viewed_available_orders"
     )
     assert keys.username_sync_cache(123) == "customer_bot:username_sync:123"
+    assert keys.topic_kind_by_thread(123, 456) == "customer_bot:topics:123:thread:456"
+    assert keys.topic_thread_by_kind(123, "pets") == "customer_bot:topics:123:kind:pets"
+    assert keys.menu_message(123, "pets") == "customer_bot:menu:123:pets"
 
 
 def test_message_registry_key_format() -> None:

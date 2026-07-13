@@ -4,6 +4,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.strategy import FSMStrategy
+from aiogram.methods.delete_webhook import DeleteWebhook
 from redis.asyncio import Redis
 
 from customer_bot.bootstrap import get_settings
@@ -21,6 +22,7 @@ from customer_bot.presentation.middlewares import (
     TelegramUserContextMiddleware,
     TelegramUsernameSyncMiddleware,
 )
+from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
 
 
 async def amain() -> None:
@@ -49,8 +51,16 @@ async def amain() -> None:
         service_key=settings.service_key,
         timeout_seconds=settings.request_timeout_seconds,
     )
+    menu_manager = MenuManager(redis)
+    topic_setup_service = TelegramTopicSetupService(redis)
     try:
-        await dispatcher.start_polling(bot, backend_client=backend_client)
+        await bot(DeleteWebhook(drop_pending_updates=True))
+        await dispatcher.start_polling(
+            bot,
+            backend_client=backend_client,
+            menu_manager=menu_manager,
+            topic_setup_service=topic_setup_service,
+        )
     finally:
         await backend_client.close()
         await redis.aclose()

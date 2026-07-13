@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -12,13 +12,16 @@ from customer_bot.infrastructure.http import (
     BackendValidationError,
 )
 from customer_bot.presentation.middlewares import TelegramUserContext
+from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
 from customer_bot.presentation.ui import (
     backend_rejected_registration_text,
     contact_methods_keyboard,
+    customer_main_menu_text,
     full_name_step_text,
     invalid_text_input_text,
     legal_acceptance_keyboard,
     legal_documents_text,
+    main_menu_keyboard,
     phone_step_text,
     registration_complete_text,
     registration_summary_keyboard,
@@ -80,7 +83,7 @@ async def start_registration(
     )
     await message.answer(
         legal_documents_text(documents),
-        reply_markup=legal_acceptance_keyboard(),
+        reply_markup=legal_acceptance_keyboard(documents),
     )
 
 
@@ -217,8 +220,11 @@ async def edit_registration(callback: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(CustomerRegistration.summary, F.data == REGISTRATION_CONFIRM)
 async def confirm_registration(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendClient,
+    menu_manager: MenuManager,
+    topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()
@@ -238,7 +244,9 @@ async def confirm_registration(
             ),
         )
         if telegram_user_context.chat_id is not None:
-            await backend_client.ensure_telegram_topics(
+            await topic_setup_service.ensure(
+                bot=bot,
+                backend_client=backend_client,
                 telegram_id=telegram_user_context.telegram_id,
                 chat_id=telegram_user_context.chat_id,
             )
@@ -254,6 +262,19 @@ async def confirm_registration(
     await state.clear()
     if message is not None:
         await message.answer(registration_complete_text())
+        topic_key = await menu_manager.topic_key(
+            telegram_id=telegram_user_context.telegram_id,
+            message_thread_id=telegram_user_context.message_thread_id,
+        )
+        await menu_manager.send_or_replace(
+            bot=bot,
+            message=message,
+            telegram_id=telegram_user_context.telegram_id,
+            topic_key=topic_key,
+            text=customer_main_menu_text(topic_key),
+            reply_markup=main_menu_keyboard(topic_key),
+            message_thread_id=telegram_user_context.message_thread_id,
+        )
 
 
 @router.message(CustomerRegistration.summary)

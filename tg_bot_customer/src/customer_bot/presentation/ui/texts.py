@@ -148,11 +148,19 @@ def summary_text(data: dict[str, object]) -> str:
     )
 
 
-def customer_main_menu_text() -> str:
-    return (
-        "<b>Главное меню</b>\n\n"
-        "Выберите действие. Разделы будут открываться по мере подключения сценариев."
-    )
+TOPIC_TITLES = {
+    "children": "Дети",
+    "wards": "Подопечные",
+    "pets": "Питомцы",
+    "notifications": "Уведомления",
+}
+
+
+def customer_main_menu_text(topic_kind: str | None = None) -> str:
+    title = TOPIC_TITLES.get(topic_kind or "", "Главное меню")
+    if topic_kind == "notifications":
+        return "<b>Уведомления</b>\n\nЗдесь будут системные сообщения сервиса."
+    return f"<b>{escape(title)}</b>\n\nВыберите действие для этого раздела."
 
 
 def customer_profile_text(profile: CustomerProfileView) -> str:
@@ -172,13 +180,11 @@ def customer_profile_text(profile: CustomerProfileView) -> str:
     )
 
 
-def care_objects_list_text(count: int) -> str:
+def care_objects_list_text(count: int, topic_kind: str | None = None) -> str:
+    title = TOPIC_TITLES.get(topic_kind or "", "Карточки")
     if count == 0:
-        return (
-            "<b>Объекты ухода</b>\n\n"
-            "Добавьте карточки детей, подопечных или питомцев до создания заказа."
-        )
-    return "<b>Объекты ухода</b>\n\nВыберите карточку или добавьте новую."
+        return f"<b>{escape(title)}</b>\n\nДобавьте карточку до создания заказа."
+    return f"<b>{escape(title)}</b>\n\nВыберите карточку или добавьте новую."
 
 
 def care_object_name_step_text(object_type_label: str) -> str:
