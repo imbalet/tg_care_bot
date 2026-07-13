@@ -20,6 +20,7 @@ from executor_bot.presentation.handlers import (
     start_router,
 )
 from executor_bot.presentation.middlewares import (
+    TelegramTopicsEnsureMiddleware,
     TelegramUserContextMiddleware,
     TelegramUsernameSyncMiddleware,
 )
@@ -36,6 +37,7 @@ async def amain() -> None:
     )
     dispatcher.update.middleware(TelegramUserContextMiddleware())
     dispatcher.update.middleware(TelegramUsernameSyncMiddleware(redis))
+    dispatcher.update.middleware(TelegramTopicsEnsureMiddleware())
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)
     dispatcher.include_router(addresses_router)
