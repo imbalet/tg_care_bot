@@ -13,7 +13,7 @@ from customer_bot.application.dto import (
     SuitablePerformerDTO,
 )
 from customer_bot.application.errors import BackendClientError, BackendValidationError
-from customer_bot.application.ports import BackendPort
+from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.callbacks import (
     OrderAddressCallback,
     OrderCommentSkipCallback,
@@ -25,6 +25,7 @@ from customer_bot.presentation.callbacks import (
     OrderServiceCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
+from customer_bot.presentation.navigation import active_category
 from customer_bot.presentation.ui import (
     invalid_datetime_text,
     invalid_duration_text,
@@ -72,22 +73,38 @@ async def start_order_creation(
     callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendPort,
+    active_category_store: ActiveCategoryStore,
+    telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
     if message is None:
         return
     try:
-        categories = await backend_client.list_catalog_categories()
+        category = await active_category(
+            backend_client=backend_client,
+            active_category_store=active_category_store,
+            telegram_id=telegram_user_context.telegram_id,
+        )
     except BackendClientError:
         await message.answer(retry_later_text())
         return
-    services = _service_states(categories)
+    if category is None:
+        await message.answer(use_buttons_text())
+        return
+    services = _service_states((category,))
     if not services:
         await message.answer(order_no_services_text())
         return
     await state.set_state(OrderCreation.service)
-    await state.update_data(order_services=services, order_draft={})
+    await state.update_data(
+        order_services=services,
+        order_draft={
+            "category_code": category.code,
+            "category_name": category.name,
+            "care_object_type": category.care_object_type,
+        },
+    )
     await message.answer(
         order_services_step_text(),
         reply_markup=order_services_keyboard(services),
@@ -456,7 +473,9 @@ def _service_states(
             services.append(
                 {
                     "id": str(service.id),
-                    "name": f"{category.name}: {service.name}",
+                    "name": service.name,
+                    "category_code": category.code,
+                    "category_name": category.name,
                     "care_object_type": category.care_object_type,
                     "location_policy": service.location_policy,
                     "photo_policy": service.photo_policy,

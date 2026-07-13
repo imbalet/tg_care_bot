@@ -7,7 +7,7 @@ from aiogram.types import CallbackQuery, Message
 
 from customer_bot.application.dto import CareObjectDTO
 from customer_bot.application.errors import BackendClientError, BackendValidationError
-from customer_bot.application.ports import BackendPort
+from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.callbacks import (
     CareObjectAddCallback,
     CareObjectAgeCallback,
@@ -20,7 +20,11 @@ from customer_bot.presentation.callbacks import (
     CareObjectsOpenCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.navigation import (
+    active_category,
+    category_by_code,
+    list_categories,
+)
 from customer_bot.presentation.ui import (
     care_object_age_keyboard,
     care_object_age_step_text,
@@ -63,23 +67,25 @@ async def open_care_objects(
     callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
+    callback_data: CareObjectsOpenCallback,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
     if message is None:
         return
-    topic_kind = await menu_manager.topic_key(
-        telegram_id=telegram_user_context.telegram_id,
-        message_thread_id=telegram_user_context.message_thread_id,
-    )
-    object_type = {
-        "children": "child",
-        "wards": "ward",
-        "pets": "pet",
-    }.get(topic_kind)
     try:
+        if callback_data.category_code is not None:
+            categories = await list_categories(backend_client)
+            category = category_by_code(categories, callback_data.category_code)
+        else:
+            category = await active_category(
+                backend_client=backend_client,
+                active_category_store=active_category_store,
+                telegram_id=telegram_user_context.telegram_id,
+            )
+        object_type = category.care_object_type if category is not None else None
         items = await backend_client.list_care_objects(
             telegram_id=telegram_user_context.telegram_id,
             object_type=object_type,
@@ -89,8 +95,8 @@ async def open_care_objects(
         return
     await state.update_data(care_objects=[_care_object_state(item) for item in items])
     await message.answer(
-        care_objects_list_text(len(items), topic_kind),
-        reply_markup=care_objects_keyboard(items),
+        care_objects_list_text(len(items), category),
+        reply_markup=care_objects_keyboard(items, object_type=object_type),
     )
 
 

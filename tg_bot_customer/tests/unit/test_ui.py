@@ -7,6 +7,8 @@ from customer_bot.presentation.callbacks import (
     AddressSelectCallback,
     CareObjectAddCallback,
     CareObjectSelectCallback,
+    CareObjectsOpenCallback,
+    CategorySelectCallback,
     OrderServiceCallback,
     RegistrationCityCallback,
     RegistrationConfirmCallback,
@@ -17,9 +19,11 @@ from customer_bot.presentation.ui import (
     addresses_keyboard,
     care_object_card_text,
     care_objects_keyboard,
+    category_select_keyboard,
     contact_methods_keyboard,
     customer_profile_text,
     legal_documents_text,
+    main_menu_keyboard,
     order_services_keyboard,
     registration_summary_keyboard,
     select_city_keyboard,
@@ -57,6 +61,13 @@ class Address:
     floor: str | None = None
     apartment: str | None = None
     comment: str | None = None
+
+
+@dataclass(frozen=True)
+class Category:
+    code: str
+    name: str
+    care_object_type: str
 
 
 def test_legal_documents_text_escapes_html() -> None:
@@ -115,13 +126,32 @@ def test_customer_profile_text_escapes_user_values() -> None:
 
 
 def test_care_object_keyboard_is_inline_first() -> None:
-    keyboard = care_objects_keyboard([CareObject(display_name="Барсик")])
+    keyboard = care_objects_keyboard(
+        [CareObject(display_name="Барсик")],
+        object_type="pet",
+    )
 
     assert keyboard.inline_keyboard[0][0].callback_data == (
-        CareObjectAddCallback(object_type="child").pack()
+        CareObjectAddCallback(object_type="pet").pack()
     )
-    assert keyboard.inline_keyboard[3][0].callback_data == (
+    assert keyboard.inline_keyboard[1][0].callback_data == (
         CareObjectSelectCallback(index=0).pack()
+    )
+
+
+def test_category_select_keyboard_uses_backend_codes() -> None:
+    keyboard = category_select_keyboard([Category("pets", "Животные", "pet")])
+
+    assert keyboard.inline_keyboard[0][0].callback_data == (
+        CategorySelectCallback(code="pets").pack()
+    )
+
+
+def test_main_menu_keyboard_passes_category_code_to_care_objects() -> None:
+    keyboard = main_menu_keyboard(Category("pets", "Животные", "pet"))
+
+    assert keyboard.inline_keyboard[2][0].callback_data == (
+        CareObjectsOpenCallback(category_code="pets").pack()
     )
 
 

@@ -17,6 +17,6 @@ class AppContextMiddleware(BaseMiddleware):
         app_context = get_app_context(data)
         data["backend_client"] = app_context.backend_client
         data["menu_manager"] = app_context.menu_manager
-        data["topic_setup_service"] = app_context.topic_setup_service
+        data["active_category_store"] = app_context.active_category_store
         data["username_sync_service"] = app_context.username_sync_service
         return await handler(event, data)

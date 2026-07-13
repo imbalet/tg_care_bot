@@ -148,19 +148,25 @@ def summary_text(data: dict[str, object]) -> str:
     )
 
 
-TOPIC_TITLES = {
-    "children": "Дети",
-    "wards": "Подопечные",
-    "pets": "Питомцы",
-    "notifications": "Уведомления",
+CATEGORY_EMOJIS = {
+    "child": "👶",
+    "ward": "🧓",
+    "pet": "🐾",
 }
 
 
-def customer_main_menu_text(topic_kind: str | None = None) -> str:
-    title = TOPIC_TITLES.get(topic_kind or "", "Главное меню")
-    if topic_kind == "notifications":
-        return "<b>Уведомления</b>\n\nЗдесь будут системные сообщения сервиса."
-    return f"<b>{escape(title)}</b>\n\nВыберите действие для этого раздела."
+def category_select_text() -> str:
+    return "<b>Выберите направление</b>"
+
+
+def customer_main_menu_text(category: object | None = None) -> str:
+    if category is None:
+        return "<b>Главное меню</b>"
+    name = str(getattr(category, "name", "Главное меню"))
+    care_object_type = str(getattr(category, "care_object_type", ""))
+    emoji = CATEGORY_EMOJIS.get(care_object_type, "")
+    title = f"{emoji} {name}".strip()
+    return f"<b>{escape(title)}</b>"
 
 
 def customer_profile_text(profile: CustomerProfileView) -> str:
@@ -180,8 +186,8 @@ def customer_profile_text(profile: CustomerProfileView) -> str:
     )
 
 
-def care_objects_list_text(count: int, topic_kind: str | None = None) -> str:
-    title = TOPIC_TITLES.get(topic_kind or "", "Карточки")
+def care_objects_list_text(count: int, category: object | None = None) -> str:
+    title = str(getattr(category, "name", "Карточки"))
     if count == 0:
         return f"<b>{escape(title)}</b>\n\nДобавьте карточку до создания заказа."
     return f"<b>{escape(title)}</b>\n\nВыберите карточку или добавьте новую."
@@ -316,6 +322,13 @@ def order_services_step_text() -> str:
 
 def order_no_services_text() -> str:
     return "<b>Новый заказ</b>\n\nСейчас нет активных услуг для заказа."
+
+
+def unfinished_action_text() -> str:
+    return (
+        "<b>Вы не завершили текущее действие.</b>\n\n"
+        "Продолжите сценарий или отмените его перед сменой направления."
+    )
 
 
 def order_objects_step_text() -> str:

@@ -1,15 +1,15 @@
 from dataclasses import dataclass
 
-from customer_bot.application.ports import BackendPort
+from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.application.services import UsernameSyncService
-from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
+from customer_bot.presentation.services import MenuManager
 
 
 @dataclass(frozen=True)
 class AppContext:
     backend_client: BackendPort
     menu_manager: MenuManager
-    topic_setup_service: TelegramTopicSetupService
+    active_category_store: ActiveCategoryStore
     username_sync_service: UsernameSyncService
 
 
@@ -18,4 +18,3 @@ class TelegramUserContext:
     telegram_id: int
     username: str | None
     chat_id: int | None
-    message_thread_id: int | None

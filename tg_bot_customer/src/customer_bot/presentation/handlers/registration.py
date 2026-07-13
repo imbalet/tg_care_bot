@@ -16,16 +16,15 @@ from customer_bot.presentation.callbacks import (
     RegistrationLegalAcceptCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
-from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
+from customer_bot.presentation.navigation import show_category_select
+from customer_bot.presentation.services import MenuManager
 from customer_bot.presentation.ui import (
     backend_rejected_registration_text,
     contact_methods_keyboard,
-    customer_main_menu_text,
     full_name_step_text,
     invalid_text_input_text,
     legal_acceptance_keyboard,
     legal_documents_text,
-    main_menu_keyboard,
     phone_step_text,
     registration_complete_text,
     registration_summary_keyboard,
@@ -224,7 +223,6 @@ async def confirm_registration(
     state: FSMContext,
     backend_client: BackendPort,
     menu_manager: MenuManager,
-    topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()
@@ -243,13 +241,6 @@ async def confirm_registration(
                 for document_id in _string_list(data["legal_document_ids"])
             ),
         )
-        if telegram_user_context.chat_id is not None:
-            await topic_setup_service.ensure(
-                bot=bot,
-                backend_client=backend_client,
-                telegram_id=telegram_user_context.telegram_id,
-                chat_id=telegram_user_context.chat_id,
-            )
     except BackendValidationError:
         if message is not None:
             await message.answer(backend_rejected_registration_text())
@@ -262,18 +253,12 @@ async def confirm_registration(
     await state.clear()
     if message is not None:
         await message.answer(registration_complete_text())
-        topic_key = await menu_manager.topic_key(
-            telegram_id=telegram_user_context.telegram_id,
-            message_thread_id=telegram_user_context.message_thread_id,
-        )
-        await menu_manager.send_or_replace(
+        await show_category_select(
             bot=bot,
-            message=message,
-            telegram_id=telegram_user_context.telegram_id,
-            topic_key=topic_key,
-            text=customer_main_menu_text(topic_key),
-            reply_markup=main_menu_keyboard(topic_key),
-            message_thread_id=telegram_user_context.message_thread_id,
+            event=message,
+            telegram_user_context=telegram_user_context,
+            backend_client=backend_client,
+            menu_manager=menu_manager,
         )
 
 

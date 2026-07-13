@@ -4,16 +4,21 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from customer_bot.application.errors import BackendClientError
-from customer_bot.application.ports import BackendPort
+from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.registration import start_registration
-from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
+from customer_bot.presentation.navigation import (
+    active_category,
+    show_category_menu,
+    show_category_select,
+)
+from customer_bot.presentation.services import MenuManager
 from customer_bot.presentation.ui import (
-    customer_main_menu_text,
     fallback_keyboard,
     help_text,
-    main_menu_keyboard,
     retry_later_text,
+    unfinished_action_keyboard,
+    unfinished_action_text,
 )
 
 router = Router(name="start")
@@ -26,16 +31,22 @@ async def start(
     state: FSMContext,
     backend_client: BackendPort,
     menu_manager: MenuManager,
-    topic_setup_service: TelegramTopicSetupService,
+    active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
 ) -> None:
+    if await state.get_state() is not None:
+        await message.answer(
+            unfinished_action_text(),
+            reply_markup=unfinished_action_keyboard(),
+        )
+        return
     await _open_start_or_menu(
         message=message,
         bot=bot,
         state=state,
         backend_client=backend_client,
         menu_manager=menu_manager,
-        topic_setup_service=topic_setup_service,
+        active_category_store=active_category_store,
         telegram_user_context=telegram_user_context,
         start_registration_if_missing=True,
     )
@@ -48,7 +59,7 @@ async def menu(
     state: FSMContext,
     backend_client: BackendPort,
     menu_manager: MenuManager,
-    topic_setup_service: TelegramTopicSetupService,
+    active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await _open_start_or_menu(
@@ -57,7 +68,30 @@ async def menu(
         state=state,
         backend_client=backend_client,
         menu_manager=menu_manager,
-        topic_setup_service=topic_setup_service,
+        active_category_store=active_category_store,
+        telegram_user_context=telegram_user_context,
+        start_registration_if_missing=False,
+    )
+
+
+@router.message(Command("cancel"))
+async def cancel(
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendPort,
+    menu_manager: MenuManager,
+    active_category_store: ActiveCategoryStore,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await state.clear()
+    await _open_start_or_menu(
+        message=message,
+        bot=bot,
+        state=state,
+        backend_client=backend_client,
+        menu_manager=menu_manager,
+        active_category_store=active_category_store,
         telegram_user_context=telegram_user_context,
         start_registration_if_missing=False,
     )
@@ -78,18 +112,13 @@ async def help_command(
         ) is not None
     except BackendClientError:
         include_main_menu = False
-    topic_key = await menu_manager.topic_key(
-        telegram_id=telegram_user_context.telegram_id,
-        message_thread_id=telegram_user_context.message_thread_id,
-    )
     await menu_manager.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=topic_key,
+        topic_key="main",
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
-        message_thread_id=telegram_user_context.message_thread_id,
     )
 
 
@@ -100,7 +129,7 @@ async def _open_start_or_menu(
     state: FSMContext,
     backend_client: BackendPort,
     menu_manager: MenuManager,
-    topic_setup_service: TelegramTopicSetupService,
+    active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
     start_registration_if_missing: bool,
 ) -> None:
@@ -112,26 +141,26 @@ async def _open_start_or_menu(
         await message.answer(retry_later_text())
         return
     if profile is not None:
-        await state.clear()
-        if telegram_user_context.chat_id is not None:
-            await topic_setup_service.ensure(
-                bot=bot,
-                backend_client=backend_client,
-                telegram_id=telegram_user_context.telegram_id,
-                chat_id=telegram_user_context.chat_id,
-            )
-        topic_key = await menu_manager.topic_key(
+        category = await active_category(
+            backend_client=backend_client,
+            active_category_store=active_category_store,
             telegram_id=telegram_user_context.telegram_id,
-            message_thread_id=telegram_user_context.message_thread_id,
         )
-        await menu_manager.update(
+        if category is None:
+            await show_category_select(
+                bot=bot,
+                event=message,
+                telegram_user_context=telegram_user_context,
+                backend_client=backend_client,
+                menu_manager=menu_manager,
+            )
+            return
+        await show_category_menu(
             bot=bot,
             event=message,
-            telegram_id=telegram_user_context.telegram_id,
-            topic_key=topic_key,
-            text=customer_main_menu_text(topic_key),
-            reply_markup=main_menu_keyboard(topic_key),
-            message_thread_id=telegram_user_context.message_thread_id,
+            telegram_user_context=telegram_user_context,
+            menu_manager=menu_manager,
+            category=category,
         )
         return
     if start_registration_if_missing:
@@ -144,5 +173,4 @@ async def _open_start_or_menu(
         topic_key="general",
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=False),
-        message_thread_id=telegram_user_context.message_thread_id,
     )

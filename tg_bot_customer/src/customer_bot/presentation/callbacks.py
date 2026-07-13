@@ -5,6 +5,22 @@ class HelpCallback(CallbackData, prefix="help"):
     pass
 
 
+class CategorySelectCallback(CallbackData, prefix="cat_select"):
+    code: str
+
+
+class CategoryChangeCallback(CallbackData, prefix="cat_change"):
+    pass
+
+
+class ScenarioContinueCallback(CallbackData, prefix="scenario_continue"):
+    pass
+
+
+class ScenarioCancelCallback(CallbackData, prefix="scenario_cancel"):
+    pass
+
+
 class MainMenuCallback(CallbackData, prefix="main_menu"):
     pass
 
@@ -14,6 +30,10 @@ class ProfileOpenCallback(CallbackData, prefix="profile_open"):
 
 
 class OrdersListCallback(CallbackData, prefix="orders_list"):
+    pass
+
+
+class ServicesPricesCallback(CallbackData, prefix="services_prices"):
     pass
 
 
@@ -38,7 +58,7 @@ class RegistrationEditCallback(CallbackData, prefix="reg_edit"):
 
 
 class CareObjectsOpenCallback(CallbackData, prefix="care_open"):
-    pass
+    category_code: str | None = None
 
 
 class CareObjectAddCallback(CallbackData, prefix="care_add"):

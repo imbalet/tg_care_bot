@@ -10,7 +10,6 @@ from .dto import (
     ServiceCategoryDTO,
     ServiceDTO,
     SuitablePerformerDTO,
-    TelegramTopicDTO,
 )
 
 __all__ = [
@@ -25,5 +24,4 @@ __all__ = [
     "ServiceCategoryDTO",
     "ServiceDTO",
     "SuitablePerformerDTO",
-    "TelegramTopicDTO",
 ]

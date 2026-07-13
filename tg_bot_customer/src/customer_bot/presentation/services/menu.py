@@ -2,7 +2,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
-from customer_bot.application.ports import MenuMessageStore, TopicCache
+from customer_bot.application.ports import MenuMessageStore
 
 
 class MenuManager:
@@ -10,21 +10,8 @@ class MenuManager:
         self,
         *,
         message_store: MenuMessageStore,
-        topic_cache: TopicCache,
     ) -> None:
         self._message_store = message_store
-        self._topic_cache = topic_cache
-
-    async def topic_key(
-        self,
-        *,
-        telegram_id: int,
-        message_thread_id: int | None,
-    ) -> str:
-        return await self._topic_cache.topic_kind_by_thread(
-            telegram_id,
-            message_thread_id,
-        )
 
     async def send_or_replace(
         self,
@@ -35,7 +22,6 @@ class MenuManager:
         topic_key: str,
         text: str,
         reply_markup: InlineKeyboardMarkup | None = None,
-        message_thread_id: int | None = None,
     ) -> Message:
         await self.update(
             bot=bot,
@@ -44,7 +30,6 @@ class MenuManager:
             topic_key=topic_key,
             text=text,
             reply_markup=reply_markup,
-            message_thread_id=message_thread_id,
         )
         return message
 
@@ -57,7 +42,6 @@ class MenuManager:
         topic_key: str,
         text: str,
         reply_markup: InlineKeyboardMarkup | None = None,
-        message_thread_id: int | None = None,
         create_new: bool = False,
     ) -> Message | None:
         message = event if isinstance(event, Message) else event.message
@@ -95,7 +79,6 @@ class MenuManager:
             chat_id=message.chat.id,
             text=text,
             reply_markup=reply_markup,
-            message_thread_id=message_thread_id,
         )
         await self._message_store.set(telegram_id, topic_key, sent.message_id)
         if isinstance(event, Message) and event.message_id != sent.message_id:

@@ -46,7 +46,6 @@ def context(username: str | None) -> TelegramUserContext:
         telegram_id=123,
         username=username,
         chat_id=456,
-        message_thread_id=None,
     )
 
 

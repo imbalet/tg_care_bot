@@ -12,8 +12,8 @@ from customer_bot.application.services import UsernameSyncService
 from customer_bot.infrastructure.http import BackendClient
 from customer_bot.infrastructure.logger import setup_logger
 from customer_bot.infrastructure.redis import (
+    RedisActiveCategoryStore,
     RedisMenuMessageStore,
-    RedisTopicCache,
     RedisUsernameSyncCache,
     create_fsm_storage,
 )
@@ -29,11 +29,10 @@ from customer_bot.presentation.handlers import (
 )
 from customer_bot.presentation.middlewares import (
     AppContextMiddleware,
-    TelegramTopicsEnsureMiddleware,
     TelegramUserContextMiddleware,
     TelegramUsernameSyncMiddleware,
 )
-from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
+from customer_bot.presentation.services import MenuManager
 
 
 async def main() -> None:
@@ -46,12 +45,11 @@ async def main() -> None:
     storage = create_fsm_storage(settings.redis_url)
     dispatcher = Dispatcher(
         storage=storage,
-        fsm_strategy=FSMStrategy.USER_IN_TOPIC,
+        fsm_strategy=FSMStrategy.USER_IN_CHAT,
     )
     dispatcher.update.middleware(TelegramUserContextMiddleware())
     dispatcher.update.middleware(AppContextMiddleware())
     dispatcher.update.middleware(TelegramUsernameSyncMiddleware())
-    dispatcher.update.middleware(TelegramTopicsEnsureMiddleware())
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)
     dispatcher.include_router(care_objects_router)
@@ -69,8 +67,8 @@ async def main() -> None:
         timeout_seconds=settings.request_timeout_seconds,
     )
 
-    topic_cache = RedisTopicCache(redis)
     menu_message_store = RedisMenuMessageStore(redis)
+    active_category_store = RedisActiveCategoryStore(redis)
     username_sync_cache = RedisUsernameSyncCache(redis)
     username_sync_service = UsernameSyncService(
         backend=backend_client,
@@ -78,11 +76,6 @@ async def main() -> None:
     )
     menu_manager = MenuManager(
         message_store=menu_message_store,
-        topic_cache=topic_cache,
-    )
-    topic_setup_service = TelegramTopicSetupService(
-        backend=backend_client,
-        topic_cache=topic_cache,
     )
     try:
         await bot.set_my_commands(
@@ -98,7 +91,7 @@ async def main() -> None:
             app_context=AppContext(
                 backend_client=backend_client,
                 menu_manager=menu_manager,
-                topic_setup_service=topic_setup_service,
+                active_category_store=active_category_store,
                 username_sync_service=username_sync_service,
             ),
         )

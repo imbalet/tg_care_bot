@@ -1,4 +1,8 @@
-from .adapters import RedisMenuMessageStore, RedisTopicCache, RedisUsernameSyncCache
+from .adapters import (
+    RedisActiveCategoryStore,
+    RedisMenuMessageStore,
+    RedisUsernameSyncCache,
+)
 from .keys import CustomerRedisKeys, customer_redis_keys
 from .message_registry import MessageRegistry, RegisteredMessage
 from .storage import create_fsm_storage
@@ -6,8 +10,8 @@ from .storage import create_fsm_storage
 __all__ = [
     "CustomerRedisKeys",
     "MessageRegistry",
+    "RedisActiveCategoryStore",
     "RedisMenuMessageStore",
-    "RedisTopicCache",
     "RedisUsernameSyncCache",
     "RegisteredMessage",
     "create_fsm_storage",

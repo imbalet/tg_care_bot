@@ -13,7 +13,6 @@ from customer_bot.application.dto import (
     PricePreviewDTO,
     ServiceCategoryDTO,
     SuitablePerformerDTO,
-    TelegramTopicDTO,
 )
 
 
@@ -49,22 +48,6 @@ class BackendPort(Protocol):
         telegram_id: int,
         telegram_username: str | None,
     ) -> CustomerProfileDTO: ...
-
-    async def ensure_telegram_topics(
-        self,
-        *,
-        telegram_id: int,
-        chat_id: int,
-    ) -> tuple[TelegramTopicDTO, ...]: ...
-
-    async def update_telegram_topic_mapping(
-        self,
-        *,
-        topic_id: UUID,
-        chat_id: int,
-        message_thread_id: int | None,
-        status: str,
-    ) -> TelegramTopicDTO: ...
 
     async def list_care_objects(
         self,

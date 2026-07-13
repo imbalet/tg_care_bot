@@ -24,7 +24,7 @@ class RedisUsernameSyncCache:
         )
 
 
-class RedisTopicCache:
+class RedisActiveCategoryStore:
     def __init__(
         self,
         redis: Redis,
@@ -33,39 +33,12 @@ class RedisTopicCache:
         self._redis = redis
         self._keys = keys
 
-    async def topic_kind_by_thread(
-        self,
-        telegram_id: int,
-        message_thread_id: int | None,
-    ) -> str:
-        if message_thread_id is None:
-            return "general"
-        value = await self._redis.get(
-            self._keys.topic_kind_by_thread(telegram_id, message_thread_id)
-        )
-        return value if isinstance(value, str) and value else "general"
+    async def get(self, telegram_id: int) -> str | None:
+        value = await self._redis.get(self._keys.active_category(telegram_id))
+        return value if isinstance(value, str) and value else None
 
-    async def save_topic_thread(
-        self,
-        *,
-        telegram_id: int,
-        topic_kind: str,
-        message_thread_id: int | None,
-    ) -> None:
-        if message_thread_id is None:
-            await self._redis.set(
-                self._keys.topic_thread_by_kind(telegram_id, topic_kind),
-                "",
-            )
-            return
-        await self._redis.set(
-            self._keys.topic_kind_by_thread(telegram_id, message_thread_id),
-            topic_kind,
-        )
-        await self._redis.set(
-            self._keys.topic_thread_by_kind(telegram_id, topic_kind),
-            message_thread_id,
-        )
+    async def set(self, telegram_id: int, category_code: str) -> None:
+        await self._redis.set(self._keys.active_category(telegram_id), category_code)
 
 
 class RedisMenuMessageStore:

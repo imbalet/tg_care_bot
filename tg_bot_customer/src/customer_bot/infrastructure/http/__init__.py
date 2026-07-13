@@ -8,7 +8,6 @@ from customer_bot.application.dto import (
     ServiceCategoryDTO,
     ServiceDTO,
     SuitablePerformerDTO,
-    TelegramTopicDTO,
 )
 
 from .client import BackendClient
@@ -36,5 +35,4 @@ __all__ = [
     "ServiceCategoryDTO",
     "ServiceDTO",
     "SuitablePerformerDTO",
-    "TelegramTopicDTO",
 ]

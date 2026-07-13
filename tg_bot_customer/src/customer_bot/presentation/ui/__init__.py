@@ -10,6 +10,7 @@ from .keyboards import (
     care_object_size_keyboard,
     care_object_skip_keyboard,
     care_objects_keyboard,
+    category_select_keyboard,
     contact_methods_keyboard,
     fallback_keyboard,
     legal_acceptance_keyboard,
@@ -22,6 +23,7 @@ from .keyboards import (
     order_services_keyboard,
     registration_summary_keyboard,
     select_city_keyboard,
+    unfinished_action_keyboard,
 )
 from .texts import (
     address_card_text,
@@ -45,6 +47,7 @@ from .texts import (
     care_object_size_step_text,
     care_object_species_step_text,
     care_objects_list_text,
+    category_select_text,
     customer_main_menu_text,
     customer_profile_text,
     fallback_text,
@@ -74,6 +77,7 @@ from .texts import (
     select_contact_method_text,
     summary_text,
     unavailable_action_text,
+    unfinished_action_text,
     use_buttons_text,
 )
 
@@ -96,6 +100,8 @@ __all__ = [
     "care_object_species_step_text",
     "care_objects_keyboard",
     "care_objects_list_text",
+    "category_select_keyboard",
+    "category_select_text",
     "address_card_keyboard",
     "address_card_text",
     "address_city_keyboard",
@@ -151,5 +157,7 @@ __all__ = [
     "select_contact_method_text",
     "summary_text",
     "unavailable_action_text",
+    "unfinished_action_keyboard",
+    "unfinished_action_text",
     "use_buttons_text",
 ]

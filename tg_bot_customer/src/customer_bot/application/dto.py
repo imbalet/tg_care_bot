@@ -58,15 +58,6 @@ class CustomerProfileDTO:
 
 
 @dataclass(frozen=True)
-class TelegramTopicDTO:
-    id: UUID
-    topic_kind: str
-    chat_id: int
-    message_thread_id: int | None
-    status: str
-
-
-@dataclass(frozen=True)
 class CareObjectDTO:
     id: UUID
     object_type: str

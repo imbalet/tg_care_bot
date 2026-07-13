@@ -17,7 +17,6 @@ from customer_bot.application.dto import (
     ServiceCategoryDTO,
     ServiceDTO,
     SuitablePerformerDTO,
-    TelegramTopicDTO,
 )
 
 from .errors import (
@@ -132,40 +131,6 @@ class BackendClient:
         )
         self._raise_for_status(response)
         return _customer_from_json(response.json())
-
-    async def ensure_telegram_topics(
-        self,
-        *,
-        telegram_id: int,
-        chat_id: int,
-    ) -> tuple[TelegramTopicDTO, ...]:
-        response = await self._request(
-            "POST",
-            f"/api/telegram-topics/customer/{telegram_id}/ensure",
-            json={"chat_id": chat_id},
-        )
-        self._raise_for_status(response)
-        return tuple(_topic_from_json(item) for item in response.json())
-
-    async def update_telegram_topic_mapping(
-        self,
-        *,
-        topic_id: UUID,
-        chat_id: int,
-        message_thread_id: int | None,
-        status: str,
-    ) -> TelegramTopicDTO:
-        response = await self._request(
-            "PATCH",
-            f"/api/telegram-topics/{topic_id}/mapping",
-            json={
-                "chat_id": chat_id,
-                "message_thread_id": message_thread_id,
-                "status": status,
-            },
-        )
-        self._raise_for_status(response)
-        return _topic_from_json(response.json())
 
     async def list_care_objects(
         self,
@@ -471,18 +436,6 @@ def _customer_from_json(data: dict[str, object]) -> CustomerProfileDTO:
         else None,
         contact_method=str(data["contact_method"]),
         city_id=UUID(str(data["city_id"])),
-        status=str(data["status"]),
-    )
-
-
-def _topic_from_json(data: dict[str, object]) -> TelegramTopicDTO:
-    return TelegramTopicDTO(
-        id=UUID(str(data["id"])),
-        topic_kind=str(data["topic_kind"]),
-        chat_id=int(cast(str | int, data["chat_id"])),
-        message_thread_id=int(cast(str | int, data["message_thread_id"]))
-        if data["message_thread_id"] is not None
-        else None,
         status=str(data["status"]),
     )
 

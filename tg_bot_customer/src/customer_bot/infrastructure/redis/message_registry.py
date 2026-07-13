@@ -7,7 +7,6 @@ from redis.asyncio import Redis
 class RegisteredMessage:
     chat_id: int
     message_id: int
-    message_thread_id: int | None = None
 
 
 class MessageRegistry:
@@ -16,9 +15,7 @@ class MessageRegistry:
         self._prefix = prefix
 
     async def register(self, semantic_key: str, message: RegisteredMessage) -> None:
-        value = (
-            f"{message.chat_id}:{message.message_id}:{message.message_thread_id or ''}"
-        )
+        value = f"{message.chat_id}:{message.message_id}"
         await self._redis.set(self._key(semantic_key), value)
 
     async def remove(self, semantic_key: str) -> None:

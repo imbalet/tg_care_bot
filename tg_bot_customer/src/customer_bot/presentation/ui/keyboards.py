@@ -20,6 +20,8 @@ from customer_bot.presentation.callbacks import (
     CareObjectSizeCallback,
     CareObjectSkipCallback,
     CareObjectsOpenCallback,
+    CategoryChangeCallback,
+    CategorySelectCallback,
     HelpCallback,
     MainMenuCallback,
     OrderAddressCallback,
@@ -37,14 +39,35 @@ from customer_bot.presentation.callbacks import (
     RegistrationContactCallback,
     RegistrationEditCallback,
     RegistrationLegalAcceptCallback,
+    ScenarioCancelCallback,
+    ScenarioContinueCallback,
+    ServicesPricesCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
-from customer_bot.presentation.ui.labels import MsgKey, text
+from customer_bot.presentation.ui.labels import MsgKey
 
 CARE_OBJECT_TYPE_LABELS = {
     "child": "Ребенок",
     "ward": "Подопечный",
     "pet": "Питомец",
+}
+
+CATEGORY_EMOJIS = {
+    "child": "👶",
+    "ward": "🧓",
+    "pet": "🐾",
+}
+
+CARE_OBJECT_LIST_LABELS = {
+    "child": "Мои дети",
+    "ward": "Мои подопечные",
+    "pet": "Мои питомцы",
+}
+
+CARE_OBJECT_ADD_LABELS = {
+    "child": MsgKey.ADD_CHILD,
+    "ward": MsgKey.ADD_WARD,
+    "pet": MsgKey.ADD_PET,
 }
 
 CARE_OBJECT_AGE_LABELS = {
@@ -110,22 +133,36 @@ def registration_summary_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def main_menu_keyboard(topic_kind: str | None = None) -> InlineKeyboardMarkup:
-    if topic_kind == "notifications":
-        return InlineKeyboardFactory().button(MsgKey.HELP, HelpCallback()).as_markup()
-    care_label = {
-        "children": text(MsgKey.CHILDREN),
-        "wards": text(MsgKey.WARDS),
-        "pets": text(MsgKey.PETS),
-    }.get(topic_kind or "", "Карточки")
+def category_select_keyboard(categories: Sequence[object]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    for category in categories:
+        code = str(getattr(category, "code", ""))
+        name = str(getattr(category, "name", code))
+        care_object_type = str(getattr(category, "care_object_type", ""))
+        emoji = CATEGORY_EMOJIS.get(care_object_type, "")
+        keyboard.button(
+            f"{emoji} {name}".strip(),
+            CategorySelectCallback(code=code),
+        )
+    return keyboard.as_markup()
+
+
+def main_menu_keyboard(category: object | None = None) -> InlineKeyboardMarkup:
+    care_object_type = (
+        str(getattr(category, "care_object_type", "")) if category is not None else ""
+    )
+    category_code = str(getattr(category, "code", "")) if category is not None else ""
+    care_label = CARE_OBJECT_LIST_LABELS.get(care_object_type, "Объекты ухода")
     return (
         InlineKeyboardFactory()
         .button(MsgKey.CREATE_ORDER, OrderCreateCallback())
         .button(MsgKey.MY_ORDERS, OrdersListCallback())
-        .button(care_label, CareObjectsOpenCallback())
+        .button(care_label, CareObjectsOpenCallback(category_code=category_code))
+        .button(MsgKey.SERVICES_PRICES, ServicesPricesCallback())
         .button(MsgKey.ADDRESS, AddressesOpenCallback())
         .button(MsgKey.PROFILE, ProfileOpenCallback())
         .button(MsgKey.HELP, HelpCallback())
+        .button(MsgKey.SWITCH_CATEGORY, CategoryChangeCallback())
         .as_markup()
     )
 
@@ -137,13 +174,30 @@ def fallback_keyboard(*, include_main_menu: bool = True) -> InlineKeyboardMarkup
     return keyboard.button(MsgKey.HELP, HelpCallback()).as_markup()
 
 
-def care_objects_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
-    keyboard = (
+def unfinished_action_keyboard() -> InlineKeyboardMarkup:
+    return (
         InlineKeyboardFactory()
-        .button(MsgKey.ADD_CHILD, CareObjectAddCallback(object_type="child"))
-        .button(MsgKey.ADD_WARD, CareObjectAddCallback(object_type="ward"))
-        .button(MsgKey.ADD_PET, CareObjectAddCallback(object_type="pet"))
+        .button("Продолжить", ScenarioContinueCallback())
+        .button("Отменить и сменить направление", ScenarioCancelCallback())
+        .as_markup()
     )
+
+
+def care_objects_keyboard(
+    items: Sequence[object],
+    *,
+    object_type: str | None = None,
+) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    if object_type in CARE_OBJECT_ADD_LABELS:
+        keyboard.button(
+            CARE_OBJECT_ADD_LABELS[object_type],
+            CareObjectAddCallback(object_type=object_type),
+        )
+    else:
+        keyboard.button(MsgKey.ADD_CHILD, CareObjectAddCallback(object_type="child"))
+        keyboard.button(MsgKey.ADD_WARD, CareObjectAddCallback(object_type="ward"))
+        keyboard.button(MsgKey.ADD_PET, CareObjectAddCallback(object_type="pet"))
     for index, item in enumerate(items):
         display_name = getattr(item, "display_name", f"#{index + 1}")
         keyboard.button(str(display_name), CareObjectSelectCallback(index=index))
