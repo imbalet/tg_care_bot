@@ -47,8 +47,9 @@ class MenuManager:
             except TelegramAPIError, ValueError:
                 await self._redis.delete(key)
 
-        sent = await message.answer(
-            text,
+        sent = await bot.send_message(
+            chat_id=message.chat.id,
+            text=text,
             reply_markup=reply_markup,
             message_thread_id=message_thread_id,
         )
