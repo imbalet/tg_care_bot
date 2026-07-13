@@ -1,5 +1,5 @@
 from aiogram import Bot, Router
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
@@ -9,6 +9,8 @@ from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.services import MenuManager, TelegramTopicSetupService
 from executor_bot.presentation.ui import (
     executor_main_menu_text,
+    fallback_keyboard,
+    help_text,
     main_menu_keyboard,
     no_invitation_text,
     retry_later_text,
@@ -26,6 +28,72 @@ async def start(
     menu_manager: MenuManager,
     topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,
+) -> None:
+    await _open_start_or_menu(
+        message=message,
+        bot=bot,
+        state=state,
+        backend_client=backend_client,
+        menu_manager=menu_manager,
+        topic_setup_service=topic_setup_service,
+        telegram_user_context=telegram_user_context,
+        start_registration_if_invited=True,
+    )
+
+
+@router.message(Command("menu"))
+async def menu(
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendClient,
+    menu_manager: MenuManager,
+    topic_setup_service: TelegramTopicSetupService,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await _open_start_or_menu(
+        message=message,
+        bot=bot,
+        state=state,
+        backend_client=backend_client,
+        menu_manager=menu_manager,
+        topic_setup_service=topic_setup_service,
+        telegram_user_context=telegram_user_context,
+        start_registration_if_invited=False,
+    )
+
+
+@router.message(Command("help"))
+async def help_command(
+    message: Message,
+    backend_client: BackendClient,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    include_main_menu = False
+    try:
+        include_main_menu = (
+            await backend_client.get_registration_state(
+                telegram_user_context.telegram_id
+            )
+        ).state == "registered"
+    except BackendClientError:
+        include_main_menu = False
+    await message.answer(
+        help_text(),
+        reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
+    )
+
+
+async def _open_start_or_menu(
+    *,
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendClient,
+    menu_manager: MenuManager,
+    topic_setup_service: TelegramTopicSetupService,
+    telegram_user_context: TelegramUserContext,
+    start_registration_if_invited: bool,
 ) -> None:
     try:
         registration_state = await backend_client.get_registration_state(
@@ -61,7 +129,12 @@ async def start(
         await state.clear()
         await message.answer(no_invitation_text())
         return
-    await start_registration(message, state, backend_client)
+    if start_registration_if_invited:
+        await start_registration(message, state, backend_client)
+        return
+    await message.answer(
+        help_text(), reply_markup=fallback_keyboard(include_main_menu=False)
+    )
 
 
-__all__ = ["router", "start"]
+__all__ = ["help_command", "menu", "router", "start"]

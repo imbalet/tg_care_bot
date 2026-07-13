@@ -5,6 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.strategy import FSMStrategy
 from aiogram.methods.delete_webhook import DeleteWebhook
+from aiogram.types import BotCommand
 from redis.asyncio import Redis
 
 from executor_bot.bootstrap import get_settings
@@ -54,6 +55,13 @@ async def amain() -> None:
     menu_manager = MenuManager(redis)
     topic_setup_service = TelegramTopicSetupService(redis)
     try:
+        await bot.set_my_commands(
+            [
+                BotCommand(command="start", description="Открыть главное меню"),
+                BotCommand(command="menu", description="Вернуться в главное меню"),
+                BotCommand(command="help", description="Помощь"),
+            ],
+        )
         await bot(DeleteWebhook(drop_pending_updates=True))
         await dispatcher.start_polling(
             bot,
