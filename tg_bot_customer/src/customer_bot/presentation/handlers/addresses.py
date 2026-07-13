@@ -9,6 +9,7 @@ from customer_bot.infrastructure.http import (
     AddressDTO,
     BackendClient,
     BackendClientError,
+    BackendValidationError,
 )
 from customer_bot.presentation.middlewares import TelegramUserContext
 from customer_bot.presentation.ui import (
@@ -23,6 +24,7 @@ from customer_bot.presentation.ui import (
     address_skip_keyboard,
     address_suggestion_step_text,
     address_suggestions_keyboard,
+    address_validation_error_text,
     addresses_keyboard,
     addresses_list_text,
     retry_later_text,
@@ -69,6 +71,9 @@ async def open_addresses(
         items = await backend_client.list_addresses(
             telegram_id=telegram_user_context.telegram_id,
         )
+    except BackendValidationError as exc:
+        await message.answer(address_validation_error_text(str(exc)))
+        return
     except BackendClientError:
         await message.answer(retry_later_text())
         return
@@ -91,6 +96,9 @@ async def add_address(
         return
     try:
         cities = await backend_client.list_active_cities()
+    except BackendValidationError as exc:
+        await message.answer(address_validation_error_text(str(exc)))
+        return
     except BackendClientError:
         await message.answer(retry_later_text())
         return

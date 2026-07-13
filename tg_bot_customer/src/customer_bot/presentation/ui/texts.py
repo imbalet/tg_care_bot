@@ -301,6 +301,15 @@ def address_deleted_text() -> str:
     return "Адрес удален из активного списка."
 
 
+def address_validation_error_text(message: str) -> str:
+    if "DaData API key is not configured" in message:
+        return (
+            "<b>Адресный сервис не настроен</b>\n\n"
+            "Адреса проверяются через DaData. Сейчас ключ DaData не задан."
+        )
+    return "<b>Адрес не принят</b>\n\nПроверьте адрес и попробуйте еще раз."
+
+
 def order_services_step_text() -> str:
     return "<b>Новый заказ</b>\n\nВыберите услугу."
 
@@ -457,6 +466,7 @@ __all__ = [
     "address_extra_step_text",
     "address_query_step_text",
     "address_suggestion_step_text",
+    "address_validation_error_text",
     "addresses_list_text",
     "customer_main_menu_text",
     "customer_profile_text",
