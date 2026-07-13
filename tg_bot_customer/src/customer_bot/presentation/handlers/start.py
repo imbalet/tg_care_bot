@@ -7,6 +7,7 @@ from customer_bot.application.errors import BackendClientError
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.registration import start_registration
+from customer_bot.presentation.handlers.responses import send_screen, send_step
 from customer_bot.presentation.navigation import (
     active_category,
     show_category_menu,
@@ -35,8 +36,12 @@ async def start(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if await state.get_state() is not None:
-        await message.answer(
-            unfinished_action_text(),
+        await send_step(
+            bot=bot,
+            event=message,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=unfinished_action_text(),
             reply_markup=unfinished_action_keyboard(),
         )
         return
@@ -138,7 +143,13 @@ async def _open_start_or_menu(
             telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=message,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     if profile is not None:
         category = await active_category(
@@ -164,13 +175,20 @@ async def _open_start_or_menu(
         )
         return
     if start_registration_if_missing:
-        await start_registration(message, state, backend_client)
+        await start_registration(
+            message,
+            state,
+            backend_client,
+            bot,
+            menu_manager,
+            telegram_user_context,
+        )
         return
-    await menu_manager.update(
+    await send_screen(
         bot=bot,
         event=message,
-        telegram_id=telegram_user_context.telegram_id,
-        topic_key="general",
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=False),
     )

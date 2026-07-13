@@ -13,6 +13,15 @@ class MenuManager:
     ) -> None:
         self._message_store = message_store
 
+    async def acknowledge(
+        self,
+        callback: CallbackQuery,
+        text: str | None = None,
+        *,
+        show_alert: bool | None = None,
+    ) -> None:
+        await callback.answer(text, show_alert=show_alert)
+
     async def send_or_replace(
         self,
         *,

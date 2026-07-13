@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from aiogram import Router
+from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -18,6 +18,8 @@ from customer_bot.presentation.callbacks import (
     AddressSuggestionCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
+from customer_bot.presentation.handlers.responses import send_step
+from customer_bot.presentation.services import MenuManager
 from customer_bot.presentation.ui import (
     address_card_keyboard,
     address_card_text,
@@ -56,27 +58,41 @@ class AddressManagement(StatesGroup):
 @router.callback_query(AddressesOpenCallback.filter())
 async def open_addresses(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
-    if message is None:
-        return
     try:
         items = await backend_client.list_addresses(
             telegram_id=telegram_user_context.telegram_id,
         )
     except BackendValidationError as exc:
-        await message.answer(address_validation_error_text(str(exc)))
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=address_validation_error_text(str(exc)),
+        )
         return
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     await state.update_data(addresses=[_address_state(item) for item in items])
-    await message.answer(
-        addresses_list_text(len(items)),
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=addresses_list_text(len(items)),
         reply_markup=addresses_keyboard(items),
     )
 
@@ -84,20 +100,31 @@ async def open_addresses(
 @router.callback_query(AddressAddCallback.filter())
 async def add_address(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
-    if message is None:
-        return
     try:
         cities = await backend_client.list_active_cities()
     except BackendValidationError as exc:
-        await message.answer(address_validation_error_text(str(exc)))
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=address_validation_error_text(str(exc)),
+        )
         return
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     await state.set_state(AddressManagement.city)
     await state.update_data(
@@ -105,39 +132,60 @@ async def add_address(
         city_names=[city.name for city in cities],
         address_draft={},
     )
-    await message.answer(
-        address_city_step_text(), reply_markup=address_city_keyboard(cities)
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=address_city_step_text(),
+        reply_markup=address_city_keyboard(cities),
     )
 
 
 @router.callback_query(AddressManagement.city, AddressCityCallback.filter())
 async def select_city(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
     callback_data: AddressCityCallback,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
     data = await state.get_data()
     index = callback_data.index
     city_ids = _string_list(data["city_ids"])
-    if message is None or index < 0 or index >= len(city_ids):
+    if index < 0 or index >= len(city_ids):
         return
     draft = _draft(data)
     draft["city_id"] = city_ids[index]
     await state.update_data(address_draft=draft)
     await state.set_state(AddressManagement.query)
-    await message.answer(address_query_step_text())
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=address_query_step_text(),
+    )
 
 
 @router.message(AddressManagement.query)
 async def enter_query(
     message: Message,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
-        await message.answer("Введите адрес текстом.")
+        await send_step(
+            bot=bot,
+            event=message,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text="Введите адрес текстом.",
+        )
         return
     data = await state.get_data()
     draft = _draft(data)
@@ -147,10 +195,22 @@ async def enter_query(
             query=message.text.strip(),
         )
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=message,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     if not suggestions:
-        await message.answer("Адрес не найден. Уточните строку.")
+        await send_step(
+            bot=bot,
+            event=message,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text="Адрес не найден. Уточните строку.",
+        )
         return
     await state.update_data(
         address_suggestions=[
@@ -159,8 +219,12 @@ async def enter_query(
         ],
     )
     await state.set_state(AddressManagement.suggestion)
-    await message.answer(
-        address_suggestion_step_text(),
+    await send_step(
+        bot=bot,
+        event=message,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=address_suggestion_step_text(),
         reply_markup=address_suggestions_keyboard(suggestions),
     )
 
@@ -171,15 +235,16 @@ async def enter_query(
 )
 async def select_suggestion(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
     callback_data: AddressSuggestionCallback,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
     data = await state.get_data()
     suggestions = data.get("address_suggestions")
     index = callback_data.index
-    if message is None or not isinstance(suggestions, list):
+    if not isinstance(suggestions, list):
         return
     if index < 0 or index >= len(suggestions):
         return
@@ -191,8 +256,12 @@ async def select_suggestion(
     draft["extra_index"] = 0
     await state.update_data(address_draft=draft)
     await state.set_state(AddressManagement.extra)
-    await message.answer(
-        address_extra_step_text(EXTRA_FIELDS[0][1]),
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=address_extra_step_text(EXTRA_FIELDS[0][1]),
         reply_markup=address_skip_keyboard(),
     )
 
@@ -200,8 +269,10 @@ async def select_suggestion(
 @router.message(AddressManagement.extra)
 async def enter_extra(
     message: Message,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -210,26 +281,26 @@ async def enter_extra(
     if message.text and message.text.strip():
         draft[EXTRA_FIELDS[index][0]] = message.text.strip()
     await _advance_or_create(
-        message, state, backend_client, telegram_user_context, draft
+        message, bot, state, backend_client, menu_manager, telegram_user_context, draft
     )
 
 
 @router.callback_query(AddressManagement.extra, AddressSkipCallback.filter())
 async def skip_extra(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
-    if message is None:
-        return
     data = await state.get_data()
     await _advance_or_create(
-        message,
+        callback,
+        bot,
         state,
         backend_client,
+        menu_manager,
         telegram_user_context,
         _draft(data),
     )
@@ -238,34 +309,40 @@ async def skip_extra(
 @router.callback_query(AddressSelectCallback.filter())
 async def select_address(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
     callback_data: AddressSelectCallback,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
     item = await _address_by_index(state, callback_data.index)
-    if message is None or item is None:
+    if item is None:
         return
     index = item["index"]
     if not isinstance(index, int):
         return
-    await message.answer(
-        address_card_text(item), reply_markup=address_card_keyboard(index)
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=address_card_text(item),
+        reply_markup=address_card_keyboard(index),
     )
 
 
 @router.callback_query(AddressDeleteCallback.filter())
 async def delete_address(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
     callback_data: AddressDeleteCallback,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
     item = await _address_by_index(state, callback_data.index)
-    if message is None or item is None:
+    if item is None:
         return
     try:
         await backend_client.delete_address(
@@ -273,15 +350,29 @@ async def delete_address(
             address_id=UUID(str(item["id"])),
         )
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
-    await message.answer(address_deleted_text())
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=address_deleted_text(),
+    )
 
 
 async def _advance_or_create(
-    message: Message,
+    event: Message | CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
 ) -> None:
@@ -289,8 +380,12 @@ async def _advance_or_create(
     if index < len(EXTRA_FIELDS):
         draft["extra_index"] = index
         await state.update_data(address_draft=draft)
-        await message.answer(
-            address_extra_step_text(EXTRA_FIELDS[index][1]),
+        await send_step(
+            bot=bot,
+            event=event,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=address_extra_step_text(EXTRA_FIELDS[index][1]),
             reply_markup=address_skip_keyboard(),
         )
         return
@@ -305,10 +400,22 @@ async def _advance_or_create(
             comment=_optional_str(draft.get("comment")),
         )
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=event,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     await state.clear()
-    await message.answer(address_created_text())
+    await send_step(
+        bot=bot,
+        event=event,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=address_created_text(),
+    )
 
 
 def _address_state(item: AddressDTO) -> dict[str, object]:
@@ -344,10 +451,6 @@ def _draft(data: dict[str, object]) -> dict[str, object]:
     if isinstance(draft, dict):
         return dict(draft)
     raise TypeError("Expected address draft in FSM state")
-
-
-def _callback_message(callback: CallbackQuery) -> Message | None:
-    return callback.message if isinstance(callback.message, Message) else None
 
 
 def _string_list(value: object) -> list[str]:

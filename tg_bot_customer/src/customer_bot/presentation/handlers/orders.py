@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from aiogram import Router
+from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -25,7 +25,9 @@ from customer_bot.presentation.callbacks import (
     OrderServiceCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
+from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.navigation import active_category
+from customer_bot.presentation.services import MenuManager
 from customer_bot.presentation.ui import (
     invalid_datetime_text,
     invalid_duration_text,
@@ -71,15 +73,13 @@ class OrderCreation(StatesGroup):
 @router.callback_query(OrderCreateCallback.filter())
 async def start_order_creation(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
     active_category_store: ActiveCategoryStore,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
-    if message is None:
-        return
     try:
         category = await active_category(
             backend_client=backend_client,
@@ -87,14 +87,32 @@ async def start_order_creation(
             telegram_id=telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     if category is None:
-        await message.answer(use_buttons_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=use_buttons_text(),
+        )
         return
     services = _service_states((category,))
     if not services:
-        await message.answer(order_no_services_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=order_no_services_text(),
+        )
         return
     await state.set_state(OrderCreation.service)
     await state.update_data(
@@ -105,8 +123,12 @@ async def start_order_creation(
             "care_object_type": category.care_object_type,
         },
     )
-    await message.answer(
-        order_services_step_text(),
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=order_services_step_text(),
         reply_markup=order_services_keyboard(services),
     )
 
@@ -114,15 +136,15 @@ async def start_order_creation(
 @router.callback_query(OrderCreation.service, OrderServiceCallback.filter())
 async def select_service(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
     callback_data: OrderServiceCallback,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
     service = await _item_by_index(state, "order_services", callback_data.index)
-    if message is None or service is None:
+    if service is None:
         return
     draft = _draft(await state.get_data())
     draft.update(
@@ -140,18 +162,34 @@ async def select_service(
             object_type=str(service["care_object_type"]),
         )
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     if not objects:
-        await message.answer(order_no_objects_text(str(service["care_object_type"])))
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=order_no_objects_text(str(service["care_object_type"])),
+        )
         return
     await state.set_state(OrderCreation.object)
     await state.update_data(
         order_draft=draft,
         order_objects=[_care_object_state(item) for item in objects],
     )
-    await message.answer(
-        order_objects_step_text(),
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=order_objects_step_text(),
         reply_markup=order_objects_keyboard(objects),
     )
 
@@ -159,13 +197,14 @@ async def select_service(
 @router.callback_query(OrderCreation.object, OrderObjectCallback.filter())
 async def select_object(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
     callback_data: OrderObjectCallback,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
     item = await _item_by_index(state, "order_objects", callback_data.index)
-    if message is None or item is None:
+    if item is None:
         return
     data = await state.get_data()
     draft = _draft(data)
@@ -173,36 +212,74 @@ async def select_object(
     draft["objects_count"] = 1
     await state.set_state(OrderCreation.start)
     await state.update_data(order_draft=draft)
-    await message.answer(order_start_step_text())
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=order_start_step_text(),
+    )
 
 
 @router.message(OrderCreation.start)
-async def enter_start(message: Message, state: FSMContext) -> None:
+async def enter_start(
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     if not message.text:
-        await message.answer(invalid_datetime_text())
+        await send_step(
+            bot=bot,
+            event=message,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=invalid_datetime_text(),
+        )
         return
     start_at = _parse_local_datetime(message.text)
     if start_at is None:
-        await message.answer(invalid_datetime_text())
+        await send_step(
+            bot=bot,
+            event=message,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=invalid_datetime_text(),
+        )
         return
     data = await state.get_data()
     draft = _draft(data)
     draft["start_at"] = start_at.isoformat()
     await state.set_state(OrderCreation.duration)
     await state.update_data(order_draft=draft)
-    await message.answer(order_duration_step_text())
+    await send_step(
+        bot=bot,
+        event=message,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=order_duration_step_text(),
+    )
 
 
 @router.message(OrderCreation.duration)
 async def enter_duration(
     message: Message,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     hours = _parse_duration_hours(message.text)
     if hours is None:
-        await message.answer(invalid_duration_text())
+        await send_step(
+            bot=bot,
+            event=message,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=invalid_duration_text(),
+        )
         return
     data = await state.get_data()
     draft = _draft(data)
@@ -211,17 +288,35 @@ async def enter_duration(
     draft["end_at"] = end_at.isoformat()
     await state.update_data(order_draft=draft)
     if draft.get("location_policy") != "customer_address":
-        await _ask_photo_or_comment(message, state)
+        await _ask_photo_or_comment(
+            message,
+            bot,
+            state,
+            menu_manager,
+            telegram_user_context,
+        )
         return
     try:
         addresses = await backend_client.list_addresses(
             telegram_id=telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=message,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     if not addresses:
-        await message.answer(order_no_addresses_text())
+        await send_step(
+            bot=bot,
+            event=message,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=order_no_addresses_text(),
+        )
         return
     await state.set_state(OrderCreation.address)
     await state.update_data(
@@ -233,8 +328,12 @@ async def enter_duration(
             for address in addresses
         ],
     )
-    await message.answer(
-        order_address_step_text(),
+    await send_step(
+        bot=bot,
+        event=message,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=order_address_step_text(),
         reply_markup=order_addresses_keyboard(addresses),
     )
 
@@ -242,19 +341,26 @@ async def enter_duration(
 @router.callback_query(OrderCreation.address, OrderAddressCallback.filter())
 async def select_address(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
     callback_data: OrderAddressCallback,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
     item = await _item_by_index(state, "order_addresses", callback_data.index)
-    if message is None or item is None:
+    if item is None:
         return
     data = await state.get_data()
     draft = _draft(data)
     draft["address_id"] = item["id"]
     await state.update_data(order_draft=draft)
-    await _ask_photo_or_comment(message, state)
+    await _ask_photo_or_comment(
+        callback,
+        bot,
+        state,
+        menu_manager,
+        telegram_user_context,
+    )
 
 
 @router.callback_query(
@@ -263,21 +369,26 @@ async def select_address(
 )
 async def select_photo_consent(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
     callback_data: OrderPhotoConsentCallback,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
     value = callback_data.value
-    if message is None or value not in {"yes", "no"}:
+    if value not in {"yes", "no"}:
         return
     data = await state.get_data()
     draft = _draft(data)
     draft["report_photo_consent"] = value == "yes"
     await state.set_state(OrderCreation.comment)
     await state.update_data(order_draft=draft)
-    await message.answer(
-        order_comment_step_text(),
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=order_comment_step_text(),
         reply_markup=order_comment_skip_keyboard(),
     )
 
@@ -285,8 +396,10 @@ async def select_photo_consent(
 @router.message(OrderCreation.comment)
 async def enter_comment(
     message: Message,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -295,8 +408,10 @@ async def enter_comment(
         draft["customer_comment"] = message.text.strip()
     await _create_draft_and_show_summary(
         message,
+        bot,
         state,
         backend_client,
+        menu_manager,
         telegram_user_context,
         draft,
     )
@@ -305,19 +420,19 @@ async def enter_comment(
 @router.callback_query(OrderCreation.comment, OrderCommentSkipCallback.filter())
 async def skip_comment(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
-    if message is None:
-        return
     data = await state.get_data()
     await _create_draft_and_show_summary(
-        message,
+        callback,
+        bot,
         state,
         backend_client,
+        menu_manager,
         telegram_user_context,
         _draft(data),
     )
@@ -326,13 +441,12 @@ async def skip_comment(
 @router.callback_query(OrderCreation.publish, OrderPublishPoolCallback.filter())
 async def publish_pool(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
-    if message is None:
-        return
     data = await state.get_data()
     draft = _draft(data)
     try:
@@ -340,10 +454,22 @@ async def publish_pool(
             order_id=UUID(str(draft["order_id"])),
         )
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     await state.clear()
-    await message.answer(order_published_text(order))
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=order_published_text(order),
+    )
 
 
 @router.callback_query(
@@ -352,14 +478,15 @@ async def publish_pool(
 )
 async def publish_direct(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
     callback_data: OrderPublishDirectCallback,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
     performer = await _item_by_index(state, "order_performers", callback_data.index)
-    if message is None or performer is None:
+    if performer is None:
         return
     data = await state.get_data()
     draft = _draft(data)
@@ -369,35 +496,63 @@ async def publish_direct(
             performer_id=UUID(str(performer["performer_id"])),
         )
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     await state.clear()
-    await message.answer(order_published_text(order))
+    await send_step(
+        bot=bot,
+        event=callback,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=order_published_text(order),
+    )
 
 
-async def _ask_photo_or_comment(message: Message, state: FSMContext) -> None:
+async def _ask_photo_or_comment(
+    event: Message | CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     data = await state.get_data()
     draft = _draft(data)
     if draft.get("photo_policy") == "requires_customer_consent":
         await state.set_state(OrderCreation.photo_consent)
-        await message.answer(
-            order_photo_consent_step_text(),
+        await send_step(
+            bot=bot,
+            event=event,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=order_photo_consent_step_text(),
             reply_markup=order_photo_consent_keyboard(),
         )
         return
     draft["report_photo_consent"] = None
     await state.set_state(OrderCreation.comment)
     await state.update_data(order_draft=draft)
-    await message.answer(
-        order_comment_step_text(),
+    await send_step(
+        bot=bot,
+        event=event,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=order_comment_step_text(),
         reply_markup=order_comment_skip_keyboard(),
     )
 
 
 async def _create_draft_and_show_summary(
-    message: Message,
+    event: Message | CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
 ) -> None:
@@ -406,7 +561,13 @@ async def _create_draft_and_show_summary(
             telegram_user_context.telegram_id,
         )
         if profile is None:
-            await message.answer(use_buttons_text())
+            await send_step(
+                bot=bot,
+                event=event,
+                menu_manager=menu_manager,
+                telegram_user_context=telegram_user_context,
+                text=use_buttons_text(),
+            )
             return
         start_at = datetime.fromisoformat(str(draft["start_at"]))
         end_at = datetime.fromisoformat(str(draft["end_at"]))
@@ -447,10 +608,22 @@ async def _create_draft_and_show_summary(
             address_id=address_id,
         )
     except BackendValidationError:
-        await message.answer(use_buttons_text())
+        await send_step(
+            bot=bot,
+            event=event,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=use_buttons_text(),
+        )
         return
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=event,
+            menu_manager=menu_manager,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     draft["order_id"] = str(order.id)
     await state.set_state(OrderCreation.publish)
@@ -458,8 +631,12 @@ async def _create_draft_and_show_summary(
         order_draft=draft,
         order_performers=[_performer_state(item) for item in performers],
     )
-    await message.answer(
-        order_draft_summary_text(price=price, performers_count=len(performers)),
+    await send_step(
+        bot=bot,
+        event=event,
+        menu_manager=menu_manager,
+        telegram_user_context=telegram_user_context,
+        text=order_draft_summary_text(price=price, performers_count=len(performers)),
         reply_markup=order_publish_keyboard(performers),
     )
 
@@ -534,7 +711,3 @@ def _string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value]
-
-
-def _callback_message(callback: CallbackQuery) -> Message | None:
-    return callback.message if isinstance(callback.message, Message) else None
