@@ -27,31 +27,43 @@ async def main_menu_callback(
     menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await callback.answer()
     message = callback.message
     if not isinstance(message, Message):
+        await callback.answer("Сообщение недоступно", show_alert=True)
         return
     try:
         registration_state = await backend_client.get_registration_state(
             telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await message.answer(
-            unavailable_action_text(), reply_markup=fallback_keyboard()
+        await menu_manager.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            topic_key="general",
+            text=unavailable_action_text(),
+            reply_markup=fallback_keyboard(),
+            message_thread_id=telegram_user_context.message_thread_id,
         )
         return
     if registration_state.state != "registered":
-        await message.answer(
-            help_text(), reply_markup=fallback_keyboard(include_main_menu=False)
+        await menu_manager.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            topic_key="general",
+            text=help_text(),
+            reply_markup=fallback_keyboard(include_main_menu=False),
+            message_thread_id=telegram_user_context.message_thread_id,
         )
         return
     topic_key = await menu_manager.topic_key(
         telegram_id=telegram_user_context.telegram_id,
         message_thread_id=telegram_user_context.message_thread_id,
     )
-    await menu_manager.send_or_replace(
+    await menu_manager.update(
         bot=bot,
-        message=message,
+        event=callback,
         telegram_id=telegram_user_context.telegram_id,
         topic_key=topic_key,
         text=executor_main_menu_text(topic_key),
@@ -63,11 +75,12 @@ async def main_menu_callback(
 @router.callback_query(F.data == HELP)
 async def help_callback(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendClient,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await callback.answer()
     message = callback.message
     if isinstance(message, Message):
         current_state = await state.get_state()
@@ -81,53 +94,116 @@ async def help_callback(
                 ).state == "registered"
             except BackendClientError:
                 include_main_menu = False
-        await message.answer(
-            help_text(),
+        topic_key = await menu_manager.topic_key(
+            telegram_id=telegram_user_context.telegram_id,
+            message_thread_id=telegram_user_context.message_thread_id,
+        )
+        await menu_manager.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            topic_key=topic_key,
+            text=help_text(),
             reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
+            message_thread_id=telegram_user_context.message_thread_id,
         )
 
 
 @router.callback_query(F.data == "profile:open")
 async def profile_callback(
     callback: CallbackQuery,
+    bot: Bot,
     backend_client: BackendClient,
+    menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await callback.answer()
     message = callback.message
     if not isinstance(message, Message):
+        await callback.answer("Сообщение недоступно", show_alert=True)
         return
     try:
         state = await backend_client.get_registration_state(
             telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await message.answer(
-            unavailable_action_text(), reply_markup=fallback_keyboard()
+        await menu_manager.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            topic_key="general",
+            text=unavailable_action_text(),
+            reply_markup=fallback_keyboard(),
+            message_thread_id=telegram_user_context.message_thread_id,
         )
         return
     if state.performer is None:
-        await message.answer(fallback_text(), reply_markup=fallback_keyboard())
+        await menu_manager.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            topic_key="general",
+            text=fallback_text(),
+            reply_markup=fallback_keyboard(),
+            message_thread_id=telegram_user_context.message_thread_id,
+        )
         return
-    await message.answer(
-        executor_profile_text(state.performer),
+    topic_key = await menu_manager.topic_key(
+        telegram_id=telegram_user_context.telegram_id,
+        message_thread_id=telegram_user_context.message_thread_id,
+    )
+    await menu_manager.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        topic_key=topic_key,
+        text=executor_profile_text(state.performer),
         reply_markup=fallback_keyboard(),
+        message_thread_id=telegram_user_context.message_thread_id,
     )
 
 
 @router.callback_query()
-async def unknown_callback(callback: CallbackQuery) -> None:
-    await callback.answer()
-    message = callback.message
-    if isinstance(message, Message):
-        await message.answer(
-            unavailable_action_text(), reply_markup=fallback_keyboard()
-        )
+async def unknown_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    topic_key = await menu_manager.topic_key(
+        telegram_id=telegram_user_context.telegram_id,
+        message_thread_id=telegram_user_context.message_thread_id,
+    )
+    await menu_manager.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        topic_key=topic_key,
+        text=unavailable_action_text(),
+        reply_markup=fallback_keyboard(),
+        message_thread_id=telegram_user_context.message_thread_id,
+    )
 
 
 @router.message()
-async def unknown_message(message: Message) -> None:
-    await message.answer(fallback_text(), reply_markup=fallback_keyboard())
+async def unknown_message(
+    message: Message,
+    bot: Bot,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    topic_key = await menu_manager.topic_key(
+        telegram_id=telegram_user_context.telegram_id,
+        message_thread_id=telegram_user_context.message_thread_id,
+    )
+    await menu_manager.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        topic_key=topic_key,
+        text=fallback_text(),
+        reply_markup=fallback_keyboard(),
+        message_thread_id=telegram_user_context.message_thread_id,
+    )
 
 
 __all__ = [
