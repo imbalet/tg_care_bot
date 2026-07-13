@@ -14,6 +14,7 @@ class TelegramTopicRepository(Protocol):
         account_type: str,
         owner_id: UUID,
         chat_id: int,
+        topic_kinds: tuple[str, ...],
     ) -> tuple[TelegramTopicDTO, ...]:
         pass
 

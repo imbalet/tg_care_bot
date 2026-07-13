@@ -7,7 +7,6 @@ from backend.common.application import utc_now
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.performers.infrastructure import PerformerModel
 from backend.modules.telegram_topics.application.dto import TelegramTopicDTO
-from backend.modules.telegram_topics.application.use_cases import TOPIC_KINDS
 from backend.modules.telegram_topics.infrastructure.persistence.models import (
     TelegramTopicModel,
 )
@@ -30,6 +29,7 @@ class SqlAlchemyTelegramTopicRepository:
         account_type: str,
         owner_id: UUID,
         chat_id: int,
+        topic_kinds: tuple[str, ...],
     ) -> tuple[TelegramTopicDTO, ...]:
         result = await self._session.execute(
             select(TelegramTopicModel).where(
@@ -38,7 +38,7 @@ class SqlAlchemyTelegramTopicRepository:
             ),
         )
         existing = {topic.topic_kind: topic for topic in result.scalars()}
-        for topic_kind in TOPIC_KINDS:
+        for topic_kind in topic_kinds:
             topic = existing.get(topic_kind)
             if topic is None:
                 topic = TelegramTopicModel(
@@ -55,7 +55,7 @@ class SqlAlchemyTelegramTopicRepository:
                 topic.chat_id = chat_id
                 topic.updated_at = utc_now()
         await self._session.flush()
-        return tuple(_to_dto(existing[topic_kind]) for topic_kind in TOPIC_KINDS)
+        return tuple(_to_dto(existing[topic_kind]) for topic_kind in topic_kinds)
 
     async def update_mapping(
         self,

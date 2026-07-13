@@ -7,7 +7,16 @@ from backend.modules.telegram_topics.application.interfaces import (
     TelegramTopicRepository,
 )
 
-TOPIC_KINDS = ("notifications", "nanny", "caregiver", "petsitter")
+CUSTOMER_TOPIC_KINDS = ("children", "wards", "pets", "notifications")
+PERFORMER_TOPIC_KINDS = ("work", "notifications")
+
+
+def topic_kinds_for(account_type: str) -> tuple[str, ...]:
+    if account_type == "customer":
+        return CUSTOMER_TOPIC_KINDS
+    if account_type == "performer":
+        return PERFORMER_TOPIC_KINDS
+    raise ValidationError("Account type is invalid")
 
 
 @dataclass(frozen=True)
@@ -25,8 +34,7 @@ class EnsureTelegramTopicsUseCase:
         self,
         command: EnsureTelegramTopicsCommand,
     ) -> tuple[TelegramTopicDTO, ...]:
-        if command.account_type not in {"customer", "performer"}:
-            raise ValidationError("Account type is invalid")
+        topic_kinds = topic_kinds_for(command.account_type)
         owner_id = await self._repository.get_owner_id(
             account_type=command.account_type,
             telegram_id=command.telegram_id,
@@ -37,6 +45,7 @@ class EnsureTelegramTopicsUseCase:
             account_type=command.account_type,
             owner_id=owner_id,
             chat_id=command.chat_id,
+            topic_kinds=topic_kinds,
         )
 
 
@@ -69,9 +78,11 @@ class UpdateTelegramTopicMappingUseCase:
 
 
 __all__ = [
+    "CUSTOMER_TOPIC_KINDS",
     "EnsureTelegramTopicsCommand",
     "EnsureTelegramTopicsUseCase",
-    "TOPIC_KINDS",
+    "PERFORMER_TOPIC_KINDS",
     "UpdateTelegramTopicMappingCommand",
     "UpdateTelegramTopicMappingUseCase",
+    "topic_kinds_for",
 ]

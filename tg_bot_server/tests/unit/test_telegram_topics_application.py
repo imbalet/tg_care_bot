@@ -4,13 +4,14 @@ import pytest
 
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.telegram_topics.application import (
+    CUSTOMER_TOPIC_KINDS,
     EnsureTelegramTopicsCommand,
     EnsureTelegramTopicsUseCase,
+    PERFORMER_TOPIC_KINDS,
     TelegramTopicDTO,
     UpdateTelegramTopicMappingCommand,
     UpdateTelegramTopicMappingUseCase,
 )
-from backend.modules.telegram_topics.application.use_cases import TOPIC_KINDS
 
 
 class FakeTelegramTopicRepository:
@@ -29,9 +30,10 @@ class FakeTelegramTopicRepository:
         account_type: str,
         owner_id: UUID,
         chat_id: int,
+        topic_kinds: tuple[str, ...],
     ) -> tuple[TelegramTopicDTO, ...]:
         if not self.topics:
-            for topic_kind in TOPIC_KINDS:
+            for topic_kind in topic_kinds:
                 topic = TelegramTopicDTO(
                     id=uuid4(),
                     account_type=account_type,
@@ -80,9 +82,24 @@ async def test_ensure_topics_creates_all_topic_kinds_as_fallback() -> None:
         ),
     )
 
-    assert tuple(topic.topic_kind for topic in topics) == TOPIC_KINDS
+    assert tuple(topic.topic_kind for topic in topics) == CUSTOMER_TOPIC_KINDS
     assert {topic.status for topic in topics} == {"fallback"}
     assert {topic.message_thread_id for topic in topics} == {None}
+
+
+@pytest.mark.asyncio
+async def test_ensure_topics_uses_performer_topic_kinds() -> None:
+    repository = FakeTelegramTopicRepository()
+
+    topics = await EnsureTelegramTopicsUseCase(repository).execute(
+        EnsureTelegramTopicsCommand(
+            account_type="performer",
+            telegram_id=123,
+            chat_id=123,
+        ),
+    )
+
+    assert tuple(topic.topic_kind for topic in topics) == PERFORMER_TOPIC_KINDS
 
 
 @pytest.mark.asyncio
@@ -120,6 +137,7 @@ async def test_update_topic_mapping_accepts_active_thread() -> None:
         account_type="customer",
         owner_id=repository.owner_id,
         chat_id=123,
+        topic_kinds=CUSTOMER_TOPIC_KINDS,
     )
 
     topic = await UpdateTelegramTopicMappingUseCase(repository).execute(
