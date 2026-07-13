@@ -1,5 +1,5 @@
 from aiogram import Bot, Router
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
@@ -9,6 +9,8 @@ from customer_bot.presentation.middlewares import TelegramUserContext
 from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
 from customer_bot.presentation.ui import (
     customer_main_menu_text,
+    fallback_keyboard,
+    help_text,
     main_menu_keyboard,
     retry_later_text,
 )
@@ -25,6 +27,70 @@ async def start(
     menu_manager: MenuManager,
     topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,
+) -> None:
+    await _open_start_or_menu(
+        message=message,
+        bot=bot,
+        state=state,
+        backend_client=backend_client,
+        menu_manager=menu_manager,
+        topic_setup_service=topic_setup_service,
+        telegram_user_context=telegram_user_context,
+        start_registration_if_missing=True,
+    )
+
+
+@router.message(Command("menu"))
+async def menu(
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendClient,
+    menu_manager: MenuManager,
+    topic_setup_service: TelegramTopicSetupService,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await _open_start_or_menu(
+        message=message,
+        bot=bot,
+        state=state,
+        backend_client=backend_client,
+        menu_manager=menu_manager,
+        topic_setup_service=topic_setup_service,
+        telegram_user_context=telegram_user_context,
+        start_registration_if_missing=False,
+    )
+
+
+@router.message(Command("help"))
+async def help_command(
+    message: Message,
+    backend_client: BackendClient,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    include_main_menu = False
+    try:
+        include_main_menu = (
+            await backend_client.get_customer_profile(telegram_user_context.telegram_id)
+        ) is not None
+    except BackendClientError:
+        include_main_menu = False
+    await message.answer(
+        help_text(),
+        reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
+    )
+
+
+async def _open_start_or_menu(
+    *,
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendClient,
+    menu_manager: MenuManager,
+    topic_setup_service: TelegramTopicSetupService,
+    telegram_user_context: TelegramUserContext,
+    start_registration_if_missing: bool,
 ) -> None:
     try:
         profile = await backend_client.get_customer_profile(
@@ -56,7 +122,12 @@ async def start(
             message_thread_id=telegram_user_context.message_thread_id,
         )
         return
-    await start_registration(message, state, backend_client)
+    if start_registration_if_missing:
+        await start_registration(message, state, backend_client)
+        return
+    await message.answer(
+        help_text(), reply_markup=fallback_keyboard(include_main_menu=False)
+    )
 
 
-__all__ = ["router", "start"]
+__all__ = ["help_command", "menu", "router", "start"]
