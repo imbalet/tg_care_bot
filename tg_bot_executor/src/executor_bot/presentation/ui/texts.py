@@ -209,6 +209,15 @@ def work_address_current_text() -> str:
     return "Текущий рабочий адрес обновлен."
 
 
+def work_address_validation_error_text(message: str) -> str:
+    if "DaData API key is not configured" in message:
+        return (
+            "<b>Адресный сервис не настроен</b>\n\n"
+            "Рабочие адреса проверяются через DaData. Сейчас ключ DaData не задан."
+        )
+    return "<b>Адрес не принят</b>\n\nПроверьте адрес и попробуйте еще раз."
+
+
 def avatar_menu_text() -> str:
     return "<b>Аватар профиля</b>\n\nЗагрузите или удалите фото профиля."
 
@@ -336,5 +345,6 @@ __all__ = [
     "work_address_extra_step_text",
     "work_address_query_step_text",
     "work_address_suggestion_step_text",
+    "work_address_validation_error_text",
     "work_addresses_list_text",
 ]

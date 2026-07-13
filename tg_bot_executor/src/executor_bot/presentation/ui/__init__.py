@@ -50,6 +50,7 @@ from .texts import (
     work_address_extra_step_text,
     work_address_query_step_text,
     work_address_suggestion_step_text,
+    work_address_validation_error_text,
     work_addresses_list_text,
 )
 
@@ -102,6 +103,7 @@ __all__ = [
     "work_address_skip_keyboard",
     "work_address_suggestion_step_text",
     "work_address_suggestions_keyboard",
+    "work_address_validation_error_text",
     "work_addresses_keyboard",
     "work_addresses_list_text",
 ]

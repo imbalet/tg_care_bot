@@ -9,6 +9,7 @@ from executor_bot.infrastructure.http import (
     AddressDTO,
     BackendClient,
     BackendClientError,
+    BackendValidationError,
 )
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.ui import (
@@ -25,6 +26,7 @@ from executor_bot.presentation.ui import (
     work_address_skip_keyboard,
     work_address_suggestion_step_text,
     work_address_suggestions_keyboard,
+    work_address_validation_error_text,
     work_addresses_keyboard,
     work_addresses_list_text,
 )
@@ -71,6 +73,9 @@ async def open_work_addresses(
         items = await backend_client.list_work_addresses(
             telegram_id=telegram_user_context.telegram_id,
         )
+    except BackendValidationError as exc:
+        await message.answer(work_address_validation_error_text(str(exc)))
+        return
     except BackendClientError:
         await message.answer(retry_later_text())
         return
@@ -93,6 +98,9 @@ async def add_work_address(
         return
     try:
         cities = await backend_client.list_active_cities()
+    except BackendValidationError as exc:
+        await message.answer(work_address_validation_error_text(str(exc)))
+        return
     except BackendClientError:
         await message.answer(retry_later_text())
         return

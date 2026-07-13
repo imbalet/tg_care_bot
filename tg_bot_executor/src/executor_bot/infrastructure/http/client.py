@@ -461,9 +461,23 @@ class BackendClient:
         if response.status_code == 401:
             raise BackendUnauthorizedError("Backend rejected service key")
         if response.status_code == 422:
-            raise BackendValidationError("Backend rejected data")
+            raise BackendValidationError(_error_message(response))
         if response.status_code >= 400:
             raise BackendUnavailableError("Backend request failed")
+
+
+def _error_message(response: httpx.Response) -> str:
+    try:
+        data = response.json()
+    except ValueError:
+        return "Backend rejected data"
+    if isinstance(data, dict):
+        error = data.get("error")
+        if isinstance(error, dict):
+            message = error.get("message")
+            if isinstance(message, str):
+                return message
+    return "Backend rejected data"
 
 
 def _performer_from_json(data: dict[str, object]) -> PerformerProfileDTO:
