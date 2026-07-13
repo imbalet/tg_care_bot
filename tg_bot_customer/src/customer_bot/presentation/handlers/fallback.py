@@ -2,7 +2,8 @@ from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from customer_bot.infrastructure.http import BackendClient, BackendClientError
+from customer_bot.application.errors import BackendClientError
+from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
     HelpCallback,
     MainMenuCallback,
@@ -27,7 +28,7 @@ router = Router(name="fallback")
 async def main_menu_callback(
     callback: CallbackQuery,
     bot: Bot,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -81,7 +82,7 @@ async def help_callback(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -118,7 +119,7 @@ async def help_callback(
 async def profile_callback(
     callback: CallbackQuery,
     bot: Bot,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:

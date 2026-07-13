@@ -2,8 +2,8 @@ from typing import Any, cast
 
 import pytest
 
+from customer_bot.application.errors import BackendUnavailableError
 from customer_bot.application.services import UsernameSyncService
-from customer_bot.infrastructure.http import BackendUnavailableError
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.middlewares.username_sync import (
     ABSENT_USERNAME,

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from uuid import uuid4
 
-from customer_bot.infrastructure.http import CustomerProfileDTO
+from customer_bot.application.dto import CustomerProfileDTO
 from customer_bot.presentation.callbacks import (
     AddressAddCallback,
     AddressSelectCallback,

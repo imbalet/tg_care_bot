@@ -3,7 +3,8 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from customer_bot.infrastructure.http import BackendClient, BackendClientError
+from customer_bot.application.errors import BackendClientError
+from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.registration import start_registration
 from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
@@ -23,7 +24,7 @@ async def start(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     menu_manager: MenuManager,
     topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,
@@ -45,7 +46,7 @@ async def menu(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     menu_manager: MenuManager,
     topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,
@@ -66,7 +67,7 @@ async def menu(
 async def help_command(
     message: Message,
     bot: Bot,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -97,7 +98,7 @@ async def _open_start_or_menu(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     menu_manager: MenuManager,
     topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,

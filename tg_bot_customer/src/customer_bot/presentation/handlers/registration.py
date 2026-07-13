@@ -6,11 +6,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from customer_bot.infrastructure.http import (
-    BackendClient,
-    BackendClientError,
-    BackendValidationError,
-)
+from customer_bot.application.errors import BackendClientError, BackendValidationError
+from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
     RegistrationCityCallback,
     RegistrationConfirmCallback,
@@ -67,7 +64,7 @@ class CustomerRegistration(StatesGroup):
 async def start_registration(
     message: Message,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
 ) -> None:
     try:
         cities = await backend_client.list_active_cities()
@@ -225,7 +222,7 @@ async def confirm_registration(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     menu_manager: MenuManager,
     topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,

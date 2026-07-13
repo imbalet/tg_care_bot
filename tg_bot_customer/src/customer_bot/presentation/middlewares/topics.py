@@ -4,7 +4,8 @@ from typing import Any
 from aiogram import BaseMiddleware, Bot
 from aiogram.types import TelegramObject
 
-from customer_bot.infrastructure.http import BackendClient, BackendClientError
+from customer_bot.application.errors import BackendClientError
+from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import TelegramTopicSetupService
 
@@ -36,7 +37,7 @@ class TelegramTopicsEnsureMiddleware(BaseMiddleware):
         self,
         *,
         bot: Bot,
-        backend_client: BackendClient,
+        backend_client: BackendPort,
         topic_setup_service: TelegramTopicSetupService,
         context: TelegramUserContext,
     ) -> None:

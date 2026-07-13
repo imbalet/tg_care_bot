@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 
+from customer_bot.application.ports import BackendPort
 from customer_bot.application.services import UsernameSyncService
-from customer_bot.infrastructure.http import BackendClient
 from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
 
 
 @dataclass(frozen=True)
 class AppContext:
-    backend_client: BackendClient
+    backend_client: BackendPort
     menu_manager: MenuManager
     topic_setup_service: TelegramTopicSetupService
     username_sync_service: UsernameSyncService

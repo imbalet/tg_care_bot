@@ -7,14 +7,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from customer_bot.infrastructure.http import (
-    BackendClient,
-    BackendClientError,
-    BackendValidationError,
+from customer_bot.application.dto import (
     CareObjectDTO,
     ServiceCategoryDTO,
     SuitablePerformerDTO,
 )
+from customer_bot.application.errors import BackendClientError, BackendValidationError
+from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
     OrderAddressCallback,
     OrderCommentSkipCallback,
@@ -72,7 +71,7 @@ class OrderCreation(StatesGroup):
 async def start_order_creation(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
@@ -99,7 +98,7 @@ async def start_order_creation(
 async def select_service(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
     callback_data: OrderServiceCallback,
 ) -> None:
@@ -181,7 +180,7 @@ async def enter_start(message: Message, state: FSMContext) -> None:
 async def enter_duration(
     message: Message,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     hours = _parse_duration_hours(message.text)
@@ -270,7 +269,7 @@ async def select_photo_consent(
 async def enter_comment(
     message: Message,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -290,7 +289,7 @@ async def enter_comment(
 async def skip_comment(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()
@@ -311,7 +310,7 @@ async def skip_comment(
 async def publish_pool(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
@@ -337,7 +336,7 @@ async def publish_pool(
 async def publish_direct(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     callback_data: OrderPublishDirectCallback,
 ) -> None:
     await callback.answer()
@@ -381,7 +380,7 @@ async def _ask_photo_or_comment(message: Message, state: FSMContext) -> None:
 async def _create_draft_and_show_summary(
     message: Message,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
 ) -> None:

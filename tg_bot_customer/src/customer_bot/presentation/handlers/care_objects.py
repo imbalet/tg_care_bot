@@ -5,12 +5,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from customer_bot.infrastructure.http import (
-    BackendClient,
-    BackendClientError,
-    BackendValidationError,
-    CareObjectDTO,
-)
+from customer_bot.application.dto import CareObjectDTO
+from customer_bot.application.errors import BackendClientError, BackendValidationError
+from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
     CareObjectAddCallback,
     CareObjectAgeCallback,
@@ -65,7 +62,7 @@ class CareObjectManagement(StatesGroup):
 async def open_care_objects(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -285,7 +282,7 @@ async def enter_mobility(
 async def enter_notes(
     message: Message,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -301,7 +298,7 @@ async def enter_notes(
 async def skip_notes(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()
@@ -338,7 +335,7 @@ async def edit_care_object(
 async def enter_edit_name(
     message: Message,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
@@ -372,7 +369,7 @@ async def enter_edit_name(
 async def delete_care_object(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectDeleteCallback,
 ) -> None:
@@ -395,7 +392,7 @@ async def delete_care_object(
 async def _create_from_draft(
     message: Message,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
 ) -> None:

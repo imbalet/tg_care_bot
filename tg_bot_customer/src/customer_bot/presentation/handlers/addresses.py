@@ -5,12 +5,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from customer_bot.infrastructure.http import (
-    AddressDTO,
-    BackendClient,
-    BackendClientError,
-    BackendValidationError,
-)
+from customer_bot.application.dto import AddressDTO
+from customer_bot.application.errors import BackendClientError, BackendValidationError
+from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
     AddressAddCallback,
     AddressCityCallback,
@@ -60,7 +57,7 @@ class AddressManagement(StatesGroup):
 async def open_addresses(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()
@@ -88,7 +85,7 @@ async def open_addresses(
 async def add_address(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
@@ -137,7 +134,7 @@ async def select_city(
 async def enter_query(
     message: Message,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
 ) -> None:
     if not message.text or not message.text.strip():
         await message.answer("Введите адрес текстом.")
@@ -204,7 +201,7 @@ async def select_suggestion(
 async def enter_extra(
     message: Message,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -221,7 +218,7 @@ async def enter_extra(
 async def skip_extra(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()
@@ -261,7 +258,7 @@ async def select_address(
 async def delete_address(
     callback: CallbackQuery,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
     callback_data: AddressDeleteCallback,
 ) -> None:
@@ -284,7 +281,7 @@ async def delete_address(
 async def _advance_or_create(
     message: Message,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
 ) -> None:
