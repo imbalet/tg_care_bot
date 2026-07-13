@@ -22,16 +22,22 @@ class MenuManager:
         topic_key: str,
         text: str,
         reply_markup: InlineKeyboardMarkup | None = None,
+        create_new: bool = False,
+        delete_event_message: bool = True,
+        store_message: bool = True,
     ) -> Message:
-        await self.update(
+        sent = await self.update(
             bot=bot,
             event=message,
             telegram_id=telegram_id,
             topic_key=topic_key,
             text=text,
             reply_markup=reply_markup,
+            create_new=create_new,
+            delete_event_message=delete_event_message,
+            store_message=store_message,
         )
-        return message
+        return sent or message
 
     async def update(
         self,
@@ -43,6 +49,8 @@ class MenuManager:
         text: str,
         reply_markup: InlineKeyboardMarkup | None = None,
         create_new: bool = False,
+        delete_event_message: bool = True,
+        store_message: bool = True,
     ) -> Message | None:
         message = event if isinstance(event, Message) else event.message
         if not isinstance(message, Message):
@@ -69,7 +77,7 @@ class MenuManager:
                     text=text,
                     reply_markup=reply_markup,
                 )
-                if isinstance(event, Message):
+                if delete_event_message and isinstance(event, Message):
                     await _delete_message(event)
                 return message
             except TelegramAPIError:
@@ -80,8 +88,13 @@ class MenuManager:
             text=text,
             reply_markup=reply_markup,
         )
-        await self._message_store.set(telegram_id, topic_key, sent.message_id)
-        if isinstance(event, Message) and event.message_id != sent.message_id:
+        if store_message:
+            await self._message_store.set(telegram_id, topic_key, sent.message_id)
+        if (
+            delete_event_message
+            and isinstance(event, Message)
+            and event.message_id != sent.message_id
+        ):
             await _delete_message(event)
         return sent
 
