@@ -8,13 +8,7 @@ from aiogram.methods.delete_webhook import DeleteWebhook
 from aiogram.types import BotCommand
 from redis.asyncio import Redis
 
-from customer_bot.application.services import (
-    MenuUpdateService,
-    UsernameSyncService,
-)
-from customer_bot.application.services import (
-    TelegramTopicSetupService as ApplicationTopicSetupService,
-)
+from customer_bot.application.services import UsernameSyncService
 from customer_bot.infrastructure.http import BackendClient
 from customer_bot.infrastructure.logger import setup_logger
 from customer_bot.infrastructure.redis import (
@@ -83,16 +77,12 @@ async def main() -> None:
         cache=username_sync_cache,
     )
     menu_manager = MenuManager(
-        MenuUpdateService(
-            message_store=menu_message_store,
-            topic_cache=topic_cache,
-        ),
+        message_store=menu_message_store,
+        topic_cache=topic_cache,
     )
     topic_setup_service = TelegramTopicSetupService(
-        ApplicationTopicSetupService(
-            backend=backend_client,
-            topic_cache=topic_cache,
-        ),
+        backend=backend_client,
+        topic_cache=topic_cache,
     )
     try:
         await bot.set_my_commands(
