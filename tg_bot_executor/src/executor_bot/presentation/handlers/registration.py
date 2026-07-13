@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -12,6 +12,7 @@ from executor_bot.infrastructure.http import (
     BackendValidationError,
 )
 from executor_bot.presentation.middlewares import TelegramUserContext
+from executor_bot.presentation.services import TelegramTopicSetupService
 from executor_bot.presentation.ui import (
     about_step_text,
     backend_rejected_registration_text,
@@ -82,7 +83,7 @@ async def start_registration(
     )
     await message.answer(
         legal_documents_text(documents),
-        reply_markup=legal_acceptance_keyboard(),
+        reply_markup=legal_acceptance_keyboard(documents),
     )
 
 
@@ -229,8 +230,10 @@ async def edit_registration(callback: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(ExecutorRegistration.summary, F.data == REGISTRATION_CONFIRM)
 async def confirm_registration(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendClient,
+    topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()
@@ -251,7 +254,9 @@ async def confirm_registration(
             ),
         )
         if telegram_user_context.chat_id is not None:
-            await backend_client.ensure_telegram_topics(
+            await topic_setup_service.ensure(
+                bot=bot,
+                backend_client=backend_client,
                 telegram_id=telegram_user_context.telegram_id,
                 chat_id=telegram_user_context.chat_id,
             )

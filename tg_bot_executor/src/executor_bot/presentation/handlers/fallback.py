@@ -1,8 +1,10 @@
-from aiogram import F, Router
+from aiogram import Bot, F, Router
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from executor_bot.infrastructure.http import BackendClient, BackendClientError
 from executor_bot.presentation.middlewares import TelegramUserContext
+from executor_bot.presentation.services import MenuManager
 from executor_bot.presentation.ui import (
     executor_main_menu_text,
     executor_profile_text,
@@ -18,21 +20,71 @@ router = Router(name="fallback")
 
 
 @router.callback_query(F.data == MAIN_MENU)
-async def main_menu_callback(callback: CallbackQuery) -> None:
+async def main_menu_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendClient,
+    menu_manager: MenuManager,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     await callback.answer()
     message = callback.message
-    if isinstance(message, Message):
-        await message.answer(
-            executor_main_menu_text(), reply_markup=main_menu_keyboard()
+    if not isinstance(message, Message):
+        return
+    try:
+        registration_state = await backend_client.get_registration_state(
+            telegram_user_context.telegram_id,
         )
+    except BackendClientError:
+        await message.answer(
+            unavailable_action_text(), reply_markup=fallback_keyboard()
+        )
+        return
+    if registration_state.state != "registered":
+        await message.answer(
+            help_text(), reply_markup=fallback_keyboard(include_main_menu=False)
+        )
+        return
+    topic_key = await menu_manager.topic_key(
+        telegram_id=telegram_user_context.telegram_id,
+        message_thread_id=telegram_user_context.message_thread_id,
+    )
+    await menu_manager.send_or_replace(
+        bot=bot,
+        message=message,
+        telegram_id=telegram_user_context.telegram_id,
+        topic_key=topic_key,
+        text=executor_main_menu_text(topic_key),
+        reply_markup=main_menu_keyboard(topic_key),
+        message_thread_id=telegram_user_context.message_thread_id,
+    )
 
 
 @router.callback_query(F.data == HELP)
-async def help_callback(callback: CallbackQuery) -> None:
+async def help_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+    backend_client: BackendClient,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     await callback.answer()
     message = callback.message
     if isinstance(message, Message):
-        await message.answer(help_text(), reply_markup=fallback_keyboard())
+        current_state = await state.get_state()
+        include_main_menu = False
+        if current_state is None:
+            try:
+                include_main_menu = (
+                    await backend_client.get_registration_state(
+                        telegram_user_context.telegram_id,
+                    )
+                ).state == "registered"
+            except BackendClientError:
+                include_main_menu = False
+        await message.answer(
+            help_text(),
+            reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
+        )
 
 
 @router.callback_query(F.data == "profile:open")

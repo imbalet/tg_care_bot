@@ -39,17 +39,28 @@ class CityButtonView(Protocol):
         pass
 
 
-def legal_acceptance_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="Принять и продолжить",
-                    callback_data=REGISTRATION_ACCEPT_LEGAL,
-                ),
-            ],
-            [InlineKeyboardButton(text="Помощь", callback_data=HELP)],
+def legal_acceptance_keyboard(documents: Sequence[object] = ()) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                text=f"Документ {index}",
+                url=str(getattr(document, "content_url", "")),
+            ),
+        ]
+        for index, document in enumerate(documents, start=1)
+        if str(getattr(document, "content_url", "")).startswith("https://")
+    ]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="Принять и продолжить",
+                callback_data=REGISTRATION_ACCEPT_LEGAL,
+            ),
         ],
+    )
+    rows.append([InlineKeyboardButton(text="Помощь", callback_data=HELP)])
+    return InlineKeyboardMarkup(
+        inline_keyboard=rows,
     )
 
 
@@ -110,7 +121,13 @@ def registration_summary_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def main_menu_keyboard() -> InlineKeyboardMarkup:
+def main_menu_keyboard(topic_kind: str | None = None) -> InlineKeyboardMarkup:
+    if topic_kind == "notifications":
+        return InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Помощь", callback_data=HELP)],
+            ],
+        )
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -134,12 +151,15 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def fallback_keyboard() -> InlineKeyboardMarkup:
+def fallback_keyboard(*, include_main_menu: bool = True) -> InlineKeyboardMarkup:
+    rows = []
+    if include_main_menu:
+        rows.append(
+            [InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)]
+        )
+    rows.append([InlineKeyboardButton(text="Помощь", callback_data=HELP)])
     return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)],
-            [InlineKeyboardButton(text="Помощь", callback_data=HELP)],
-        ],
+        inline_keyboard=rows,
     )
 
 

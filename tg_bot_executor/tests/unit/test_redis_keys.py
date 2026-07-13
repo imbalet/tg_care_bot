@@ -15,6 +15,9 @@ def test_ui_state_keys_use_executor_namespace() -> None:
         == "executor_bot:ui_state:123:viewed_available_orders"
     )
     assert keys.username_sync_cache(123) == "executor_bot:username_sync:123"
+    assert keys.topic_kind_by_thread(123, 456) == "executor_bot:topics:123:thread:456"
+    assert keys.topic_thread_by_kind(123, "work") == "executor_bot:topics:123:kind:work"
+    assert keys.menu_message(123, "work") == "executor_bot:menu:123:work"
 
 
 def test_message_registry_key_format() -> None:

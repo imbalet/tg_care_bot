@@ -218,6 +218,26 @@ class BackendClient:
         self._raise_for_status(response)
         return tuple(_topic_from_json(item) for item in response.json())
 
+    async def update_telegram_topic_mapping(
+        self,
+        *,
+        topic_id: UUID,
+        chat_id: int,
+        message_thread_id: int | None,
+        status: str,
+    ) -> TelegramTopicDTO:
+        response = await self._request(
+            "PATCH",
+            f"/api/telegram-topics/{topic_id}/mapping",
+            json={
+                "chat_id": chat_id,
+                "message_thread_id": message_thread_id,
+                "status": status,
+            },
+        )
+        self._raise_for_status(response)
+        return _topic_from_json(response.json())
+
     async def suggest_addresses(
         self,
         *,

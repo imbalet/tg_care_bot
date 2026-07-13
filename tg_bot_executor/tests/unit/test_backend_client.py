@@ -157,6 +157,50 @@ async def test_ensure_telegram_topics_sends_chat_id() -> None:
 
 
 @pytest.mark.asyncio
+async def test_update_telegram_topic_mapping_sends_backend_payload() -> None:
+    topic_id = uuid4()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == f"/api/telegram-topics/{topic_id}/mapping"
+        assert json_body(request) == {
+            "chat_id": 456,
+            "message_thread_id": 789,
+            "status": "active",
+        }
+        return httpx.Response(
+            200,
+            json={
+                "id": str(topic_id),
+                "account_type": "performer",
+                "owner_id": str(uuid4()),
+                "topic_kind": "work",
+                "chat_id": 456,
+                "message_thread_id": 789,
+                "status": "active",
+            },
+        )
+
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(handler),
+    )
+
+    topic = await client.update_telegram_topic_mapping(
+        topic_id=topic_id,
+        chat_id=456,
+        message_thread_id=789,
+        status="active",
+    )
+
+    assert topic.id == topic_id
+    assert topic.topic_kind == "work"
+    assert topic.message_thread_id == 789
+    await client.close()
+
+
+@pytest.mark.asyncio
 async def test_work_address_methods_use_backend_contract() -> None:
     city_id = uuid4()
     address_id = uuid4()
