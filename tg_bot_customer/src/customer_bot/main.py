@@ -34,6 +34,7 @@ from customer_bot.presentation.handlers import (
     start_router,
 )
 from customer_bot.presentation.middlewares import (
+    AppContextMiddleware,
     TelegramTopicsEnsureMiddleware,
     TelegramUserContextMiddleware,
     TelegramUsernameSyncMiddleware,
@@ -54,6 +55,7 @@ async def main() -> None:
         fsm_strategy=FSMStrategy.USER_IN_TOPIC,
     )
     dispatcher.update.middleware(TelegramUserContextMiddleware())
+    dispatcher.update.middleware(AppContextMiddleware())
     dispatcher.update.middleware(TelegramUsernameSyncMiddleware())
     dispatcher.update.middleware(TelegramTopicsEnsureMiddleware())
     dispatcher.include_router(start_router)
