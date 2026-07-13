@@ -74,13 +74,3 @@ def parse_city_choice(text: str, city_ids: list[str]) -> UUID | None:
     if index < 0 or index >= len(city_ids):
         return None
     return UUID(city_ids[index])
-
-
-__all__ = [
-    "CONTACT_METHODS",
-    "format_cities",
-    "format_contact_methods",
-    "format_legal_documents",
-    "format_summary",
-    "parse_city_choice",
-]

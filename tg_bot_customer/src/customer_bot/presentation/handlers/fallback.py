@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from customer_bot.infrastructure.http import BackendClient, BackendClientError
-from customer_bot.presentation.middlewares import TelegramUserContext
+from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import MenuManager
 from customer_bot.presentation.ui import (
     customer_main_menu_text,
@@ -205,12 +205,3 @@ async def unknown_message(
         reply_markup=fallback_keyboard(),
         message_thread_id=telegram_user_context.message_thread_id,
     )
-
-
-__all__ = [
-    "help_callback",
-    "main_menu_callback",
-    "profile_callback",
-    "router",
-    "unknown_message",
-]

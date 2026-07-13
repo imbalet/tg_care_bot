@@ -15,7 +15,7 @@ from customer_bot.infrastructure.http import (
     ServiceCategoryDTO,
     SuitablePerformerDTO,
 )
-from customer_bot.presentation.middlewares import TelegramUserContext
+from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.ui import (
     invalid_datetime_text,
     invalid_duration_text,
@@ -535,6 +535,3 @@ def _callback_value(data: str | None, prefix: str) -> str | None:
 
 def _callback_message(callback: CallbackQuery) -> Message | None:
     return callback.message if isinstance(callback.message, Message) else None
-
-
-__all__ = ["router"]

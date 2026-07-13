@@ -1,4 +1,3 @@
-__all__: list[str] = []
 from .addresses import router as addresses_router
 from .care_objects import router as care_objects_router
 from .fallback import router as fallback_router

@@ -11,7 +11,7 @@ from customer_bot.infrastructure.http import (
     BackendClientError,
     BackendValidationError,
 )
-from customer_bot.presentation.middlewares import TelegramUserContext
+from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.ui import (
     address_card_keyboard,
     address_card_text,
@@ -368,6 +368,3 @@ def _optional_str(value: object) -> str | None:
 def _extra_index(draft: dict[str, object]) -> int:
     value = draft.get("extra_index", 0)
     return value if isinstance(value, int) else 0
-
-
-__all__ = ["AddressManagement", "router"]

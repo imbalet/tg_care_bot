@@ -3,7 +3,7 @@ from typing import Any, cast
 import pytest
 
 from customer_bot.infrastructure.http import BackendUnavailableError
-from customer_bot.presentation.middlewares import TelegramUserContext
+from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.middlewares.username_sync import (
     ABSENT_USERNAME,
     USERNAME_SYNC_TTL_SECONDS,

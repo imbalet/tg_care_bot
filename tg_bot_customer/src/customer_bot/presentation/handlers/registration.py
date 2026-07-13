@@ -11,7 +11,7 @@ from customer_bot.infrastructure.http import (
     BackendClientError,
     BackendValidationError,
 )
-from customer_bot.presentation.middlewares import TelegramUserContext
+from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
 from customer_bot.presentation.ui import (
     backend_rejected_registration_text,
@@ -310,10 +310,3 @@ def _string_list(value: object) -> list[str]:
     if isinstance(value, list) and all(isinstance(item, str) for item in value):
         return value
     raise TypeError("Expected string list in FSM state")
-
-
-__all__ = [
-    "CustomerRegistration",
-    "router",
-    "start_registration",
-]

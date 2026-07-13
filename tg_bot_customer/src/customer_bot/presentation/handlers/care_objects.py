@@ -11,7 +11,7 @@ from customer_bot.infrastructure.http import (
     BackendValidationError,
     CareObjectDTO,
 )
-from customer_bot.presentation.middlewares import TelegramUserContext
+from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import MenuManager
 from customer_bot.presentation.ui import (
     care_object_age_keyboard,
@@ -464,6 +464,3 @@ def _callback_value(data: str | None, prefix: str) -> str | None:
 
 def _callback_message(callback: CallbackQuery) -> Message | None:
     return callback.message if isinstance(callback.message, Message) else None
-
-
-__all__ = ["CareObjectManagement", "router"]

@@ -7,7 +7,9 @@ from redis.asyncio import Redis
 
 from customer_bot.infrastructure.http import BackendClient, BackendClientError
 from customer_bot.infrastructure.redis import customer_redis_keys
-from customer_bot.presentation.middlewares.user_context import TelegramUserContext
+from customer_bot.presentation.contexts import TelegramUserContext
+
+from .helpers import get_app_context, get_telegram_user_context
 
 ABSENT_USERNAME = "<absent>"
 USERNAME_SYNC_TTL_SECONDS = 600
@@ -23,12 +25,9 @@ class TelegramUsernameSyncMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
-        context = data.get("telegram_user_context")
-        backend_client = data.get("backend_client")
-        if isinstance(context, TelegramUserContext) and isinstance(
-            backend_client,
-            BackendClient,
-        ):
+        context = get_telegram_user_context(data)
+        backend_client = get_app_context(data).backend_client
+        if isinstance(backend_client, BackendClient):
             await self.sync(context, backend_client)
         return await handler(event, data)
 
@@ -38,7 +37,7 @@ class TelegramUsernameSyncMiddleware(BaseMiddleware):
         backend_client: BackendClient,
     ) -> None:
         key = customer_redis_keys.username_sync_cache(context.telegram_id)
-        current = _cache_value(context.username)
+        current = _normalize_value(context.username)
         cached = await self._redis.get(key)
         if cached == current:
             return
@@ -52,12 +51,5 @@ class TelegramUsernameSyncMiddleware(BaseMiddleware):
         await self._redis.set(key, current, ex=USERNAME_SYNC_TTL_SECONDS)
 
 
-def _cache_value(username: str | None) -> str:
+def _normalize_value(username: str | None) -> str:
     return username if username is not None else ABSENT_USERNAME
-
-
-__all__ = [
-    "ABSENT_USERNAME",
-    "TelegramUsernameSyncMiddleware",
-    "USERNAME_SYNC_TTL_SECONDS",
-]

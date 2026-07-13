@@ -5,8 +5,10 @@ from aiogram import BaseMiddleware, Bot
 from aiogram.types import TelegramObject
 
 from customer_bot.infrastructure.http import BackendClient, BackendClientError
-from customer_bot.presentation.middlewares.user_context import TelegramUserContext
+from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import TelegramTopicSetupService
+
+from .helpers import get_app_context, get_telegram_user_context
 
 
 class TelegramTopicsEnsureMiddleware(BaseMiddleware):
@@ -16,17 +18,12 @@ class TelegramTopicsEnsureMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
-        context = data.get("telegram_user_context")
-        backend_client = data.get("backend_client")
-        topic_setup_service = data.get("topic_setup_service")
+        context = get_telegram_user_context(data)
+        app_context = get_app_context(data)
+        backend_client = app_context.backend_client
+        topic_setup_service = app_context.topic_setup_service
         bot = data.get("bot")
-        if (
-            isinstance(context, TelegramUserContext)
-            and isinstance(backend_client, BackendClient)
-            and isinstance(topic_setup_service, TelegramTopicSetupService)
-            and isinstance(bot, Bot)
-            and context.chat_id is not None
-        ):
+        if isinstance(bot, Bot) and context.chat_id is not None:
             await self._ensure(
                 bot=bot,
                 backend_client=backend_client,
@@ -54,6 +51,3 @@ class TelegramTopicsEnsureMiddleware(BaseMiddleware):
             )
         except BackendClientError:
             return
-
-
-__all__ = ["TelegramTopicsEnsureMiddleware"]

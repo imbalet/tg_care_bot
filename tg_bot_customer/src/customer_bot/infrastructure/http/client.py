@@ -714,20 +714,3 @@ def _suitable_performer_from_json(data: dict[str, object]) -> SuitablePerformerD
         if data["distance_km"] is not None
         else None,
     )
-
-
-__all__ = [
-    "AddressDTO",
-    "AddressSuggestionDTO",
-    "BackendClient",
-    "CareObjectDTO",
-    "CityDTO",
-    "CustomerProfileDTO",
-    "LegalDocumentDTO",
-    "OrderDTO",
-    "PricePreviewDTO",
-    "ServiceCategoryDTO",
-    "ServiceDTO",
-    "SuitablePerformerDTO",
-    "TelegramTopicDTO",
-]

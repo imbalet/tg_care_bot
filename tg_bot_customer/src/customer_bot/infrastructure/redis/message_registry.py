@@ -29,6 +29,3 @@ class MessageRegistry:
 
     def _key(self, semantic_key: str) -> str:
         return f"{self._prefix}:{semantic_key}"
-
-
-__all__ = ["MessageRegistry", "RegisteredMessage"]

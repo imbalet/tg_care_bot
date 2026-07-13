@@ -105,6 +105,3 @@ class TelegramTopicSetupService:
             await bot.hide_general_forum_topic(chat_id=chat_id)
         except TelegramAPIError:
             logger.warning("failed to hide general topic", exc_info=True)
-
-
-__all__ = ["TOPIC_TITLES", "TelegramTopicSetupService"]

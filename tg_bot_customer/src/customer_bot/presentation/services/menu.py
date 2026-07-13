@@ -119,6 +119,3 @@ async def _delete_message(message: Message) -> None:
         await message.delete()
     except TelegramAPIError:
         return
-
-
-__all__ = ["MenuManager"]

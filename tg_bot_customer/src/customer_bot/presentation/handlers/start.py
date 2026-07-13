@@ -4,8 +4,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from customer_bot.infrastructure.http import BackendClient, BackendClientError
+from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.registration import start_registration
-from customer_bot.presentation.middlewares import TelegramUserContext
 from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
 from customer_bot.presentation.ui import (
     customer_main_menu_text,
@@ -145,6 +145,3 @@ async def _open_start_or_menu(
         reply_markup=fallback_keyboard(include_main_menu=False),
         message_thread_id=telegram_user_context.message_thread_id,
     )
-
-
-__all__ = ["help_command", "menu", "router", "start"]

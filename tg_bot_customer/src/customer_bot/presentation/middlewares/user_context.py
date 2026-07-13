@@ -1,17 +1,12 @@
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from typing import Any
 
 from aiogram import BaseMiddleware
-from aiogram.types import CallbackQuery, Message, TelegramObject, User
+from aiogram.types import Message, TelegramObject, Update, User
 
+from customer_bot.presentation.contexts import TelegramUserContext
 
-@dataclass(frozen=True)
-class TelegramUserContext:
-    telegram_id: int
-    username: str | None
-    chat_id: int | None
-    message_thread_id: int | None
+from .helpers import set_telegram_user_context
 
 
 class TelegramUserContextMiddleware(BaseMiddleware):
@@ -22,24 +17,34 @@ class TelegramUserContextMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         event_from_user = data.get("event_from_user")
-        if isinstance(event_from_user, User):
+        if isinstance(event_from_user, User) and isinstance(event, Update):
             chat_id: int | None = None
             message_thread_id: int | None = None
-            if isinstance(event, Message):
-                chat_id = event.chat.id
-                message_thread_id = event.message_thread_id
-            elif isinstance(event, CallbackQuery) and isinstance(
-                event.message, Message
-            ):
+
+            if event.message and event.message.from_user:
                 chat_id = event.message.chat.id
                 message_thread_id = event.message.message_thread_id
-            data["telegram_user_context"] = TelegramUserContext(
-                telegram_id=event_from_user.id,
-                username=event_from_user.username,
-                chat_id=chat_id,
-                message_thread_id=message_thread_id,
+            elif event.callback_query and event.callback_query.from_user.id:
+                chat_id = (
+                    event.callback_query.message.chat.id
+                    if event.callback_query.message
+                    else None
+                )
+                message_thread_id = (
+                    event.callback_query.message.message_thread_id
+                    if isinstance(event.callback_query.message, Message)
+                    else None
+                )
+            set_telegram_user_context(
+                data=data,
+                user_context=TelegramUserContext(
+                    telegram_id=event_from_user.id,
+                    username=event_from_user.username,
+                    chat_id=chat_id,
+                    message_thread_id=message_thread_id,
+                ),
             )
+        else:
+            return None
+
         return await handler(event, data)
-
-
-__all__ = ["TelegramUserContext", "TelegramUserContextMiddleware"]

@@ -28,6 +28,3 @@ class CustomerRedisKeys:
 
 
 customer_redis_keys = CustomerRedisKeys()
-
-
-__all__ = ["CustomerRedisKeys", "customer_redis_keys"]

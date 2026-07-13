@@ -8,9 +8,11 @@ from aiogram.methods.delete_webhook import DeleteWebhook
 from aiogram.types import BotCommand
 from redis.asyncio import Redis
 
-from customer_bot.bootstrap import get_settings
 from customer_bot.infrastructure.http import BackendClient
+from customer_bot.infrastructure.logger import setup_logger
 from customer_bot.infrastructure.redis import create_fsm_storage
+from customer_bot.infrastructure.settings import get_settings
+from customer_bot.presentation.contexts import AppContext
 from customer_bot.presentation.handlers import (
     addresses_router,
     care_objects_router,
@@ -27,10 +29,14 @@ from customer_bot.presentation.middlewares import (
 from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
 
 
-async def amain() -> None:
+async def main() -> None:
     settings = get_settings()
-    storage = create_fsm_storage(settings.redis_url)
+
+    setup_logger(level=settings.log_level)
+
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
+
+    storage = create_fsm_storage(settings.redis_url)
     dispatcher = Dispatcher(
         storage=storage,
         fsm_strategy=FSMStrategy.USER_IN_TOPIC,
@@ -54,6 +60,7 @@ async def amain() -> None:
         service_key=settings.service_key,
         timeout_seconds=settings.request_timeout_seconds,
     )
+
     menu_manager = MenuManager(redis)
     topic_setup_service = TelegramTopicSetupService(redis)
     try:
@@ -67,9 +74,11 @@ async def amain() -> None:
         await bot(DeleteWebhook(drop_pending_updates=True))
         await dispatcher.start_polling(
             bot,
-            backend_client=backend_client,
-            menu_manager=menu_manager,
-            topic_setup_service=topic_setup_service,
+            app_context=AppContext(
+                backend_client=backend_client,
+                menu_manager=menu_manager,
+                topic_setup_service=topic_setup_service,
+            ),
         )
     finally:
         await backend_client.close()
@@ -78,9 +87,5 @@ async def amain() -> None:
         await storage.close()
 
 
-def main() -> None:
-    asyncio.run(amain())
-
-
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
