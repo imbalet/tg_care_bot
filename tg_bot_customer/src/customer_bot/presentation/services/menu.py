@@ -1,14 +1,13 @@
 from aiogram import Bot
-from aiogram.exceptions import TelegramAPIError
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
-from redis.asyncio import Redis
 
-from customer_bot.infrastructure.redis import customer_redis_keys
+from customer_bot.application.services import MenuUpdateService
+from customer_bot.presentation.adapters import AiogramBotAdapter, AiogramMenuEvent
 
 
 class MenuManager:
-    def __init__(self, redis: Redis) -> None:
-        self._redis = redis
+    def __init__(self, service: MenuUpdateService) -> None:
+        self._service = service
 
     async def topic_key(
         self,
@@ -16,11 +15,10 @@ class MenuManager:
         telegram_id: int,
         message_thread_id: int | None,
     ) -> str:
-        if message_thread_id is None:
-            return "general"
-        key = customer_redis_keys.topic_kind_by_thread(telegram_id, message_thread_id)
-        topic_kind = await self._redis.get(key)
-        return topic_kind if isinstance(topic_kind, str) and topic_kind else "general"
+        return await self._service.topic_key(
+            telegram_id=telegram_id,
+            message_thread_id=message_thread_id,
+        )
 
     async def send_or_replace(
         self,
@@ -33,28 +31,16 @@ class MenuManager:
         reply_markup: InlineKeyboardMarkup | None = None,
         message_thread_id: int | None = None,
     ) -> Message:
-        key = customer_redis_keys.menu_message(telegram_id, topic_key)
-        current = await self._redis.get(key)
-        if isinstance(current, str):
-            try:
-                await bot.edit_message_text(
-                    chat_id=message.chat.id,
-                    message_id=int(current),
-                    text=text,
-                    reply_markup=reply_markup,
-                )
-                return message
-            except TelegramAPIError, ValueError:
-                await self._redis.delete(key)
-
-        sent = await bot.send_message(
-            chat_id=message.chat.id,
+        await self.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_id,
+            topic_key=topic_key,
             text=text,
             reply_markup=reply_markup,
             message_thread_id=message_thread_id,
         )
-        await self._redis.set(key, sent.message_id)
-        return sent
+        return message
 
     async def update(
         self,
@@ -68,54 +54,18 @@ class MenuManager:
         message_thread_id: int | None = None,
         create_new: bool = False,
     ) -> Message | None:
-        message = event if isinstance(event, Message) else event.message
-        if not isinstance(message, Message):
-            if isinstance(event, CallbackQuery):
-                await event.answer("Сообщение недоступно", show_alert=True)
+        menu_event = AiogramMenuEvent(event)
+        if menu_event.message is None:
+            await menu_event.answer_unavailable()
             return None
-        if isinstance(event, CallbackQuery):
-            await event.answer()
-        key = customer_redis_keys.menu_message(telegram_id, topic_key)
-        current = await self._redis.get(key)
-        target_message_id = None
-        if isinstance(current, str):
-            try:
-                target_message_id = int(current)
-            except ValueError:
-                await self._redis.delete(key)
-        if (
-            isinstance(event, CallbackQuery)
-            and target_message_id is not None
-            and message.message_id != target_message_id
-        ):
-            target_message_id = message.message_id
-        if target_message_id is not None and not create_new:
-            try:
-                await bot.edit_message_text(
-                    chat_id=message.chat.id,
-                    message_id=target_message_id,
-                    text=text,
-                    reply_markup=reply_markup,
-                )
-                if isinstance(event, Message):
-                    await _delete_message(message)
-                return message
-            except TelegramAPIError:
-                await self._redis.delete(key)
-        sent = await bot.send_message(
-            chat_id=message.chat.id,
+        await self._service.update(
+            bot=AiogramBotAdapter(bot),
+            event=menu_event,
+            telegram_id=telegram_id,
+            topic_key=topic_key,
             text=text,
             reply_markup=reply_markup,
             message_thread_id=message_thread_id,
+            create_new=create_new,
         )
-        await self._redis.set(key, sent.message_id)
-        if isinstance(event, Message) and event.message_id != sent.message_id:
-            await _delete_message(event)
-        return sent
-
-
-async def _delete_message(message: Message) -> None:
-    try:
-        await message.delete()
-    except TelegramAPIError:
-        return
+        return menu_event.message

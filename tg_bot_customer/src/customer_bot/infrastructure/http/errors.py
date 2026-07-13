@@ -1,18 +1,15 @@
-class BackendClientError(Exception):
-    """Base backend client error."""
+from customer_bot.application.errors import (
+    BackendClientError,
+    BackendNotFoundError,
+    BackendUnauthorizedError,
+    BackendUnavailableError,
+    BackendValidationError,
+)
 
-
-class BackendUnavailableError(BackendClientError):
-    """Backend did not return a usable response."""
-
-
-class BackendUnauthorizedError(BackendClientError):
-    """Backend rejected the service credentials."""
-
-
-class BackendNotFoundError(BackendClientError):
-    """Backend did not find requested resource."""
-
-
-class BackendValidationError(BackendClientError):
-    """Backend rejected user-provided data."""
+__all__ = [
+    "BackendClientError",
+    "BackendNotFoundError",
+    "BackendUnauthorizedError",
+    "BackendUnavailableError",
+    "BackendValidationError",
+]

@@ -8,9 +8,21 @@ from aiogram.methods.delete_webhook import DeleteWebhook
 from aiogram.types import BotCommand
 from redis.asyncio import Redis
 
+from customer_bot.application.services import (
+    MenuUpdateService,
+    UsernameSyncService,
+)
+from customer_bot.application.services import (
+    TelegramTopicSetupService as ApplicationTopicSetupService,
+)
 from customer_bot.infrastructure.http import BackendClient
 from customer_bot.infrastructure.logger import setup_logger
-from customer_bot.infrastructure.redis import create_fsm_storage
+from customer_bot.infrastructure.redis import (
+    RedisMenuMessageStore,
+    RedisTopicCache,
+    RedisUsernameSyncCache,
+    create_fsm_storage,
+)
 from customer_bot.infrastructure.settings import get_settings
 from customer_bot.presentation.contexts import AppContext
 from customer_bot.presentation.handlers import (
@@ -42,7 +54,7 @@ async def main() -> None:
         fsm_strategy=FSMStrategy.USER_IN_TOPIC,
     )
     dispatcher.update.middleware(TelegramUserContextMiddleware())
-    dispatcher.update.middleware(TelegramUsernameSyncMiddleware(redis))
+    dispatcher.update.middleware(TelegramUsernameSyncMiddleware())
     dispatcher.update.middleware(TelegramTopicsEnsureMiddleware())
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)
@@ -61,8 +73,25 @@ async def main() -> None:
         timeout_seconds=settings.request_timeout_seconds,
     )
 
-    menu_manager = MenuManager(redis)
-    topic_setup_service = TelegramTopicSetupService(redis)
+    topic_cache = RedisTopicCache(redis)
+    menu_message_store = RedisMenuMessageStore(redis)
+    username_sync_cache = RedisUsernameSyncCache(redis)
+    username_sync_service = UsernameSyncService(
+        backend=backend_client,
+        cache=username_sync_cache,
+    )
+    menu_manager = MenuManager(
+        MenuUpdateService(
+            message_store=menu_message_store,
+            topic_cache=topic_cache,
+        ),
+    )
+    topic_setup_service = TelegramTopicSetupService(
+        ApplicationTopicSetupService(
+            backend=backend_client,
+            topic_cache=topic_cache,
+        ),
+    )
     try:
         await bot.set_my_commands(
             [
@@ -78,6 +107,7 @@ async def main() -> None:
                 backend_client=backend_client,
                 menu_manager=menu_manager,
                 topic_setup_service=topic_setup_service,
+                username_sync_service=username_sync_service,
             ),
         )
     finally:

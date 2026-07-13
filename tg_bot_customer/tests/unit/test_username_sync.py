@@ -2,6 +2,7 @@ from typing import Any, cast
 
 import pytest
 
+from customer_bot.application.services import UsernameSyncService
 from customer_bot.infrastructure.http import BackendUnavailableError
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.middlewares.username_sync import (
@@ -11,17 +12,17 @@ from customer_bot.presentation.middlewares.username_sync import (
 )
 
 
-class FakeRedis:
+class FakeUsernameSyncCache:
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
         self.ttl: dict[str, int] = {}
 
-    async def get(self, key: str) -> str | None:
-        return self.values.get(key)
+    async def get(self, telegram_id: int) -> str | None:
+        return self.values.get(str(telegram_id))
 
-    async def set(self, key: str, value: str, ex: int) -> None:
-        self.values[key] = value
-        self.ttl[key] = ex
+    async def set(self, telegram_id: int, value: str, ttl_seconds: int) -> None:
+        self.values[str(telegram_id)] = value
+        self.ttl[str(telegram_id)] = ttl_seconds
 
 
 class FakeBackendClient:
@@ -51,47 +52,51 @@ def context(username: str | None) -> TelegramUserContext:
 
 @pytest.mark.asyncio
 async def test_username_sync_updates_cache_after_success() -> None:
-    redis = FakeRedis()
+    cache = FakeUsernameSyncCache()
     backend = FakeBackendClient()
-    middleware = TelegramUsernameSyncMiddleware(cast(Any, redis))
+    service = UsernameSyncService(backend=cast(Any, backend), cache=cache)
+    middleware = TelegramUsernameSyncMiddleware()
 
-    await middleware.sync(context("new_name"), cast(Any, backend))
+    await middleware.sync(context("new_name"), service)
 
     assert backend.calls == [(123, "new_name")]
-    assert list(redis.values.values()) == ["new_name"]
-    assert list(redis.ttl.values()) == [USERNAME_SYNC_TTL_SECONDS]
+    assert list(cache.values.values()) == ["new_name"]
+    assert list(cache.ttl.values()) == [USERNAME_SYNC_TTL_SECONDS]
 
 
 @pytest.mark.asyncio
 async def test_username_sync_sends_null_for_absent_username() -> None:
-    redis = FakeRedis()
+    cache = FakeUsernameSyncCache()
     backend = FakeBackendClient()
-    middleware = TelegramUsernameSyncMiddleware(cast(Any, redis))
+    service = UsernameSyncService(backend=cast(Any, backend), cache=cache)
+    middleware = TelegramUsernameSyncMiddleware()
 
-    await middleware.sync(context(None), cast(Any, backend))
+    await middleware.sync(context(None), service)
 
     assert backend.calls == [(123, None)]
-    assert list(redis.values.values()) == [ABSENT_USERNAME]
+    assert list(cache.values.values()) == [ABSENT_USERNAME]
 
 
 @pytest.mark.asyncio
 async def test_username_sync_skips_when_cache_matches() -> None:
-    redis = FakeRedis()
-    redis.values["customer_bot:username_sync:123"] = "same"
+    cache = FakeUsernameSyncCache()
+    cache.values["123"] = "same"
     backend = FakeBackendClient()
-    middleware = TelegramUsernameSyncMiddleware(cast(Any, redis))
+    service = UsernameSyncService(backend=cast(Any, backend), cache=cache)
+    middleware = TelegramUsernameSyncMiddleware()
 
-    await middleware.sync(context("same"), cast(Any, backend))
+    await middleware.sync(context("same"), service)
 
     assert backend.calls == []
 
 
 @pytest.mark.asyncio
 async def test_username_sync_does_not_update_cache_after_failure() -> None:
-    redis = FakeRedis()
+    cache = FakeUsernameSyncCache()
     backend = FakeBackendClient(fail=True)
-    middleware = TelegramUsernameSyncMiddleware(cast(Any, redis))
+    service = UsernameSyncService(backend=cast(Any, backend), cache=cache)
+    middleware = TelegramUsernameSyncMiddleware()
 
-    await middleware.sync(context("new_name"), cast(Any, backend))
+    await middleware.sync(context("new_name"), service)
 
-    assert redis.values == {}
+    assert cache.values == {}

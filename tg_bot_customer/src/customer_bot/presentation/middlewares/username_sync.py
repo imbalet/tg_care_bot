@@ -3,21 +3,26 @@ from typing import Any
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
-from redis.asyncio import Redis
 
-from customer_bot.infrastructure.http import BackendClient, BackendClientError
-from customer_bot.infrastructure.redis import customer_redis_keys
+from customer_bot.application.services import (
+    ABSENT_USERNAME,
+    USERNAME_SYNC_TTL_SECONDS,
+    UsernameSyncService,
+)
 from customer_bot.presentation.contexts import TelegramUserContext
 
 from .helpers import get_app_context, get_telegram_user_context
 
-ABSENT_USERNAME = "<absent>"
-USERNAME_SYNC_TTL_SECONDS = 600
+__all__ = [
+    "ABSENT_USERNAME",
+    "USERNAME_SYNC_TTL_SECONDS",
+    "TelegramUsernameSyncMiddleware",
+]
 
 
 class TelegramUsernameSyncMiddleware(BaseMiddleware):
-    def __init__(self, redis: Redis) -> None:
-        self._redis = redis
+    def __init__(self, service: UsernameSyncService | None = None) -> None:
+        self._service = service
 
     async def __call__(
         self,
@@ -26,30 +31,16 @@ class TelegramUsernameSyncMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         context = get_telegram_user_context(data)
-        backend_client = get_app_context(data).backend_client
-        if isinstance(backend_client, BackendClient):
-            await self.sync(context, backend_client)
+        service = self._service or get_app_context(data).username_sync_service
+        await self.sync(context, service)
         return await handler(event, data)
 
     async def sync(
         self,
         context: TelegramUserContext,
-        backend_client: BackendClient,
+        service: UsernameSyncService,
     ) -> None:
-        key = customer_redis_keys.username_sync_cache(context.telegram_id)
-        current = _normalize_value(context.username)
-        cached = await self._redis.get(key)
-        if cached == current:
-            return
-        try:
-            await backend_client.update_customer_username(
-                telegram_id=context.telegram_id,
-                telegram_username=context.username,
-            )
-        except BackendClientError:
-            return
-        await self._redis.set(key, current, ex=USERNAME_SYNC_TTL_SECONDS)
-
-
-def _normalize_value(username: str | None) -> str:
-    return username if username is not None else ABSENT_USERNAME
+        await service.sync(
+            telegram_id=context.telegram_id,
+            username=context.username,
+        )
