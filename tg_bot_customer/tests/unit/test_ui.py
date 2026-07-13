@@ -2,6 +2,16 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 from customer_bot.infrastructure.http import CustomerProfileDTO
+from customer_bot.presentation.callbacks import (
+    AddressAddCallback,
+    AddressSelectCallback,
+    CareObjectAddCallback,
+    CareObjectSelectCallback,
+    OrderServiceCallback,
+    RegistrationCityCallback,
+    RegistrationConfirmCallback,
+    RegistrationLegalAcceptCallback,
+)
 from customer_bot.presentation.ui import (
     address_card_text,
     addresses_keyboard,
@@ -14,16 +24,6 @@ from customer_bot.presentation.ui import (
     registration_summary_keyboard,
     select_city_keyboard,
     summary_text,
-)
-from customer_bot.presentation.ui.keyboards import (
-    ADDRESS_ADD,
-    ADDRESS_SELECT_PREFIX,
-    CARE_OBJECT_ADD_PREFIX,
-    CARE_OBJECT_SELECT_PREFIX,
-    ORDER_SERVICE_PREFIX,
-    REGISTRATION_ACCEPT_LEGAL,
-    REGISTRATION_CITY_PREFIX,
-    REGISTRATION_CONFIRM,
 )
 
 
@@ -87,11 +87,13 @@ def test_registration_keyboards_are_inline_first() -> None:
     summary_keyboard = registration_summary_keyboard()
 
     assert city_keyboard.inline_keyboard[0][0].callback_data == (
-        f"{REGISTRATION_CITY_PREFIX}0"
+        RegistrationCityCallback(index=0).pack()
     )
     assert contact_keyboard.inline_keyboard[0][0].callback_data is not None
-    assert summary_keyboard.inline_keyboard[0][0].callback_data == REGISTRATION_CONFIRM
-    assert REGISTRATION_ACCEPT_LEGAL == "registration:legal:accept"
+    assert summary_keyboard.inline_keyboard[0][0].callback_data == (
+        RegistrationConfirmCallback().pack()
+    )
+    assert RegistrationLegalAcceptCallback().pack() == "reg_legal"
 
 
 def test_customer_profile_text_escapes_user_values() -> None:
@@ -116,10 +118,10 @@ def test_care_object_keyboard_is_inline_first() -> None:
     keyboard = care_objects_keyboard([CareObject(display_name="Барсик")])
 
     assert keyboard.inline_keyboard[0][0].callback_data == (
-        f"{CARE_OBJECT_ADD_PREFIX}child"
+        CareObjectAddCallback(object_type="child").pack()
     )
     assert keyboard.inline_keyboard[3][0].callback_data == (
-        f"{CARE_OBJECT_SELECT_PREFIX}0"
+        CareObjectSelectCallback(index=0).pack()
     )
 
 
@@ -132,15 +134,19 @@ def test_care_object_card_text_escapes_user_values() -> None:
 def test_addresses_keyboard_is_inline_first() -> None:
     keyboard = addresses_keyboard([Address(address_text="Тверская")])
 
-    assert keyboard.inline_keyboard[0][0].callback_data == ADDRESS_ADD
-    assert keyboard.inline_keyboard[1][0].callback_data == f"{ADDRESS_SELECT_PREFIX}0"
+    assert keyboard.inline_keyboard[0][0].callback_data == AddressAddCallback().pack()
+    assert keyboard.inline_keyboard[1][0].callback_data == (
+        AddressSelectCallback(index=0).pack()
+    )
 
 
 def test_order_services_keyboard_uses_dict_labels() -> None:
     keyboard = order_services_keyboard([{"name": "Питомцы: Передержка"}])
 
     assert keyboard.inline_keyboard[0][0].text == "Питомцы: Передержка"
-    assert keyboard.inline_keyboard[0][0].callback_data == f"{ORDER_SERVICE_PREFIX}0"
+    assert keyboard.inline_keyboard[0][0].callback_data == (
+        OrderServiceCallback(index=0).pack()
+    )
 
 
 def test_address_card_text_escapes_user_values() -> None:

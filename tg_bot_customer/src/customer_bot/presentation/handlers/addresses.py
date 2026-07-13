@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -10,6 +10,15 @@ from customer_bot.infrastructure.http import (
     BackendClient,
     BackendClientError,
     BackendValidationError,
+)
+from customer_bot.presentation.callbacks import (
+    AddressAddCallback,
+    AddressCityCallback,
+    AddressDeleteCallback,
+    AddressesOpenCallback,
+    AddressSelectCallback,
+    AddressSkipCallback,
+    AddressSuggestionCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.ui import (
@@ -29,15 +38,6 @@ from customer_bot.presentation.ui import (
     addresses_list_text,
     retry_later_text,
 )
-from customer_bot.presentation.ui.keyboards import (
-    ADDRESS_ADD,
-    ADDRESS_CITY_PREFIX,
-    ADDRESS_DELETE_PREFIX,
-    ADDRESS_SELECT_PREFIX,
-    ADDRESS_SKIP,
-    ADDRESS_SUGGESTION_PREFIX,
-    ADDRESSES_OPEN,
-)
 
 router = Router(name="addresses")
 
@@ -56,7 +56,7 @@ class AddressManagement(StatesGroup):
     extra = State()
 
 
-@router.callback_query(F.data == ADDRESSES_OPEN)
+@router.callback_query(AddressesOpenCallback.filter())
 async def open_addresses(
     callback: CallbackQuery,
     state: FSMContext,
@@ -84,7 +84,7 @@ async def open_addresses(
     )
 
 
-@router.callback_query(F.data == ADDRESS_ADD)
+@router.callback_query(AddressAddCallback.filter())
 async def add_address(
     callback: CallbackQuery,
     state: FSMContext,
@@ -113,14 +113,18 @@ async def add_address(
     )
 
 
-@router.callback_query(AddressManagement.city, F.data.startswith(ADDRESS_CITY_PREFIX))
-async def select_city(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(AddressManagement.city, AddressCityCallback.filter())
+async def select_city(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: AddressCityCallback,
+) -> None:
     await callback.answer()
     message = _callback_message(callback)
     data = await state.get_data()
-    index = _callback_index(callback.data, ADDRESS_CITY_PREFIX)
+    index = callback_data.index
     city_ids = _string_list(data["city_ids"])
-    if message is None or index is None or index >= len(city_ids):
+    if message is None or index < 0 or index >= len(city_ids):
         return
     draft = _draft(data)
     draft["city_id"] = city_ids[index]
@@ -166,17 +170,21 @@ async def enter_query(
 
 @router.callback_query(
     AddressManagement.suggestion,
-    F.data.startswith(ADDRESS_SUGGESTION_PREFIX),
+    AddressSuggestionCallback.filter(),
 )
-async def select_suggestion(callback: CallbackQuery, state: FSMContext) -> None:
+async def select_suggestion(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: AddressSuggestionCallback,
+) -> None:
     await callback.answer()
     message = _callback_message(callback)
     data = await state.get_data()
     suggestions = data.get("address_suggestions")
-    index = _callback_index(callback.data, ADDRESS_SUGGESTION_PREFIX)
-    if message is None or index is None or not isinstance(suggestions, list):
+    index = callback_data.index
+    if message is None or not isinstance(suggestions, list):
         return
-    if index >= len(suggestions):
+    if index < 0 or index >= len(suggestions):
         return
     suggestion = suggestions[index]
     if not isinstance(suggestion, dict):
@@ -209,7 +217,7 @@ async def enter_extra(
     )
 
 
-@router.callback_query(AddressManagement.extra, F.data == ADDRESS_SKIP)
+@router.callback_query(AddressManagement.extra, AddressSkipCallback.filter())
 async def skip_extra(
     callback: CallbackQuery,
     state: FSMContext,
@@ -230,11 +238,15 @@ async def skip_extra(
     )
 
 
-@router.callback_query(F.data.startswith(ADDRESS_SELECT_PREFIX))
-async def select_address(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(AddressSelectCallback.filter())
+async def select_address(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: AddressSelectCallback,
+) -> None:
     await callback.answer()
     message = _callback_message(callback)
-    item = await _address_from_callback(callback, state, ADDRESS_SELECT_PREFIX)
+    item = await _address_by_index(state, callback_data.index)
     if message is None or item is None:
         return
     index = item["index"]
@@ -245,16 +257,17 @@ async def select_address(callback: CallbackQuery, state: FSMContext) -> None:
     )
 
 
-@router.callback_query(F.data.startswith(ADDRESS_DELETE_PREFIX))
+@router.callback_query(AddressDeleteCallback.filter())
 async def delete_address(
     callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendClient,
     telegram_user_context: TelegramUserContext,
+    callback_data: AddressDeleteCallback,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
-    item = await _address_from_callback(callback, state, ADDRESS_DELETE_PREFIX)
+    item = await _address_by_index(state, callback_data.index)
     if message is None or item is None:
         return
     try:
@@ -313,15 +326,13 @@ def _address_state(item: AddressDTO) -> dict[str, object]:
     }
 
 
-async def _address_from_callback(
-    callback: CallbackQuery,
+async def _address_by_index(
     state: FSMContext,
-    prefix: str,
+    index: int,
 ) -> dict[str, object] | None:
-    index = _callback_index(callback.data, prefix)
     data = await state.get_data()
     items = data.get("addresses")
-    if index is None or not isinstance(items, list) or index >= len(items):
+    if not isinstance(items, list) or index < 0 or index >= len(items):
         return None
     item = items[index]
     if not isinstance(item, dict):
@@ -336,19 +347,6 @@ def _draft(data: dict[str, object]) -> dict[str, object]:
     if isinstance(draft, dict):
         return dict(draft)
     raise TypeError("Expected address draft in FSM state")
-
-
-def _callback_index(data: str | None, prefix: str) -> int | None:
-    value = _callback_value(data, prefix)
-    if value is None or not value.isdigit():
-        return None
-    return int(value)
-
-
-def _callback_value(data: str | None, prefix: str) -> str | None:
-    if data is None or not data.startswith(prefix):
-        return None
-    return data.removeprefix(prefix)
 
 
 def _callback_message(callback: CallbackQuery) -> Message | None:

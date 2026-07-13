@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from aiogram import Bot, F, Router
+from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -10,6 +10,13 @@ from customer_bot.infrastructure.http import (
     BackendClient,
     BackendClientError,
     BackendValidationError,
+)
+from customer_bot.presentation.callbacks import (
+    RegistrationCityCallback,
+    RegistrationConfirmCallback,
+    RegistrationContactCallback,
+    RegistrationEditCallback,
+    RegistrationLegalAcceptCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import MenuManager, TelegramTopicSetupService
@@ -32,13 +39,6 @@ from customer_bot.presentation.ui import (
     select_contact_method_text,
     summary_text,
     use_buttons_text,
-)
-from customer_bot.presentation.ui.keyboards import (
-    REGISTRATION_ACCEPT_LEGAL,
-    REGISTRATION_CITY_PREFIX,
-    REGISTRATION_CONFIRM,
-    REGISTRATION_CONTACT_PREFIX,
-    REGISTRATION_EDIT,
 )
 
 router = Router(name="registration")
@@ -89,7 +89,7 @@ async def start_registration(
 
 @router.callback_query(
     CustomerRegistration.legal_acceptance,
-    F.data == REGISTRATION_ACCEPT_LEGAL,
+    RegistrationLegalAcceptCallback.filter(),
 )
 async def accept_legal(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
@@ -130,14 +130,18 @@ async def enter_phone(message: Message, state: FSMContext) -> None:
 
 @router.callback_query(
     CustomerRegistration.city,
-    F.data.startswith(REGISTRATION_CITY_PREFIX),
+    RegistrationCityCallback.filter(),
 )
-async def enter_city(callback: CallbackQuery, state: FSMContext) -> None:
+async def enter_city(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: RegistrationCityCallback,
+) -> None:
     await callback.answer()
     data = await state.get_data()
     city_ids = _string_list(data["city_ids"])
-    city_index = _callback_index(callback.data, REGISTRATION_CITY_PREFIX)
-    if city_index is None or city_index < 0 or city_index >= len(city_ids):
+    city_index = callback_data.index
+    if city_index < 0 or city_index >= len(city_ids):
         message = _callback_message(callback)
         if message is not None:
             await message.answer(
@@ -170,19 +174,15 @@ async def unknown_city_action(message: Message, state: FSMContext) -> None:
 
 @router.callback_query(
     CustomerRegistration.contact_method,
-    F.data.startswith(REGISTRATION_CONTACT_PREFIX),
+    RegistrationContactCallback.filter(),
 )
-async def enter_contact_method(callback: CallbackQuery, state: FSMContext) -> None:
+async def enter_contact_method(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: RegistrationContactCallback,
+) -> None:
     await callback.answer()
-    contact_method = _callback_value(callback.data, REGISTRATION_CONTACT_PREFIX)
-    if contact_method is None:
-        message = _callback_message(callback)
-        if message is not None:
-            await message.answer(
-                use_buttons_text(),
-                reply_markup=contact_methods_keyboard(),
-            )
-        return
+    contact_method = callback_data.method
     label = CONTACT_METHOD_LABELS.get(contact_method)
     if label is None:
         message = _callback_message(callback)
@@ -208,7 +208,7 @@ async def unknown_contact_method_action(message: Message) -> None:
     await message.answer(use_buttons_text(), reply_markup=contact_methods_keyboard())
 
 
-@router.callback_query(CustomerRegistration.summary, F.data == REGISTRATION_EDIT)
+@router.callback_query(CustomerRegistration.summary, RegistrationEditCallback.filter())
 async def edit_registration(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.set_state(CustomerRegistration.full_name)
@@ -217,7 +217,10 @@ async def edit_registration(callback: CallbackQuery, state: FSMContext) -> None:
         await message.answer(full_name_step_text())
 
 
-@router.callback_query(CustomerRegistration.summary, F.data == REGISTRATION_CONFIRM)
+@router.callback_query(
+    CustomerRegistration.summary,
+    RegistrationConfirmCallback.filter(),
+)
 async def confirm_registration(
     callback: CallbackQuery,
     bot: Bot,

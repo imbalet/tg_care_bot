@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -10,6 +10,17 @@ from customer_bot.infrastructure.http import (
     BackendClientError,
     BackendValidationError,
     CareObjectDTO,
+)
+from customer_bot.presentation.callbacks import (
+    CareObjectAddCallback,
+    CareObjectAgeCallback,
+    CareObjectDeleteCallback,
+    CareObjectEditCallback,
+    CareObjectMobilityCallback,
+    CareObjectSelectCallback,
+    CareObjectSizeCallback,
+    CareObjectSkipCallback,
+    CareObjectsOpenCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import MenuManager
@@ -34,18 +45,7 @@ from customer_bot.presentation.ui import (
     retry_later_text,
     use_buttons_text,
 )
-from customer_bot.presentation.ui.keyboards import (
-    CARE_OBJECT_ADD_PREFIX,
-    CARE_OBJECT_AGE_PREFIX,
-    CARE_OBJECT_DELETE_PREFIX,
-    CARE_OBJECT_EDIT_PREFIX,
-    CARE_OBJECT_MOBILITY_PREFIX,
-    CARE_OBJECT_SELECT_PREFIX,
-    CARE_OBJECT_SIZE_PREFIX,
-    CARE_OBJECT_SKIP,
-    CARE_OBJECT_TYPE_LABELS,
-    CARE_OBJECTS_OPEN,
-)
+from customer_bot.presentation.ui.keyboards import CARE_OBJECT_TYPE_LABELS
 
 router = Router(name="care_objects")
 
@@ -61,7 +61,7 @@ class CareObjectManagement(StatesGroup):
     edit_name = State()
 
 
-@router.callback_query(F.data == CARE_OBJECTS_OPEN)
+@router.callback_query(CareObjectsOpenCallback.filter())
 async def open_care_objects(
     callback: CallbackQuery,
     state: FSMContext,
@@ -97,13 +97,17 @@ async def open_care_objects(
     )
 
 
-@router.callback_query(F.data.startswith(CARE_OBJECT_SELECT_PREFIX))
-async def select_care_object(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(CareObjectSelectCallback.filter())
+async def select_care_object(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: CareObjectSelectCallback,
+) -> None:
     await callback.answer()
     message = _callback_message(callback)
     if message is None:
         return
-    item = await _care_object_from_callback(callback, state, CARE_OBJECT_SELECT_PREFIX)
+    item = await _care_object_by_index(state, callback_data.index)
     if item is None:
         await message.answer(use_buttons_text())
         return
@@ -116,10 +120,14 @@ async def select_care_object(callback: CallbackQuery, state: FSMContext) -> None
     )
 
 
-@router.callback_query(F.data.startswith(CARE_OBJECT_ADD_PREFIX))
-async def add_care_object(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(CareObjectAddCallback.filter())
+async def add_care_object(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: CareObjectAddCallback,
+) -> None:
     await callback.answer()
-    object_type = _callback_value(callback.data, CARE_OBJECT_ADD_PREFIX)
+    object_type = callback_data.object_type
     message = _callback_message(callback)
     if object_type not in CARE_OBJECT_TYPE_LABELS or message is None:
         return
@@ -148,13 +156,17 @@ async def enter_name(message: Message, state: FSMContext) -> None:
 
 @router.callback_query(
     CareObjectManagement.age,
-    F.data.startswith(CARE_OBJECT_AGE_PREFIX),
+    CareObjectAgeCallback.filter(),
 )
-async def enter_age(callback: CallbackQuery, state: FSMContext) -> None:
+async def enter_age(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: CareObjectAgeCallback,
+) -> None:
     await callback.answer()
-    age_group = _callback_value(callback.data, CARE_OBJECT_AGE_PREFIX)
+    age_group = callback_data.age_group
     message = _callback_message(callback)
-    if age_group is None or message is None:
+    if message is None:
         return
     data = await state.get_data()
     draft = _draft(data)
@@ -207,7 +219,7 @@ async def enter_breed(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.callback_query(CareObjectManagement.breed, F.data == CARE_OBJECT_SKIP)
+@router.callback_query(CareObjectManagement.breed, CareObjectSkipCallback.filter())
 async def skip_breed(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.set_state(CareObjectManagement.size)
@@ -221,13 +233,17 @@ async def skip_breed(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.callback_query(
     CareObjectManagement.size,
-    F.data.startswith(CARE_OBJECT_SIZE_PREFIX),
+    CareObjectSizeCallback.filter(),
 )
-async def enter_size(callback: CallbackQuery, state: FSMContext) -> None:
+async def enter_size(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: CareObjectSizeCallback,
+) -> None:
     await callback.answer()
-    size = _callback_value(callback.data, CARE_OBJECT_SIZE_PREFIX)
+    size = callback_data.size
     message = _callback_message(callback)
-    if size is None or message is None:
+    if message is None:
         return
     data = await state.get_data()
     draft = _draft(data)
@@ -242,13 +258,17 @@ async def enter_size(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.callback_query(
     CareObjectManagement.mobility,
-    F.data.startswith(CARE_OBJECT_MOBILITY_PREFIX),
+    CareObjectMobilityCallback.filter(),
 )
-async def enter_mobility(callback: CallbackQuery, state: FSMContext) -> None:
+async def enter_mobility(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: CareObjectMobilityCallback,
+) -> None:
     await callback.answer()
-    value = _callback_value(callback.data, CARE_OBJECT_MOBILITY_PREFIX)
+    value = callback_data.value
     message = _callback_message(callback)
-    if value is None or message is None:
+    if message is None:
         return
     data = await state.get_data()
     draft = _draft(data)
@@ -277,7 +297,7 @@ async def enter_notes(
     )
 
 
-@router.callback_query(CareObjectManagement.notes, F.data == CARE_OBJECT_SKIP)
+@router.callback_query(CareObjectManagement.notes, CareObjectSkipCallback.filter())
 async def skip_notes(
     callback: CallbackQuery,
     state: FSMContext,
@@ -298,10 +318,14 @@ async def skip_notes(
     )
 
 
-@router.callback_query(F.data.startswith(CARE_OBJECT_EDIT_PREFIX))
-async def edit_care_object(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(CareObjectEditCallback.filter())
+async def edit_care_object(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: CareObjectEditCallback,
+) -> None:
     await callback.answer()
-    item = await _care_object_from_callback(callback, state, CARE_OBJECT_EDIT_PREFIX)
+    item = await _care_object_by_index(state, callback_data.index)
     message = _callback_message(callback)
     if item is None or message is None:
         return
@@ -344,15 +368,16 @@ async def enter_edit_name(
     await message.answer(care_object_created_text())
 
 
-@router.callback_query(F.data.startswith(CARE_OBJECT_DELETE_PREFIX))
+@router.callback_query(CareObjectDeleteCallback.filter())
 async def delete_care_object(
     callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendClient,
     telegram_user_context: TelegramUserContext,
+    callback_data: CareObjectDeleteCallback,
 ) -> None:
     await callback.answer()
-    item = await _care_object_from_callback(callback, state, CARE_OBJECT_DELETE_PREFIX)
+    item = await _care_object_by_index(state, callback_data.index)
     message = _callback_message(callback)
     if item is None or message is None:
         return
@@ -415,19 +440,14 @@ def _care_object_state(item: CareObjectDTO) -> dict[str, object]:
     }
 
 
-async def _care_object_from_callback(
-    callback: CallbackQuery,
+async def _care_object_by_index(
     state: FSMContext,
-    prefix: str,
+    index: int,
 ) -> dict[str, object] | None:
-    index_text = _callback_value(callback.data, prefix)
-    if index_text is None or not index_text.isdigit():
-        return None
     data = await state.get_data()
     items = data.get("care_objects")
     if not isinstance(items, list):
         return None
-    index = int(index_text)
     if index < 0 or index >= len(items):
         return None
     item = _state_item(items[index])
@@ -454,12 +474,6 @@ def _optional_str(value: object) -> str | None:
 
 def _optional_bool(value: object) -> bool | None:
     return value if isinstance(value, bool) else None
-
-
-def _callback_value(data: str | None, prefix: str) -> str | None:
-    if data is None or not data.startswith(prefix):
-        return None
-    return data.removeprefix(prefix)
 
 
 def _callback_message(callback: CallbackQuery) -> Message | None:

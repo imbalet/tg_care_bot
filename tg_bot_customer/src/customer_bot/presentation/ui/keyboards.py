@@ -1,39 +1,45 @@
 from collections.abc import Sequence
 from typing import Protocol
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup
 
-REGISTRATION_ACCEPT_LEGAL = "registration:legal:accept"
-REGISTRATION_CITY_PREFIX = "registration:city:"
-REGISTRATION_CONTACT_PREFIX = "registration:contact:"
-REGISTRATION_CONFIRM = "registration:summary:confirm"
-REGISTRATION_EDIT = "registration:summary:edit"
-MAIN_MENU = "navigation:main_menu"
-HELP = "navigation:help"
-CARE_OBJECTS_OPEN = "care_objects:open"
-CARE_OBJECT_ADD_PREFIX = "care_objects:add:"
-CARE_OBJECT_SELECT_PREFIX = "care_objects:select:"
-CARE_OBJECT_EDIT_PREFIX = "care_objects:edit:"
-CARE_OBJECT_DELETE_PREFIX = "care_objects:delete:"
-CARE_OBJECT_AGE_PREFIX = "care_objects:age:"
-CARE_OBJECT_SIZE_PREFIX = "care_objects:size:"
-CARE_OBJECT_MOBILITY_PREFIX = "care_objects:mobility:"
-CARE_OBJECT_SKIP = "care_objects:skip"
-ADDRESSES_OPEN = "addresses:open"
-ADDRESS_ADD = "addresses:add"
-ADDRESS_SELECT_PREFIX = "addresses:select:"
-ADDRESS_DELETE_PREFIX = "addresses:delete:"
-ADDRESS_CITY_PREFIX = "addresses:city:"
-ADDRESS_SUGGESTION_PREFIX = "addresses:suggestion:"
-ADDRESS_SKIP = "addresses:skip"
-ORDER_CREATE = "orders:create"
-ORDER_SERVICE_PREFIX = "orders:service:"
-ORDER_OBJECT_PREFIX = "orders:object:"
-ORDER_ADDRESS_PREFIX = "orders:address:"
-ORDER_PHOTO_CONSENT_PREFIX = "orders:photo_consent:"
-ORDER_COMMENT_SKIP = "orders:comment:skip"
-ORDER_PUBLISH_POOL = "orders:publish:pool"
-ORDER_PUBLISH_DIRECT_PREFIX = "orders:publish:direct:"
+from customer_bot.presentation.callbacks import (
+    AddressAddCallback,
+    AddressCityCallback,
+    AddressDeleteCallback,
+    AddressesOpenCallback,
+    AddressSelectCallback,
+    AddressSkipCallback,
+    AddressSuggestionCallback,
+    CareObjectAddCallback,
+    CareObjectAgeCallback,
+    CareObjectDeleteCallback,
+    CareObjectEditCallback,
+    CareObjectMobilityCallback,
+    CareObjectSelectCallback,
+    CareObjectSizeCallback,
+    CareObjectSkipCallback,
+    CareObjectsOpenCallback,
+    HelpCallback,
+    MainMenuCallback,
+    OrderAddressCallback,
+    OrderCommentSkipCallback,
+    OrderCreateCallback,
+    OrderObjectCallback,
+    OrderPhotoConsentCallback,
+    OrderPublishDirectCallback,
+    OrderPublishPoolCallback,
+    OrderServiceCallback,
+    OrdersListCallback,
+    ProfileOpenCallback,
+    RegistrationCityCallback,
+    RegistrationConfirmCallback,
+    RegistrationContactCallback,
+    RegistrationEditCallback,
+    RegistrationLegalAcceptCallback,
+)
+from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
+from customer_bot.presentation.ui.labels import MsgKey, text
 
 CARE_OBJECT_TYPE_LABELS = {
     "child": "Ребенок",
@@ -66,180 +72,91 @@ class CityButtonView(Protocol):
 
 
 def legal_acceptance_keyboard(documents: Sequence[object] = ()) -> InlineKeyboardMarkup:
-    rows = [
-        [
-            InlineKeyboardButton(
-                text=f"Документ {index}",
-                url=str(getattr(document, "content_url", "")),
-            ),
-        ]
-        for index, document in enumerate(documents, start=1)
-        if str(getattr(document, "content_url", "")).startswith("https://")
-    ]
-    rows.append(
-        [
-            InlineKeyboardButton(
-                text="Принять и продолжить",
-                callback_data=REGISTRATION_ACCEPT_LEGAL,
-            ),
-        ],
-    )
-    rows.append([InlineKeyboardButton(text="Помощь", callback_data=HELP)])
-    return InlineKeyboardMarkup(
-        inline_keyboard=rows,
+    keyboard = InlineKeyboardFactory()
+    for index, document in enumerate(documents, start=1):
+        url = str(getattr(document, "content_url", ""))
+        if url.startswith("https://"):
+            keyboard.url_button(f"Документ {index}", url)
+    return (
+        keyboard.button("Принять и продолжить", RegistrationLegalAcceptCallback())
+        .button(MsgKey.HELP, HelpCallback())
+        .as_markup()
     )
 
 
 def select_city_keyboard(cities: Sequence[CityButtonView]) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=city.name,
-                    callback_data=f"{REGISTRATION_CITY_PREFIX}{index}",
-                ),
-            ]
-            for index, city in enumerate(cities)
-        ],
-    )
+    keyboard = InlineKeyboardFactory()
+    for index, city in enumerate(cities):
+        keyboard.button(city.name, RegistrationCityCallback(index=index))
+    return keyboard.as_markup()
 
 
 def contact_methods_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="Telegram",
-                    callback_data=f"{REGISTRATION_CONTACT_PREFIX}telegram",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="Телефон",
-                    callback_data=f"{REGISTRATION_CONTACT_PREFIX}phone",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="Telegram и телефон",
-                    callback_data=f"{REGISTRATION_CONTACT_PREFIX}both",
-                ),
-            ],
-        ],
+    return (
+        InlineKeyboardFactory()
+        .button("Telegram", RegistrationContactCallback(method="telegram"))
+        .button("Телефон", RegistrationContactCallback(method="phone"))
+        .button("Telegram и телефон", RegistrationContactCallback(method="both"))
+        .as_markup()
     )
 
 
 def registration_summary_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="Подтвердить",
-                    callback_data=REGISTRATION_CONFIRM,
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="Редактировать", callback_data=REGISTRATION_EDIT
-                )
-            ],
-        ],
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.CONFIRM, RegistrationConfirmCallback())
+        .button(MsgKey.EDIT, RegistrationEditCallback())
+        .as_markup()
     )
 
 
 def main_menu_keyboard(topic_kind: str | None = None) -> InlineKeyboardMarkup:
     if topic_kind == "notifications":
-        return InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="Помощь", callback_data=HELP)],
-            ],
-        )
+        return InlineKeyboardFactory().button(MsgKey.HELP, HelpCallback()).as_markup()
     care_label = {
-        "children": "Дети",
-        "wards": "Подопечные",
-        "pets": "Питомцы",
+        "children": text(MsgKey.CHILDREN),
+        "wards": text(MsgKey.WARDS),
+        "pets": text(MsgKey.PETS),
     }.get(topic_kind or "", "Карточки")
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Создать заказ", callback_data=ORDER_CREATE)],
-            [InlineKeyboardButton(text="Мои заказы", callback_data="orders:list")],
-            [
-                InlineKeyboardButton(
-                    text=care_label,
-                    callback_data=CARE_OBJECTS_OPEN,
-                ),
-            ],
-            [InlineKeyboardButton(text="Адреса", callback_data=ADDRESSES_OPEN)],
-            [InlineKeyboardButton(text="Профиль", callback_data="profile:open")],
-            [InlineKeyboardButton(text="Помощь", callback_data=HELP)],
-        ],
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.CREATE_ORDER, OrderCreateCallback())
+        .button(MsgKey.MY_ORDERS, OrdersListCallback())
+        .button(care_label, CareObjectsOpenCallback())
+        .button(MsgKey.ADDRESS, AddressesOpenCallback())
+        .button(MsgKey.PROFILE, ProfileOpenCallback())
+        .button(MsgKey.HELP, HelpCallback())
+        .as_markup()
     )
 
 
 def fallback_keyboard(*, include_main_menu: bool = True) -> InlineKeyboardMarkup:
-    rows = []
+    keyboard = InlineKeyboardFactory()
     if include_main_menu:
-        rows.append(
-            [InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)]
-        )
-    rows.append([InlineKeyboardButton(text="Помощь", callback_data=HELP)])
-    return InlineKeyboardMarkup(
-        inline_keyboard=rows,
-    )
+        keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
+    return keyboard.button(MsgKey.HELP, HelpCallback()).as_markup()
 
 
 def care_objects_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
-    rows = [
-        [
-            InlineKeyboardButton(
-                text="Добавить ребенка",
-                callback_data=f"{CARE_OBJECT_ADD_PREFIX}child",
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                text="Добавить подопечного",
-                callback_data=f"{CARE_OBJECT_ADD_PREFIX}ward",
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                text="Добавить питомца",
-                callback_data=f"{CARE_OBJECT_ADD_PREFIX}pet",
-            ),
-        ],
-    ]
+    keyboard = (
+        InlineKeyboardFactory()
+        .button(MsgKey.ADD_CHILD, CareObjectAddCallback(object_type="child"))
+        .button(MsgKey.ADD_WARD, CareObjectAddCallback(object_type="ward"))
+        .button(MsgKey.ADD_PET, CareObjectAddCallback(object_type="pet"))
+    )
     for index, item in enumerate(items):
         display_name = getattr(item, "display_name", f"#{index + 1}")
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=str(display_name),
-                    callback_data=f"{CARE_OBJECT_SELECT_PREFIX}{index}",
-                ),
-            ],
-        )
-    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+        keyboard.button(str(display_name), CareObjectSelectCallback(index=index))
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
 def care_object_card_keyboard(index: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="Редактировать имя",
-                    callback_data=f"{CARE_OBJECT_EDIT_PREFIX}{index}",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="Удалить",
-                    callback_data=f"{CARE_OBJECT_DELETE_PREFIX}{index}",
-                ),
-            ],
-            [InlineKeyboardButton(text="К списку", callback_data=CARE_OBJECTS_OPEN)],
-        ],
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.EDIT_NAME, CareObjectEditCallback(index=index))
+        .button(MsgKey.DELETE, CareObjectDeleteCallback(index=index))
+        .button(MsgKey.BACK_TO_LIST, CareObjectsOpenCallback())
+        .as_markup()
     )
 
 
@@ -249,217 +166,135 @@ def care_object_age_keyboard(object_type: str) -> InlineKeyboardMarkup:
         if object_type == "child"
         else ("adult", "senior", "unknown")
     )
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=CARE_OBJECT_AGE_LABELS[age_group],
-                    callback_data=f"{CARE_OBJECT_AGE_PREFIX}{age_group}",
-                ),
-            ]
-            for age_group in age_keys
-        ],
-    )
+    keyboard = InlineKeyboardFactory()
+    for age_group in age_keys:
+        keyboard.button(
+            CARE_OBJECT_AGE_LABELS[age_group],
+            CareObjectAgeCallback(age_group=age_group),
+        )
+    return keyboard.as_markup()
 
 
 def care_object_size_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=label,
-                    callback_data=f"{CARE_OBJECT_SIZE_PREFIX}{value}",
-                ),
-            ]
-            for value, label in CARE_OBJECT_SIZE_LABELS.items()
-        ],
-    )
+    keyboard = InlineKeyboardFactory()
+    for value, label in CARE_OBJECT_SIZE_LABELS.items():
+        keyboard.button(label, CareObjectSizeCallback(size=value))
+    return keyboard.as_markup()
 
 
 def care_object_mobility_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="Нужна помощь",
-                    callback_data=f"{CARE_OBJECT_MOBILITY_PREFIX}yes",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="Не нужна",
-                    callback_data=f"{CARE_OBJECT_MOBILITY_PREFIX}no",
-                ),
-            ],
-        ],
+    return (
+        InlineKeyboardFactory()
+        .button("Нужна помощь", CareObjectMobilityCallback(value="yes"))
+        .button("Не нужна", CareObjectMobilityCallback(value="no"))
+        .as_markup()
     )
 
 
 def care_object_skip_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Пропустить", callback_data=CARE_OBJECT_SKIP)],
-        ],
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.SKIP, CareObjectSkipCallback())
+        .as_markup()
     )
 
 
 def addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(text="Добавить адрес", callback_data=ADDRESS_ADD)]]
+    keyboard = InlineKeyboardFactory().button(MsgKey.ADD_ADDRESS, AddressAddCallback())
     for index, item in enumerate(items):
         address_text = getattr(item, "address_text", f"#{index + 1}")
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=str(address_text),
-                    callback_data=f"{ADDRESS_SELECT_PREFIX}{index}",
-                ),
-            ],
-        )
-    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+        keyboard.button(str(address_text), AddressSelectCallback(index=index))
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
 def address_card_keyboard(index: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="Удалить",
-                    callback_data=f"{ADDRESS_DELETE_PREFIX}{index}",
-                ),
-            ],
-            [InlineKeyboardButton(text="К списку", callback_data=ADDRESSES_OPEN)],
-        ],
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.DELETE, AddressDeleteCallback(index=index))
+        .button(MsgKey.BACK_TO_LIST, AddressesOpenCallback())
+        .as_markup()
     )
 
 
 def address_city_keyboard(cities: Sequence[CityButtonView]) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=city.name,
-                    callback_data=f"{ADDRESS_CITY_PREFIX}{index}",
-                ),
-            ]
-            for index, city in enumerate(cities)
-        ],
-    )
+    keyboard = InlineKeyboardFactory()
+    for index, city in enumerate(cities):
+        keyboard.button(city.name, AddressCityCallback(index=index))
+    return keyboard.as_markup()
 
 
 def address_suggestions_keyboard(suggestions: Sequence[object]) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=str(getattr(suggestion, "value", index + 1)),
-                    callback_data=f"{ADDRESS_SUGGESTION_PREFIX}{index}",
-                ),
-            ]
-            for index, suggestion in enumerate(suggestions)
-        ],
-    )
+    keyboard = InlineKeyboardFactory()
+    for index, suggestion in enumerate(suggestions):
+        keyboard.button(
+            str(getattr(suggestion, "value", index + 1)),
+            AddressSuggestionCallback(index=index),
+        )
+    return keyboard.as_markup()
 
 
 def address_skip_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Пропустить", callback_data=ADDRESS_SKIP)],
-        ],
+    return (
+        InlineKeyboardFactory().button(MsgKey.SKIP, AddressSkipCallback()).as_markup()
     )
 
 
 def order_services_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
-    rows = []
+    keyboard = InlineKeyboardFactory()
     for index, item in enumerate(items):
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=_item_label(item, "name", index),
-                    callback_data=f"{ORDER_SERVICE_PREFIX}{index}",
-                ),
-            ],
+        keyboard.button(
+            _item_label(item, "name", index), OrderServiceCallback(index=index)
         )
-    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
 def order_objects_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
-    rows = []
+    keyboard = InlineKeyboardFactory()
     for index, item in enumerate(items):
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=_item_label(item, "display_name", index),
-                    callback_data=f"{ORDER_OBJECT_PREFIX}{index}",
-                ),
-            ],
+        keyboard.button(
+            _item_label(item, "display_name", index),
+            OrderObjectCallback(index=index),
         )
-    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
 def order_addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
-    rows = []
+    keyboard = InlineKeyboardFactory()
     for index, item in enumerate(items):
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=_item_label(item, "address_text", index),
-                    callback_data=f"{ORDER_ADDRESS_PREFIX}{index}",
-                ),
-            ],
+        keyboard.button(
+            _item_label(item, "address_text", index),
+            OrderAddressCallback(index=index),
         )
-    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
 def order_photo_consent_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="Разрешаю",
-                    callback_data=f"{ORDER_PHOTO_CONSENT_PREFIX}yes",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="Не разрешаю",
-                    callback_data=f"{ORDER_PHOTO_CONSENT_PREFIX}no",
-                ),
-            ],
-        ],
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.ALLOW, OrderPhotoConsentCallback(value="yes"))
+        .button(MsgKey.DENY, OrderPhotoConsentCallback(value="no"))
+        .as_markup()
     )
 
 
 def order_comment_skip_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="Пропустить", callback_data=ORDER_COMMENT_SKIP)],
-        ],
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.SKIP, OrderCommentSkipCallback())
+        .as_markup()
     )
 
 
 def order_publish_keyboard(performers: Sequence[object]) -> InlineKeyboardMarkup:
-    rows = [
-        [
-            InlineKeyboardButton(
-                text="Опубликовать в пул", callback_data=ORDER_PUBLISH_POOL
-            )
-        ]
-    ]
+    keyboard = InlineKeyboardFactory().button(
+        MsgKey.PUBLISH_POOL, OrderPublishPoolCallback()
+    )
     for index, performer in enumerate(performers):
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    text=f"Предложить: {_item_label(performer, 'full_name', index)}",
-                    callback_data=f"{ORDER_PUBLISH_DIRECT_PREFIX}{index}",
-                ),
-            ],
+        keyboard.button(
+            f"Предложить: {_item_label(performer, 'full_name', index)}",
+            OrderPublishDirectCallback(index=index),
         )
-    rows.append([InlineKeyboardButton(text="Главное меню", callback_data=MAIN_MENU)])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
 def _item_label(item: object, key: str, index: int) -> str:

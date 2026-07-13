@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -14,6 +14,16 @@ from customer_bot.infrastructure.http import (
     CareObjectDTO,
     ServiceCategoryDTO,
     SuitablePerformerDTO,
+)
+from customer_bot.presentation.callbacks import (
+    OrderAddressCallback,
+    OrderCommentSkipCallback,
+    OrderCreateCallback,
+    OrderObjectCallback,
+    OrderPhotoConsentCallback,
+    OrderPublishDirectCallback,
+    OrderPublishPoolCallback,
+    OrderServiceCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.ui import (
@@ -40,16 +50,6 @@ from customer_bot.presentation.ui import (
     retry_later_text,
     use_buttons_text,
 )
-from customer_bot.presentation.ui.keyboards import (
-    ORDER_ADDRESS_PREFIX,
-    ORDER_COMMENT_SKIP,
-    ORDER_CREATE,
-    ORDER_OBJECT_PREFIX,
-    ORDER_PHOTO_CONSENT_PREFIX,
-    ORDER_PUBLISH_DIRECT_PREFIX,
-    ORDER_PUBLISH_POOL,
-    ORDER_SERVICE_PREFIX,
-)
 
 router = Router(name="orders")
 
@@ -68,7 +68,7 @@ class OrderCreation(StatesGroup):
     publish = State()
 
 
-@router.callback_query(F.data == ORDER_CREATE)
+@router.callback_query(OrderCreateCallback.filter())
 async def start_order_creation(
     callback: CallbackQuery,
     state: FSMContext,
@@ -95,18 +95,17 @@ async def start_order_creation(
     )
 
 
-@router.callback_query(OrderCreation.service, F.data.startswith(ORDER_SERVICE_PREFIX))
+@router.callback_query(OrderCreation.service, OrderServiceCallback.filter())
 async def select_service(
     callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendClient,
     telegram_user_context: TelegramUserContext,
+    callback_data: OrderServiceCallback,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
-    service = await _item_from_callback(
-        callback, state, "order_services", ORDER_SERVICE_PREFIX
-    )
+    service = await _item_by_index(state, "order_services", callback_data.index)
     if message is None or service is None:
         return
     draft = _draft(await state.get_data())
@@ -141,13 +140,15 @@ async def select_service(
     )
 
 
-@router.callback_query(OrderCreation.object, F.data.startswith(ORDER_OBJECT_PREFIX))
-async def select_object(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(OrderCreation.object, OrderObjectCallback.filter())
+async def select_object(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: OrderObjectCallback,
+) -> None:
     await callback.answer()
     message = _callback_message(callback)
-    item = await _item_from_callback(
-        callback, state, "order_objects", ORDER_OBJECT_PREFIX
-    )
+    item = await _item_by_index(state, "order_objects", callback_data.index)
     if message is None or item is None:
         return
     data = await state.get_data()
@@ -222,13 +223,15 @@ async def enter_duration(
     )
 
 
-@router.callback_query(OrderCreation.address, F.data.startswith(ORDER_ADDRESS_PREFIX))
-async def select_address(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(OrderCreation.address, OrderAddressCallback.filter())
+async def select_address(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: OrderAddressCallback,
+) -> None:
     await callback.answer()
     message = _callback_message(callback)
-    item = await _item_from_callback(
-        callback, state, "order_addresses", ORDER_ADDRESS_PREFIX
-    )
+    item = await _item_by_index(state, "order_addresses", callback_data.index)
     if message is None or item is None:
         return
     data = await state.get_data()
@@ -240,12 +243,16 @@ async def select_address(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.callback_query(
     OrderCreation.photo_consent,
-    F.data.startswith(ORDER_PHOTO_CONSENT_PREFIX),
+    OrderPhotoConsentCallback.filter(),
 )
-async def select_photo_consent(callback: CallbackQuery, state: FSMContext) -> None:
+async def select_photo_consent(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: OrderPhotoConsentCallback,
+) -> None:
     await callback.answer()
     message = _callback_message(callback)
-    value = _callback_value(callback.data, ORDER_PHOTO_CONSENT_PREFIX)
+    value = callback_data.value
     if message is None or value not in {"yes", "no"}:
         return
     data = await state.get_data()
@@ -279,7 +286,7 @@ async def enter_comment(
     )
 
 
-@router.callback_query(OrderCreation.comment, F.data == ORDER_COMMENT_SKIP)
+@router.callback_query(OrderCreation.comment, OrderCommentSkipCallback.filter())
 async def skip_comment(
     callback: CallbackQuery,
     state: FSMContext,
@@ -300,7 +307,7 @@ async def skip_comment(
     )
 
 
-@router.callback_query(OrderCreation.publish, F.data == ORDER_PUBLISH_POOL)
+@router.callback_query(OrderCreation.publish, OrderPublishPoolCallback.filter())
 async def publish_pool(
     callback: CallbackQuery,
     state: FSMContext,
@@ -325,21 +332,17 @@ async def publish_pool(
 
 @router.callback_query(
     OrderCreation.publish,
-    F.data.startswith(ORDER_PUBLISH_DIRECT_PREFIX),
+    OrderPublishDirectCallback.filter(),
 )
 async def publish_direct(
     callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendClient,
+    callback_data: OrderPublishDirectCallback,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
-    performer = await _item_from_callback(
-        callback,
-        state,
-        "order_performers",
-        ORDER_PUBLISH_DIRECT_PREFIX,
-    )
+    performer = await _item_by_index(state, "order_performers", callback_data.index)
     if message is None or performer is None:
         return
     data = await state.get_data()
@@ -471,16 +474,14 @@ def _performer_state(item: SuitablePerformerDTO) -> dict[str, object]:
     return {"performer_id": str(item.performer_id), "full_name": item.full_name}
 
 
-async def _item_from_callback(
-    callback: CallbackQuery,
+async def _item_by_index(
     state: FSMContext,
     key: str,
-    prefix: str,
+    index: int,
 ) -> dict[str, object] | None:
     data = await state.get_data()
     items = data.get(key)
-    index = _callback_index(callback.data, prefix)
-    if index is None or not isinstance(items, list) or index >= len(items):
+    if not isinstance(items, list) or index < 0 or index >= len(items):
         return None
     item = items[index]
     return item if isinstance(item, dict) else None
@@ -515,22 +516,6 @@ def _string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value]
-
-
-def _callback_index(data: str | None, prefix: str) -> int | None:
-    value = _callback_value(data, prefix)
-    if value is None:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        return None
-
-
-def _callback_value(data: str | None, prefix: str) -> str | None:
-    if data is None or not data.startswith(prefix):
-        return None
-    return data.removeprefix(prefix)
 
 
 def _callback_message(callback: CallbackQuery) -> Message | None:
