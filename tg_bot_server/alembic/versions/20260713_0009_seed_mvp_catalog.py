@@ -5,6 +5,7 @@ Revises: 20260713_0008
 Create Date: 2026-07-13 00:09:00
 """
 
+import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -82,7 +83,33 @@ DOCUMENT_IDS = {
 
 
 def _table(name: str, *columns: str) -> sa.TableClause:
-    return sa.table(name, *(sa.column(column) for column in columns))
+    return sa.table(
+        name, *(sa.column(column, _column_type(column)) for column in columns)
+    )
+
+
+def _column_type(column: str) -> sa.TypeEngine[object]:
+    if column == "id" or column.endswith("_id"):
+        return postgresql.UUID(as_uuid=True)
+    if column == "value":
+        return postgresql.JSONB()
+    if column in {"base_price", "multiplier"}:
+        return sa.Numeric()
+    if column.startswith("is_") or column.startswith("allows_"):
+        return sa.Boolean()
+    if column in {
+        "sort_order",
+        "max_objects_per_order",
+        "min_duration_minutes",
+        "max_duration_minutes",
+        "duration_step_minutes",
+        "object_count",
+        "objects_count",
+    }:
+        return sa.Integer()
+    if column in {"created_at", "updated_at", "published_at"}:
+        return sa.DateTime(timezone=True)
+    return sa.Text()
 
 
 def _insert(table: sa.TableClause, rows: Sequence[dict[str, object]], key: str) -> None:
@@ -500,16 +527,16 @@ def _seed_multipliers(now: datetime) -> None:
 
 
 def _seed_settings(now: datetime) -> None:
-    settings = sa.table(
+    settings = _table(
         "business_settings",
-        sa.column("id"),
-        sa.column("key"),
-        sa.column("value", postgresql.JSONB()),
-        sa.column("value_type"),
-        sa.column("description"),
-        sa.column("updated_by_admin_id"),
-        sa.column("created_at"),
-        sa.column("updated_at"),
+        "id",
+        "key",
+        "value",
+        "value_type",
+        "description",
+        "updated_by_admin_id",
+        "created_at",
+        "updated_at",
     )
     rows: tuple[tuple[str, object, str], ...] = (
         ("minimum_order_lead_minutes", 360, "number"),
@@ -541,7 +568,7 @@ def _seed_settings(now: datetime) -> None:
             {
                 "id": UUID(f"71111111-1111-4111-8111-{index:012d}"),
                 "key": key,
-                "value": value,
+                "value": _jsonb_literal(value),
                 "value_type": value_type,
                 "description": f"MVP setting {key}",
                 "updated_by_admin_id": None,
@@ -552,6 +579,10 @@ def _seed_settings(now: datetime) -> None:
         ],
         "key",
     )
+
+
+def _jsonb_literal(value: object) -> sa.Cast[object]:
+    return sa.cast(sa.literal(json.dumps(value)), postgresql.JSONB)
 
 
 def _seed_legal_documents(now: datetime) -> None:

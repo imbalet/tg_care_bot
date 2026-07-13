@@ -31,9 +31,9 @@ def upgrade() -> None:
         where topic_kind in ('nanny', 'caregiver', 'petsitter')
         """,
     )
-    op.drop_constraint(OLD_CONSTRAINT, "telegram_topics", type_="check")
+    op.drop_constraint(op.f(OLD_CONSTRAINT), "telegram_topics", type_="check")
     op.create_check_constraint(
-        OLD_CONSTRAINT,
+        op.f(OLD_CONSTRAINT),
         "telegram_topics",
         "topic_kind in ('children', 'wards', 'pets', 'work', 'notifications')",
     )
@@ -58,9 +58,9 @@ def downgrade() -> None:
         where topic_kind in ('children', 'wards', 'pets')
         """,
     )
-    op.drop_constraint(OLD_CONSTRAINT, "telegram_topics", type_="check")
+    op.drop_constraint(op.f(OLD_CONSTRAINT), "telegram_topics", type_="check")
     op.create_check_constraint(
-        OLD_CONSTRAINT,
+        op.f(OLD_CONSTRAINT),
         "telegram_topics",
         "topic_kind in ('notifications', 'nanny', 'caregiver', 'petsitter')",
     )
