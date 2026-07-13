@@ -5,9 +5,9 @@ import pytest
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.telegram_topics.application import (
     CUSTOMER_TOPIC_KINDS,
+    PERFORMER_TOPIC_KINDS,
     EnsureTelegramTopicsCommand,
     EnsureTelegramTopicsUseCase,
-    PERFORMER_TOPIC_KINDS,
     TelegramTopicDTO,
     UpdateTelegramTopicMappingCommand,
     UpdateTelegramTopicMappingUseCase,
