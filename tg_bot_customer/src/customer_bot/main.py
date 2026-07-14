@@ -13,7 +13,7 @@ from customer_bot.infrastructure.http import BackendClient
 from customer_bot.infrastructure.logger import setup_logger
 from customer_bot.infrastructure.redis import (
     RedisActiveCategoryStore,
-    RedisMenuMessageStore,
+    RedisScreenMessageStore,
     RedisUsernameSyncCache,
     create_fsm_storage,
 )
@@ -69,7 +69,7 @@ async def main() -> None:
         timeout_seconds=settings.request_timeout_seconds,
     )
 
-    menu_message_store = RedisMenuMessageStore(redis)
+    screen_message_store = RedisScreenMessageStore(redis)
     active_category_store = RedisActiveCategoryStore(redis)
     username_sync_cache = RedisUsernameSyncCache(redis)
     username_sync_service = UsernameSyncService(
@@ -77,7 +77,7 @@ async def main() -> None:
         cache=username_sync_cache,
     )
     telegram_responder = TelegramResponder(
-        message_store=menu_message_store,
+        message_store=screen_message_store,
     )
     try:
         await bot.set_my_commands(

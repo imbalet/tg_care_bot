@@ -13,7 +13,7 @@ def test_ui_state_keys_use_customer_namespace() -> None:
     )
     assert keys.username_sync_cache(123) == "customer_bot:username_sync:123"
     assert keys.active_category(123) == "tg:customer:123:active_category"
-    assert keys.menu_message(123, "pets") == "customer_bot:menu:123:pets"
+    assert keys.screen_message(123, "pets") == "customer_bot:screen:123:pets"
 
 
 def test_message_registry_key_format() -> None:

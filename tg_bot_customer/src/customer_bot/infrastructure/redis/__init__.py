@@ -1,6 +1,6 @@
 from .adapters import (
     RedisActiveCategoryStore,
-    RedisMenuMessageStore,
+    RedisScreenMessageStore,
     RedisUsernameSyncCache,
 )
 from .keys import CustomerRedisKeys, customer_redis_keys
@@ -11,7 +11,7 @@ __all__ = [
     "CustomerRedisKeys",
     "MessageRegistry",
     "RedisActiveCategoryStore",
-    "RedisMenuMessageStore",
+    "RedisScreenMessageStore",
     "RedisUsernameSyncCache",
     "RegisteredMessage",
     "create_fsm_storage",

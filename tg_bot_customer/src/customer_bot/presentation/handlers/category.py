@@ -49,7 +49,7 @@ async def select_category(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
-                topic_key=MAIN_MENU_KEY,
+                screen_key=MAIN_MENU_KEY,
                 text=help_text(),
                 reply_markup=fallback_keyboard(include_main_menu=False),
             )
@@ -100,7 +100,7 @@ async def change_category(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            topic_key=MAIN_MENU_KEY,
+            screen_key=MAIN_MENU_KEY,
             text=unfinished_action_text(),
             reply_markup=unfinished_action_keyboard(),
         )
@@ -168,7 +168,7 @@ async def _show_unavailable(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=MAIN_MENU_KEY,
+        screen_key=MAIN_MENU_KEY,
         text=unavailable_action_text(),
         reply_markup=fallback_keyboard(),
     )

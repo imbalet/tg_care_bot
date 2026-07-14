@@ -48,7 +48,7 @@ async def main_menu_callback(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
-                topic_key=MAIN_MENU_KEY,
+                screen_key=MAIN_MENU_KEY,
                 text=help_text(),
                 reply_markup=fallback_keyboard(include_main_menu=False),
             )
@@ -107,7 +107,7 @@ async def help_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=MAIN_MENU_KEY,
+        screen_key=MAIN_MENU_KEY,
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
     )
@@ -138,7 +138,7 @@ async def profile_callback(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            topic_key=MAIN_MENU_KEY,
+            screen_key=MAIN_MENU_KEY,
             text=fallback_text(),
             reply_markup=fallback_keyboard(),
         )
@@ -147,7 +147,7 @@ async def profile_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=MAIN_MENU_KEY,
+        screen_key=MAIN_MENU_KEY,
         text=customer_profile_text(profile),
         reply_markup=fallback_keyboard(),
     )
@@ -165,7 +165,7 @@ async def unavailable_section(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=MAIN_MENU_KEY,
+        screen_key=MAIN_MENU_KEY,
         text=unavailable_action_text(),
         reply_markup=fallback_keyboard(),
     )
@@ -197,7 +197,7 @@ async def unknown_message(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=MAIN_MENU_KEY,
+        screen_key=MAIN_MENU_KEY,
         text=fallback_text(),
         reply_markup=fallback_keyboard(),
     )
@@ -214,7 +214,7 @@ async def _show_unavailable(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=MAIN_MENU_KEY,
+        screen_key=MAIN_MENU_KEY,
         text=unavailable_action_text(),
         reply_markup=fallback_keyboard(),
     )

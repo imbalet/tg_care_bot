@@ -19,7 +19,7 @@ async def send_step(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=key,
+        screen_key=key,
         text=text,
         reply_markup=reply_markup,
         create_new=True,
@@ -41,7 +41,7 @@ async def send_screen(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=key,
+        screen_key=key,
         text=text,
         reply_markup=reply_markup,
     )

@@ -2,14 +2,14 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
-from customer_bot.application.ports import MenuMessageStore
+from customer_bot.application.ports import ScreenMessageStore
 
 
 class TelegramResponder:
     def __init__(
         self,
         *,
-        message_store: MenuMessageStore,
+        message_store: ScreenMessageStore,
     ) -> None:
         self._message_store = message_store
 
@@ -28,7 +28,7 @@ class TelegramResponder:
         bot: Bot,
         message: Message,
         telegram_id: int,
-        topic_key: str,
+        screen_key: str,
         text: str,
         reply_markup: InlineKeyboardMarkup | None = None,
         create_new: bool = False,
@@ -39,7 +39,7 @@ class TelegramResponder:
             bot=bot,
             event=message,
             telegram_id=telegram_id,
-            topic_key=topic_key,
+            screen_key=screen_key,
             text=text,
             reply_markup=reply_markup,
             create_new=create_new,
@@ -54,7 +54,7 @@ class TelegramResponder:
         bot: Bot,
         event: Message | CallbackQuery,
         telegram_id: int,
-        topic_key: str,
+        screen_key: str,
         text: str,
         reply_markup: InlineKeyboardMarkup | None = None,
         create_new: bool = False,
@@ -70,7 +70,7 @@ class TelegramResponder:
         if isinstance(event, CallbackQuery):
             await event.answer()
 
-        target_message_id = await self._message_store.get(telegram_id, topic_key)
+        target_message_id = await self._message_store.get(telegram_id, screen_key)
         if (
             isinstance(event, CallbackQuery)
             and target_message_id is not None
@@ -90,7 +90,7 @@ class TelegramResponder:
                     await _delete_message(event)
                 return message
             except TelegramAPIError:
-                await self._message_store.delete(telegram_id, topic_key)
+                await self._message_store.delete(telegram_id, screen_key)
 
         sent = await bot.send_message(
             chat_id=message.chat.id,
@@ -98,7 +98,7 @@ class TelegramResponder:
             reply_markup=reply_markup,
         )
         if store_message:
-            await self._message_store.set(telegram_id, topic_key, sent.message_id)
+            await self._message_store.set(telegram_id, screen_key, sent.message_id)
         if (
             delete_event_message
             and isinstance(event, Message)

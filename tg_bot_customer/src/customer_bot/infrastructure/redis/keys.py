@@ -17,8 +17,8 @@ class CustomerRedisKeys:
     def active_category(self, telegram_id: int) -> str:
         return f"tg:customer:{telegram_id}:active_category"
 
-    def menu_message(self, telegram_id: int, topic_key: str) -> str:
-        return self._join("menu", str(telegram_id), topic_key)
+    def screen_message(self, telegram_id: int, screen_key: str) -> str:
+        return self._join("screen", str(telegram_id), screen_key)
 
     def _join(self, *parts: str) -> str:
         return ":".join((self.prefix, *parts))

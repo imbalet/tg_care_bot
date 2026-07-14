@@ -57,7 +57,7 @@ async def show_category_select(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=MAIN_MENU_KEY,
+        screen_key=MAIN_MENU_KEY,
         text=category_select_text(),
         reply_markup=category_select_keyboard(categories),
     )
@@ -75,7 +75,7 @@ async def show_category_menu(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=MAIN_MENU_KEY,
+        screen_key=MAIN_MENU_KEY,
         text=customer_main_menu_text(category),
         reply_markup=main_menu_keyboard(category),
     )

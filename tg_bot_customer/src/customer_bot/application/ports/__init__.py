@@ -1,9 +1,9 @@
 from .backend import BackendPort
-from .redis import ActiveCategoryStore, MenuMessageStore, UsernameSyncCache
+from .redis import ActiveCategoryStore, ScreenMessageStore, UsernameSyncCache
 
 __all__ = [
     "ActiveCategoryStore",
     "BackendPort",
-    "MenuMessageStore",
+    "ScreenMessageStore",
     "UsernameSyncCache",
 ]

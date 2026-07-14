@@ -12,15 +12,15 @@ class FakeMessageStore:
         self.deleted: list[tuple[int, str]] = []
         self.saved: list[tuple[int, str, int]] = []
 
-    async def get(self, telegram_id: int, topic_key: str) -> int | None:
+    async def get(self, telegram_id: int, screen_key: str) -> int | None:
         return self.value
 
-    async def set(self, telegram_id: int, topic_key: str, message_id: int) -> None:
-        self.saved.append((telegram_id, topic_key, message_id))
+    async def set(self, telegram_id: int, screen_key: str, message_id: int) -> None:
+        self.saved.append((telegram_id, screen_key, message_id))
         self.value = message_id
 
-    async def delete(self, telegram_id: int, topic_key: str) -> None:
-        self.deleted.append((telegram_id, topic_key))
+    async def delete(self, telegram_id: int, screen_key: str) -> None:
+        self.deleted.append((telegram_id, screen_key))
         self.value = None
 
 
@@ -63,7 +63,7 @@ async def test_telegram_responder_edits_stored_message_and_deletes_event(
         bot=bot,  # type: ignore[arg-type]
         event=_message(1),
         telegram_id=123,
-        topic_key="main",
+        screen_key="main",
         text="hello",
     )
 
@@ -92,7 +92,7 @@ async def test_telegram_responder_create_new_keeps_user_message(
         bot=bot,  # type: ignore[arg-type]
         event=_message(1),
         telegram_id=123,
-        topic_key="order",
+        screen_key="order",
         text="next step",
         create_new=True,
         delete_event_message=False,
@@ -116,7 +116,7 @@ async def test_telegram_responder_can_skip_storing_new_message() -> None:
         bot=bot,  # type: ignore[arg-type]
         event=_message(1),
         telegram_id=123,
-        topic_key="order",
+        screen_key="order",
         text="temporary",
         create_new=True,
         delete_event_message=False,

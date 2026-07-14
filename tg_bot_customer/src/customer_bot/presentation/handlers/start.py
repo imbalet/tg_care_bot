@@ -121,7 +121,7 @@ async def help_command(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key="main",
+        screen_key="main",
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
     )

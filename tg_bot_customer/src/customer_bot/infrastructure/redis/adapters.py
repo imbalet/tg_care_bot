@@ -41,7 +41,7 @@ class RedisActiveCategoryStore:
         await self._redis.set(self._keys.active_category(telegram_id), category_code)
 
 
-class RedisMenuMessageStore:
+class RedisScreenMessageStore:
     def __init__(
         self,
         redis: Redis,
@@ -50,21 +50,23 @@ class RedisMenuMessageStore:
         self._redis = redis
         self._keys = keys
 
-    async def get(self, telegram_id: int, topic_key: str) -> int | None:
-        value = await self._redis.get(self._keys.menu_message(telegram_id, topic_key))
+    async def get(self, telegram_id: int, screen_key: str) -> int | None:
+        value = await self._redis.get(
+            self._keys.screen_message(telegram_id, screen_key)
+        )
         if not isinstance(value, str):
             return None
         try:
             return int(value)
         except ValueError:
-            await self.delete(telegram_id, topic_key)
+            await self.delete(telegram_id, screen_key)
             return None
 
-    async def set(self, telegram_id: int, topic_key: str, message_id: int) -> None:
+    async def set(self, telegram_id: int, screen_key: str, message_id: int) -> None:
         await self._redis.set(
-            self._keys.menu_message(telegram_id, topic_key),
+            self._keys.screen_message(telegram_id, screen_key),
             message_id,
         )
 
-    async def delete(self, telegram_id: int, topic_key: str) -> None:
-        await self._redis.delete(self._keys.menu_message(telegram_id, topic_key))
+    async def delete(self, telegram_id: int, screen_key: str) -> None:
+        await self._redis.delete(self._keys.screen_message(telegram_id, screen_key))
