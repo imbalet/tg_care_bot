@@ -22,7 +22,7 @@ from backend.modules.orders.application.pricing import (
 
 
 @dataclass(frozen=True)
-class DraftOrderCommand:
+class OrderCommand:
     customer_id: UUID
     service_id: UUID
     start_at: datetime
@@ -35,12 +35,12 @@ class DraftOrderCommand:
 
 
 @dataclass(frozen=True)
-class CreatePoolOrderCommand(DraftOrderCommand):
+class CreatePoolOrderCommand(OrderCommand):
     pass
 
 
 @dataclass(frozen=True)
-class CreateDirectOrderCommand(DraftOrderCommand):
+class CreateDirectOrderCommand(OrderCommand):
     performer_id: UUID
 
 
@@ -54,7 +54,7 @@ class CreatePoolOrderUseCase:
         self._pricing_repository = pricing_repository
 
     async def execute(self, command: CreatePoolOrderCommand) -> OrderDTO:
-        data, service, price, snapshots, deadline = await _prepare_draft(
+        data, service, price, snapshots, deadline = await _prepare_order(
             command,
             self._order_repository,
             self._pricing_repository,
@@ -83,7 +83,7 @@ class CreateDirectOrderUseCase:
         )
         if response_window is None:
             raise ValidationError("Direct response window is not configured")
-        data, service, price, snapshots, deadline = await _prepare_draft(
+        data, service, price, snapshots, deadline = await _prepare_order(
             command,
             self._order_repository,
             self._pricing_repository,
@@ -99,94 +99,8 @@ class CreateDirectOrderUseCase:
         )
 
 
-@dataclass(frozen=True)
-class UpdateDraftOrderCommand(DraftOrderCommand):
-    order_id: UUID
-
-
-class UpdateDraftOrderUseCase:
-    def __init__(
-        self,
-        order_repository: OrderRepository,
-        pricing_repository: PricingRepository,
-    ) -> None:
-        self._order_repository = order_repository
-        self._pricing_repository = pricing_repository
-
-    async def execute(self, command: UpdateDraftOrderCommand) -> OrderDTO:
-        data, service, price, snapshots, deadline = await _prepare_draft(
-            command,
-            self._order_repository,
-            self._pricing_repository,
-        )
-        order = await self._order_repository.replace_draft(
-            order_id=command.order_id,
-            data=data,
-            service=service,
-            price=price,
-            object_snapshots=snapshots,
-            matching_deadline_minutes=deadline,
-        )
-        if order is None:
-            raise NotFoundError("Draft order not found")
-        return order
-
-
-class CancelDraftOrderUseCase:
-    def __init__(self, repository: OrderRepository) -> None:
-        self._repository = repository
-
-    async def execute(self, order_id: UUID) -> OrderDTO:
-        order = await self._repository.cancel_draft(order_id)
-        if order is None:
-            raise NotFoundError("Draft order not found")
-        return order
-
-
-class PublishPoolOrderUseCase:
-    def __init__(self, repository: OrderRepository) -> None:
-        self._repository = repository
-
-    async def execute(self, order_id: UUID) -> OrderDTO:
-        order = await self._repository.publish_pool(order_id)
-        if order is None:
-            raise NotFoundError("Draft order not found")
-        return order
-
-
-@dataclass(frozen=True)
-class PublishDirectOrderCommand:
-    order_id: UUID
-    performer_id: UUID
-
-
-class PublishDirectOrderUseCase:
-    def __init__(
-        self,
-        order_repository: OrderRepository,
-        pricing_repository: PricingRepository,
-    ) -> None:
-        self._order_repository = order_repository
-        self._pricing_repository = pricing_repository
-
-    async def execute(self, command: PublishDirectOrderCommand) -> OrderDTO:
-        response_window = await self._pricing_repository.get_integer_setting(
-            "direct_response_window_minutes",
-        )
-        if response_window is None:
-            raise ValidationError("Direct response window is not configured")
-        order = await self._order_repository.publish_direct(
-            order_id=command.order_id,
-            performer_id=command.performer_id,
-            response_window_minutes=response_window,
-        )
-        if order is None:
-            raise NotFoundError("Draft order not found")
-        return order
-
-
-async def _prepare_draft(
-    command: DraftOrderCommand,
+async def _prepare_order(
+    command: OrderCommand,
     order_repository: OrderRepository,
     pricing_repository: PricingRepository,
 ) -> tuple[
@@ -258,14 +172,8 @@ async def _prepare_draft(
 
 
 __all__ = [
-    "CancelDraftOrderUseCase",
     "CreateDirectOrderCommand",
     "CreateDirectOrderUseCase",
     "CreatePoolOrderCommand",
     "CreatePoolOrderUseCase",
-    "PublishDirectOrderCommand",
-    "PublishDirectOrderUseCase",
-    "PublishPoolOrderUseCase",
-    "UpdateDraftOrderCommand",
-    "UpdateDraftOrderUseCase",
 ]
