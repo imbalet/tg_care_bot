@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -45,6 +46,7 @@ from customer_bot.presentation.ui import (
 )
 
 router = Router(name="addresses_create")
+logger = logging.getLogger(__name__)
 
 
 @router.callback_query(AddressAddCallback.filter())
@@ -59,6 +61,10 @@ async def add_address(
     try:
         cities = await backend_client.list_active_cities()
     except BackendValidationError as exc:
+        logger.warning(
+            "Backend rejected address creation start",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -67,7 +73,14 @@ async def add_address(
             text=address_validation_error_text(str(exc)),
         )
         return
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load cities for address creation",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -105,6 +118,13 @@ async def select_city(
     index = callback_data.index
     city_ids = _string_list(data["city_ids"])
     if index < 0 or index >= len(city_ids):
+        logger.warning(
+            "Invalid address city callback index",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "index": index,
+            },
+        )
         return
     draft = _draft(data)
     draft["city_id"] = city_ids[index]
@@ -144,7 +164,14 @@ async def enter_query(
             city_id=UUID(str(draft["city_id"])),
             query=message.text.strip(),
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to suggest addresses",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=message,
@@ -195,11 +222,26 @@ async def select_suggestion(
     suggestions = data.get("address_suggestions")
     index = callback_data.index
     if not isinstance(suggestions, list):
+        logger.warning(
+            "Address suggestions missing in FSM state",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
         return
     if index < 0 or index >= len(suggestions):
+        logger.warning(
+            "Invalid address suggestion callback index",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "index": index,
+            },
+        )
         return
     suggestion = suggestions[index]
     if not isinstance(suggestion, dict):
+        logger.warning(
+            "Invalid address suggestion item in FSM state",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
         return
     draft = _draft(data)
     draft["unrestricted_value"] = str(suggestion["unrestricted_value"])
@@ -294,7 +336,14 @@ async def _advance_or_create(
             apartment=_optional_str(draft.get("apartment")),
             comment=_optional_str(draft.get("comment")),
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to create address",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=event,
@@ -304,6 +353,10 @@ async def _advance_or_create(
         )
         return
     await state.clear()
+    logger.info(
+        "Address created",
+        extra={"telegram_id": telegram_user_context.telegram_id},
+    )
     await send_step(
         bot=bot,
         event=event,

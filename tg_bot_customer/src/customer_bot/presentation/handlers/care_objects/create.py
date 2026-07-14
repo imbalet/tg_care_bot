@@ -1,3 +1,5 @@
+import logging
+
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
@@ -45,6 +47,7 @@ from customer_bot.presentation.ui import (
 from customer_bot.presentation.ui.keyboards import CARE_OBJECT_TYPE_LABELS
 
 router = Router(name="care_objects_create")
+logger = logging.getLogger(__name__)
 
 
 @router.callback_query(CareObjectAddCallback.filter())
@@ -58,6 +61,13 @@ async def add_care_object(
 ) -> None:
     object_type = callback_data.object_type
     if object_type not in CARE_OBJECT_TYPE_LABELS:
+        logger.warning(
+            "Invalid care object type callback",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "object_type": object_type,
+            },
+        )
         return
     await state.set_state(CareObjectManagement.name)
     await state.update_data(draft={"object_type": object_type})
@@ -353,6 +363,13 @@ async def _create_from_draft(
             behavior_notes=_optional_str(draft.get("behavior_notes")),
         )
     except BackendValidationError:
+        logger.warning(
+            "Backend rejected care object creation",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "object_type": str(draft.get("object_type")),
+            },
+        )
         await send_step(
             bot=bot,
             event=event,
@@ -362,7 +379,15 @@ async def _create_from_draft(
         )
         await state.clear()
         return
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to create care object",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "object_type": str(draft.get("object_type")),
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=event,
@@ -372,6 +397,13 @@ async def _create_from_draft(
         )
         return
     await state.clear()
+    logger.info(
+        "Care object created",
+        extra={
+            "telegram_id": telegram_user_context.telegram_id,
+            "object_type": str(draft.get("object_type")),
+        },
+    )
     await send_step(
         bot=bot,
         event=event,

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, cast
@@ -26,6 +27,8 @@ from .errors import (
     BackendValidationError,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class BackendClient:
     def __init__(
@@ -43,6 +46,7 @@ class BackendClient:
         )
 
     async def close(self) -> None:
+        logger.info("Closing backend HTTP client")
         await self._client.aclose()
 
     async def ping(self) -> None:
@@ -405,9 +409,32 @@ class BackendClient:
         params: dict[str, Any] | None = None,
     ) -> httpx.Response:
         try:
-            return await self._client.request(method, url, json=json, params=params)
+            response = await self._client.request(
+                method,
+                url,
+                json=json,
+                params=params,
+            )
         except httpx.HTTPError as exc:
+            logger.warning(
+                "Backend request failed",
+                extra={
+                    "method": method,
+                    "url": url,
+                    "exception_type": type(exc).__name__,
+                },
+            )
             raise BackendUnavailableError("Backend is unavailable") from exc
+        if response.status_code >= 400:
+            logger.warning(
+                "Backend returned error response",
+                extra={
+                    "method": method,
+                    "url": url,
+                    "status_code": response.status_code,
+                },
+            )
+        return response
 
     def _raise_for_status(self, response: httpx.Response) -> None:
         if response.status_code == 401:

@@ -1,9 +1,13 @@
+import logging
+
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
 from customer_bot.application.ports import ScreenMessageStore
 from customer_bot.presentation.types import ScreenKey
+
+logger = logging.getLogger(__name__)
 
 
 class TelegramResponder:
@@ -66,6 +70,14 @@ class TelegramResponder:
         if not isinstance(message, Message):
             if isinstance(event, CallbackQuery):
                 await event.answer("Сообщение недоступно", show_alert=True)
+            logger.warning(
+                "Telegram event has no message to update",
+                extra={
+                    "telegram_id": telegram_id,
+                    "screen_key": str(screen_key),
+                    "event_type": type(event).__name__,
+                },
+            )
             return None
 
         if isinstance(event, CallbackQuery):
@@ -90,7 +102,17 @@ class TelegramResponder:
                 if delete_event_message and isinstance(event, Message):
                     await _delete_message(event)
                 return message
-            except TelegramAPIError:
+            except TelegramAPIError as exc:
+                logger.warning(
+                    "Telegram message edit failed",
+                    extra={
+                        "telegram_id": telegram_id,
+                        "chat_id": message.chat.id,
+                        "message_id": target_message_id,
+                        "screen_key": str(screen_key),
+                        "exception_type": type(exc).__name__,
+                    },
+                )
                 await self._message_store.delete(telegram_id, screen_key)
 
         sent = await bot.send_message(
@@ -112,5 +134,13 @@ class TelegramResponder:
 async def _delete_message(message: Message) -> None:
     try:
         await message.delete()
-    except TelegramAPIError:
+    except TelegramAPIError as exc:
+        logger.warning(
+            "Telegram message delete failed",
+            extra={
+                "chat_id": message.chat.id,
+                "message_id": message.message_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         return

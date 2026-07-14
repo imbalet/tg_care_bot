@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from uuid import uuid4
 
@@ -54,6 +55,45 @@ async def test_ping_maps_server_error() -> None:
 
     with pytest.raises(BackendUnavailableError):
         await client.ping()
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_backend_client_logs_http_error(caplog: pytest.LogCaptureFixture) -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connect failed", request=request)
+
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(handler),
+    )
+
+    with caplog.at_level(logging.WARNING), pytest.raises(BackendUnavailableError):
+        await client.ping()
+
+    assert "Backend request failed" in caplog.text
+    assert "secret" not in caplog.text
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_backend_client_logs_error_status(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(lambda _request: httpx.Response(503)),
+    )
+
+    with caplog.at_level(logging.WARNING), pytest.raises(BackendUnavailableError):
+        await client.ping()
+
+    assert "Backend returned error response" in caplog.text
+    assert "secret" not in caplog.text
     await client.close()
 
 

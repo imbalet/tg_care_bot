@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -35,6 +36,7 @@ from customer_bot.presentation.ui import (
 )
 
 router = Router(name="care_objects_edit")
+logger = logging.getLogger(__name__)
 
 
 @router.callback_query(CareObjectEditCallback.filter())
@@ -48,6 +50,13 @@ async def edit_care_object(
 ) -> None:
     item = await _care_object_by_index(state, callback_data.index)
     if item is None:
+        logger.warning(
+            "Stale care object edit callback",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "index": callback_data.index,
+            },
+        )
         return
     await state.update_data(edit_item=item)
     await state.set_state(CareObjectManagement.edit_name)
@@ -95,7 +104,15 @@ async def enter_edit_name(
             routine_notes=_optional_str(item.get("routine_notes")),
             behavior_notes=_optional_str(item.get("behavior_notes")),
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to update care object",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "care_object_id": str(item["id"]),
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=message,
@@ -105,6 +122,13 @@ async def enter_edit_name(
         )
         return
     await state.clear()
+    logger.info(
+        "Care object updated",
+        extra={
+            "telegram_id": telegram_user_context.telegram_id,
+            "care_object_id": str(item["id"]),
+        },
+    )
     await send_step(
         bot=bot,
         event=message,
@@ -126,13 +150,28 @@ async def delete_care_object(
 ) -> None:
     item = await _care_object_by_index(state, callback_data.index)
     if item is None:
+        logger.warning(
+            "Stale care object delete callback",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "index": callback_data.index,
+            },
+        )
         return
     try:
         await backend_client.delete_care_object(
             telegram_id=telegram_user_context.telegram_id,
             care_object_id=UUID(str(item["id"])),
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to delete care object",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "care_object_id": str(item["id"]),
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -141,6 +180,13 @@ async def delete_care_object(
             text=retry_later_text(),
         )
         return
+    logger.info(
+        "Care object deleted",
+        extra={
+            "telegram_id": telegram_user_context.telegram_id,
+            "care_object_id": str(item["id"]),
+        },
+    )
     await send_step(
         bot=bot,
         event=callback,

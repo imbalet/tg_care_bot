@@ -1,3 +1,5 @@
+import logging
+
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
@@ -28,6 +30,7 @@ from customer_bot.presentation.ui import (
 )
 
 router = Router(name="category")
+logger = logging.getLogger(__name__)
 
 
 @router.callback_query(CategorySelectCallback.filter())
@@ -55,7 +58,15 @@ async def select_category(
             )
             return
         categories = await list_categories(backend_client)
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to select category",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "category_code": callback_data.code,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await _show_unavailable(
             bot=bot,
             event=callback,
@@ -65,6 +76,13 @@ async def select_category(
         return
     category = category_by_code(categories, callback_data.code)
     if category is None:
+        logger.warning(
+            "Unknown category selected",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "category_code": callback_data.code,
+            },
+        )
         await show_category_select(
             bot=bot,
             event=callback,
@@ -76,6 +94,13 @@ async def select_category(
     await active_category_store.set(
         telegram_user_context.telegram_id,
         category.code,
+    )
+    logger.info(
+        "Customer category selected",
+        extra={
+            "telegram_id": telegram_user_context.telegram_id,
+            "category_code": category.code,
+        },
     )
     await show_category_menu(
         bot=bot,
@@ -113,7 +138,14 @@ async def change_category(
             backend_client=backend_client,
             telegram_responder=telegram_responder,
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to show category selector",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await _show_unavailable(
             bot=bot,
             event=callback,
@@ -148,7 +180,14 @@ async def cancel_scenario(
             backend_client=backend_client,
             telegram_responder=telegram_responder,
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to show category selector after scenario cancel",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await _show_unavailable(
             bot=bot,
             event=callback,

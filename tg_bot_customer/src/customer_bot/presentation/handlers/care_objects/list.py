@@ -1,3 +1,5 @@
+import logging
+
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
@@ -32,6 +34,7 @@ from customer_bot.presentation.ui import (
 )
 
 router = Router(name="care_objects_list")
+logger = logging.getLogger(__name__)
 
 
 @router.callback_query(CareObjectsOpenCallback.filter())
@@ -60,7 +63,15 @@ async def open_care_objects(
             telegram_id=telegram_user_context.telegram_id,
             object_type=object_type,
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load care objects",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "category_code": callback_data.category_code,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -91,6 +102,13 @@ async def select_care_object(
 ) -> None:
     item = await _care_object_by_index(state, callback_data.index)
     if item is None:
+        logger.warning(
+            "Stale care object select callback",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "index": callback_data.index,
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -101,6 +119,10 @@ async def select_care_object(
         return
     index = item["index"]
     if not isinstance(index, int):
+        logger.warning(
+            "Invalid care object index in state",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
         return
     await send_step(
         bot=bot,

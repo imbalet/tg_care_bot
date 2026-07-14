@@ -1,6 +1,10 @@
+import logging
+
 from redis.asyncio import Redis
 
 from .keys import CustomerRedisKeys, customer_redis_keys
+
+logger = logging.getLogger(__name__)
 
 
 class RedisUsernameSyncCache:
@@ -59,6 +63,10 @@ class RedisScreenMessageStore:
         try:
             return int(value)
         except ValueError:
+            logger.warning(
+                "Invalid screen message id in Redis",
+                extra={"telegram_id": telegram_id, "screen_key": screen_key},
+            )
             await self.delete(telegram_id, screen_key)
             return None
 

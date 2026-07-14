@@ -1,6 +1,9 @@
+import logging
 from datetime import UTC, datetime
 
 import pytest
+from aiogram.exceptions import TelegramAPIError
+from aiogram.methods import SendMessage
 from aiogram.types import Chat, Message
 
 from customer_bot.presentation.services import TelegramResponder
@@ -36,6 +39,15 @@ class FakeBot:
     async def send_message(self, **kwargs: object) -> Message:
         self.sent.append(kwargs)
         return _message(99)
+
+
+class FailingEditBot(FakeBot):
+    async def edit_message_text(self, **kwargs: object) -> None:
+        self.edits.append(kwargs)
+        raise TelegramAPIError(
+            method=SendMessage(chat_id=123, text="fallback"),
+            message="edit failed",
+        )
 
 
 def _message(message_id: int) -> Message:
@@ -125,3 +137,54 @@ async def test_telegram_responder_can_skip_storing_new_message() -> None:
     )
 
     assert store.saved == []
+
+
+@pytest.mark.asyncio
+async def test_telegram_responder_logs_failed_edit_and_falls_back(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    bot = FailingEditBot()
+    store = FakeMessageStore(value=42)
+    manager = TelegramResponder(message_store=store)
+
+    with caplog.at_level(logging.WARNING):
+        await manager.update(
+            bot=bot,  # type: ignore[arg-type]
+            event=_message(1),
+            telegram_id=123,
+            screen_key=ScreenKey.MAIN,
+            text="hello",
+            delete_event_message=False,
+        )
+
+    assert "Telegram message edit failed" in caplog.text
+    assert store.deleted == [(123, "main")]
+    assert bot.sent == [{"chat_id": 123, "text": "hello", "reply_markup": None}]
+
+
+@pytest.mark.asyncio
+async def test_telegram_responder_logs_failed_delete(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def delete(_message: Message) -> None:
+        raise TelegramAPIError(
+            method=SendMessage(chat_id=123, text="fallback"),
+            message="delete failed",
+        )
+
+    monkeypatch.setattr(Message, "delete", delete)
+    bot = FakeBot()
+    store = FakeMessageStore(value=42)
+    manager = TelegramResponder(message_store=store)
+
+    with caplog.at_level(logging.WARNING):
+        await manager.update(
+            bot=bot,  # type: ignore[arg-type]
+            event=_message(1),
+            telegram_id=123,
+            screen_key=ScreenKey.MAIN,
+            text="hello",
+        )
+
+    assert "Telegram message delete failed" in caplog.text

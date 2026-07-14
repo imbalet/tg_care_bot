@@ -1,3 +1,5 @@
+import logging
+
 from aiogram import Bot, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
@@ -24,6 +26,7 @@ from customer_bot.presentation.ui import (
 )
 
 router = Router(name="start")
+logger = logging.getLogger(__name__)
 
 
 @router.message(CommandStart())
@@ -143,7 +146,14 @@ async def _open_start_or_menu(
         profile = await backend_client.get_customer_profile(
             telegram_user_context.telegram_id,
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load customer profile for start/menu",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=message,
@@ -153,6 +163,10 @@ async def _open_start_or_menu(
         )
         return
     if profile is not None:
+        logger.info(
+            "Opening customer menu",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
         category = await active_category(
             backend_client=backend_client,
             active_category_store=active_category_store,
@@ -176,6 +190,10 @@ async def _open_start_or_menu(
         )
         return
     if start_registration_if_missing:
+        logger.info(
+            "Starting customer registration",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
         await start_registration(
             message,
             state,

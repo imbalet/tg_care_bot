@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -72,6 +73,7 @@ from customer_bot.presentation.ui import (
 )
 
 router = Router(name="orders_create")
+logger = logging.getLogger(__name__)
 
 
 @router.callback_query(OrderCreateCallback.filter())
@@ -90,7 +92,14 @@ async def start_order_creation(
             active_category_store=active_category_store,
             telegram_id=telegram_user_context.telegram_id,
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to start order creation",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -100,6 +109,10 @@ async def start_order_creation(
         )
         return
     if category is None:
+        logger.warning(
+            "Order creation requested without active category",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -110,6 +123,13 @@ async def start_order_creation(
         return
     services = _service_states((category,))
     if not services:
+        logger.warning(
+            "Order creation category has no services",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "category_code": category.code,
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -149,6 +169,13 @@ async def select_service(
 ) -> None:
     service = await _item_by_index(state, "order_services", callback_data.index)
     if service is None:
+        logger.warning(
+            "Stale order service callback",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "index": callback_data.index,
+            },
+        )
         return
     draft = _draft(await state.get_data())
     draft.update(
@@ -165,7 +192,15 @@ async def select_service(
             telegram_id=telegram_user_context.telegram_id,
             object_type=str(service["care_object_type"]),
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load care objects for order",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "service_id": str(service["id"]),
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -175,6 +210,13 @@ async def select_service(
         )
         return
     if not objects:
+        logger.info(
+            "Order creation has no care objects",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "care_object_type": str(service["care_object_type"]),
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -209,6 +251,13 @@ async def select_object(
 ) -> None:
     item = await _item_by_index(state, "order_objects", callback_data.index)
     if item is None:
+        logger.warning(
+            "Stale order object callback",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "index": callback_data.index,
+            },
+        )
         return
     data = await state.get_data()
     draft = _draft(data)
@@ -304,7 +353,14 @@ async def enter_duration(
         addresses = await backend_client.list_addresses(
             telegram_id=telegram_user_context.telegram_id,
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load addresses for order",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=message,
@@ -314,6 +370,10 @@ async def enter_duration(
         )
         return
     if not addresses:
+        logger.info(
+            "Order creation has no customer addresses",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
         await send_step(
             bot=bot,
             event=message,
@@ -353,6 +413,13 @@ async def select_address(
 ) -> None:
     item = await _item_by_index(state, "order_addresses", callback_data.index)
     if item is None:
+        logger.warning(
+            "Stale order address callback",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "index": callback_data.index,
+            },
+        )
         return
     data = await state.get_data()
     draft = _draft(data)
@@ -487,6 +554,10 @@ async def _create_draft_and_show_summary(
             telegram_user_context.telegram_id,
         )
         if profile is None:
+            logger.warning(
+                "Order summary requested without customer profile",
+                extra={"telegram_id": telegram_user_context.telegram_id},
+            )
             await send_step(
                 bot=bot,
                 event=event,
@@ -518,6 +589,10 @@ async def _create_draft_and_show_summary(
             address_id=address_id,
         )
     except BackendValidationError:
+        logger.warning(
+            "Backend rejected order draft preview",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
         await send_step(
             bot=bot,
             event=event,
@@ -526,7 +601,14 @@ async def _create_draft_and_show_summary(
             text=use_buttons_text(),
         )
         return
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to prepare order draft summary",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=event,
@@ -536,6 +618,13 @@ async def _create_draft_and_show_summary(
         )
         return
     await state.set_state(OrderCreation.publish)
+    logger.info(
+        "Order draft ready to publish",
+        extra={
+            "telegram_id": telegram_user_context.telegram_id,
+            "performers_count": len(performers),
+        },
+    )
     await state.update_data(
         order_draft=draft,
         order_performers=[_performer_state(item) for item in performers],

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -19,6 +20,7 @@ from customer_bot.infrastructure.redis import (
 )
 from customer_bot.infrastructure.settings import get_settings
 from customer_bot.presentation.contexts import AppContext
+from customer_bot.presentation.error_handler import handle_unexpected_error
 from customer_bot.presentation.handlers import (
     addresses_router,
     care_objects_router,
@@ -35,11 +37,14 @@ from customer_bot.presentation.middlewares import (
 )
 from customer_bot.presentation.services import TelegramResponder
 
+logger = logging.getLogger(__name__)
+
 
 async def main() -> None:
     settings = get_settings()
 
     setup_logger(level=settings.log_level)
+    logger.info("Customer bot starting")
 
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
 
@@ -51,6 +56,7 @@ async def main() -> None:
     dispatcher.update.middleware(TelegramUserContextMiddleware())
     dispatcher.update.middleware(AppContextMiddleware())
     dispatcher.update.middleware(TelegramUsernameSyncMiddleware())
+    dispatcher.errors.register(handle_unexpected_error)
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)
     dispatcher.include_router(care_objects_router)
@@ -80,6 +86,7 @@ async def main() -> None:
         message_store=screen_message_store,
     )
     try:
+        logger.info("Configuring Telegram bot commands")
         await bot.set_my_commands(
             [
                 BotCommand(command="start", description="Открыть главное меню"),
@@ -88,6 +95,7 @@ async def main() -> None:
             ],
         )
         await bot(DeleteWebhook(drop_pending_updates=True))
+        logger.info("Starting Telegram polling")
         await dispatcher.start_polling(
             bot,
             app_context=AppContext(
@@ -97,11 +105,16 @@ async def main() -> None:
                 username_sync_service=username_sync_service,
             ),
         )
+    except Exception:
+        logger.exception("Customer bot polling stopped with unexpected error")
+        raise
     finally:
+        logger.info("Customer bot shutting down")
         await backend_client.close()
         await redis.aclose()
         await bot.session.close()
         await storage.close()
+        logger.info("Customer bot shutdown complete")
 
 
 if __name__ == "__main__":

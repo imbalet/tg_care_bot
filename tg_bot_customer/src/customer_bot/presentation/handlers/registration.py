@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -40,6 +41,7 @@ from customer_bot.presentation.ui import (
 )
 
 router = Router(name="registration")
+logger = logging.getLogger(__name__)
 
 CONTACT_METHOD_LABELS: dict[ContactMethod, str] = {
     ContactMethod.TELEGRAM: "Telegram",
@@ -73,7 +75,14 @@ async def start_registration(
     try:
         cities = await backend_client.list_active_cities()
         documents = await backend_client.list_active_legal_documents()
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load registration prerequisites",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=message,
@@ -210,6 +219,13 @@ async def enter_city(
     city_ids = _string_list(data["city_ids"])
     city_index = callback_data.index
     if city_index < 0 or city_index >= len(city_ids):
+        logger.warning(
+            "Invalid registration city callback index",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "index": city_index,
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -269,6 +285,10 @@ async def enter_contact_method(
     contact_method = callback_data.method
     label = CONTACT_METHOD_LABELS.get(contact_method)
     if label is None:
+        logger.warning(
+            "Invalid registration contact method callback",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -353,6 +373,10 @@ async def confirm_registration(
             ),
         )
     except BackendValidationError:
+        logger.warning(
+            "Backend rejected customer registration",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -362,7 +386,14 @@ async def confirm_registration(
         )
         await state.clear()
         return
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to register customer",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -372,6 +403,10 @@ async def confirm_registration(
         )
         return
     await state.clear()
+    logger.info(
+        "Customer registration completed",
+        extra={"telegram_id": telegram_user_context.telegram_id},
+    )
     await send_step(
         bot=bot,
         event=callback,

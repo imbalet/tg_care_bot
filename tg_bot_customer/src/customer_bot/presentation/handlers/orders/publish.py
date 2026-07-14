@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
@@ -33,6 +34,7 @@ from customer_bot.presentation.ui import (
 )
 
 router = Router(name="orders_publish")
+logger = logging.getLogger(__name__)
 
 
 @router.callback_query(OrderCreation.publish, OrderPublishPoolCallback.filter())
@@ -51,6 +53,10 @@ async def publish_pool(
             telegram_user_context.telegram_id,
         )
         if profile is None:
+            logger.warning(
+                "Pool order publish requested without customer profile",
+                extra={"telegram_id": telegram_user_context.telegram_id},
+            )
             raise BackendClientError("Customer profile is missing")
         order_request = _order_request(draft)
         order = await backend_client.create_order_pool(
@@ -63,7 +69,14 @@ async def publish_pool(
             customer_comment=order_request.customer_comment,
             report_photo_consent=order_request.report_photo_consent,
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to publish pool order",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -73,6 +86,13 @@ async def publish_pool(
         )
         return
     await state.clear()
+    logger.info(
+        "Pool order published",
+        extra={
+            "telegram_id": telegram_user_context.telegram_id,
+            "order_id": str(order.id),
+        },
+    )
     await send_step(
         bot=bot,
         event=callback,
@@ -97,6 +117,13 @@ async def publish_direct(
 ) -> None:
     performer = await _item_by_index(state, "order_performers", callback_data.index)
     if performer is None:
+        logger.warning(
+            "Stale direct order performer callback",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "index": callback_data.index,
+            },
+        )
         return
     data = await state.get_data()
     draft = _draft(data)
@@ -105,6 +132,10 @@ async def publish_direct(
             telegram_user_context.telegram_id,
         )
         if profile is None:
+            logger.warning(
+                "Direct order publish requested without customer profile",
+                extra={"telegram_id": telegram_user_context.telegram_id},
+            )
             raise BackendClientError("Customer profile is missing")
         order_request = _order_request(draft)
         order = await backend_client.create_order_direct(
@@ -118,7 +149,14 @@ async def publish_direct(
             report_photo_consent=order_request.report_photo_consent,
             performer_id=UUID(str(performer["performer_id"])),
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to publish direct order",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await send_step(
             bot=bot,
             event=callback,
@@ -128,6 +166,13 @@ async def publish_direct(
         )
         return
     await state.clear()
+    logger.info(
+        "Direct order published",
+        extra={
+            "telegram_id": telegram_user_context.telegram_id,
+            "order_id": str(order.id),
+        },
+    )
     await send_step(
         bot=bot,
         event=callback,

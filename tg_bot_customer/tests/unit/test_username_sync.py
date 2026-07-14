@@ -1,3 +1,4 @@
+import logging
 from typing import Any, cast
 
 import pytest
@@ -99,3 +100,19 @@ async def test_username_sync_does_not_update_cache_after_failure() -> None:
     await middleware.sync(context("new_name"), service)
 
     assert cache.values == {}
+
+
+@pytest.mark.asyncio
+async def test_username_sync_logs_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    cache = FakeUsernameSyncCache()
+    backend = FakeBackendClient(fail=True)
+    service = UsernameSyncService(backend=cast(Any, backend), cache=cache)
+    middleware = TelegramUsernameSyncMiddleware()
+
+    with caplog.at_level(logging.WARNING):
+        await middleware.sync(context("new_name"), service)
+
+    assert "Telegram username sync failed" in caplog.text
+    assert "new_name" not in caplog.text

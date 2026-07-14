@@ -1,3 +1,5 @@
+import logging
+
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
@@ -28,6 +30,7 @@ from customer_bot.presentation.ui import (
 )
 
 router = Router(name="fallback")
+logger = logging.getLogger(__name__)
 
 
 @router.callback_query(MainMenuCallback.filter())
@@ -74,7 +77,14 @@ async def main_menu_callback(
             telegram_responder=telegram_responder,
             category=category,
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to open main menu callback",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await _show_unavailable(
             bot=bot,
             event=callback,
@@ -101,7 +111,14 @@ async def help_callback(
                 )
                 is not None
             )
-        except BackendClientError:
+        except BackendClientError as exc:
+            logger.warning(
+                "Failed to check profile for help callback",
+                extra={
+                    "telegram_id": telegram_user_context.telegram_id,
+                    "exception_type": type(exc).__name__,
+                },
+            )
             include_main_menu = False
     await telegram_responder.update(
         bot=bot,
@@ -125,7 +142,14 @@ async def profile_callback(
         profile = await backend_client.get_customer_profile(
             telegram_user_context.telegram_id,
         )
-    except BackendClientError:
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to open customer profile",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
         await _show_unavailable(
             bot=bot,
             event=callback,
@@ -178,6 +202,10 @@ async def unknown_callback(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
+    logger.warning(
+        "Unknown callback received",
+        extra={"telegram_id": telegram_user_context.telegram_id},
+    )
     await _show_unavailable(
         bot=bot,
         event=callback,
