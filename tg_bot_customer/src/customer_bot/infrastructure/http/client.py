@@ -304,7 +304,7 @@ class BackendClient:
         self._raise_for_status(response)
         return _price_preview_from_json(response.json())
 
-    async def create_order_draft(
+    async def create_order_pool(
         self,
         *,
         customer_id: UUID,
@@ -318,40 +318,49 @@ class BackendClient:
     ) -> OrderDTO:
         response = await self._request(
             "POST",
-            "/api/orders/drafts",
-            json={
-                "customer_id": str(customer_id),
-                "service_id": str(service_id),
-                "start_at": start_at.isoformat(),
-                "end_at": end_at.isoformat(),
-                "care_object_ids": [str(item) for item in care_object_ids],
-                "address_id": str(address_id) if address_id is not None else None,
-                "customer_comment": customer_comment,
-                "report_photo_consent": report_photo_consent,
-                "option_values": {},
-            },
+            "/api/orders/pool",
+            json=_order_request_json(
+                customer_id=customer_id,
+                service_id=service_id,
+                start_at=start_at,
+                end_at=end_at,
+                care_object_ids=care_object_ids,
+                address_id=address_id,
+                customer_comment=customer_comment,
+                report_photo_consent=report_photo_consent,
+            ),
         )
         self._raise_for_status(response)
         return _order_from_json(response.json())
 
-    async def publish_order_pool(self, *, order_id: UUID) -> OrderDTO:
-        response = await self._request(
-            "POST",
-            f"/api/orders/drafts/{order_id}/publish-pool",
-        )
-        self._raise_for_status(response)
-        return _order_from_json(response.json())
-
-    async def publish_order_direct(
+    async def create_order_direct(
         self,
         *,
-        order_id: UUID,
+        customer_id: UUID,
+        service_id: UUID,
+        start_at: datetime,
+        end_at: datetime,
+        care_object_ids: tuple[UUID, ...],
+        address_id: UUID | None,
+        customer_comment: str | None,
+        report_photo_consent: bool | None,
         performer_id: UUID,
     ) -> OrderDTO:
+        payload = _order_request_json(
+            customer_id=customer_id,
+            service_id=service_id,
+            start_at=start_at,
+            end_at=end_at,
+            care_object_ids=care_object_ids,
+            address_id=address_id,
+            customer_comment=customer_comment,
+            report_photo_consent=report_photo_consent,
+        )
+        payload["performer_id"] = str(performer_id)
         response = await self._request(
             "POST",
-            f"/api/orders/drafts/{order_id}/publish-direct",
-            json={"performer_id": str(performer_id)},
+            "/api/orders/direct",
+            json=payload,
         )
         self._raise_for_status(response)
         return _order_from_json(response.json())
@@ -520,6 +529,30 @@ def _price_preview_from_json(data: dict[str, object]) -> PricePreviewDTO:
         platform_fee_amount=Decimal(str(data["platform_fee_amount"])),
         total_amount=Decimal(str(data["total_amount"])),
     )
+
+
+def _order_request_json(
+    *,
+    customer_id: UUID,
+    service_id: UUID,
+    start_at: datetime,
+    end_at: datetime,
+    care_object_ids: tuple[UUID, ...],
+    address_id: UUID | None,
+    customer_comment: str | None,
+    report_photo_consent: bool | None,
+) -> dict[str, object]:
+    return {
+        "customer_id": str(customer_id),
+        "service_id": str(service_id),
+        "start_at": start_at.isoformat(),
+        "end_at": end_at.isoformat(),
+        "care_object_ids": [str(item) for item in care_object_ids],
+        "address_id": str(address_id) if address_id is not None else None,
+        "customer_comment": customer_comment,
+        "report_photo_consent": report_photo_consent,
+        "option_values": {},
+    }
 
 
 def _order_from_json(data: dict[str, object]) -> OrderDTO:

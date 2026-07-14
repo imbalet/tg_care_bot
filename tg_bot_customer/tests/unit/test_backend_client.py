@@ -329,7 +329,7 @@ async def test_order_methods_use_backend_contract() -> None:
             assert payload["service_id"] == str(service_id)
             assert payload["objects_count"] == 1
             return httpx.Response(200, json=price_json(service_id))
-        if request.url.path == "/api/orders/drafts":
+        if request.url.path == "/api/orders/pool":
             payload = json_body(request)
             assert payload["customer_id"] == str(customer_id)
             assert payload["care_object_ids"] == [str(care_object_id)]
@@ -337,12 +337,12 @@ async def test_order_methods_use_backend_contract() -> None:
             return httpx.Response(
                 201, json=order_json(order_id, customer_id, service_id)
             )
-        if request.url.path == f"/api/orders/drafts/{order_id}/publish-pool":
-            return httpx.Response(
-                200, json=order_json(order_id, customer_id, service_id)
-            )
-        if request.url.path == f"/api/orders/drafts/{order_id}/publish-direct":
-            assert json_body(request)["performer_id"] == str(performer_id)
+        if request.url.path == "/api/orders/direct":
+            payload = json_body(request)
+            assert payload["customer_id"] == str(customer_id)
+            assert payload["care_object_ids"] == [str(care_object_id)]
+            assert payload["address_id"] == str(address_id)
+            assert payload["performer_id"] == str(performer_id)
             return httpx.Response(
                 200, json=order_json(order_id, customer_id, service_id)
             )
@@ -380,7 +380,7 @@ async def test_order_methods_use_backend_contract() -> None:
         end_at=end_at,
         objects_count=1,
     )
-    draft = await client.create_order_draft(
+    pool = await client.create_order_pool(
         customer_id=customer_id,
         service_id=service_id,
         start_at=start_at,
@@ -390,9 +390,15 @@ async def test_order_methods_use_backend_contract() -> None:
         customer_comment="comment",
         report_photo_consent=True,
     )
-    pool = await client.publish_order_pool(order_id=order_id)
-    direct = await client.publish_order_direct(
-        order_id=order_id,
+    direct = await client.create_order_direct(
+        customer_id=customer_id,
+        service_id=service_id,
+        start_at=start_at,
+        end_at=end_at,
+        care_object_ids=(care_object_id,),
+        address_id=address_id,
+        customer_comment="comment",
+        report_photo_consent=True,
         performer_id=performer_id,
     )
     performers = await client.find_suitable_performers(
@@ -407,7 +413,7 @@ async def test_order_methods_use_backend_contract() -> None:
 
     assert categories[0].services[0].id == service_id
     assert price.total_amount == 1200
-    assert draft.id == order_id
+    assert pool.id == order_id
     assert pool.status == "searching"
     assert direct.matching_mode == "pool"
     assert performers[0].performer_id == performer_id

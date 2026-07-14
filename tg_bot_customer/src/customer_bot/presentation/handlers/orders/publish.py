@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -19,6 +21,9 @@ from customer_bot.presentation.handlers.orders.state import (
 )
 from customer_bot.presentation.handlers.orders.state import (
     item_by_index as _item_by_index,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    string_list as _string_list,
 )
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
@@ -42,8 +47,21 @@ async def publish_pool(
     data = await state.get_data()
     draft = _draft(data)
     try:
-        order = await backend_client.publish_order_pool(
-            order_id=UUID(str(draft["order_id"])),
+        profile = await backend_client.get_customer_profile(
+            telegram_user_context.telegram_id,
+        )
+        if profile is None:
+            raise BackendClientError("Customer profile is missing")
+        order_request = _order_request(draft)
+        order = await backend_client.create_order_pool(
+            customer_id=profile.id,
+            service_id=order_request.service_id,
+            start_at=order_request.start_at,
+            end_at=order_request.end_at,
+            care_object_ids=order_request.care_object_ids,
+            address_id=order_request.address_id,
+            customer_comment=order_request.customer_comment,
+            report_photo_consent=order_request.report_photo_consent,
         )
     except BackendClientError:
         await send_step(
@@ -83,8 +101,21 @@ async def publish_direct(
     data = await state.get_data()
     draft = _draft(data)
     try:
-        order = await backend_client.publish_order_direct(
-            order_id=UUID(str(draft["order_id"])),
+        profile = await backend_client.get_customer_profile(
+            telegram_user_context.telegram_id,
+        )
+        if profile is None:
+            raise BackendClientError("Customer profile is missing")
+        order_request = _order_request(draft)
+        order = await backend_client.create_order_direct(
+            customer_id=profile.id,
+            service_id=order_request.service_id,
+            start_at=order_request.start_at,
+            end_at=order_request.end_at,
+            care_object_ids=order_request.care_object_ids,
+            address_id=order_request.address_id,
+            customer_comment=order_request.customer_comment,
+            report_photo_consent=order_request.report_photo_consent,
             performer_id=UUID(str(performer["performer_id"])),
         )
     except BackendClientError:
@@ -103,4 +134,32 @@ async def publish_direct(
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_published_text(order),
+    )
+
+
+@dataclass(frozen=True)
+class _OrderRequest:
+    service_id: UUID
+    start_at: datetime
+    end_at: datetime
+    care_object_ids: tuple[UUID, ...]
+    address_id: UUID | None
+    customer_comment: str | None
+    report_photo_consent: bool | None
+
+
+def _order_request(draft: dict[str, object]) -> _OrderRequest:
+    consent_value = draft.get("report_photo_consent")
+    return _OrderRequest(
+        service_id=UUID(str(draft["service_id"])),
+        start_at=datetime.fromisoformat(str(draft["start_at"])),
+        end_at=datetime.fromisoformat(str(draft["end_at"])),
+        care_object_ids=tuple(
+            UUID(str(item)) for item in _string_list(draft["care_object_ids"])
+        ),
+        address_id=UUID(str(draft["address_id"])) if draft.get("address_id") else None,
+        customer_comment=str(draft["customer_comment"])
+        if draft.get("customer_comment")
+        else None,
+        report_photo_consent=consent_value if isinstance(consent_value, bool) else None,
     )

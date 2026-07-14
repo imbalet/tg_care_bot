@@ -125,7 +125,7 @@ class BackendPort(Protocol):
         objects_count: int,
     ) -> PricePreviewDTO: ...
 
-    async def create_order_draft(
+    async def create_order_pool(
         self,
         *,
         customer_id: UUID,
@@ -138,12 +138,17 @@ class BackendPort(Protocol):
         report_photo_consent: bool | None,
     ) -> OrderDTO: ...
 
-    async def publish_order_pool(self, *, order_id: UUID) -> OrderDTO: ...
-
-    async def publish_order_direct(
+    async def create_order_direct(
         self,
         *,
-        order_id: UUID,
+        customer_id: UUID,
+        service_id: UUID,
+        start_at: datetime,
+        end_at: datetime,
+        care_object_ids: tuple[UUID, ...],
+        address_id: UUID | None,
+        customer_comment: str | None,
+        report_photo_consent: bool | None,
         performer_id: UUID,
     ) -> OrderDTO: ...
 

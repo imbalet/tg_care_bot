@@ -502,27 +502,11 @@ async def _create_draft_and_show_summary(
         )
         address_id = UUID(str(draft["address_id"])) if draft.get("address_id") else None
         objects_count = int(str(draft["objects_count"]))
-        consent_value = draft.get("report_photo_consent")
-        report_photo_consent = (
-            consent_value if isinstance(consent_value, bool) else None
-        )
         price = await backend_client.preview_order_price(
             service_id=UUID(str(draft["service_id"])),
             start_at=start_at,
             end_at=end_at,
             objects_count=objects_count,
-        )
-        order = await backend_client.create_order_draft(
-            customer_id=profile.id,
-            service_id=UUID(str(draft["service_id"])),
-            start_at=start_at,
-            end_at=end_at,
-            care_object_ids=care_object_ids,
-            address_id=address_id,
-            customer_comment=str(draft["customer_comment"])
-            if draft.get("customer_comment")
-            else None,
-            report_photo_consent=report_photo_consent,
         )
         performers = await backend_client.find_suitable_performers(
             city_id=profile.city_id,
@@ -551,7 +535,6 @@ async def _create_draft_and_show_summary(
             text=retry_later_text(),
         )
         return
-    draft["order_id"] = str(order.id)
     await state.set_state(OrderCreation.publish)
     await state.update_data(
         order_draft=draft,
