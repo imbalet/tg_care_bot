@@ -5,6 +5,7 @@ from customer_bot.application.dto import ServiceCategoryDTO
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import TelegramResponder
+from customer_bot.presentation.types import ScreenKey
 from customer_bot.presentation.ui import (
     category_select_keyboard,
     category_select_text,
@@ -12,7 +13,7 @@ from customer_bot.presentation.ui import (
     main_menu_keyboard,
 )
 
-MAIN_MENU_KEY = "main"
+MAIN_MENU_KEY = ScreenKey.MAIN
 
 
 async def list_categories(

@@ -1,5 +1,7 @@
 from aiogram.filters.callback_data import CallbackData
 
+from customer_bot.presentation.types import ContactMethod, YesNoValue
+
 
 class HelpCallback(CallbackData, prefix="help"):
     pass
@@ -46,7 +48,7 @@ class RegistrationCityCallback(CallbackData, prefix="reg_city"):
 
 
 class RegistrationContactCallback(CallbackData, prefix="reg_contact"):
-    method: str
+    method: ContactMethod
 
 
 class RegistrationConfirmCallback(CallbackData, prefix="reg_confirm"):
@@ -86,7 +88,7 @@ class CareObjectSizeCallback(CallbackData, prefix="care_size"):
 
 
 class CareObjectMobilityCallback(CallbackData, prefix="care_mobility"):
-    value: str
+    value: YesNoValue
 
 
 class CareObjectSkipCallback(CallbackData, prefix="care_skip"):
@@ -138,7 +140,7 @@ class OrderAddressCallback(CallbackData, prefix="order_address"):
 
 
 class OrderPhotoConsentCallback(CallbackData, prefix="order_photo"):
-    value: str
+    value: YesNoValue
 
 
 class OrderCommentSkipCallback(CallbackData, prefix="order_comment_skip"):

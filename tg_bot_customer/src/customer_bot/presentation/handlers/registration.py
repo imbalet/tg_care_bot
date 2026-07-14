@@ -19,6 +19,7 @@ from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.navigation import show_category_select
 from customer_bot.presentation.services import TelegramResponder
+from customer_bot.presentation.types import ContactMethod
 from customer_bot.presentation.ui import (
     backend_rejected_registration_text,
     contact_methods_keyboard,
@@ -40,10 +41,10 @@ from customer_bot.presentation.ui import (
 
 router = Router(name="registration")
 
-CONTACT_METHOD_LABELS = {
-    "telegram": "Telegram",
-    "phone": "Телефон",
-    "both": "Telegram и телефон",
+CONTACT_METHOD_LABELS: dict[ContactMethod, str] = {
+    ContactMethod.TELEGRAM: "Telegram",
+    ContactMethod.PHONE: "Телефон",
+    ContactMethod.BOTH: "Telegram и телефон",
 }
 
 

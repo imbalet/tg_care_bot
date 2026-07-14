@@ -43,6 +43,7 @@ from customer_bot.presentation.callbacks import (
     ScenarioContinueCallback,
     ServicesPricesCallback,
 )
+from customer_bot.presentation.types import ContactMethod, YesNoValue
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.labels import MsgKey
 
@@ -117,9 +118,12 @@ def select_city_keyboard(cities: Sequence[CityButtonView]) -> InlineKeyboardMark
 def contact_methods_keyboard() -> InlineKeyboardMarkup:
     return (
         InlineKeyboardFactory()
-        .button("Telegram", RegistrationContactCallback(method="telegram"))
-        .button("Телефон", RegistrationContactCallback(method="phone"))
-        .button("Telegram и телефон", RegistrationContactCallback(method="both"))
+        .button("Telegram", RegistrationContactCallback(method=ContactMethod.TELEGRAM))
+        .button("Телефон", RegistrationContactCallback(method=ContactMethod.PHONE))
+        .button(
+            "Telegram и телефон",
+            RegistrationContactCallback(method=ContactMethod.BOTH),
+        )
         .as_markup()
     )
 
@@ -239,8 +243,8 @@ def care_object_size_keyboard() -> InlineKeyboardMarkup:
 def care_object_mobility_keyboard() -> InlineKeyboardMarkup:
     return (
         InlineKeyboardFactory()
-        .button("Нужна помощь", CareObjectMobilityCallback(value="yes"))
-        .button("Не нужна", CareObjectMobilityCallback(value="no"))
+        .button("Нужна помощь", CareObjectMobilityCallback(value=YesNoValue.YES))
+        .button("Не нужна", CareObjectMobilityCallback(value=YesNoValue.NO))
         .as_markup()
     )
 
@@ -325,8 +329,8 @@ def order_addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
 def order_photo_consent_keyboard() -> InlineKeyboardMarkup:
     return (
         InlineKeyboardFactory()
-        .button(MsgKey.ALLOW, OrderPhotoConsentCallback(value="yes"))
-        .button(MsgKey.DENY, OrderPhotoConsentCallback(value="no"))
+        .button(MsgKey.ALLOW, OrderPhotoConsentCallback(value=YesNoValue.YES))
+        .button(MsgKey.DENY, OrderPhotoConsentCallback(value=YesNoValue.NO))
         .as_markup()
     )
 

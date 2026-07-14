@@ -3,6 +3,7 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
 from customer_bot.application.ports import ScreenMessageStore
+from customer_bot.presentation.types import ScreenKey
 
 
 class TelegramResponder:
@@ -28,7 +29,7 @@ class TelegramResponder:
         bot: Bot,
         message: Message,
         telegram_id: int,
-        screen_key: str,
+        screen_key: ScreenKey,
         text: str,
         reply_markup: InlineKeyboardMarkup | None = None,
         create_new: bool = False,
@@ -54,7 +55,7 @@ class TelegramResponder:
         bot: Bot,
         event: Message | CallbackQuery,
         telegram_id: int,
-        screen_key: str,
+        screen_key: ScreenKey,
         text: str,
         reply_markup: InlineKeyboardMarkup | None = None,
         create_new: bool = False,

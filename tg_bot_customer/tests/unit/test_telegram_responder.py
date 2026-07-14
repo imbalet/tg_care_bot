@@ -4,6 +4,7 @@ import pytest
 from aiogram.types import Chat, Message
 
 from customer_bot.presentation.services import TelegramResponder
+from customer_bot.presentation.types import ScreenKey
 
 
 class FakeMessageStore:
@@ -63,7 +64,7 @@ async def test_telegram_responder_edits_stored_message_and_deletes_event(
         bot=bot,  # type: ignore[arg-type]
         event=_message(1),
         telegram_id=123,
-        screen_key="main",
+        screen_key=ScreenKey.MAIN,
         text="hello",
     )
 
@@ -92,7 +93,7 @@ async def test_telegram_responder_create_new_keeps_user_message(
         bot=bot,  # type: ignore[arg-type]
         event=_message(1),
         telegram_id=123,
-        screen_key="order",
+        screen_key=ScreenKey.ORDER,
         text="next step",
         create_new=True,
         delete_event_message=False,
@@ -116,7 +117,7 @@ async def test_telegram_responder_can_skip_storing_new_message() -> None:
         bot=bot,  # type: ignore[arg-type]
         event=_message(1),
         telegram_id=123,
-        screen_key="order",
+        screen_key=ScreenKey.ORDER,
         text="temporary",
         create_new=True,
         delete_event_message=False,

@@ -27,6 +27,7 @@ from customer_bot.presentation.navigation import (
     list_categories,
 )
 from customer_bot.presentation.services import TelegramResponder
+from customer_bot.presentation.types import YesNoValue
 from customer_bot.presentation.ui import (
     care_object_age_keyboard,
     care_object_age_step_text,
@@ -365,7 +366,7 @@ async def enter_mobility(
     value = callback_data.value
     data = await state.get_data()
     draft = _draft(data)
-    draft["mobility_assistance_required"] = value == "yes"
+    draft["mobility_assistance_required"] = value == YesNoValue.YES
     await state.update_data(draft=draft)
     await state.set_state(CareObjectManagement.notes)
     await send_step(

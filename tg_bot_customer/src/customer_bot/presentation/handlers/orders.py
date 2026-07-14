@@ -28,6 +28,7 @@ from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.navigation import active_category
 from customer_bot.presentation.services import TelegramResponder
+from customer_bot.presentation.types import YesNoValue
 from customer_bot.presentation.ui import (
     invalid_datetime_text,
     invalid_duration_text,
@@ -376,11 +377,9 @@ async def select_photo_consent(
     callback_data: OrderPhotoConsentCallback,
 ) -> None:
     value = callback_data.value
-    if value not in {"yes", "no"}:
-        return
     data = await state.get_data()
     draft = _draft(data)
-    draft["report_photo_consent"] = value == "yes"
+    draft["report_photo_consent"] = value == YesNoValue.YES
     await state.set_state(OrderCreation.comment)
     await state.update_data(order_draft=draft)
     await send_step(
