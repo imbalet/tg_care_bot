@@ -35,16 +35,16 @@ class DraftOrderCommand:
 
 
 @dataclass(frozen=True)
-class CreateDraftOrderCommand(DraftOrderCommand):
+class CreatePoolOrderCommand(DraftOrderCommand):
     pass
 
 
 @dataclass(frozen=True)
-class UpdateDraftOrderCommand(DraftOrderCommand):
-    order_id: UUID
+class CreateDirectOrderCommand(DraftOrderCommand):
+    performer_id: UUID
 
 
-class CreateDraftOrderUseCase:
+class CreatePoolOrderUseCase:
     def __init__(
         self,
         order_repository: OrderRepository,
@@ -53,19 +53,55 @@ class CreateDraftOrderUseCase:
         self._order_repository = order_repository
         self._pricing_repository = pricing_repository
 
-    async def execute(self, command: CreateDraftOrderCommand) -> OrderDTO:
+    async def execute(self, command: CreatePoolOrderCommand) -> OrderDTO:
         data, service, price, snapshots, deadline = await _prepare_draft(
             command,
             self._order_repository,
             self._pricing_repository,
         )
-        return await self._order_repository.create_draft(
+        return await self._order_repository.create_pool(
             data=data,
             service=service,
             price=price,
             object_snapshots=snapshots,
             matching_deadline_minutes=deadline,
         )
+
+
+class CreateDirectOrderUseCase:
+    def __init__(
+        self,
+        order_repository: OrderRepository,
+        pricing_repository: PricingRepository,
+    ) -> None:
+        self._order_repository = order_repository
+        self._pricing_repository = pricing_repository
+
+    async def execute(self, command: CreateDirectOrderCommand) -> OrderDTO:
+        response_window = await self._pricing_repository.get_integer_setting(
+            "direct_response_window_minutes",
+        )
+        if response_window is None:
+            raise ValidationError("Direct response window is not configured")
+        data, service, price, snapshots, deadline = await _prepare_draft(
+            command,
+            self._order_repository,
+            self._pricing_repository,
+        )
+        return await self._order_repository.create_direct(
+            data=data,
+            service=service,
+            price=price,
+            object_snapshots=snapshots,
+            matching_deadline_minutes=deadline,
+            performer_id=command.performer_id,
+            response_window_minutes=response_window,
+        )
+
+
+@dataclass(frozen=True)
+class UpdateDraftOrderCommand(DraftOrderCommand):
+    order_id: UUID
 
 
 class UpdateDraftOrderUseCase:
@@ -223,8 +259,10 @@ async def _prepare_draft(
 
 __all__ = [
     "CancelDraftOrderUseCase",
-    "CreateDraftOrderCommand",
-    "CreateDraftOrderUseCase",
+    "CreateDirectOrderCommand",
+    "CreateDirectOrderUseCase",
+    "CreatePoolOrderCommand",
+    "CreatePoolOrderUseCase",
     "PublishDirectOrderCommand",
     "PublishDirectOrderUseCase",
     "PublishPoolOrderUseCase",

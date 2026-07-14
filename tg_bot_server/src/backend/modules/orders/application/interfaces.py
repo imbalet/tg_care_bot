@@ -45,6 +45,30 @@ class OrderRepository(Protocol):
     ) -> OrderDTO:
         pass
 
+    async def create_pool(
+        self,
+        *,
+        data: DraftOrderData,
+        service: ServicePricingDTO,
+        price: PricePreviewDTO,
+        object_snapshots: tuple[OrderCareObjectSnapshot, ...],
+        matching_deadline_minutes: int,
+    ) -> OrderDTO:
+        pass
+
+    async def create_direct(
+        self,
+        *,
+        data: DraftOrderData,
+        service: ServicePricingDTO,
+        price: PricePreviewDTO,
+        object_snapshots: tuple[OrderCareObjectSnapshot, ...],
+        matching_deadline_minutes: int,
+        performer_id: UUID,
+        response_window_minutes: int,
+    ) -> OrderDTO:
+        pass
+
     async def replace_draft(
         self,
         *,

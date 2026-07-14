@@ -60,6 +60,70 @@ class SqlAlchemyOrderRepository:
         await self._session.flush()
         return _order_to_dto(model)
 
+    async def create_pool(
+        self,
+        *,
+        data: DraftOrderData,
+        service: ServicePricingDTO,
+        price: PricePreviewDTO,
+        object_snapshots: tuple[OrderCareObjectSnapshot, ...],
+        matching_deadline_minutes: int,
+    ) -> OrderDTO:
+        model = _build_order_model(
+            data=data,
+            service=service,
+            price=price,
+            matching_deadline_minutes=matching_deadline_minutes,
+        )
+        model.status = "searching"
+        model.matching_mode = "pool"
+        self._session.add(model)
+        await self._session.flush()
+        self._replace_children(model.id, object_snapshots, data.option_values)
+        self._add_status_history(model.id, None, "searching")
+        await self._session.flush()
+        return _order_to_dto(model)
+
+    async def create_direct(
+        self,
+        *,
+        data: DraftOrderData,
+        service: ServicePricingDTO,
+        price: PricePreviewDTO,
+        object_snapshots: tuple[OrderCareObjectSnapshot, ...],
+        matching_deadline_minutes: int,
+        performer_id: UUID,
+        response_window_minutes: int,
+    ) -> OrderDTO:
+        model = _build_order_model(
+            data=data,
+            service=service,
+            price=price,
+            matching_deadline_minutes=matching_deadline_minutes,
+        )
+        model.status = "searching"
+        model.matching_mode = "direct"
+        self._session.add(model)
+        await self._session.flush()
+        if not await self._performer_can_receive_direct(model, performer_id):
+            raise ValidationError("Performer is not suitable for direct order")
+        now = utc_now()
+        self._session.add(
+            OrderMatchModel(
+                order_id=model.id,
+                performer_id=performer_id,
+                source="direct",
+                status="pending",
+                starts_at=model.start_at,
+                ends_at=model.end_at,
+                response_expires_at=now + timedelta(minutes=response_window_minutes),
+            ),
+        )
+        self._replace_children(model.id, object_snapshots, data.option_values)
+        self._add_status_history(model.id, None, "searching")
+        await self._session.flush()
+        return _order_to_dto(model)
+
     async def replace_draft(
         self,
         *,

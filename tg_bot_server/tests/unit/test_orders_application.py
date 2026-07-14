@@ -7,14 +7,14 @@ import pytest
 
 from backend.common.domain import ValidationError
 from backend.modules.orders.application import (
-    CreateDraftOrderCommand,
-    CreateDraftOrderUseCase,
+    CreateDirectOrderCommand,
+    CreateDirectOrderUseCase,
+    CreatePoolOrderCommand,
+    CreatePoolOrderUseCase,
     DraftOrderData,
     OrderCareObjectSnapshot,
     OrderDTO,
     PricePreviewDTO,
-    PublishDirectOrderCommand,
-    PublishDirectOrderUseCase,
     ServicePricingDTO,
 )
 
@@ -44,6 +44,45 @@ class FakeOrderRepository:
             data=data,
             status="draft",
             matching_mode=None,
+            matching_deadline_minutes=matching_deadline_minutes,
+        )
+
+    async def create_pool(
+        self,
+        *,
+        data: DraftOrderData,
+        service: ServicePricingDTO,
+        price: PricePreviewDTO,
+        object_snapshots: tuple[OrderCareObjectSnapshot, ...],
+        matching_deadline_minutes: int,
+    ) -> OrderDTO:
+        return _order_dto(
+            service=service,
+            price=price,
+            data=data,
+            status="searching",
+            matching_mode="pool",
+            matching_deadline_minutes=matching_deadline_minutes,
+        )
+
+    async def create_direct(
+        self,
+        *,
+        data: DraftOrderData,
+        service: ServicePricingDTO,
+        price: PricePreviewDTO,
+        object_snapshots: tuple[OrderCareObjectSnapshot, ...],
+        matching_deadline_minutes: int,
+        performer_id: UUID,
+        response_window_minutes: int,
+    ) -> OrderDTO:
+        self.published_direct_window = response_window_minutes
+        return _order_dto(
+            service=service,
+            price=price,
+            data=data,
+            status="searching",
+            matching_mode="direct",
             matching_deadline_minutes=matching_deadline_minutes,
         )
 
@@ -178,22 +217,22 @@ def make_service(photo_policy: str = "requires_customer_consent") -> ServicePric
 
 
 @pytest.mark.asyncio
-async def test_create_draft_requires_photo_consent_for_policy() -> None:
+async def test_create_pool_requires_photo_consent_for_policy() -> None:
     order_repository = FakeOrderRepository()
     service = make_service()
 
     with pytest.raises(ValidationError):
-        await CreateDraftOrderUseCase(
+        await CreatePoolOrderUseCase(
             order_repository,
             FakePricingRepository(service),
-        ).execute(_draft_command(order_repository, service, report_photo_consent=None))
+        ).execute(_order_command(order_repository, service, report_photo_consent=None))
 
 
 @pytest.mark.asyncio
-async def test_create_draft_rejects_inactive_care_object() -> None:
+async def test_create_pool_rejects_inactive_care_object() -> None:
     order_repository = FakeOrderRepository()
     service = make_service(photo_policy="required")
-    command = _draft_command(
+    command = _order_command(
         order_repository,
         service,
         care_object_ids=(uuid4(),),
@@ -201,36 +240,38 @@ async def test_create_draft_rejects_inactive_care_object() -> None:
     )
 
     with pytest.raises(ValidationError):
-        await CreateDraftOrderUseCase(
+        await CreatePoolOrderUseCase(
             order_repository,
             FakePricingRepository(service),
         ).execute(command)
 
 
 @pytest.mark.asyncio
-async def test_publish_direct_uses_configured_response_window() -> None:
+async def test_create_direct_uses_configured_response_window() -> None:
     order_repository = FakeOrderRepository()
     service = make_service(photo_policy="required")
 
-    order = await PublishDirectOrderUseCase(
+    command = _direct_order_command(order_repository, service)
+
+    order = await CreateDirectOrderUseCase(
         order_repository,
         FakePricingRepository(service),
-    ).execute(PublishDirectOrderCommand(order_id=uuid4(), performer_id=uuid4()))
+    ).execute(command)
 
     assert order.status == "searching"
     assert order.matching_mode == "direct"
     assert order_repository.published_direct_window == 180
 
 
-def _draft_command(
+def _order_command(
     repository: FakeOrderRepository,
     service: ServicePricingDTO,
     *,
     care_object_ids: tuple[UUID, ...] | None = None,
     report_photo_consent: bool | None = True,
-) -> CreateDraftOrderCommand:
+) -> CreatePoolOrderCommand:
     now = datetime.now(UTC)
-    return CreateDraftOrderCommand(
+    return CreatePoolOrderCommand(
         customer_id=repository.customer_id,
         service_id=service.service_id,
         start_at=now + timedelta(hours=8),
@@ -240,6 +281,25 @@ def _draft_command(
         customer_comment=None,
         report_photo_consent=report_photo_consent,
         option_values={},
+    )
+
+
+def _direct_order_command(
+    repository: FakeOrderRepository,
+    service: ServicePricingDTO,
+) -> CreateDirectOrderCommand:
+    pool_command = _order_command(repository, service, report_photo_consent=None)
+    return CreateDirectOrderCommand(
+        performer_id=uuid4(),
+        customer_id=pool_command.customer_id,
+        service_id=pool_command.service_id,
+        start_at=pool_command.start_at,
+        end_at=pool_command.end_at,
+        care_object_ids=pool_command.care_object_ids,
+        address_id=pool_command.address_id,
+        customer_comment=pool_command.customer_comment,
+        report_photo_consent=pool_command.report_photo_consent,
+        option_values=pool_command.option_values,
     )
 
 

@@ -12,16 +12,12 @@ from backend.common.presentation import require_service_key
 from backend.modules.orders.application import (
     CalculatePricePreviewCommand,
     CalculatePricePreviewUseCase,
-    CancelDraftOrderUseCase,
-    CreateDraftOrderCommand,
-    CreateDraftOrderUseCase,
+    CreateDirectOrderCommand,
+    CreateDirectOrderUseCase,
+    CreatePoolOrderCommand,
+    CreatePoolOrderUseCase,
     OrderDTO,
     PricePreviewDTO,
-    PublishDirectOrderCommand,
-    PublishDirectOrderUseCase,
-    PublishPoolOrderUseCase,
-    UpdateDraftOrderCommand,
-    UpdateDraftOrderUseCase,
 )
 from backend.modules.orders.infrastructure import (
     SqlAlchemyOrderRepository,
@@ -42,7 +38,7 @@ class PricePreviewRequest(BaseModel):
     objects_count: int = Field(ge=1)
 
 
-class DraftOrderRequest(BaseModel):
+class OrderRequest(BaseModel):
     customer_id: UUID
     service_id: UUID
     start_at: datetime
@@ -54,7 +50,7 @@ class DraftOrderRequest(BaseModel):
     option_values: dict[UUID, Any] = Field(default_factory=dict)
 
 
-class PublishDirectRequest(BaseModel):
+class DirectOrderRequest(OrderRequest):
     performer_id: UUID
 
 
@@ -98,77 +94,30 @@ class PricePreviewResponse(BaseModel):
     hold_limit_checked: bool
 
 
-@router.post("/drafts", status_code=201)
-async def create_draft(
-    request: DraftOrderRequest,
+@router.post("/pool", status_code=201)
+async def create_pool(
+    request: OrderRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderResponse:
     async with container.session_factory() as session:
-        order = await CreateDraftOrderUseCase(
+        order = await CreatePoolOrderUseCase(
             SqlAlchemyOrderRepository(session),
             SqlAlchemyPricingRepository(session),
-        ).execute(_create_draft_command(request))
+        ).execute(_create_pool_command(request))
         await session.commit()
     return _order_response(order)
 
 
-@router.put("/drafts/{order_id}")
-async def update_draft(
-    order_id: UUID,
-    request: DraftOrderRequest,
+@router.post("/direct", status_code=201)
+async def create_direct(
+    request: DirectOrderRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderResponse:
     async with container.session_factory() as session:
-        order = await UpdateDraftOrderUseCase(
+        order = await CreateDirectOrderUseCase(
             SqlAlchemyOrderRepository(session),
             SqlAlchemyPricingRepository(session),
-        ).execute(_update_draft_command(order_id, request))
-        await session.commit()
-    return _order_response(order)
-
-
-@router.post("/drafts/{order_id}/cancel")
-async def cancel_draft(
-    order_id: UUID,
-    container: Annotated[Container, Depends(get_container)],
-) -> OrderResponse:
-    async with container.session_factory() as session:
-        order = await CancelDraftOrderUseCase(
-            SqlAlchemyOrderRepository(session),
-        ).execute(order_id)
-        await session.commit()
-    return _order_response(order)
-
-
-@router.post("/drafts/{order_id}/publish-pool")
-async def publish_pool(
-    order_id: UUID,
-    container: Annotated[Container, Depends(get_container)],
-) -> OrderResponse:
-    async with container.session_factory() as session:
-        order = await PublishPoolOrderUseCase(
-            SqlAlchemyOrderRepository(session),
-        ).execute(order_id)
-        await session.commit()
-    return _order_response(order)
-
-
-@router.post("/drafts/{order_id}/publish-direct")
-async def publish_direct(
-    order_id: UUID,
-    request: PublishDirectRequest,
-    container: Annotated[Container, Depends(get_container)],
-) -> OrderResponse:
-    async with container.session_factory() as session:
-        order = await PublishDirectOrderUseCase(
-            SqlAlchemyOrderRepository(session),
-            SqlAlchemyPricingRepository(session),
-        ).execute(
-            PublishDirectOrderCommand(
-                order_id=order_id,
-                performer_id=request.performer_id,
-            ),
-        )
+        ).execute(_create_direct_command(request))
         await session.commit()
     return _order_response(order)
 
@@ -192,8 +141,8 @@ async def price_preview(
     return _price_preview_response(preview)
 
 
-def _create_draft_command(request: DraftOrderRequest) -> CreateDraftOrderCommand:
-    return CreateDraftOrderCommand(
+def _create_pool_command(request: OrderRequest) -> CreatePoolOrderCommand:
+    return CreatePoolOrderCommand(
         customer_id=request.customer_id,
         service_id=request.service_id,
         start_at=request.start_at,
@@ -206,12 +155,9 @@ def _create_draft_command(request: DraftOrderRequest) -> CreateDraftOrderCommand
     )
 
 
-def _update_draft_command(
-    order_id: UUID,
-    request: DraftOrderRequest,
-) -> UpdateDraftOrderCommand:
-    return UpdateDraftOrderCommand(
-        order_id=order_id,
+def _create_direct_command(request: DirectOrderRequest) -> CreateDirectOrderCommand:
+    return CreateDirectOrderCommand(
+        performer_id=request.performer_id,
         customer_id=request.customer_id,
         service_id=request.service_id,
         start_at=request.start_at,
