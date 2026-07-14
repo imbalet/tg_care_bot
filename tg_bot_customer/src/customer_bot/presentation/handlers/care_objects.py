@@ -26,7 +26,7 @@ from customer_bot.presentation.navigation import (
     category_by_code,
     list_categories,
 )
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     care_object_age_keyboard,
     care_object_age_step_text,
@@ -71,7 +71,7 @@ async def open_care_objects(
     state: FSMContext,
     backend_client: BackendPort,
     active_category_store: ActiveCategoryStore,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectsOpenCallback,
 ) -> None:
@@ -94,7 +94,7 @@ async def open_care_objects(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -103,7 +103,7 @@ async def open_care_objects(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_objects_list_text(len(items), category),
         reply_markup=care_objects_keyboard(items, object_type=object_type),
@@ -115,7 +115,7 @@ async def select_care_object(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectSelectCallback,
 ) -> None:
@@ -124,7 +124,7 @@ async def select_care_object(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=use_buttons_text(),
         )
@@ -135,7 +135,7 @@ async def select_care_object(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_card_text(item),
         reply_markup=care_object_card_keyboard(index),
@@ -147,7 +147,7 @@ async def add_care_object(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectAddCallback,
 ) -> None:
@@ -159,7 +159,7 @@ async def add_care_object(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_name_step_text(CARE_OBJECT_TYPE_LABELS[object_type]),
     )
@@ -170,14 +170,14 @@ async def enter_name(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text="Введите имя текстом.",
         )
@@ -190,7 +190,7 @@ async def enter_name(
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_age_step_text(),
         reply_markup=care_object_age_keyboard(str(draft["object_type"])),
@@ -205,7 +205,7 @@ async def enter_age(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectAgeCallback,
 ) -> None:
@@ -220,7 +220,7 @@ async def enter_age(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=care_object_species_step_text(),
         )
@@ -230,7 +230,7 @@ async def enter_age(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=care_object_mobility_step_text(),
             reply_markup=care_object_mobility_keyboard(),
@@ -240,7 +240,7 @@ async def enter_age(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_notes_step_text(),
         reply_markup=care_object_skip_keyboard(),
@@ -252,14 +252,14 @@ async def enter_species(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text="Введите вид питомца текстом.",
         )
@@ -272,7 +272,7 @@ async def enter_species(
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_breed_step_text(),
         reply_markup=care_object_skip_keyboard(),
@@ -284,7 +284,7 @@ async def enter_breed(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -296,7 +296,7 @@ async def enter_breed(
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_size_step_text(),
         reply_markup=care_object_size_keyboard(),
@@ -308,14 +308,14 @@ async def skip_breed(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.set_state(CareObjectManagement.size)
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_size_step_text(),
         reply_markup=care_object_size_keyboard(),
@@ -330,7 +330,7 @@ async def enter_size(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectSizeCallback,
 ) -> None:
@@ -343,7 +343,7 @@ async def enter_size(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_notes_step_text(),
         reply_markup=care_object_skip_keyboard(),
@@ -358,7 +358,7 @@ async def enter_mobility(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectMobilityCallback,
 ) -> None:
@@ -371,7 +371,7 @@ async def enter_mobility(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_notes_step_text(),
         reply_markup=care_object_skip_keyboard(),
@@ -384,7 +384,7 @@ async def enter_notes(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -392,7 +392,13 @@ async def enter_notes(
     if message.text and message.text.strip():
         draft["routine_notes"] = message.text.strip()
     await _create_from_draft(
-        message, bot, state, backend_client, menu_manager, telegram_user_context, draft
+        message,
+        bot,
+        state,
+        backend_client,
+        telegram_responder,
+        telegram_user_context,
+        draft,
     )
 
 
@@ -402,7 +408,7 @@ async def skip_notes(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -411,7 +417,7 @@ async def skip_notes(
         bot,
         state,
         backend_client,
-        menu_manager,
+        telegram_responder,
         telegram_user_context,
         _draft(data),
     )
@@ -422,7 +428,7 @@ async def edit_care_object(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectEditCallback,
 ) -> None:
@@ -434,7 +440,7 @@ async def edit_care_object(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text="Введите новое имя карточки.",
     )
@@ -446,14 +452,14 @@ async def enter_edit_name(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text="Введите имя текстом.",
         )
@@ -479,7 +485,7 @@ async def enter_edit_name(
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -488,7 +494,7 @@ async def enter_edit_name(
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_created_text(),
     )
@@ -500,7 +506,7 @@ async def delete_care_object(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectDeleteCallback,
 ) -> None:
@@ -516,7 +522,7 @@ async def delete_care_object(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -524,7 +530,7 @@ async def delete_care_object(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_deleted_text(),
     )
@@ -535,7 +541,7 @@ async def _create_from_draft(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
 ) -> None:
@@ -558,7 +564,7 @@ async def _create_from_draft(
         await send_step(
             bot=bot,
             event=event,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text="Backend отклонил данные карточки. Начните заново.",
         )
@@ -568,7 +574,7 @@ async def _create_from_draft(
         await send_step(
             bot=bot,
             event=event,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -577,7 +583,7 @@ async def _create_from_draft(
     await send_step(
         bot=bot,
         event=event,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_created_text(),
     )

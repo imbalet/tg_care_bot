@@ -5,7 +5,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from customer_bot.application.ports import MenuMessageStore
 
 
-class MenuManager:
+class TelegramResponder:
     def __init__(
         self,
         *,

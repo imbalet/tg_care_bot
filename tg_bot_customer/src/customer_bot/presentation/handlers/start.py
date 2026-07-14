@@ -13,7 +13,7 @@ from customer_bot.presentation.navigation import (
     show_category_menu,
     show_category_select,
 )
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     fallback_keyboard,
     help_text,
@@ -31,7 +31,7 @@ async def start(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -39,7 +39,7 @@ async def start(
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=unfinished_action_text(),
             reply_markup=unfinished_action_keyboard(),
@@ -50,7 +50,7 @@ async def start(
         bot=bot,
         state=state,
         backend_client=backend_client,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         active_category_store=active_category_store,
         telegram_user_context=telegram_user_context,
         start_registration_if_missing=True,
@@ -63,7 +63,7 @@ async def menu(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -72,7 +72,7 @@ async def menu(
         bot=bot,
         state=state,
         backend_client=backend_client,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         active_category_store=active_category_store,
         telegram_user_context=telegram_user_context,
         start_registration_if_missing=False,
@@ -85,7 +85,7 @@ async def cancel(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -95,7 +95,7 @@ async def cancel(
         bot=bot,
         state=state,
         backend_client=backend_client,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         active_category_store=active_category_store,
         telegram_user_context=telegram_user_context,
         start_registration_if_missing=False,
@@ -107,7 +107,7 @@ async def help_command(
     message: Message,
     bot: Bot,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     include_main_menu = False
@@ -117,7 +117,7 @@ async def help_command(
         ) is not None
     except BackendClientError:
         include_main_menu = False
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
@@ -133,7 +133,7 @@ async def _open_start_or_menu(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
     start_registration_if_missing: bool,
@@ -146,7 +146,7 @@ async def _open_start_or_menu(
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -163,14 +163,14 @@ async def _open_start_or_menu(
                 event=message,
                 telegram_user_context=telegram_user_context,
                 backend_client=backend_client,
-                menu_manager=menu_manager,
+                telegram_responder=telegram_responder,
             )
             return
         await show_category_menu(
             bot=bot,
             event=message,
             telegram_user_context=telegram_user_context,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             category=category,
         )
         return
@@ -180,14 +180,14 @@ async def _open_start_or_menu(
             state,
             backend_client,
             bot,
-            menu_manager,
+            telegram_responder,
             telegram_user_context,
         )
         return
     await send_screen(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=False),

@@ -33,7 +33,7 @@ from customer_bot.presentation.middlewares import (
     TelegramUserContextMiddleware,
     TelegramUsernameSyncMiddleware,
 )
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.services import TelegramResponder
 
 
 async def main() -> None:
@@ -76,7 +76,7 @@ async def main() -> None:
         backend=backend_client,
         cache=username_sync_cache,
     )
-    menu_manager = MenuManager(
+    telegram_responder = TelegramResponder(
         message_store=menu_message_store,
     )
     try:
@@ -92,7 +92,7 @@ async def main() -> None:
             bot,
             app_context=AppContext(
                 backend_client=backend_client,
-                menu_manager=menu_manager,
+                telegram_responder=telegram_responder,
                 active_category_store=active_category_store,
                 username_sync_service=username_sync_service,
             ),

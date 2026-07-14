@@ -16,7 +16,7 @@ class AppContextMiddleware(BaseMiddleware):
     ) -> Any:
         app_context = get_app_context(data)
         data["backend_client"] = app_context.backend_client
-        data["menu_manager"] = app_context.menu_manager
+        data["telegram_responder"] = app_context.telegram_responder
         data["active_category_store"] = app_context.active_category_store
         data["username_sync_service"] = app_context.username_sync_service
         return await handler(event, data)

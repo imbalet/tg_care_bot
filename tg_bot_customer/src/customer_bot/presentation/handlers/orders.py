@@ -27,7 +27,7 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.navigation import active_category
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     invalid_datetime_text,
     invalid_duration_text,
@@ -77,7 +77,7 @@ async def start_order_creation(
     state: FSMContext,
     backend_client: BackendPort,
     active_category_store: ActiveCategoryStore,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     try:
@@ -90,7 +90,7 @@ async def start_order_creation(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -99,7 +99,7 @@ async def start_order_creation(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=use_buttons_text(),
         )
@@ -109,7 +109,7 @@ async def start_order_creation(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=order_no_services_text(),
         )
@@ -126,7 +126,7 @@ async def start_order_creation(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_services_step_text(),
         reply_markup=order_services_keyboard(services),
@@ -139,7 +139,7 @@ async def select_service(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: OrderServiceCallback,
 ) -> None:
@@ -165,7 +165,7 @@ async def select_service(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -174,7 +174,7 @@ async def select_service(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=order_no_objects_text(str(service["care_object_type"])),
         )
@@ -187,7 +187,7 @@ async def select_service(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_objects_step_text(),
         reply_markup=order_objects_keyboard(objects),
@@ -199,7 +199,7 @@ async def select_object(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: OrderObjectCallback,
 ) -> None:
@@ -215,7 +215,7 @@ async def select_object(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_start_step_text(),
     )
@@ -226,14 +226,14 @@ async def enter_start(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text:
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=invalid_datetime_text(),
         )
@@ -243,7 +243,7 @@ async def enter_start(
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=invalid_datetime_text(),
         )
@@ -256,7 +256,7 @@ async def enter_start(
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_duration_step_text(),
     )
@@ -268,7 +268,7 @@ async def enter_duration(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     hours = _parse_duration_hours(message.text)
@@ -276,7 +276,7 @@ async def enter_duration(
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=invalid_duration_text(),
         )
@@ -292,7 +292,7 @@ async def enter_duration(
             message,
             bot,
             state,
-            menu_manager,
+            telegram_responder,
             telegram_user_context,
         )
         return
@@ -304,7 +304,7 @@ async def enter_duration(
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -313,7 +313,7 @@ async def enter_duration(
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=order_no_addresses_text(),
         )
@@ -331,7 +331,7 @@ async def enter_duration(
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_address_step_text(),
         reply_markup=order_addresses_keyboard(addresses),
@@ -343,7 +343,7 @@ async def select_address(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: OrderAddressCallback,
 ) -> None:
@@ -358,7 +358,7 @@ async def select_address(
         callback,
         bot,
         state,
-        menu_manager,
+        telegram_responder,
         telegram_user_context,
     )
 
@@ -371,7 +371,7 @@ async def select_photo_consent(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: OrderPhotoConsentCallback,
 ) -> None:
@@ -386,7 +386,7 @@ async def select_photo_consent(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_comment_step_text(),
         reply_markup=order_comment_skip_keyboard(),
@@ -399,7 +399,7 @@ async def enter_comment(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -411,7 +411,7 @@ async def enter_comment(
         bot,
         state,
         backend_client,
-        menu_manager,
+        telegram_responder,
         telegram_user_context,
         draft,
     )
@@ -423,7 +423,7 @@ async def skip_comment(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -432,7 +432,7 @@ async def skip_comment(
         bot,
         state,
         backend_client,
-        menu_manager,
+        telegram_responder,
         telegram_user_context,
         _draft(data),
     )
@@ -444,7 +444,7 @@ async def publish_pool(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -457,7 +457,7 @@ async def publish_pool(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -466,7 +466,7 @@ async def publish_pool(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_published_text(order),
     )
@@ -481,7 +481,7 @@ async def publish_direct(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: OrderPublishDirectCallback,
 ) -> None:
@@ -499,7 +499,7 @@ async def publish_direct(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -508,7 +508,7 @@ async def publish_direct(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_published_text(order),
     )
@@ -518,7 +518,7 @@ async def _ask_photo_or_comment(
     event: Message | CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -528,7 +528,7 @@ async def _ask_photo_or_comment(
         await send_step(
             bot=bot,
             event=event,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=order_photo_consent_step_text(),
             reply_markup=order_photo_consent_keyboard(),
@@ -540,7 +540,7 @@ async def _ask_photo_or_comment(
     await send_step(
         bot=bot,
         event=event,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_comment_step_text(),
         reply_markup=order_comment_skip_keyboard(),
@@ -552,7 +552,7 @@ async def _create_draft_and_show_summary(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
 ) -> None:
@@ -564,7 +564,7 @@ async def _create_draft_and_show_summary(
             await send_step(
                 bot=bot,
                 event=event,
-                menu_manager=menu_manager,
+                telegram_responder=telegram_responder,
                 telegram_user_context=telegram_user_context,
                 text=use_buttons_text(),
             )
@@ -611,7 +611,7 @@ async def _create_draft_and_show_summary(
         await send_step(
             bot=bot,
             event=event,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=use_buttons_text(),
         )
@@ -620,7 +620,7 @@ async def _create_draft_and_show_summary(
         await send_step(
             bot=bot,
             event=event,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -634,7 +634,7 @@ async def _create_draft_and_show_summary(
     await send_step(
         bot=bot,
         event=event,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_draft_summary_text(price=price, performers_count=len(performers)),
         reply_markup=order_publish_keyboard(performers),

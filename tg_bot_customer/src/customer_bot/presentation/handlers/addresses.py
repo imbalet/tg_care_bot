@@ -19,7 +19,7 @@ from customer_bot.presentation.callbacks import (
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.responses import send_step
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     address_card_keyboard,
     address_card_text,
@@ -61,7 +61,7 @@ async def open_addresses(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     try:
@@ -72,7 +72,7 @@ async def open_addresses(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=address_validation_error_text(str(exc)),
         )
@@ -81,7 +81,7 @@ async def open_addresses(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -90,7 +90,7 @@ async def open_addresses(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=addresses_list_text(len(items)),
         reply_markup=addresses_keyboard(items),
@@ -103,7 +103,7 @@ async def add_address(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     try:
@@ -112,7 +112,7 @@ async def add_address(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=address_validation_error_text(str(exc)),
         )
@@ -121,7 +121,7 @@ async def add_address(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -135,7 +135,7 @@ async def add_address(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=address_city_step_text(),
         reply_markup=address_city_keyboard(cities),
@@ -147,7 +147,7 @@ async def select_city(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: AddressCityCallback,
 ) -> None:
@@ -163,7 +163,7 @@ async def select_city(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=address_query_step_text(),
     )
@@ -175,14 +175,14 @@ async def enter_query(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text="Введите адрес текстом.",
         )
@@ -198,7 +198,7 @@ async def enter_query(
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -207,7 +207,7 @@ async def enter_query(
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text="Адрес не найден. Уточните строку.",
         )
@@ -222,7 +222,7 @@ async def enter_query(
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=address_suggestion_step_text(),
         reply_markup=address_suggestions_keyboard(suggestions),
@@ -237,7 +237,7 @@ async def select_suggestion(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: AddressSuggestionCallback,
 ) -> None:
@@ -259,7 +259,7 @@ async def select_suggestion(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=address_extra_step_text(EXTRA_FIELDS[0][1]),
         reply_markup=address_skip_keyboard(),
@@ -272,7 +272,7 @@ async def enter_extra(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -281,7 +281,13 @@ async def enter_extra(
     if message.text and message.text.strip():
         draft[EXTRA_FIELDS[index][0]] = message.text.strip()
     await _advance_or_create(
-        message, bot, state, backend_client, menu_manager, telegram_user_context, draft
+        message,
+        bot,
+        state,
+        backend_client,
+        telegram_responder,
+        telegram_user_context,
+        draft,
     )
 
 
@@ -291,7 +297,7 @@ async def skip_extra(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -300,7 +306,7 @@ async def skip_extra(
         bot,
         state,
         backend_client,
-        menu_manager,
+        telegram_responder,
         telegram_user_context,
         _draft(data),
     )
@@ -311,7 +317,7 @@ async def select_address(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: AddressSelectCallback,
 ) -> None:
@@ -324,7 +330,7 @@ async def select_address(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=address_card_text(item),
         reply_markup=address_card_keyboard(index),
@@ -337,7 +343,7 @@ async def delete_address(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: AddressDeleteCallback,
 ) -> None:
@@ -353,7 +359,7 @@ async def delete_address(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -361,7 +367,7 @@ async def delete_address(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=address_deleted_text(),
     )
@@ -372,7 +378,7 @@ async def _advance_or_create(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
 ) -> None:
@@ -383,7 +389,7 @@ async def _advance_or_create(
         await send_step(
             bot=bot,
             event=event,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=address_extra_step_text(EXTRA_FIELDS[index][1]),
             reply_markup=address_skip_keyboard(),
@@ -403,7 +409,7 @@ async def _advance_or_create(
         await send_step(
             bot=bot,
             event=event,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -412,7 +418,7 @@ async def _advance_or_create(
     await send_step(
         bot=bot,
         event=event,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=address_created_text(),
     )

@@ -18,7 +18,7 @@ from customer_bot.presentation.navigation import (
     show_category_menu,
     show_category_select,
 )
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     customer_profile_text,
     fallback_keyboard,
@@ -36,7 +36,7 @@ async def main_menu_callback(
     bot: Bot,
     backend_client: BackendPort,
     active_category_store: ActiveCategoryStore,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     try:
@@ -44,7 +44,7 @@ async def main_menu_callback(
             telegram_user_context.telegram_id,
         )
         if profile is None:
-            await menu_manager.update(
+            await telegram_responder.update(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
@@ -64,21 +64,21 @@ async def main_menu_callback(
                 event=callback,
                 telegram_user_context=telegram_user_context,
                 backend_client=backend_client,
-                menu_manager=menu_manager,
+                telegram_responder=telegram_responder,
             )
             return
         await show_category_menu(
             bot=bot,
             event=callback,
             telegram_user_context=telegram_user_context,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             category=category,
         )
     except BackendClientError:
         await _show_unavailable(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
         )
 
@@ -89,7 +89,7 @@ async def help_callback(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     include_main_menu = await state.get_state() is None
@@ -103,7 +103,7 @@ async def help_callback(
             )
         except BackendClientError:
             include_main_menu = False
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
@@ -118,7 +118,7 @@ async def profile_callback(
     callback: CallbackQuery,
     bot: Bot,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     try:
@@ -129,12 +129,12 @@ async def profile_callback(
         await _show_unavailable(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
         )
         return
     if profile is None:
-        await menu_manager.update(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
@@ -143,7 +143,7 @@ async def profile_callback(
             reply_markup=fallback_keyboard(),
         )
         return
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
@@ -158,10 +158,10 @@ async def profile_callback(
 async def unavailable_section(
     callback: CallbackQuery,
     bot: Bot,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
@@ -175,13 +175,13 @@ async def unavailable_section(
 async def unknown_callback(
     callback: CallbackQuery,
     bot: Bot,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await _show_unavailable(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
     )
 
@@ -190,10 +190,10 @@ async def unknown_callback(
 async def unknown_message(
     message: Message,
     bot: Bot,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
@@ -207,10 +207,10 @@ async def _show_unavailable(
     *,
     bot: Bot,
     event: CallbackQuery,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,

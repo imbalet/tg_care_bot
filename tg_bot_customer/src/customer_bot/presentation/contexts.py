@@ -2,13 +2,13 @@ from dataclasses import dataclass
 
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.application.services import UsernameSyncService
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.services import TelegramResponder
 
 
 @dataclass(frozen=True)
 class AppContext:
     backend_client: BackendPort
-    menu_manager: MenuManager
+    telegram_responder: TelegramResponder
     active_category_store: ActiveCategoryStore
     username_sync_service: UsernameSyncService
 

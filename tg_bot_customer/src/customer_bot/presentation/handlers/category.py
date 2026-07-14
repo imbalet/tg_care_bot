@@ -18,7 +18,7 @@ from customer_bot.presentation.navigation import (
     show_category_menu,
     show_category_select,
 )
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     fallback_keyboard,
     help_text,
@@ -36,7 +36,7 @@ async def select_category(
     bot: Bot,
     backend_client: BackendPort,
     active_category_store: ActiveCategoryStore,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: CategorySelectCallback,
 ) -> None:
@@ -45,7 +45,7 @@ async def select_category(
             telegram_user_context.telegram_id,
         )
         if profile is None:
-            await menu_manager.update(
+            await telegram_responder.update(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
@@ -59,7 +59,7 @@ async def select_category(
         await _show_unavailable(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
         )
         return
@@ -70,7 +70,7 @@ async def select_category(
             event=callback,
             telegram_user_context=telegram_user_context,
             backend_client=backend_client,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
         )
         return
     await active_category_store.set(
@@ -81,7 +81,7 @@ async def select_category(
         bot=bot,
         event=callback,
         telegram_user_context=telegram_user_context,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         category=category,
     )
 
@@ -92,11 +92,11 @@ async def change_category(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if await state.get_state() is not None:
-        await menu_manager.update(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
@@ -111,13 +111,13 @@ async def change_category(
             event=callback,
             telegram_user_context=telegram_user_context,
             backend_client=backend_client,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
         )
     except BackendClientError:
         await _show_unavailable(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
         )
 
@@ -125,9 +125,9 @@ async def change_category(
 @router.callback_query(ScenarioContinueCallback.filter())
 async def continue_scenario(
     callback: CallbackQuery,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
 ) -> None:
-    await menu_manager.acknowledge(callback, "Продолжайте текущий сценарий")
+    await telegram_responder.acknowledge(callback, "Продолжайте текущий сценарий")
 
 
 @router.callback_query(ScenarioCancelCallback.filter())
@@ -136,7 +136,7 @@ async def cancel_scenario(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.clear()
@@ -146,13 +146,13 @@ async def cancel_scenario(
             event=callback,
             telegram_user_context=telegram_user_context,
             backend_client=backend_client,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
         )
     except BackendClientError:
         await _show_unavailable(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
         )
 
@@ -161,10 +161,10 @@ async def _show_unavailable(
     *,
     bot: Bot,
     event: CallbackQuery,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,

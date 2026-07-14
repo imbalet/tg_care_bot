@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import pytest
 from aiogram.types import Chat, Message
 
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.services import TelegramResponder
 
 
 class FakeMessageStore:
@@ -46,7 +46,7 @@ def _message(message_id: int) -> Message:
 
 
 @pytest.mark.asyncio
-async def test_menu_manager_edits_stored_message_and_deletes_event(
+async def test_telegram_responder_edits_stored_message_and_deletes_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     deleted: list[int] = []
@@ -57,7 +57,7 @@ async def test_menu_manager_edits_stored_message_and_deletes_event(
     monkeypatch.setattr(Message, "delete", delete)
     bot = FakeBot()
     store = FakeMessageStore(value=42)
-    manager = MenuManager(message_store=store)
+    manager = TelegramResponder(message_store=store)
 
     await manager.update(
         bot=bot,  # type: ignore[arg-type]
@@ -75,7 +75,7 @@ async def test_menu_manager_edits_stored_message_and_deletes_event(
 
 
 @pytest.mark.asyncio
-async def test_menu_manager_create_new_keeps_user_message(
+async def test_telegram_responder_create_new_keeps_user_message(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     deleted: list[int] = []
@@ -86,7 +86,7 @@ async def test_menu_manager_create_new_keeps_user_message(
     monkeypatch.setattr(Message, "delete", delete)
     bot = FakeBot()
     store = FakeMessageStore(value=42)
-    manager = MenuManager(message_store=store)
+    manager = TelegramResponder(message_store=store)
 
     sent = await manager.update(
         bot=bot,  # type: ignore[arg-type]
@@ -107,10 +107,10 @@ async def test_menu_manager_create_new_keeps_user_message(
 
 
 @pytest.mark.asyncio
-async def test_menu_manager_can_skip_storing_new_message() -> None:
+async def test_telegram_responder_can_skip_storing_new_message() -> None:
     bot = FakeBot()
     store = FakeMessageStore()
-    manager = MenuManager(message_store=store)
+    manager = TelegramResponder(message_store=store)
 
     await manager.update(
         bot=bot,  # type: ignore[arg-type]

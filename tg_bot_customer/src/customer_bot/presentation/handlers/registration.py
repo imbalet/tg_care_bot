@@ -18,7 +18,7 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.navigation import show_category_select
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     backend_rejected_registration_text,
     contact_methods_keyboard,
@@ -66,7 +66,7 @@ async def start_registration(
     state: FSMContext,
     backend_client: BackendPort,
     bot: Bot,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     try:
@@ -76,7 +76,7 @@ async def start_registration(
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -90,7 +90,7 @@ async def start_registration(
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=legal_documents_text(documents),
         reply_markup=legal_acceptance_keyboard(documents),
@@ -105,14 +105,14 @@ async def accept_legal(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.set_state(CustomerRegistration.full_name)
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=full_name_step_text(),
     )
@@ -122,13 +122,13 @@ async def accept_legal(
 async def reject_legal(
     message: Message,
     bot: Bot,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=use_buttons_text(),
         reply_markup=legal_acceptance_keyboard(),
@@ -140,14 +140,14 @@ async def enter_full_name(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=invalid_text_input_text("Введите ФИО текстом."),
         )
@@ -157,7 +157,7 @@ async def enter_full_name(
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=phone_step_text(),
     )
@@ -168,14 +168,14 @@ async def enter_phone(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
         await send_step(
             bot=bot,
             event=message,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text="Введите телефон текстом.",
         )
@@ -186,7 +186,7 @@ async def enter_phone(
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=select_city_text(),
         reply_markup=select_city_keyboard(_cities_from_state(data)),
@@ -201,7 +201,7 @@ async def enter_city(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: RegistrationCityCallback,
 ) -> None:
@@ -212,7 +212,7 @@ async def enter_city(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=registration_unavailable_text(),
             reply_markup=select_city_keyboard(_cities_from_state(data)),
@@ -227,7 +227,7 @@ async def enter_city(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=select_contact_method_text(),
         reply_markup=contact_methods_keyboard(),
@@ -239,14 +239,14 @@ async def unknown_city_action(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=use_buttons_text(),
         reply_markup=select_city_keyboard(_cities_from_state(data)),
@@ -261,7 +261,7 @@ async def enter_contact_method(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: RegistrationContactCallback,
 ) -> None:
@@ -271,7 +271,7 @@ async def enter_contact_method(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=use_buttons_text(),
             reply_markup=contact_methods_keyboard(),
@@ -283,7 +283,7 @@ async def enter_contact_method(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=summary_text(data),
         reply_markup=registration_summary_keyboard(),
@@ -294,13 +294,13 @@ async def enter_contact_method(
 async def unknown_contact_method_action(
     message: Message,
     bot: Bot,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=use_buttons_text(),
         reply_markup=contact_methods_keyboard(),
@@ -312,14 +312,14 @@ async def edit_registration(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.set_state(CustomerRegistration.full_name)
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=full_name_step_text(),
     )
@@ -334,7 +334,7 @@ async def confirm_registration(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -355,7 +355,7 @@ async def confirm_registration(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=backend_rejected_registration_text(),
         )
@@ -365,7 +365,7 @@ async def confirm_registration(
         await send_step(
             bot=bot,
             event=callback,
-            menu_manager=menu_manager,
+            telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=retry_later_text(),
         )
@@ -374,7 +374,7 @@ async def confirm_registration(
     await send_step(
         bot=bot,
         event=callback,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=registration_complete_text(),
     )
@@ -383,7 +383,7 @@ async def confirm_registration(
         event=callback,
         telegram_user_context=telegram_user_context,
         backend_client=backend_client,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
     )
 
 
@@ -391,13 +391,13 @@ async def confirm_registration(
 async def unknown_summary_action(
     message: Message,
     bot: Bot,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await send_step(
         bot=bot,
         event=message,
-        menu_manager=menu_manager,
+        telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=use_buttons_text(),
         reply_markup=registration_summary_keyboard(),

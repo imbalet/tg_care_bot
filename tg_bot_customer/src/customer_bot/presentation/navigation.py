@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery, Message
 from customer_bot.application.dto import ServiceCategoryDTO
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.contexts import TelegramUserContext
-from customer_bot.presentation.services import MenuManager
+from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     category_select_keyboard,
     category_select_text,
@@ -50,10 +50,10 @@ async def show_category_select(
     event: Message | CallbackQuery,
     telegram_user_context: TelegramUserContext,
     backend_client: BackendPort,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
 ) -> None:
     categories = await list_categories(backend_client)
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
@@ -68,10 +68,10 @@ async def show_category_menu(
     bot: Bot,
     event: Message | CallbackQuery,
     telegram_user_context: TelegramUserContext,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     category: ServiceCategoryDTO,
 ) -> None:
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
