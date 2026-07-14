@@ -1,0 +1,112 @@
+from aiogram import Bot, Router
+from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery
+
+from customer_bot.application.errors import BackendClientError
+from customer_bot.application.ports import ActiveCategoryStore, BackendPort
+from customer_bot.presentation.callbacks import (
+    CareObjectSelectCallback,
+    CareObjectsOpenCallback,
+)
+from customer_bot.presentation.contexts import TelegramUserContext
+from customer_bot.presentation.handlers.care_objects.state import (
+    care_object_by_index as _care_object_by_index,
+)
+from customer_bot.presentation.handlers.care_objects.state import (
+    care_object_state as _care_object_state,
+)
+from customer_bot.presentation.handlers.responses import send_step
+from customer_bot.presentation.navigation import (
+    active_category,
+    category_by_code,
+    list_categories,
+)
+from customer_bot.presentation.services import TelegramResponder
+from customer_bot.presentation.ui import (
+    care_object_card_keyboard,
+    care_object_card_text,
+    care_objects_keyboard,
+    care_objects_list_text,
+    retry_later_text,
+    use_buttons_text,
+)
+
+router = Router(name="care_objects_list")
+
+
+@router.callback_query(CareObjectsOpenCallback.filter())
+async def open_care_objects(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendPort,
+    active_category_store: ActiveCategoryStore,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: CareObjectsOpenCallback,
+) -> None:
+    try:
+        if callback_data.category_code is not None:
+            categories = await list_categories(backend_client)
+            category = category_by_code(categories, callback_data.category_code)
+        else:
+            category = await active_category(
+                backend_client=backend_client,
+                active_category_store=active_category_store,
+                telegram_id=telegram_user_context.telegram_id,
+            )
+        object_type = category.care_object_type if category is not None else None
+        items = await backend_client.list_care_objects(
+            telegram_id=telegram_user_context.telegram_id,
+            object_type=object_type,
+        )
+    except BackendClientError:
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
+        return
+    await state.update_data(care_objects=[_care_object_state(item) for item in items])
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=care_objects_list_text(len(items), category),
+        reply_markup=care_objects_keyboard(items, object_type=object_type),
+    )
+
+
+@router.callback_query(CareObjectSelectCallback.filter())
+async def select_care_object(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: CareObjectSelectCallback,
+) -> None:
+    item = await _care_object_by_index(state, callback_data.index)
+    if item is None:
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=use_buttons_text(),
+        )
+        return
+    index = item["index"]
+    if not isinstance(index, int):
+        return
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=care_object_card_text(item),
+        reply_markup=care_object_card_keyboard(index),
+    )
