@@ -1,17 +1,10 @@
 from datetime import datetime, timedelta
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from customer_bot.application.dto import (
-    CareObjectDTO,
-    ServiceCategoryDTO,
-    SuitablePerformerDTO,
-)
 from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.callbacks import (
@@ -20,11 +13,36 @@ from customer_bot.presentation.callbacks import (
     OrderCreateCallback,
     OrderObjectCallback,
     OrderPhotoConsentCallback,
-    OrderPublishDirectCallback,
-    OrderPublishPoolCallback,
     OrderServiceCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
+from customer_bot.presentation.handlers.orders.state import (
+    OrderCreation,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    care_object_state as _care_object_state,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    draft as _draft,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    item_by_index as _item_by_index,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    parse_duration_hours as _parse_duration_hours,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    parse_local_datetime as _parse_local_datetime,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    performer_state as _performer_state,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    service_states as _service_states,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    string_list as _string_list,
+)
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.navigation import active_category
 from customer_bot.presentation.services import TelegramResponder
@@ -46,7 +64,6 @@ from customer_bot.presentation.ui import (
     order_photo_consent_keyboard,
     order_photo_consent_step_text,
     order_publish_keyboard,
-    order_published_text,
     order_services_keyboard,
     order_services_step_text,
     order_start_step_text,
@@ -54,21 +71,7 @@ from customer_bot.presentation.ui import (
     use_buttons_text,
 )
 
-router = Router(name="orders")
-
-LOCAL_TZ = ZoneInfo("Europe/Moscow")
-MAX_DURATION_HOURS = 24
-
-
-class OrderCreation(StatesGroup):
-    service = State()
-    object = State()
-    start = State()
-    duration = State()
-    address = State()
-    photo_consent = State()
-    comment = State()
-    publish = State()
+router = Router(name="orders_create")
 
 
 @router.callback_query(OrderCreateCallback.filter())
@@ -437,82 +440,6 @@ async def skip_comment(
     )
 
 
-@router.callback_query(OrderCreation.publish, OrderPublishPoolCallback.filter())
-async def publish_pool(
-    callback: CallbackQuery,
-    bot: Bot,
-    state: FSMContext,
-    backend_client: BackendPort,
-    telegram_responder: TelegramResponder,
-    telegram_user_context: TelegramUserContext,
-) -> None:
-    data = await state.get_data()
-    draft = _draft(data)
-    try:
-        order = await backend_client.publish_order_pool(
-            order_id=UUID(str(draft["order_id"])),
-        )
-    except BackendClientError:
-        await send_step(
-            bot=bot,
-            event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
-            text=retry_later_text(),
-        )
-        return
-    await state.clear()
-    await send_step(
-        bot=bot,
-        event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
-        text=order_published_text(order),
-    )
-
-
-@router.callback_query(
-    OrderCreation.publish,
-    OrderPublishDirectCallback.filter(),
-)
-async def publish_direct(
-    callback: CallbackQuery,
-    bot: Bot,
-    state: FSMContext,
-    backend_client: BackendPort,
-    telegram_responder: TelegramResponder,
-    telegram_user_context: TelegramUserContext,
-    callback_data: OrderPublishDirectCallback,
-) -> None:
-    performer = await _item_by_index(state, "order_performers", callback_data.index)
-    if performer is None:
-        return
-    data = await state.get_data()
-    draft = _draft(data)
-    try:
-        order = await backend_client.publish_order_direct(
-            order_id=UUID(str(draft["order_id"])),
-            performer_id=UUID(str(performer["performer_id"])),
-        )
-    except BackendClientError:
-        await send_step(
-            bot=bot,
-            event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
-            text=retry_later_text(),
-        )
-        return
-    await state.clear()
-    await send_step(
-        bot=bot,
-        event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
-        text=order_published_text(order),
-    )
-
-
 async def _ask_photo_or_comment(
     event: Message | CallbackQuery,
     bot: Bot,
@@ -638,75 +565,3 @@ async def _create_draft_and_show_summary(
         text=order_draft_summary_text(price=price, performers_count=len(performers)),
         reply_markup=order_publish_keyboard(performers),
     )
-
-
-def _service_states(
-    categories: tuple[ServiceCategoryDTO, ...],
-) -> list[dict[str, object]]:
-    services: list[dict[str, object]] = []
-    for category in categories:
-        for service in category.services:
-            services.append(
-                {
-                    "id": str(service.id),
-                    "name": service.name,
-                    "category_code": category.code,
-                    "category_name": category.name,
-                    "care_object_type": category.care_object_type,
-                    "location_policy": service.location_policy,
-                    "photo_policy": service.photo_policy,
-                },
-            )
-    return services
-
-
-def _care_object_state(item: CareObjectDTO) -> dict[str, object]:
-    return {"id": str(item.id), "display_name": item.display_name}
-
-
-def _performer_state(item: SuitablePerformerDTO) -> dict[str, object]:
-    return {"performer_id": str(item.performer_id), "full_name": item.full_name}
-
-
-async def _item_by_index(
-    state: FSMContext,
-    key: str,
-    index: int,
-) -> dict[str, object] | None:
-    data = await state.get_data()
-    items = data.get(key)
-    if not isinstance(items, list) or index < 0 or index >= len(items):
-        return None
-    item = items[index]
-    return item if isinstance(item, dict) else None
-
-
-def _parse_local_datetime(value: str) -> datetime | None:
-    try:
-        parsed = datetime.strptime(value.strip(), "%Y-%m-%d %H:%M")
-    except ValueError:
-        return None
-    return parsed.replace(tzinfo=LOCAL_TZ)
-
-
-def _parse_duration_hours(value: str | None) -> int | None:
-    if value is None:
-        return None
-    try:
-        hours = int(value.strip())
-    except ValueError:
-        return None
-    if hours < 1 or hours > MAX_DURATION_HOURS:
-        return None
-    return hours
-
-
-def _draft(data: dict[str, object]) -> dict[str, object]:
-    draft = data.get("order_draft")
-    return dict(draft) if isinstance(draft, dict) else {}
-
-
-def _string_list(value: object) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [str(item) for item in value]
