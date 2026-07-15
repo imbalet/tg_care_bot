@@ -1,7 +1,7 @@
 from .addresses import router as addresses_router
 from .care_objects import router as care_objects_router
 from .category import router as category_router
-from .fallback import router as fallback_router
+from .menu import router as fallback_router
 from .orders import router as orders_router
 from .registration import router as registration_router
 from .start import router as start_router
