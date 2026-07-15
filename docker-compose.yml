@@ -36,7 +36,7 @@ services:
 
   migrate:
     build:
-      context: .
+      context: tg_bot_server
     environment:
       APP_ENV: ${APP_ENV:?APP_ENV is required}
       APP_NAME: ${APP_NAME:?APP_NAME is required}
@@ -66,7 +66,7 @@ services:
 
   api:
     build:
-      context: .
+      context: tg_bot_server
     environment:
       APP_ENV: ${APP_ENV:?APP_ENV is required}
       APP_NAME: ${APP_NAME:?APP_NAME is required}
@@ -107,7 +107,7 @@ services:
 
   worker:
     build:
-      context: .
+      context: tg_bot_server
     environment:
       APP_ENV: ${APP_ENV:?APP_ENV is required}
       APP_NAME: ${APP_NAME:?APP_NAME is required}
@@ -135,7 +135,7 @@ services:
 
   customer_bot:
     build:
-      context: ../tg_bot_customer
+      context: tg_bot_customer
     profiles: ["bots"]
     environment:
       LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
@@ -159,7 +159,7 @@ services:
 
   executor_bot:
     build:
-      context: ../tg_bot_executor
+      context: tg_bot_executor
     profiles: ["bots"]
     environment:
       LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
