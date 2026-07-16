@@ -352,8 +352,9 @@ def order_start_step_text() -> str:
     return "<b>Дата и время</b>\n\nВведите начало в формате ГГГГ-ММ-ДД ЧЧ:ММ."
 
 
-def order_duration_step_text() -> str:
-    return "<b>Длительность</b>\n\nВведите количество часов целым числом."
+def order_duration_step_text(*, uses_days: bool = False) -> str:
+    unit = "суток" if uses_days else "часов"
+    return f"<b>Длительность</b>\n\nВведите количество {unit} целым числом."
 
 
 def order_address_step_text() -> str:
@@ -417,8 +418,9 @@ def invalid_datetime_text() -> str:
     return "Введите дату и время в формате ГГГГ-ММ-ДД ЧЧ:ММ."
 
 
-def invalid_duration_text() -> str:
-    return "Введите длительность целым числом от 1 до 24."
+def invalid_duration_text(*, uses_days: bool = False) -> str:
+    unit = "суток" if uses_days else "часов"
+    return f"Введите положительное целое количество {unit}."
 
 
 def registration_complete_text() -> str:

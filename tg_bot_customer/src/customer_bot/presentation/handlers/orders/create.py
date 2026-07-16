@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -31,7 +31,7 @@ from customer_bot.presentation.handlers.orders.state import (
     item_by_index as _item_by_index,
 )
 from customer_bot.presentation.handlers.orders.state import (
-    parse_duration_hours as _parse_duration_hours,
+    parse_duration_interval as _parse_duration_interval,
 )
 from customer_bot.presentation.handlers.orders.state import (
     parse_local_datetime as _parse_local_datetime,
@@ -47,6 +47,9 @@ from customer_bot.presentation.handlers.orders.state import (
 )
 from customer_bot.presentation.handlers.orders.state import (
     string_list as _string_list,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    uses_days as _uses_days,
 )
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.navigation import active_category
@@ -189,6 +192,11 @@ async def select_service(
             "service_name": service["name"],
             "care_object_type": service["care_object_type"],
             "max_objects_per_order": service["max_objects_per_order"],
+            "price_type": service["price_type"],
+            "allows_multiday": service["allows_multiday"],
+            "min_duration_minutes": service["min_duration_minutes"],
+            "max_duration_minutes": service["max_duration_minutes"],
+            "duration_step_minutes": service["duration_step_minutes"],
             "location_policy": service["location_policy"],
             "photo_policy": service["photo_policy"],
         },
@@ -388,7 +396,7 @@ async def enter_start(
         event=message,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
-        text=order_duration_step_text(),
+        text=order_duration_step_text(uses_days=_uses_days(draft)),
     )
 
 
@@ -401,20 +409,20 @@ async def enter_duration(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    hours = _parse_duration_hours(message.text)
-    if hours is None:
+    data = await state.get_data()
+    draft = _draft(data)
+    duration = _parse_duration_interval(message.text, draft)
+    if duration is None:
         await send_step(
             bot=bot,
             event=message,
             telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
-            text=invalid_duration_text(),
+            text=invalid_duration_text(uses_days=_uses_days(draft)),
         )
         return
-    data = await state.get_data()
-    draft = _draft(data)
     start_at = datetime.fromisoformat(str(draft["start_at"]))
-    end_at = start_at + timedelta(hours=hours)
+    end_at = start_at + duration
     draft["end_at"] = end_at.isoformat()
     await state.update_data(order_draft=draft)
     if draft.get("location_policy") != "customer_address":

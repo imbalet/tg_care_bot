@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from aiogram.fsm.context import FSMContext
@@ -11,7 +11,6 @@ from customer_bot.application.dto import (
 )
 
 LOCAL_TZ = ZoneInfo("Europe/Moscow")
-MAX_DURATION_HOURS = 24
 
 
 class OrderCreation(StatesGroup):
@@ -39,6 +38,11 @@ def service_states(
                     "category_name": category.name,
                     "care_object_type": category.care_object_type,
                     "max_objects_per_order": category.max_objects_per_order,
+                    "price_type": service.price_type,
+                    "allows_multiday": service.allows_multiday,
+                    "min_duration_minutes": service.min_duration_minutes,
+                    "max_duration_minutes": service.max_duration_minutes,
+                    "duration_step_minutes": service.duration_step_minutes,
                     "location_policy": service.location_policy,
                     "photo_policy": service.photo_policy,
                 },
@@ -80,16 +84,32 @@ def parse_local_datetime(value: str) -> datetime | None:
     return parsed.replace(tzinfo=LOCAL_TZ)
 
 
-def parse_duration_hours(value: str | None) -> int | None:
+def parse_duration_interval(
+    value: str | None,
+    draft_data: dict[str, object],
+) -> timedelta | None:
     if value is None:
         return None
     try:
-        hours = int(value.strip())
+        amount = int(value.strip())
     except ValueError:
         return None
-    if hours < 1 or hours > MAX_DURATION_HOURS:
+    if amount < 1:
         return None
-    return hours
+    if _uses_days(draft_data):
+        return timedelta(days=amount)
+    return timedelta(hours=amount)
+
+
+def uses_days(draft_data: dict[str, object]) -> bool:
+    return _uses_days(draft_data)
+
+
+def _uses_days(draft_data: dict[str, object]) -> bool:
+    return (
+        draft_data.get("allows_multiday") is True
+        or draft_data.get("price_type") == "started_24h"
+    )
 
 
 def draft(data: dict[str, object]) -> dict[str, object]:
