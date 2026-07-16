@@ -1,4 +1,5 @@
 import logging
+from uuid import UUID
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
@@ -42,6 +43,7 @@ from customer_bot.presentation.ui import (
     care_object_size_step_text,
     care_object_skip_keyboard,
     care_object_species_step_text,
+    care_object_updated_text,
     retry_later_text,
     use_buttons_text,
 )
@@ -350,20 +352,37 @@ async def _create_from_draft(
     draft: dict[str, object],
 ) -> None:
     try:
-        await backend_client.create_care_object(
-            telegram_id=telegram_user_context.telegram_id,
-            object_type=str(draft["object_type"]),
-            display_name=str(draft["display_name"]),
-            age_group=str(draft["age_group"]),
-            species=_optional_str(draft.get("species")),
-            breed=_optional_str(draft.get("breed")),
-            pet_size=_optional_str(draft.get("pet_size")),
-            mobility_assistance_required=_optional_bool(
-                draft.get("mobility_assistance_required"),
-            ),
-            routine_notes=_optional_str(draft.get("routine_notes")),
-            behavior_notes=_optional_str(draft.get("behavior_notes")),
-        )
+        edit_id = _optional_str(draft.get("edit_id"))
+        if edit_id is None:
+            await backend_client.create_care_object(
+                telegram_id=telegram_user_context.telegram_id,
+                object_type=str(draft["object_type"]),
+                display_name=str(draft["display_name"]),
+                age_group=str(draft["age_group"]),
+                species=_optional_str(draft.get("species")),
+                breed=_optional_str(draft.get("breed")),
+                pet_size=_optional_str(draft.get("pet_size")),
+                mobility_assistance_required=_optional_bool(
+                    draft.get("mobility_assistance_required"),
+                ),
+                routine_notes=_optional_str(draft.get("routine_notes")),
+                behavior_notes=_optional_str(draft.get("behavior_notes")),
+            )
+        else:
+            await backend_client.update_care_object(
+                telegram_id=telegram_user_context.telegram_id,
+                care_object_id=UUID(edit_id),
+                display_name=str(draft["display_name"]),
+                age_group=str(draft["age_group"]),
+                species=_optional_str(draft.get("species")),
+                breed=_optional_str(draft.get("breed")),
+                pet_size=_optional_str(draft.get("pet_size")),
+                mobility_assistance_required=_optional_bool(
+                    draft.get("mobility_assistance_required"),
+                ),
+                routine_notes=_optional_str(draft.get("routine_notes")),
+                behavior_notes=_optional_str(draft.get("behavior_notes")),
+            )
     except BackendValidationError:
         logger.warning(
             "Backend rejected care object creation",
@@ -400,10 +419,11 @@ async def _create_from_draft(
         return
     await state.clear()
     logger.info(
-        "Care object created",
+        "Care object saved",
         extra={
             "telegram_id": telegram_user_context.telegram_id,
             "object_type": str(draft.get("object_type")),
+            "is_edit": _optional_str(draft.get("edit_id")) is not None,
         },
     )
     await send_step(
@@ -411,5 +431,7 @@ async def _create_from_draft(
         event=event,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
-        text=care_object_created_text(),
+        text=care_object_updated_text()
+        if _optional_str(draft.get("edit_id")) is not None
+        else care_object_created_text(),
     )

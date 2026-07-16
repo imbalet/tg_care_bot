@@ -229,6 +229,10 @@ def care_object_created_text() -> str:
     return "Карточка сохранена."
 
 
+def care_object_updated_text() -> str:
+    return "Карточка обновлена."
+
+
 def care_object_deleted_text() -> str:
     return "Карточка удалена из активного списка."
 
