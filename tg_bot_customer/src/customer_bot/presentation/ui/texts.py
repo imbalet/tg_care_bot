@@ -234,13 +234,13 @@ def care_object_deleted_text() -> str:
 
 
 def care_object_card_text(item: object) -> str:
-    object_type = escape(str(getattr(item, "object_type", "")))
-    display_name = escape(str(getattr(item, "display_name", "")))
-    age_group = escape(str(getattr(item, "age_group", "")))
-    species = getattr(item, "species", None)
-    breed = getattr(item, "breed", None)
-    pet_size = getattr(item, "pet_size", None)
-    mobility = getattr(item, "mobility_assistance_required", None)
+    object_type = escape(str(_field(item, "object_type", "")))
+    display_name = escape(str(_field(item, "display_name", "")))
+    age_group = escape(str(_field(item, "age_group", "")))
+    species = _field(item, "species")
+    breed = _field(item, "breed")
+    pet_size = _field(item, "pet_size")
+    mobility = _field(item, "mobility_assistance_required")
     lines = [
         "<b>Карточка объекта ухода</b>",
         "",
@@ -266,11 +266,11 @@ def addresses_list_text(count: int) -> str:
 
 
 def address_card_text(item: object) -> str:
-    address_text = escape(str(getattr(item, "address_text", "")))
-    entrance = getattr(item, "entrance", None)
-    floor = getattr(item, "floor", None)
-    apartment = getattr(item, "apartment", None)
-    comment = getattr(item, "comment", None)
+    address_text = escape(str(_field(item, "address_text", "")))
+    entrance = _field(item, "entrance")
+    floor = _field(item, "floor")
+    apartment = _field(item, "apartment")
+    comment = _field(item, "comment")
     lines = ["<b>Адрес</b>", "", address_text]
     if isinstance(entrance, str):
         lines.append(f"Подъезд: {escape(entrance)}")
@@ -457,3 +457,9 @@ def unavailable_action_text() -> str:
         "Это действие появится в следующих сценариях. Сейчас можно вернуться "
         "в главное меню."
     )
+
+
+def _field(item: object, key: str, default: object = None) -> object:
+    if isinstance(item, dict):
+        return item.get(key, default)
+    return getattr(item, key, default)

@@ -19,6 +19,7 @@ from customer_bot.application.dto import (
     ServiceDTO,
     SuitablePerformerDTO,
 )
+from customer_bot.application.ports import BackendPort
 
 from .errors import (
     BackendNotFoundError,
@@ -30,7 +31,7 @@ from .errors import (
 logger = logging.getLogger(__name__)
 
 
-class BackendClient:
+class BackendClient(BackendPort):
     def __init__(
         self,
         base_url: str,
@@ -40,7 +41,7 @@ class BackendClient:
     ) -> None:
         self._client = httpx.AsyncClient(
             base_url=base_url,
-            headers={"X-Service-Key": service_key},
+            headers={"X-Service-Name": "customer-bot", "X-Service-Key": service_key},
             timeout=timeout_seconds,
             transport=transport,
         )

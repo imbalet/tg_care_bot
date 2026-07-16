@@ -3,7 +3,7 @@ import logging
 from customer_bot.application.errors import BackendClientError
 from customer_bot.application.ports import BackendPort, UsernameSyncCache
 
-ABSENT_USERNAME = "<absent>"
+ABSENT_USERNAME = "__none__"
 USERNAME_SYNC_TTL_SECONDS = 600
 logger = logging.getLogger(__name__)
 

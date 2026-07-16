@@ -123,6 +123,7 @@ async def select_care_object(
             "Invalid care object index in state",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     await send_step(
         bot=bot,

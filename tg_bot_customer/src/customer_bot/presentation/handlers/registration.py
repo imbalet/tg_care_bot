@@ -444,19 +444,6 @@ def _cities_from_state(data: dict[str, object]) -> tuple[_CityView, ...]:
     return tuple(_CityView(name) for name in _string_list(data["city_names"]))
 
 
-def _callback_index(data: str | None, prefix: str) -> int | None:
-    value = _callback_value(data, prefix)
-    if value is None or not value.isdigit():
-        return None
-    return int(value)
-
-
-def _callback_value(data: str | None, prefix: str) -> str | None:
-    if data is None or not data.startswith(prefix):
-        return None
-    return data.removeprefix(prefix)
-
-
 def _string_list(value: object) -> list[str]:
     if isinstance(value, list) and all(isinstance(item, str) for item in value):
         return value

@@ -43,6 +43,7 @@ from customer_bot.presentation.ui import (
     address_suggestions_keyboard,
     address_validation_error_text,
     retry_later_text,
+    use_buttons_text,
 )
 
 router = Router(name="addresses_create")
@@ -125,6 +126,7 @@ async def select_city(
                 "index": index,
             },
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     draft = _draft(data)
     draft["city_id"] = city_ids[index]
@@ -226,6 +228,7 @@ async def select_suggestion(
             "Address suggestions missing in FSM state",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     if index < 0 or index >= len(suggestions):
         logger.warning(
@@ -235,6 +238,7 @@ async def select_suggestion(
                 "index": index,
             },
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     suggestion = suggestions[index]
     if not isinstance(suggestion, dict):
@@ -242,6 +246,7 @@ async def select_suggestion(
             "Invalid address suggestion item in FSM state",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     draft = _draft(data)
     draft["unrestricted_value"] = str(suggestion["unrestricted_value"])

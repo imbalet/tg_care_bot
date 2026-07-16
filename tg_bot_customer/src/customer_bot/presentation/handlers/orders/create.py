@@ -176,6 +176,7 @@ async def select_service(
                 "index": callback_data.index,
             },
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     draft = _draft(await state.get_data())
     draft.update(
@@ -258,6 +259,7 @@ async def select_object(
                 "index": callback_data.index,
             },
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     data = await state.get_data()
     draft = _draft(data)
@@ -420,6 +422,7 @@ async def select_address(
                 "index": callback_data.index,
             },
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     data = await state.get_data()
     draft = _draft(data)

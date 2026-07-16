@@ -33,6 +33,7 @@ from customer_bot.presentation.ui import (
     care_object_created_text,
     care_object_deleted_text,
     retry_later_text,
+    use_buttons_text,
 )
 
 router = Router(name="care_objects_edit")
@@ -57,6 +58,7 @@ async def edit_care_object(
                 "index": callback_data.index,
             },
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     await state.update_data(edit_item=item)
     await state.set_state(CareObjectManagement.edit_name)
@@ -157,6 +159,7 @@ async def delete_care_object(
                 "index": callback_data.index,
             },
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     try:
         await backend_client.delete_care_object(

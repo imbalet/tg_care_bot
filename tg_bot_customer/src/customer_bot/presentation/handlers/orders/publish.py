@@ -31,6 +31,7 @@ from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     order_published_text,
     retry_later_text,
+    use_buttons_text,
 )
 
 router = Router(name="orders_publish")
@@ -124,6 +125,7 @@ async def publish_direct(
                 "index": callback_data.index,
             },
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     data = await state.get_data()
     draft = _draft(data)

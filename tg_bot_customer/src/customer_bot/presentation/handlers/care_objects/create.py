@@ -43,6 +43,7 @@ from customer_bot.presentation.ui import (
     care_object_skip_keyboard,
     care_object_species_step_text,
     retry_later_text,
+    use_buttons_text,
 )
 from customer_bot.presentation.ui.keyboards import CARE_OBJECT_TYPE_LABELS
 
@@ -68,6 +69,7 @@ async def add_care_object(
                 "object_type": object_type,
             },
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     await state.set_state(CareObjectManagement.name)
     await state.update_data(draft={"object_type": object_type})

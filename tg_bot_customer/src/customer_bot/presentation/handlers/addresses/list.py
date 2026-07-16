@@ -24,6 +24,7 @@ from customer_bot.presentation.ui import (
     addresses_keyboard,
     addresses_list_text,
     retry_later_text,
+    use_buttons_text,
 )
 
 router = Router(name="addresses_list")
@@ -101,6 +102,7 @@ async def select_address(
                 "index": callback_data.index,
             },
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     index = item["index"]
     if not isinstance(index, int):
@@ -108,6 +110,7 @@ async def select_address(
             "Invalid address index in state",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     await send_step(
         bot=bot,
@@ -138,6 +141,7 @@ async def delete_address(
                 "index": callback_data.index,
             },
         )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     try:
         await backend_client.delete_address(

@@ -1,5 +1,10 @@
 import logging
 
+from customer_bot.application.ports import (
+    ActiveCategoryStore,
+    ScreenMessageStore,
+    UsernameSyncCache,
+)
 from redis.asyncio import Redis
 
 from .keys import CustomerRedisKeys, customer_redis_keys
@@ -7,7 +12,7 @@ from .keys import CustomerRedisKeys, customer_redis_keys
 logger = logging.getLogger(__name__)
 
 
-class RedisUsernameSyncCache:
+class RedisUsernameSyncCache(UsernameSyncCache):
     def __init__(
         self,
         redis: Redis,
@@ -28,7 +33,7 @@ class RedisUsernameSyncCache:
         )
 
 
-class RedisActiveCategoryStore:
+class RedisActiveCategoryStore(ActiveCategoryStore):
     def __init__(
         self,
         redis: Redis,
@@ -45,7 +50,7 @@ class RedisActiveCategoryStore:
         await self._redis.set(self._keys.active_category(telegram_id), category_code)
 
 
-class RedisScreenMessageStore:
+class RedisScreenMessageStore(ScreenMessageStore):
     def __init__(
         self,
         redis: Redis,
