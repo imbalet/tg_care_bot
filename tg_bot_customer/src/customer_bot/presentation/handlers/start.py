@@ -20,8 +20,6 @@ from customer_bot.presentation.ui import (
     fallback_keyboard,
     help_text,
     retry_later_text,
-    unfinished_action_keyboard,
-    unfinished_action_text,
 )
 
 router = Router(name="start")
@@ -38,16 +36,7 @@ async def start(
     active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    if await state.get_state() is not None:
-        await send_step(
-            bot=bot,
-            event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
-            text=unfinished_action_text(),
-            reply_markup=unfinished_action_keyboard(),
-        )
-        return
+    await state.clear()
     await _open_start_or_menu(
         message=message,
         bot=bot,
@@ -70,6 +59,7 @@ async def menu(
     active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
 ) -> None:
+    await state.clear()
     await _open_start_or_menu(
         message=message,
         bot=bot,

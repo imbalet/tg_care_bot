@@ -457,13 +457,6 @@ def order_no_services_text() -> str:
     return "<b>Новый заказ</b>\n\nСейчас нет активных услуг для заказа."
 
 
-def unfinished_action_text() -> str:
-    return (
-        "<b>Вы не завершили текущее действие.</b>\n\n"
-        "Продолжите сценарий или отмените его перед сменой направления."
-    )
-
-
 def order_objects_step_text(*, selected_count: int = 0, max_count: int = 1) -> str:
     if max_count <= 1:
         return "<b>Кого нужно взять в работу</b>\n\nВыберите карточку объекта ухода."

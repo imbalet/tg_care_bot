@@ -45,8 +45,6 @@ from customer_bot.presentation.callbacks import (
     RegistrationContactCallback,
     RegistrationEditCallback,
     RegistrationLegalAcceptCallback,
-    ScenarioCancelCallback,
-    ScenarioContinueCallback,
     ServicesPricesCallback,
 )
 from customer_bot.presentation.types import ContactMethod, YesNoValue
@@ -203,15 +201,6 @@ def notice_keyboard(*, include_main_menu: bool = True) -> InlineKeyboardMarkup:
     if include_main_menu:
         keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
     return keyboard.as_markup()
-
-
-def unfinished_action_keyboard() -> InlineKeyboardMarkup:
-    return (
-        InlineKeyboardFactory()
-        .button("Продолжить", ScenarioContinueCallback())
-        .button("Отменить и сменить направление", ScenarioCancelCallback())
-        .as_markup()
-    )
 
 
 def care_objects_keyboard(

@@ -9,8 +9,6 @@ from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.callbacks import (
     CategoryChangeCallback,
     CategorySelectCallback,
-    ScenarioCancelCallback,
-    ScenarioContinueCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.navigation import (
@@ -24,8 +22,6 @@ from customer_bot.presentation.ui import (
     fallback_keyboard,
     help_text,
     unavailable_action_text,
-    unfinished_action_keyboard,
-    unfinished_action_text,
 )
 
 router = Router(name="category")
@@ -118,56 +114,6 @@ async def change_category(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    if await state.get_state() is not None:
-        await telegram_responder.update(
-            bot=bot,
-            event=callback,
-            telegram_id=telegram_user_context.telegram_id,
-            text=unfinished_action_text(),
-            reply_markup=unfinished_action_keyboard(),
-        )
-        return
-    try:
-        await show_category_select(
-            bot=bot,
-            event=callback,
-            telegram_user_context=telegram_user_context,
-            backend_client=backend_client,
-            telegram_responder=telegram_responder,
-        )
-    except BackendClientError as exc:
-        logger.warning(
-            "Failed to show category selector",
-            extra={
-                "telegram_id": telegram_user_context.telegram_id,
-                "exception_type": type(exc).__name__,
-            },
-        )
-        await _show_unavailable(
-            bot=bot,
-            event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
-        )
-
-
-@router.callback_query(ScenarioContinueCallback.filter())
-async def continue_scenario(
-    callback: CallbackQuery,
-    telegram_responder: TelegramResponder,
-) -> None:
-    await telegram_responder.acknowledge(callback, "Продолжайте текущий сценарий")
-
-
-@router.callback_query(ScenarioCancelCallback.filter())
-async def cancel_scenario(
-    callback: CallbackQuery,
-    bot: Bot,
-    state: FSMContext,
-    backend_client: BackendPort,
-    telegram_responder: TelegramResponder,
-    telegram_user_context: TelegramUserContext,
-) -> None:
     await state.clear()
     try:
         await show_category_select(
@@ -179,7 +125,7 @@ async def cancel_scenario(
         )
     except BackendClientError as exc:
         logger.warning(
-            "Failed to show category selector after scenario cancel",
+            "Failed to show category selector",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
                 "exception_type": type(exc).__name__,

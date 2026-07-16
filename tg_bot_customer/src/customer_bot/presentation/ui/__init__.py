@@ -29,7 +29,6 @@ from .keyboards import (
     phone_contact_keyboard,
     registration_summary_keyboard,
     select_city_keyboard,
-    unfinished_action_keyboard,
 )
 from .texts import (
     address_card_text,
@@ -90,7 +89,6 @@ from .texts import (
     services_prices_text,
     summary_text,
     unavailable_action_text,
-    unfinished_action_text,
     use_buttons_text,
     validation_error_text,
     wrong_phone_contact_text,
@@ -185,8 +183,6 @@ __all__ = [
     "services_prices_text",
     "summary_text",
     "unavailable_action_text",
-    "unfinished_action_keyboard",
-    "unfinished_action_text",
     "use_buttons_text",
     "validation_error_text",
     "wrong_phone_contact_text",

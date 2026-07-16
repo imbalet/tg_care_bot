@@ -15,14 +15,6 @@ class CategoryChangeCallback(CallbackData, prefix="cat_change"):
     pass
 
 
-class ScenarioContinueCallback(CallbackData, prefix="scenario_continue"):
-    pass
-
-
-class ScenarioCancelCallback(CallbackData, prefix="scenario_cancel"):
-    pass
-
-
 class MainMenuCallback(CallbackData, prefix="main_menu"):
     pass
 
