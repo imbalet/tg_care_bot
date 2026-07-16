@@ -38,6 +38,7 @@ def service_states(
                     "category_code": category.code,
                     "category_name": category.name,
                     "care_object_type": category.care_object_type,
+                    "max_objects_per_order": category.max_objects_per_order,
                     "location_policy": service.location_policy,
                     "photo_policy": service.photo_policy,
                 },
@@ -47,6 +48,11 @@ def service_states(
 
 def care_object_state(item: CareObjectDTO) -> dict[str, object]:
     return {"id": str(item.id), "display_name": item.display_name}
+
+
+def selected_ids(data: dict[str, object]) -> list[str]:
+    draft_data = draft(data)
+    return string_list(draft_data.get("care_object_ids"))
 
 
 def performer_state(item: SuitablePerformerDTO) -> dict[str, object]:

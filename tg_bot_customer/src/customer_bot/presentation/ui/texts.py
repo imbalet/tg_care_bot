@@ -331,8 +331,13 @@ def unfinished_action_text() -> str:
     )
 
 
-def order_objects_step_text() -> str:
-    return "<b>Кого нужно взять в работу</b>\n\nВыберите карточку объекта ухода."
+def order_objects_step_text(*, selected_count: int = 0, max_count: int = 1) -> str:
+    if max_count <= 1:
+        return "<b>Кого нужно взять в работу</b>\n\nВыберите карточку объекта ухода."
+    return (
+        "<b>Кого нужно взять в работу</b>\n\n"
+        f"Выберите до {max_count} карточек. Сейчас выбрано: {selected_count}."
+    )
 
 
 def order_no_objects_text(object_type: str) -> str:

@@ -28,6 +28,7 @@ from customer_bot.presentation.callbacks import (
     OrderCommentSkipCallback,
     OrderCreateCallback,
     OrderObjectCallback,
+    OrderObjectsDoneCallback,
     OrderPhotoConsentCallback,
     OrderPublishDirectCallback,
     OrderPublishPoolCallback,
@@ -306,13 +307,23 @@ def order_services_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
-def order_objects_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
+def order_objects_keyboard(
+    items: Sequence[object],
+    *,
+    selected_ids: Sequence[str] = (),
+    can_finish: bool = False,
+) -> InlineKeyboardMarkup:
+    selected = set(selected_ids)
     keyboard = InlineKeyboardFactory()
     for index, item in enumerate(items):
+        item_id = str(_item_value(item, "id", ""))
+        marker = "✓ " if item_id in selected else ""
         keyboard.button(
-            _item_label(item, "display_name", index),
+            f"{marker}{_item_label(item, 'display_name', index)}",
             OrderObjectCallback(index=index),
         )
+    if can_finish:
+        keyboard.button("Готово", OrderObjectsDoneCallback())
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
@@ -356,7 +367,11 @@ def order_publish_keyboard(performers: Sequence[object]) -> InlineKeyboardMarkup
 
 
 def _item_label(item: object, key: str, index: int) -> str:
+    value = _item_value(item, key)
+    return str(value) if value is not None else f"#{index + 1}"
+
+
+def _item_value(item: object, key: str, default: object = None) -> object:
     if isinstance(item, dict):
-        value = item.get(key)
-        return str(value) if value is not None else f"#{index + 1}"
-    return str(getattr(item, key, f"#{index + 1}"))
+        return item.get(key, default)
+    return getattr(item, key, default)

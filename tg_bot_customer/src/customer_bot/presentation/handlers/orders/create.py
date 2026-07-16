@@ -13,6 +13,7 @@ from customer_bot.presentation.callbacks import (
     OrderCommentSkipCallback,
     OrderCreateCallback,
     OrderObjectCallback,
+    OrderObjectsDoneCallback,
     OrderPhotoConsentCallback,
     OrderServiceCallback,
 )
@@ -37,6 +38,9 @@ from customer_bot.presentation.handlers.orders.state import (
 )
 from customer_bot.presentation.handlers.orders.state import (
     performer_state as _performer_state,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    selected_ids as _selected_ids,
 )
 from customer_bot.presentation.handlers.orders.state import (
     service_states as _service_states,
@@ -184,6 +188,7 @@ async def select_service(
             "service_id": service["id"],
             "service_name": service["name"],
             "care_object_type": service["care_object_type"],
+            "max_objects_per_order": service["max_objects_per_order"],
             "location_policy": service["location_policy"],
             "photo_policy": service["photo_policy"],
         },
@@ -227,6 +232,8 @@ async def select_service(
         )
         return
     await state.set_state(OrderCreation.object)
+    draft["care_object_ids"] = []
+    draft["objects_count"] = 0
     await state.update_data(
         order_draft=draft,
         order_objects=[_care_object_state(item) for item in objects],
@@ -236,8 +243,15 @@ async def select_service(
         event=callback,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
-        text=order_objects_step_text(),
-        reply_markup=order_objects_keyboard(objects),
+        text=order_objects_step_text(
+            selected_count=0,
+            max_count=int(str(service["max_objects_per_order"])),
+        ),
+        reply_markup=order_objects_keyboard(
+            objects,
+            selected_ids=(),
+            can_finish=False,
+        ),
     )
 
 
@@ -263,10 +277,71 @@ async def select_object(
         return
     data = await state.get_data()
     draft = _draft(data)
-    draft["care_object_ids"] = [str(item["id"])]
-    draft["objects_count"] = 1
-    await state.set_state(OrderCreation.start)
+    selected = _selected_ids(data)
+    item_id = str(item["id"])
+    if item_id in selected:
+        selected.remove(item_id)
+    else:
+        max_objects = int(str(draft.get("max_objects_per_order", 1)))
+        if len(selected) >= max_objects:
+            await telegram_responder.acknowledge(
+                callback,
+                f"Можно выбрать не больше {max_objects}.",
+            )
+            return
+        selected.append(item_id)
+    draft["care_object_ids"] = selected
+    draft["objects_count"] = len(selected)
+    max_objects = int(str(draft.get("max_objects_per_order", 1)))
     await state.update_data(order_draft=draft)
+    if max_objects <= 1 and selected:
+        await _ask_start_at(
+            callback, bot, state, telegram_responder, telegram_user_context
+        )
+        return
+    objects = data.get("order_objects")
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=order_objects_step_text(
+            selected_count=len(selected),
+            max_count=max_objects,
+        ),
+        reply_markup=order_objects_keyboard(
+            objects if isinstance(objects, list) else (),
+            selected_ids=selected,
+            can_finish=bool(selected),
+        ),
+    )
+
+
+@router.callback_query(OrderCreation.object, OrderObjectsDoneCallback.filter())
+async def finish_object_selection(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    data = await state.get_data()
+    if not _selected_ids(data):
+        await telegram_responder.acknowledge(
+            callback, "Выберите хотя бы одну карточку."
+        )
+        return
+    await _ask_start_at(callback, bot, state, telegram_responder, telegram_user_context)
+
+
+async def _ask_start_at(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await state.set_state(OrderCreation.start)
     await send_step(
         bot=bot,
         event=callback,
