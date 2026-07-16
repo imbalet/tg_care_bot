@@ -4,8 +4,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, ReplyMarkupUnion
 
-from customer_bot.application.ports import ScreenMessageStore
-from customer_bot.presentation.types import ScreenKey
+from customer_bot.application.ports import CurrentMessageStore
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +13,7 @@ class TelegramResponder:
     def __init__(
         self,
         *,
-        message_store: ScreenMessageStore,
+        message_store: CurrentMessageStore,
     ) -> None:
         self._message_store = message_store
 
@@ -27,44 +26,16 @@ class TelegramResponder:
     ) -> None:
         await callback.answer(text, show_alert=show_alert)
 
-    async def send_or_replace(
-        self,
-        *,
-        bot: Bot,
-        message: Message,
-        telegram_id: int,
-        screen_key: ScreenKey,
-        text: str,
-        reply_markup: ReplyMarkupUnion | None = None,
-        create_new: bool = False,
-        delete_event_message: bool = True,
-        store_message: bool = True,
-    ) -> Message:
-        sent = await self.update(
-            bot=bot,
-            event=message,
-            telegram_id=telegram_id,
-            screen_key=screen_key,
-            text=text,
-            reply_markup=reply_markup,
-            create_new=create_new,
-            delete_event_message=delete_event_message,
-            store_message=store_message,
-        )
-        return sent or message
-
     async def update(
         self,
         *,
         bot: Bot,
         event: Message | CallbackQuery,
         telegram_id: int,
-        screen_key: ScreenKey,
         text: str,
         reply_markup: ReplyMarkupUnion | None = None,
         create_new: bool = False,
         delete_event_message: bool = True,
-        store_message: bool = True,
     ) -> Message | None:
         message = event if isinstance(event, Message) else event.message
         if not isinstance(message, Message):
@@ -74,7 +45,6 @@ class TelegramResponder:
                 "Telegram event has no message to update",
                 extra={
                     "telegram_id": telegram_id,
-                    "screen_key": str(screen_key),
                     "event_type": type(event).__name__,
                 },
             )
@@ -83,7 +53,7 @@ class TelegramResponder:
         if isinstance(event, CallbackQuery):
             await event.answer()
 
-        target_message_id = await self._message_store.get(telegram_id, screen_key)
+        target_message_id = await self._message_store.get(telegram_id)
         if (
             isinstance(event, CallbackQuery)
             and target_message_id is not None
@@ -103,6 +73,7 @@ class TelegramResponder:
                     text=text,
                     reply_markup=reply_markup,
                 )
+                await self._message_store.set(telegram_id, target_message_id)
                 if delete_event_message and isinstance(event, Message):
                     await _delete_message(event)
                 return message
@@ -113,11 +84,91 @@ class TelegramResponder:
                         "telegram_id": telegram_id,
                         "chat_id": message.chat.id,
                         "message_id": target_message_id,
-                        "screen_key": str(screen_key),
                         "exception_type": type(exc).__name__,
                     },
                 )
-                await self._message_store.delete(telegram_id, screen_key)
+                await self._message_store.delete(telegram_id)
+
+        sent = await bot.send_message(
+            chat_id=message.chat.id,
+            text=text,
+            reply_markup=reply_markup,
+        )
+        await self._message_store.set(telegram_id, sent.message_id)
+        if (
+            delete_event_message
+            and isinstance(event, Message)
+            and event.message_id != sent.message_id
+        ):
+            await _delete_message(event)
+        return sent
+
+    async def send_step(
+        self,
+        *,
+        bot: Bot,
+        event: Message | CallbackQuery,
+        telegram_id: int,
+        text: str,
+        reply_markup: ReplyMarkupUnion | None = None,
+    ) -> Message | None:
+        return await self._send(
+            bot=bot,
+            event=event,
+            telegram_id=telegram_id,
+            text=text,
+            reply_markup=reply_markup,
+            store_message=True,
+        )
+
+    async def send_notice(
+        self,
+        *,
+        bot: Bot,
+        event: Message | CallbackQuery,
+        telegram_id: int,
+        text: str,
+        reply_markup: ReplyMarkupUnion | None = None,
+    ) -> Message | None:
+        return await self._send(
+            bot=bot,
+            event=event,
+            telegram_id=telegram_id,
+            text=text,
+            reply_markup=reply_markup,
+            store_message=False,
+        )
+
+    async def delete_clicked_message(self, callback: CallbackQuery) -> None:
+        if isinstance(callback.message, Message):
+            await _delete_message(callback.message)
+        await callback.answer()
+
+    async def _send(
+        self,
+        *,
+        bot: Bot,
+        event: Message | CallbackQuery,
+        telegram_id: int,
+        text: str,
+        reply_markup: ReplyMarkupUnion | None,
+        store_message: bool,
+    ) -> Message | None:
+        message = event if isinstance(event, Message) else event.message
+        if not isinstance(message, Message):
+            if isinstance(event, CallbackQuery):
+                await event.answer("Сообщение недоступно", show_alert=True)
+            logger.warning(
+                "Telegram event has no message to answer",
+                extra={
+                    "telegram_id": telegram_id,
+                    "event_type": type(event).__name__,
+                },
+            )
+            return None
+
+        if isinstance(event, CallbackQuery):
+            await event.answer()
 
         sent = await bot.send_message(
             chat_id=message.chat.id,
@@ -125,13 +176,7 @@ class TelegramResponder:
             reply_markup=reply_markup,
         )
         if store_message:
-            await self._message_store.set(telegram_id, screen_key, sent.message_id)
-        if (
-            delete_event_message
-            and isinstance(event, Message)
-            and event.message_id != sent.message_id
-        ):
-            await _delete_message(event)
+            await self._message_store.set(telegram_id, sent.message_id)
         return sent
 
 

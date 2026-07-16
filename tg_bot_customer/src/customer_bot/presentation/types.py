@@ -1,12 +1,6 @@
 from enum import StrEnum
 
 
-class ScreenKey(StrEnum):
-    MAIN = "main"
-    FLOW = "flow"
-    ORDER = "order"
-
-
 class ContactMethod(StrEnum):
     TELEGRAM = "telegram"
     PHONE = "phone"

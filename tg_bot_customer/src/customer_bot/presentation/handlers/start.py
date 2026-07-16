@@ -16,7 +16,6 @@ from customer_bot.presentation.navigation import (
     show_category_select,
 )
 from customer_bot.presentation.services import TelegramResponder
-from customer_bot.presentation.types import ScreenKey
 from customer_bot.presentation.ui import (
     fallback_keyboard,
     help_text,
@@ -125,7 +124,6 @@ async def help_command(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        screen_key=ScreenKey.MAIN,
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
     )

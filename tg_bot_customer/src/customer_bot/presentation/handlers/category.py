@@ -14,7 +14,6 @@ from customer_bot.presentation.callbacks import (
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.navigation import (
-    MAIN_MENU_KEY,
     category_by_code,
     list_categories,
     show_category_menu,
@@ -52,7 +51,6 @@ async def select_category(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
-                screen_key=MAIN_MENU_KEY,
                 text=help_text(),
                 reply_markup=fallback_keyboard(include_main_menu=False),
             )
@@ -125,7 +123,6 @@ async def change_category(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            screen_key=MAIN_MENU_KEY,
             text=unfinished_action_text(),
             reply_markup=unfinished_action_keyboard(),
         )
@@ -207,7 +204,6 @@ async def _show_unavailable(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        screen_key=MAIN_MENU_KEY,
         text=unavailable_action_text(),
         reply_markup=fallback_keyboard(),
     )

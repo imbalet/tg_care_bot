@@ -27,6 +27,10 @@ class MainMenuCallback(CallbackData, prefix="main_menu"):
     pass
 
 
+class CloseMessageCallback(CallbackData, prefix="close_msg"):
+    pass
+
+
 class ProfileOpenCallback(CallbackData, prefix="profile_open"):
     pass
 

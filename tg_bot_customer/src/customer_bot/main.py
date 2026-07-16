@@ -14,7 +14,7 @@ from customer_bot.infrastructure.http import BackendClient
 from customer_bot.infrastructure.logger import setup_logger
 from customer_bot.infrastructure.redis import (
     RedisActiveCategoryStore,
-    RedisScreenMessageStore,
+    RedisCurrentMessageStore,
     RedisUsernameSyncCache,
     create_fsm_storage,
 )
@@ -32,6 +32,7 @@ from customer_bot.presentation.handlers import (
 )
 from customer_bot.presentation.middlewares import (
     AppContextMiddleware,
+    CallbackMessageMiddleware,
     TelegramUserContextMiddleware,
     TelegramUsernameSyncMiddleware,
 )
@@ -56,6 +57,7 @@ async def main() -> None:
     dispatcher.update.middleware(TelegramUserContextMiddleware())
     dispatcher.update.middleware(AppContextMiddleware())
     dispatcher.update.middleware(TelegramUsernameSyncMiddleware())
+    dispatcher.callback_query.middleware(CallbackMessageMiddleware())
     dispatcher.errors.register(handle_unexpected_error)
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)
@@ -75,7 +77,7 @@ async def main() -> None:
         timeout_seconds=settings.request_timeout_seconds,
     )
 
-    screen_message_store = RedisScreenMessageStore(redis)
+    current_message_store = RedisCurrentMessageStore(redis)
     active_category_store = RedisActiveCategoryStore(redis)
     username_sync_cache = RedisUsernameSyncCache(redis)
     username_sync_service = UsernameSyncService(
@@ -83,7 +85,7 @@ async def main() -> None:
         cache=username_sync_cache,
     )
     telegram_responder = TelegramResponder(
-        message_store=screen_message_store,
+        message_store=current_message_store,
     )
     try:
         logger.info("Configuring Telegram bot commands")

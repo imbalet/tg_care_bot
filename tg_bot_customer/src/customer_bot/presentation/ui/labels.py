@@ -20,6 +20,7 @@ class MsgKey(StrEnum):
     HELP = "help"
     MAIN_MENU = "main_menu"
     MY_ORDERS = "my_orders"
+    OK = "ok"
     PETS = "pets"
     PROFILE = "profile"
     PUBLISH_POOL = "publish_pool"
@@ -48,6 +49,7 @@ TEXTS: dict[MsgKey, str] = {
     MsgKey.HELP: "Помощь",
     MsgKey.MAIN_MENU: "Главное меню",
     MsgKey.MY_ORDERS: "Мои заказы",
+    MsgKey.OK: "ОК",
     MsgKey.PETS: "Питомцы",
     MsgKey.PROFILE: "Профиль",
     MsgKey.PUBLISH_POOL: "Опубликовать в пул",

@@ -24,6 +24,7 @@ from customer_bot.presentation.callbacks import (
     CareObjectsOpenCallback,
     CategoryChangeCallback,
     CategorySelectCallback,
+    CloseMessageCallback,
     HelpCallback,
     MainMenuCallback,
     OrderAddAddressCallback,
@@ -192,6 +193,16 @@ def fallback_keyboard(*, include_main_menu: bool = True) -> InlineKeyboardMarkup
     if include_main_menu:
         keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
     return keyboard.button(MsgKey.HELP, HelpCallback()).as_markup()
+
+
+def notice_keyboard(*, include_main_menu: bool = True) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory(row_width=2).button(
+        MsgKey.OK,
+        CloseMessageCallback(),
+    )
+    if include_main_menu:
+        keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
+    return keyboard.as_markup()
 
 
 def unfinished_action_keyboard() -> InlineKeyboardMarkup:

@@ -29,6 +29,7 @@ from customer_bot.presentation.ui import (
     invalid_text_input_text,
     legal_acceptance_keyboard,
     legal_documents_text,
+    notice_keyboard,
     phone_contact_keyboard,
     phone_contact_received_text,
     phone_step_text,
@@ -434,12 +435,12 @@ async def confirm_registration(
         "Customer registration completed",
         extra={"telegram_id": telegram_user_context.telegram_id},
     )
-    await send_step(
+    await telegram_responder.send_notice(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=registration_complete_text(),
+        reply_markup=notice_keyboard(),
     )
     await show_category_select(
         bot=bot,
@@ -447,6 +448,7 @@ async def confirm_registration(
         telegram_user_context=telegram_user_context,
         backend_client=backend_client,
         telegram_responder=telegram_responder,
+        force_create_new=True,
     )
 
 

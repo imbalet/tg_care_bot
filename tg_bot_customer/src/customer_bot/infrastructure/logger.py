@@ -21,7 +21,6 @@ SAFE_EXTRA_FIELDS = (
     "url",
     "status_code",
     "exception_type",
-    "screen_key",
     "category_code",
     "object_type",
     "care_object_type",

@@ -7,6 +7,7 @@ from aiogram.types import CallbackQuery, Message
 from customer_bot.application.errors import BackendClientError
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.callbacks import (
+    CloseMessageCallback,
     HelpCallback,
     MainMenuCallback,
     OrdersListCallback,
@@ -15,7 +16,6 @@ from customer_bot.presentation.callbacks import (
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.navigation import (
-    MAIN_MENU_KEY,
     active_category,
     show_category_menu,
     show_category_select,
@@ -32,6 +32,14 @@ from customer_bot.presentation.ui import (
 
 router = Router(name="fallback")
 logger = logging.getLogger(__name__)
+
+
+@router.callback_query(CloseMessageCallback.filter())
+async def close_message_callback(
+    callback: CallbackQuery,
+    telegram_responder: TelegramResponder,
+) -> None:
+    await telegram_responder.delete_clicked_message(callback)
 
 
 @router.callback_query(MainMenuCallback.filter())
@@ -52,7 +60,6 @@ async def main_menu_callback(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
-                screen_key=MAIN_MENU_KEY,
                 text=help_text(),
                 reply_markup=fallback_keyboard(include_main_menu=False),
             )
@@ -125,7 +132,6 @@ async def help_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        screen_key=MAIN_MENU_KEY,
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
     )
@@ -163,7 +169,6 @@ async def profile_callback(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            screen_key=MAIN_MENU_KEY,
             text=fallback_text(),
             reply_markup=fallback_keyboard(),
         )
@@ -172,7 +177,6 @@ async def profile_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        screen_key=MAIN_MENU_KEY,
         text=customer_profile_text(profile),
         reply_markup=fallback_keyboard(),
     )
@@ -189,7 +193,6 @@ async def unavailable_section(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        screen_key=MAIN_MENU_KEY,
         text=unavailable_action_text(),
         reply_markup=fallback_keyboard(),
     )
@@ -239,7 +242,6 @@ async def services_prices_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        screen_key=MAIN_MENU_KEY,
         text=services_prices_text(category),
         reply_markup=fallback_keyboard(),
     )
@@ -275,7 +277,6 @@ async def unknown_message(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        screen_key=MAIN_MENU_KEY,
         text=fallback_text(),
         reply_markup=fallback_keyboard(),
     )
@@ -292,7 +293,6 @@ async def _show_unavailable(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        screen_key=MAIN_MENU_KEY,
         text=unavailable_action_text(),
         reply_markup=fallback_keyboard(),
     )

@@ -2,7 +2,7 @@ import logging
 
 from customer_bot.application.ports import (
     ActiveCategoryStore,
-    ScreenMessageStore,
+    CurrentMessageStore,
     UsernameSyncCache,
 )
 from redis.asyncio import Redis
@@ -50,7 +50,7 @@ class RedisActiveCategoryStore(ActiveCategoryStore):
         await self._redis.set(self._keys.active_category(telegram_id), category_code)
 
 
-class RedisScreenMessageStore(ScreenMessageStore):
+class RedisCurrentMessageStore(CurrentMessageStore):
     def __init__(
         self,
         redis: Redis,
@@ -59,10 +59,39 @@ class RedisScreenMessageStore(ScreenMessageStore):
         self._redis = redis
         self._keys = keys
 
-    async def get(self, telegram_id: int, screen_key: str) -> int | None:
-        value = await self._redis.get(
-            self._keys.screen_message(telegram_id, screen_key)
+    async def get(self, telegram_id: int) -> int | None:
+        current_key = self._keys.current_message(telegram_id)
+        value = await self._redis.get(current_key)
+        message_id = await self._parse_message_id(telegram_id, current_key, value)
+        if message_id is not None:
+            return message_id
+
+        legacy_key = self._keys.legacy_screen_message(telegram_id, "main")
+        legacy_value = await self._redis.get(legacy_key)
+        legacy_message_id = await self._parse_message_id(
+            telegram_id,
+            legacy_key,
+            legacy_value,
         )
+        if legacy_message_id is not None:
+            await self.set(telegram_id, legacy_message_id)
+        return legacy_message_id
+
+    async def set(self, telegram_id: int, message_id: int) -> None:
+        await self._redis.set(
+            self._keys.current_message(telegram_id),
+            message_id,
+        )
+
+    async def delete(self, telegram_id: int) -> None:
+        await self._redis.delete(self._keys.current_message(telegram_id))
+
+    async def _parse_message_id(
+        self,
+        telegram_id: int,
+        key: str,
+        value: object,
+    ) -> int | None:
         if not isinstance(value, str):
             return None
         try:
@@ -70,16 +99,7 @@ class RedisScreenMessageStore(ScreenMessageStore):
         except ValueError:
             logger.warning(
                 "Invalid screen message id in Redis",
-                extra={"telegram_id": telegram_id, "screen_key": screen_key},
+                extra={"telegram_id": telegram_id},
             )
-            await self.delete(telegram_id, screen_key)
+            await self._redis.delete(key)
             return None
-
-    async def set(self, telegram_id: int, screen_key: str, message_id: int) -> None:
-        await self._redis.set(
-            self._keys.screen_message(telegram_id, screen_key),
-            message_id,
-        )
-
-    async def delete(self, telegram_id: int, screen_key: str) -> None:
-        await self._redis.delete(self._keys.screen_message(telegram_id, screen_key))
