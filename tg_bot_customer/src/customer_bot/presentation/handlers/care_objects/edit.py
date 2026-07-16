@@ -15,9 +15,7 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.care_objects.state import (
     CareObjectManagement,
-)
-from customer_bot.presentation.handlers.care_objects.state import (
-    care_object_by_index as _care_object_by_index,
+    care_object_by_index,
 )
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
@@ -44,7 +42,7 @@ async def edit_care_object(
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectEditCallback,
 ) -> None:
-    item = await _care_object_by_index(state, callback_data.index)
+    item = await care_object_by_index(state, callback_data.index)
     if item is None:
         logger.warning(
             "Stale care object edit callback",
@@ -89,7 +87,7 @@ async def delete_care_object(
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectDeleteCallback,
 ) -> None:
-    item = await _care_object_by_index(state, callback_data.index)
+    item = await care_object_by_index(state, callback_data.index)
     if item is None:
         logger.warning(
             "Stale care object delete callback",
@@ -120,7 +118,7 @@ async def confirm_delete_care_object(
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectDeleteConfirmCallback,
 ) -> None:
-    item = await _care_object_by_index(state, callback_data.index)
+    item = await care_object_by_index(state, callback_data.index)
     if item is None:
         logger.warning(
             "Stale care object delete confirm callback",

@@ -16,15 +16,9 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.orders.state import (
     OrderCreation,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    draft as _draft,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    item_by_index as _item_by_index,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    string_list as _string_list,
+    draft,
+    item_by_index,
+    string_list,
 )
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
@@ -49,7 +43,7 @@ async def publish_pool(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
-    draft = _draft(data)
+    order_draft = draft(data)
     try:
         profile = await backend_client.get_customer_profile(
             telegram_user_context.telegram_id,
@@ -60,7 +54,7 @@ async def publish_pool(
                 extra={"telegram_id": telegram_user_context.telegram_id},
             )
             raise BackendClientError("Customer profile is missing")
-        order_request = _order_request(draft)
+        order_request = _order_request(order_draft)
         order = await backend_client.create_order_pool(
             customer_id=profile.id,
             service_id=order_request.service_id,
@@ -130,7 +124,7 @@ async def publish_direct(
     telegram_user_context: TelegramUserContext,
     callback_data: OrderPublishDirectCallback,
 ) -> None:
-    performer = await _item_by_index(state, "order_performers", callback_data.index)
+    performer = await item_by_index(state, "order_performers", callback_data.index)
     if performer is None:
         logger.warning(
             "Stale direct order performer callback",
@@ -142,7 +136,7 @@ async def publish_direct(
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     data = await state.get_data()
-    draft = _draft(data)
+    order_draft = draft(data)
     try:
         profile = await backend_client.get_customer_profile(
             telegram_user_context.telegram_id,
@@ -153,7 +147,7 @@ async def publish_direct(
                 extra={"telegram_id": telegram_user_context.telegram_id},
             )
             raise BackendClientError("Customer profile is missing")
-        order_request = _order_request(draft)
+        order_request = _order_request(order_draft)
         order = await backend_client.create_order_direct(
             customer_id=profile.id,
             service_id=order_request.service_id,
@@ -222,18 +216,20 @@ class _OrderRequest:
     report_photo_consent: bool | None
 
 
-def _order_request(draft: dict[str, object]) -> _OrderRequest:
-    consent_value = draft.get("report_photo_consent")
+def _order_request(order_draft: dict[str, object]) -> _OrderRequest:
+    consent_value = order_draft.get("report_photo_consent")
     return _OrderRequest(
-        service_id=UUID(str(draft["service_id"])),
-        start_at=datetime.fromisoformat(str(draft["start_at"])),
-        end_at=datetime.fromisoformat(str(draft["end_at"])),
+        service_id=UUID(str(order_draft["service_id"])),
+        start_at=datetime.fromisoformat(str(order_draft["start_at"])),
+        end_at=datetime.fromisoformat(str(order_draft["end_at"])),
         care_object_ids=tuple(
-            UUID(str(item)) for item in _string_list(draft["care_object_ids"])
+            UUID(str(item)) for item in string_list(order_draft["care_object_ids"])
         ),
-        address_id=UUID(str(draft["address_id"])) if draft.get("address_id") else None,
-        customer_comment=str(draft["customer_comment"])
-        if draft.get("customer_comment")
+        address_id=UUID(str(order_draft["address_id"]))
+        if order_draft.get("address_id")
+        else None,
+        customer_comment=str(order_draft["customer_comment"])
+        if order_draft.get("customer_comment")
         else None,
         report_photo_consent=consent_value if isinstance(consent_value, bool) else None,
     )

@@ -17,15 +17,9 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.care_objects.state import (
     CareObjectManagement,
-)
-from customer_bot.presentation.handlers.care_objects.state import (
-    care_object_draft as _draft,
-)
-from customer_bot.presentation.handlers.care_objects.state import (
-    optional_bool as _optional_bool,
-)
-from customer_bot.presentation.handlers.care_objects.state import (
-    optional_str as _optional_str,
+    care_object_draft,
+    optional_bool,
+    optional_str,
 )
 from customer_bot.presentation.handlers.orders.state import OrderCreation
 from customer_bot.presentation.handlers.responses import send_step
@@ -108,7 +102,7 @@ async def enter_name(
         )
         return
     data = await state.get_data()
-    draft = _draft(data)
+    draft = care_object_draft(data)
     draft["display_name"] = message.text.strip()
     await state.update_data(draft=draft)
     await state.set_state(CareObjectManagement.age)
@@ -136,7 +130,7 @@ async def enter_age(
 ) -> None:
     age_group = callback_data.age_group
     data = await state.get_data()
-    draft = _draft(data)
+    draft = care_object_draft(data)
     draft["age_group"] = age_group
     await state.update_data(draft=draft)
     object_type = str(draft["object_type"])
@@ -190,7 +184,7 @@ async def enter_species(
         )
         return
     data = await state.get_data()
-    draft = _draft(data)
+    draft = care_object_draft(data)
     draft["species"] = message.text.strip()
     await state.update_data(draft=draft)
     await state.set_state(CareObjectManagement.breed)
@@ -213,7 +207,7 @@ async def enter_breed(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
-    draft = _draft(data)
+    draft = care_object_draft(data)
     if message.text and message.text.strip():
         draft["breed"] = message.text.strip()
     await state.update_data(draft=draft)
@@ -261,7 +255,7 @@ async def enter_size(
 ) -> None:
     size = callback_data.size
     data = await state.get_data()
-    draft = _draft(data)
+    draft = care_object_draft(data)
     draft["pet_size"] = size
     await state.update_data(draft=draft)
     await state.set_state(CareObjectManagement.notes)
@@ -289,7 +283,7 @@ async def enter_mobility(
 ) -> None:
     value = callback_data.value
     data = await state.get_data()
-    draft = _draft(data)
+    draft = care_object_draft(data)
     draft["mobility_assistance_required"] = value == YesNoValue.YES
     await state.update_data(draft=draft)
     await state.set_state(CareObjectManagement.notes)
@@ -313,7 +307,7 @@ async def enter_notes(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
-    draft = _draft(data)
+    draft = care_object_draft(data)
     if message.text and message.text.strip():
         draft["routine_notes"] = message.text.strip()
     await _create_from_draft(
@@ -344,7 +338,7 @@ async def skip_notes(
         backend_client,
         telegram_responder,
         telegram_user_context,
-        _draft(data),
+        care_object_draft(data),
     )
 
 
@@ -358,21 +352,21 @@ async def _create_from_draft(
     draft: dict[str, object],
 ) -> None:
     try:
-        edit_id = _optional_str(draft.get("edit_id"))
+        edit_id = optional_str(draft.get("edit_id"))
         if edit_id is None:
             await backend_client.create_care_object(
                 telegram_id=telegram_user_context.telegram_id,
                 object_type=str(draft["object_type"]),
                 display_name=str(draft["display_name"]),
                 age_group=str(draft["age_group"]),
-                species=_optional_str(draft.get("species")),
-                breed=_optional_str(draft.get("breed")),
-                pet_size=_optional_str(draft.get("pet_size")),
-                mobility_assistance_required=_optional_bool(
+                species=optional_str(draft.get("species")),
+                breed=optional_str(draft.get("breed")),
+                pet_size=optional_str(draft.get("pet_size")),
+                mobility_assistance_required=optional_bool(
                     draft.get("mobility_assistance_required"),
                 ),
-                routine_notes=_optional_str(draft.get("routine_notes")),
-                behavior_notes=_optional_str(draft.get("behavior_notes")),
+                routine_notes=optional_str(draft.get("routine_notes")),
+                behavior_notes=optional_str(draft.get("behavior_notes")),
             )
         else:
             await backend_client.update_care_object(
@@ -380,14 +374,14 @@ async def _create_from_draft(
                 care_object_id=UUID(edit_id),
                 display_name=str(draft["display_name"]),
                 age_group=str(draft["age_group"]),
-                species=_optional_str(draft.get("species")),
-                breed=_optional_str(draft.get("breed")),
-                pet_size=_optional_str(draft.get("pet_size")),
-                mobility_assistance_required=_optional_bool(
+                species=optional_str(draft.get("species")),
+                breed=optional_str(draft.get("breed")),
+                pet_size=optional_str(draft.get("pet_size")),
+                mobility_assistance_required=optional_bool(
                     draft.get("mobility_assistance_required"),
                 ),
-                routine_notes=_optional_str(draft.get("routine_notes")),
-                behavior_notes=_optional_str(draft.get("behavior_notes")),
+                routine_notes=optional_str(draft.get("routine_notes")),
+                behavior_notes=optional_str(draft.get("behavior_notes")),
             )
     except BackendValidationError as exc:
         logger.warning(
@@ -440,7 +434,7 @@ async def _create_from_draft(
         extra={
             "telegram_id": telegram_user_context.telegram_id,
             "object_type": str(draft.get("object_type")),
-            "is_edit": _optional_str(draft.get("edit_id")) is not None,
+            "is_edit": optional_str(draft.get("edit_id")) is not None,
         },
     )
     await send_step(
@@ -449,7 +443,7 @@ async def _create_from_draft(
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=care_object_updated_text()
-        if _optional_str(draft.get("edit_id")) is not None
+        if optional_str(draft.get("edit_id")) is not None
         else care_object_created_text(),
         reply_markup=care_object_saved_keyboard(str(draft["object_type"])),
     )

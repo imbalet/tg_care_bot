@@ -28,39 +28,17 @@ from customer_bot.presentation.handlers.care_objects.state import CareObjectMana
 from customer_bot.presentation.handlers.orders.state import (
     LOCAL_TZ,
     OrderCreation,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    care_object_state as _care_object_state,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    draft as _draft,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    item_by_index as _item_by_index,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    parse_duration_interval as _parse_duration_interval,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    parse_local_datetime as _parse_local_datetime,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    parse_local_time as _parse_local_time,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    performer_state as _performer_state,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    selected_ids as _selected_ids,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    service_states as _service_states,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    string_list as _string_list,
-)
-from customer_bot.presentation.handlers.orders.state import (
-    uses_days as _uses_days,
+    care_object_state,
+    draft,
+    item_by_index,
+    parse_duration_interval,
+    parse_local_datetime,
+    parse_local_time,
+    performer_state,
+    selected_ids,
+    service_states,
+    string_list,
+    uses_days,
 )
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.navigation import active_category
@@ -151,7 +129,7 @@ async def start_order_creation(
             text=use_buttons_text(),
         )
         return
-    services = _service_states((category,))
+    services = service_states((category,))
     if not services:
         logger.warning(
             "Order creation category has no services",
@@ -171,7 +149,7 @@ async def start_order_creation(
     await state.set_state(OrderCreation.service)
     await state.update_data(
         order_services=services,
-        order_draft={
+        draft={
             "category_code": category.code,
             "category_name": category.name,
             "care_object_type": category.care_object_type,
@@ -197,7 +175,7 @@ async def select_service(
     telegram_user_context: TelegramUserContext,
     callback_data: OrderServiceCallback,
 ) -> None:
-    service = await _item_by_index(state, "order_services", callback_data.index)
+    service = await item_by_index(state, "order_services", callback_data.index)
     if service is None:
         logger.warning(
             "Stale order service callback",
@@ -208,8 +186,8 @@ async def select_service(
         )
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
-    draft = _draft(await state.get_data())
-    draft.update(
+    order_draft = draft(await state.get_data())
+    order_draft.update(
         {
             "service_id": service["id"],
             "service_name": service["name"],
@@ -264,11 +242,11 @@ async def select_service(
         )
         return
     await state.set_state(OrderCreation.object)
-    draft["care_object_ids"] = []
-    draft["objects_count"] = 0
+    order_draft["care_object_ids"] = []
+    order_draft["objects_count"] = 0
     await state.update_data(
-        order_draft=draft,
-        order_objects=[_care_object_state(item) for item in objects],
+        order_draft=order_draft,
+        order_objects=[care_object_state(item) for item in objects],
     )
     await send_step(
         bot=bot,
@@ -296,7 +274,7 @@ async def select_object(
     telegram_user_context: TelegramUserContext,
     callback_data: OrderObjectCallback,
 ) -> None:
-    item = await _item_by_index(state, "order_objects", callback_data.index)
+    item = await item_by_index(state, "order_objects", callback_data.index)
     if item is None:
         logger.warning(
             "Stale order object callback",
@@ -308,13 +286,13 @@ async def select_object(
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     data = await state.get_data()
-    draft = _draft(data)
-    selected = _selected_ids(data)
+    order_draft = draft(data)
+    selected = selected_ids(data)
     item_id = str(item["id"])
     if item_id in selected:
         selected.remove(item_id)
     else:
-        max_objects = int(str(draft.get("max_objects_per_order", 1)))
+        max_objects = int(str(order_draft.get("max_objects_per_order", 1)))
         if len(selected) >= max_objects:
             await telegram_responder.acknowledge(
                 callback,
@@ -322,10 +300,10 @@ async def select_object(
             )
             return
         selected.append(item_id)
-    draft["care_object_ids"] = selected
-    draft["objects_count"] = len(selected)
-    max_objects = int(str(draft.get("max_objects_per_order", 1)))
-    await state.update_data(order_draft=draft)
+    order_draft["care_object_ids"] = selected
+    order_draft["objects_count"] = len(selected)
+    max_objects = int(str(order_draft.get("max_objects_per_order", 1)))
+    await state.update_data(order_draft=order_draft)
     if max_objects <= 1 and selected:
         await _ask_start_at(
             callback, bot, state, telegram_responder, telegram_user_context
@@ -358,7 +336,7 @@ async def finish_object_selection(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
-    if not _selected_ids(data):
+    if not selected_ids(data):
         await telegram_responder.acknowledge(
             callback, "Выберите хотя бы одну карточку."
         )
@@ -466,7 +444,7 @@ async def select_start_time(
 ) -> None:
     data = await state.get_data()
     start_date = _start_date_from_state(data)
-    start_time = _parse_local_time(callback_data.value)
+    start_time = parse_local_time(callback_data.value)
     if start_date is None or start_time is None:
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
@@ -501,14 +479,14 @@ async def enter_start(
         return
     start_date = _start_date_from_state(data)
     if manual_time and start_date is not None:
-        parsed_time = _parse_local_time(message.text)
+        parsed_time = parse_local_time(message.text)
         start_at = (
             datetime.combine(start_date, parsed_time, tzinfo=LOCAL_TZ)
             if parsed_time is not None
             else None
         )
     else:
-        start_at = _parse_local_datetime(message.text)
+        start_at = parse_local_datetime(message.text)
     if start_at is None:
         await send_step(
             bot=bot,
@@ -537,11 +515,11 @@ async def _set_start_at_and_ask_duration(
     start_at: datetime,
 ) -> None:
     data = await state.get_data()
-    draft = _draft(data)
-    draft["start_at"] = start_at.isoformat()
+    order_draft = draft(data)
+    order_draft["start_at"] = start_at.isoformat()
     await state.set_state(OrderCreation.duration)
     await state.update_data(
-        order_draft=draft,
+        order_draft=order_draft,
         order_start_date=None,
         order_start_manual_time=False,
     )
@@ -550,7 +528,7 @@ async def _set_start_at_and_ask_duration(
         event=event,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
-        text=order_duration_step_text(uses_days=_uses_days(draft)),
+        text=order_duration_step_text(uses_days=uses_days(order_draft)),
     )
 
 
@@ -578,22 +556,22 @@ async def enter_duration(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
-    draft = _draft(data)
-    duration = _parse_duration_interval(message.text, draft)
+    order_draft = draft(data)
+    duration = parse_duration_interval(message.text, order_draft)
     if duration is None:
         await send_step(
             bot=bot,
             event=message,
             telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
-            text=invalid_duration_text(uses_days=_uses_days(draft)),
+            text=invalid_duration_text(uses_days=uses_days(order_draft)),
         )
         return
-    start_at = datetime.fromisoformat(str(draft["start_at"]))
+    start_at = datetime.fromisoformat(str(order_draft["start_at"]))
     end_at = start_at + duration
-    draft["end_at"] = end_at.isoformat()
-    await state.update_data(order_draft=draft)
-    if draft.get("location_policy") != "customer_address":
+    order_draft["end_at"] = end_at.isoformat()
+    await state.update_data(order_draft=order_draft)
+    if order_draft.get("location_policy") != "customer_address":
         await _ask_photo_or_comment(
             message,
             bot,
@@ -665,7 +643,7 @@ async def select_address(
     telegram_user_context: TelegramUserContext,
     callback_data: OrderAddressCallback,
 ) -> None:
-    item = await _item_by_index(state, "order_addresses", callback_data.index)
+    item = await item_by_index(state, "order_addresses", callback_data.index)
     if item is None:
         logger.warning(
             "Stale order address callback",
@@ -677,9 +655,9 @@ async def select_address(
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     data = await state.get_data()
-    draft = _draft(data)
-    draft["address_id"] = item["id"]
-    await state.update_data(order_draft=draft)
+    order_draft = draft(data)
+    order_draft["address_id"] = item["id"]
+    await state.update_data(order_draft=order_draft)
     await _ask_photo_or_comment(
         callback,
         bot,
@@ -703,10 +681,10 @@ async def select_photo_consent(
 ) -> None:
     value = callback_data.value
     data = await state.get_data()
-    draft = _draft(data)
-    draft["report_photo_consent"] = value == YesNoValue.YES
+    order_draft = draft(data)
+    order_draft["report_photo_consent"] = value == YesNoValue.YES
     await state.set_state(OrderCreation.comment)
-    await state.update_data(order_draft=draft)
+    await state.update_data(order_draft=order_draft)
     await send_step(
         bot=bot,
         event=callback,
@@ -727,9 +705,9 @@ async def enter_comment(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
-    draft = _draft(data)
+    order_draft = draft(data)
     if message.text and message.text.strip():
-        draft["customer_comment"] = message.text.strip()
+        order_draft["customer_comment"] = message.text.strip()
     await _create_draft_and_show_summary(
         message,
         bot,
@@ -737,7 +715,7 @@ async def enter_comment(
         backend_client,
         telegram_responder,
         telegram_user_context,
-        draft,
+        order_draft,
     )
 
 
@@ -758,7 +736,7 @@ async def skip_comment(
         backend_client,
         telegram_responder,
         telegram_user_context,
-        _draft(data),
+        draft(data),
     )
 
 
@@ -770,8 +748,8 @@ async def _ask_photo_or_comment(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
-    draft = _draft(data)
-    if draft.get("photo_policy") == "requires_customer_consent":
+    order_draft = draft(data)
+    if order_draft.get("photo_policy") == "requires_customer_consent":
         await state.set_state(OrderCreation.photo_consent)
         await send_step(
             bot=bot,
@@ -782,9 +760,9 @@ async def _ask_photo_or_comment(
             reply_markup=order_photo_consent_keyboard(),
         )
         return
-    draft["report_photo_consent"] = None
+    order_draft["report_photo_consent"] = None
     await state.set_state(OrderCreation.comment)
-    await state.update_data(order_draft=draft)
+    await state.update_data(order_draft=order_draft)
     await send_step(
         bot=bot,
         event=event,
@@ -802,7 +780,7 @@ async def _create_draft_and_show_summary(
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
-    draft: dict[str, object],
+    order_draft: dict[str, object],
 ) -> None:
     try:
         profile = await backend_client.get_customer_profile(
@@ -821,22 +799,26 @@ async def _create_draft_and_show_summary(
                 text=use_buttons_text(),
             )
             return
-        start_at = datetime.fromisoformat(str(draft["start_at"]))
-        end_at = datetime.fromisoformat(str(draft["end_at"]))
+        start_at = datetime.fromisoformat(str(order_draft["start_at"]))
+        end_at = datetime.fromisoformat(str(order_draft["end_at"]))
         care_object_ids = tuple(
-            UUID(str(item)) for item in _string_list(draft["care_object_ids"])
+            UUID(str(item)) for item in string_list(order_draft["care_object_ids"])
         )
-        address_id = UUID(str(draft["address_id"])) if draft.get("address_id") else None
-        objects_count = int(str(draft["objects_count"]))
+        address_id = (
+            UUID(str(order_draft["address_id"]))
+            if order_draft.get("address_id")
+            else None
+        )
+        objects_count = int(str(order_draft["objects_count"]))
         price = await backend_client.preview_order_price(
-            service_id=UUID(str(draft["service_id"])),
+            service_id=UUID(str(order_draft["service_id"])),
             start_at=start_at,
             end_at=end_at,
             objects_count=objects_count,
         )
         performers = await backend_client.find_suitable_performers(
             city_id=profile.city_id,
-            service_id=UUID(str(draft["service_id"])),
+            service_id=UUID(str(order_draft["service_id"])),
             start_at=start_at,
             end_at=end_at,
             objects_count=objects_count,
@@ -845,7 +827,7 @@ async def _create_draft_and_show_summary(
         )
     except BackendValidationError as exc:
         logger.warning(
-            "Backend rejected order draft preview",
+            "Backend rejected order order_draft preview",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
         await send_step(
@@ -858,7 +840,7 @@ async def _create_draft_and_show_summary(
         return
     except BackendClientError as exc:
         logger.warning(
-            "Failed to prepare order draft summary",
+            "Failed to prepare order order_draft summary",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
                 "exception_type": type(exc).__name__,
@@ -874,15 +856,15 @@ async def _create_draft_and_show_summary(
         return
     await state.set_state(OrderCreation.publish)
     logger.info(
-        "Order draft ready to publish",
+        "Order order_draft ready to publish",
         extra={
             "telegram_id": telegram_user_context.telegram_id,
             "performers_count": len(performers),
         },
     )
     await state.update_data(
-        order_draft=draft,
-        order_performers=[_performer_state(item) for item in performers],
+        order_draft=order_draft,
+        order_performers=[performer_state(item) for item in performers],
     )
     await send_step(
         bot=bot,
@@ -903,11 +885,11 @@ async def add_order_object(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
-    draft = _draft(data)
+    order_draft = draft(data)
     await state.update_data(
         return_to_order_after_care_object=True,
-        draft={"object_type": str(draft["care_object_type"])},
-        order_draft=draft,
+        draft={"object_type": str(order_draft["care_object_type"])},
+        order_draft=order_draft,
     )
     await state.set_state(CareObjectManagement.name)
     await send_step(

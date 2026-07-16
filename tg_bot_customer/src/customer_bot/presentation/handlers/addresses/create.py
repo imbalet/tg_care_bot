@@ -17,18 +17,10 @@ from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.addresses.state import (
     EXTRA_FIELDS,
     AddressManagement,
-)
-from customer_bot.presentation.handlers.addresses.state import (
-    address_draft as _draft,
-)
-from customer_bot.presentation.handlers.addresses.state import (
-    extra_index as _extra_index,
-)
-from customer_bot.presentation.handlers.addresses.state import (
-    optional_str as _optional_str,
-)
-from customer_bot.presentation.handlers.addresses.state import (
-    string_list as _string_list,
+    address_draft,
+    extra_index,
+    optional_str,
+    string_list,
 )
 from customer_bot.presentation.handlers.orders.state import OrderCreation
 from customer_bot.presentation.handlers.responses import send_step
@@ -121,7 +113,7 @@ async def select_city(
 ) -> None:
     data = await state.get_data()
     index = callback_data.index
-    city_ids = _string_list(data["city_ids"])
+    city_ids = string_list(data["city_ids"])
     if index < 0 or index >= len(city_ids):
         logger.warning(
             "Invalid address city callback index",
@@ -132,7 +124,7 @@ async def select_city(
         )
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
-    draft = _draft(data)
+    draft = address_draft(data)
     draft["city_id"] = city_ids[index]
     await state.update_data(address_draft=draft)
     await state.set_state(AddressManagement.query)
@@ -164,7 +156,7 @@ async def enter_query(
         )
         return
     data = await state.get_data()
-    draft = _draft(data)
+    draft = address_draft(data)
     try:
         suggestions = await backend_client.suggest_addresses(
             city_id=UUID(str(draft["city_id"])),
@@ -252,7 +244,7 @@ async def select_suggestion(
         )
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
-    draft = _draft(data)
+    draft = address_draft(data)
     draft["unrestricted_value"] = str(suggestion["unrestricted_value"])
     draft["extra_index"] = 0
     await state.update_data(address_draft=draft)
@@ -277,8 +269,8 @@ async def enter_extra(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
-    draft = _draft(data)
-    index = _extra_index(draft)
+    draft = address_draft(data)
+    index = extra_index(draft)
     if message.text and message.text.strip():
         draft[EXTRA_FIELDS[index][0]] = message.text.strip()
     await _advance_or_create(
@@ -309,7 +301,7 @@ async def skip_extra(
         backend_client,
         telegram_responder,
         telegram_user_context,
-        _draft(data),
+        address_draft(data),
     )
 
 
@@ -322,7 +314,7 @@ async def _advance_or_create(
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
 ) -> None:
-    index = _extra_index(draft) + 1
+    index = extra_index(draft) + 1
     if index < len(EXTRA_FIELDS):
         draft["extra_index"] = index
         await state.update_data(address_draft=draft)
@@ -340,10 +332,10 @@ async def _advance_or_create(
             telegram_id=telegram_user_context.telegram_id,
             city_id=UUID(str(draft["city_id"])),
             unrestricted_value=str(draft["unrestricted_value"]),
-            entrance=_optional_str(draft.get("entrance")),
-            floor=_optional_str(draft.get("floor")),
-            apartment=_optional_str(draft.get("apartment")),
-            comment=_optional_str(draft.get("comment")),
+            entrance=optional_str(draft.get("entrance")),
+            floor=optional_str(draft.get("floor")),
+            apartment=optional_str(draft.get("apartment")),
+            comment=optional_str(draft.get("comment")),
         )
     except BackendValidationError as exc:
         logger.warning(
