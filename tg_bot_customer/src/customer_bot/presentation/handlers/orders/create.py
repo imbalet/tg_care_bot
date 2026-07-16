@@ -85,6 +85,7 @@ from customer_bot.presentation.ui import (
     order_start_step_text,
     retry_later_text,
     use_buttons_text,
+    validation_error_text,
 )
 
 router = Router(name="orders_create")
@@ -684,7 +685,7 @@ async def _create_draft_and_show_summary(
             care_object_ids=care_object_ids,
             address_id=address_id,
         )
-    except BackendValidationError:
+    except BackendValidationError as exc:
         logger.warning(
             "Backend rejected order draft preview",
             extra={"telegram_id": telegram_user_context.telegram_id},
@@ -694,7 +695,7 @@ async def _create_draft_and_show_summary(
             event=event,
             telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
-            text=use_buttons_text(),
+            text=validation_error_text(str(exc)),
         )
         return
     except BackendClientError as exc:

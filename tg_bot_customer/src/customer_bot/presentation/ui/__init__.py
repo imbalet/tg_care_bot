@@ -88,6 +88,7 @@ from .texts import (
     unavailable_action_text,
     unfinished_action_text,
     use_buttons_text,
+    validation_error_text,
 )
 
 __all__ = [
@@ -178,4 +179,5 @@ __all__ = [
     "unfinished_action_keyboard",
     "unfinished_action_text",
     "use_buttons_text",
+    "validation_error_text",
 ]

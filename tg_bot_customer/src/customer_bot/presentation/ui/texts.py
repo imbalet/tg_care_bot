@@ -324,7 +324,7 @@ def care_object_delete_confirm_text() -> str:
 
 
 def delete_blocked_text(message: str) -> str:
-    return f"<b>Удаление недоступно</b>\n\n{escape(message)}"
+    return validation_error_text(message)
 
 
 def care_object_card_text(item: object) -> str:
@@ -415,7 +415,16 @@ def address_validation_error_text(message: str) -> str:
             "<b>Адресный сервис не настроен</b>\n\n"
             "Адреса проверяются через DaData. Сейчас ключ DaData не задан."
         )
-    return "<b>Адрес не принят</b>\n\nПроверьте адрес и попробуйте еще раз."
+    return validation_error_text(message)
+
+
+def validation_error_text(message: str) -> str:
+    text = _VALIDATION_MESSAGES.get(message)
+    if text is not None:
+        return text
+    return (
+        "<b>Данные не приняты</b>\n\nПроверьте введенные данные и попробуйте еще раз."
+    )
 
 
 def order_services_step_text() -> str:
@@ -622,6 +631,95 @@ def _duration_value(minutes: int | None, divider: int) -> str | None:
     if value.is_integer():
         return str(int(value))
     return str(value).rstrip("0").rstrip(".")
+
+
+_VALIDATION_MESSAGES = {
+    "Address was not normalized": (
+        "<b>Адрес не принят</b>\n\n"
+        "Выберите адрес из подсказок или уточните улицу и дом."
+    ),
+    "Boarding order must not use customer address": (
+        "<b>Адрес не нужен</b>\n\nДля этой услуги адрес заказчика не выбирается."
+    ),
+    "Care object is inactive or unknown": (
+        "<b>Карточка недоступна</b>\n\nВыберите другую карточку объекта ухода."
+    ),
+    "City is inactive or unknown": (
+        "<b>Город недоступен</b>\n\nВыберите другой город."
+    ),
+    "Customer address is inactive or unknown": (
+        "<b>Адрес недоступен</b>\n\nВыберите другой адрес."
+    ),
+    "Customer address is required": ("<b>Нужен адрес</b>\n\nВыберите адрес заказа."),
+    "Customer cannot manage addresses": (
+        "<b>Адрес не принят</b>\n\nПрофиль заказчика не может изменить этот адрес."
+    ),
+    "Customer cannot manage care objects": (
+        "<b>Карточка не принята</b>\n\n"
+        "Профиль заказчика не может изменить эту карточку."
+    ),
+    "DaData API key is not configured": (
+        "<b>Адресный сервис не настроен</b>\n\n"
+        "Адреса проверяются через DaData. Сейчас ключ DaData не задан."
+    ),
+    "DaData is unavailable": (
+        "<b>Адресный сервис недоступен</b>\n\nПопробуйте еще раз чуть позже."
+    ),
+    "DaData rejected address request": (
+        "<b>Адрес не принят</b>\n\nУточните адрес и попробуйте еще раз."
+    ),
+    "Mobility assistance is allowed only for wards": (
+        "<b>Карточка не принята</b>\n\n"
+        "Помощь с передвижением указывается только для подопечных."
+    ),
+    "Order duration is longer than service maximum": (
+        "<b>Длительность слишком большая</b>\n\n"
+        "Укажите меньшую длительность для выбранной услуги."
+    ),
+    "Order duration is shorter than service minimum": (
+        "<b>Длительность слишком маленькая</b>\n\n"
+        "Укажите большую длительность для выбранной услуги."
+    ),
+    "Order interval exceeds payment provider hold limit": (
+        "<b>Период слишком длинный</b>\n\nВыберите более короткий заказ."
+    ),
+    "Order must include care objects": (
+        "<b>Нужна карточка</b>\n\nВыберите хотя бы одну карточку объекта ухода."
+    ),
+    "Order start is too soon": (
+        "<b>Слишком раннее начало</b>\n\n"
+        "До начала заказа должно оставаться больше времени."
+    ),
+    "Pet fields are allowed only for pets": (
+        "<b>Карточка не принята</b>\n\n"
+        "Вид, порода и размер указываются только для питомцев."
+    ),
+    "Pet species and size are required": (
+        "<b>Карточка не принята</b>\n\nДля питомца нужны вид и размер."
+    ),
+    "Performer is not suitable for direct order": (
+        "<b>Исполнитель недоступен</b>\n\n"
+        "Выберите другого исполнителя или опубликуйте заказ для всех подходящих."
+    ),
+    "Report photo consent is not allowed for this service": (
+        "<b>Фотоотчет не нужен</b>\n\n"
+        "Для этой услуги согласие на фотоотчет не требуется."
+    ),
+    "Report photo consent is required": (
+        "<b>Нужно согласие</b>\n\nВыберите согласие на фотоотчет."
+    ),
+    "Unknown age group": (
+        "<b>Возрастная группа не принята</b>\n\nВыберите возраст кнопкой."
+    ),
+    "Unknown care object type": (
+        "<b>Тип карточки не принят</b>\n\nВыберите тип карточки кнопкой."
+    ),
+    "Unknown pet size": ("<b>Размер питомца не принят</b>\n\nВыберите размер кнопкой."),
+    "Ward mobility assistance value is required": (
+        "<b>Карточка не принята</b>\n\n"
+        "Для подопечного нужно указать, нужна ли помощь с передвижением."
+    ),
+}
 
 
 def _field(item: object, key: str, default: object = None) -> object:

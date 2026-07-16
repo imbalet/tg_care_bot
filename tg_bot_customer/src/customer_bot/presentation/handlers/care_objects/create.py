@@ -49,6 +49,7 @@ from customer_bot.presentation.ui import (
     order_objects_step_text,
     retry_later_text,
     use_buttons_text,
+    validation_error_text,
 )
 from customer_bot.presentation.ui.keyboards import CARE_OBJECT_TYPE_LABELS
 
@@ -386,7 +387,7 @@ async def _create_from_draft(
                 routine_notes=_optional_str(draft.get("routine_notes")),
                 behavior_notes=_optional_str(draft.get("behavior_notes")),
             )
-    except BackendValidationError:
+    except BackendValidationError as exc:
         logger.warning(
             "Backend rejected care object creation",
             extra={
@@ -399,7 +400,7 @@ async def _create_from_draft(
             event=event,
             telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
-            text="Backend отклонил данные карточки. Начните заново.",
+            text=validation_error_text(str(exc)),
         )
         await state.clear()
         return

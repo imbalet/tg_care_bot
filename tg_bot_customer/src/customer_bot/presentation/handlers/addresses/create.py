@@ -47,6 +47,7 @@ from customer_bot.presentation.ui import (
     order_addresses_keyboard,
     retry_later_text,
     use_buttons_text,
+    validation_error_text,
 )
 
 router = Router(name="addresses_create")
@@ -344,6 +345,19 @@ async def _advance_or_create(
             apartment=_optional_str(draft.get("apartment")),
             comment=_optional_str(draft.get("comment")),
         )
+    except BackendValidationError as exc:
+        logger.warning(
+            "Backend rejected address creation",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
+        await send_step(
+            bot=bot,
+            event=event,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=validation_error_text(str(exc)),
+        )
+        return
     except BackendClientError as exc:
         logger.warning(
             "Failed to create address",

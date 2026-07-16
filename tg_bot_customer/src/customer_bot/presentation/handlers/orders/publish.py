@@ -7,7 +7,7 @@ from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from customer_bot.application.errors import BackendClientError
+from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
     OrderPublishDirectCallback,
@@ -32,6 +32,7 @@ from customer_bot.presentation.ui import (
     order_published_text,
     retry_later_text,
     use_buttons_text,
+    validation_error_text,
 )
 
 router = Router(name="orders_publish")
@@ -70,6 +71,19 @@ async def publish_pool(
             customer_comment=order_request.customer_comment,
             report_photo_consent=order_request.report_photo_consent,
         )
+    except BackendValidationError as exc:
+        logger.warning(
+            "Backend rejected pool order publish",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=validation_error_text(str(exc)),
+        )
+        return
     except BackendClientError as exc:
         logger.warning(
             "Failed to publish pool order",
@@ -151,6 +165,19 @@ async def publish_direct(
             report_photo_consent=order_request.report_photo_consent,
             performer_id=UUID(str(performer["performer_id"])),
         )
+    except BackendValidationError as exc:
+        logger.warning(
+            "Backend rejected direct order publish",
+            extra={"telegram_id": telegram_user_context.telegram_id},
+        )
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=validation_error_text(str(exc)),
+        )
+        return
     except BackendClientError as exc:
         logger.warning(
             "Failed to publish direct order",
