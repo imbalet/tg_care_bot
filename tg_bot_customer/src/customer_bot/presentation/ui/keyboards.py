@@ -7,6 +7,7 @@ from customer_bot.presentation.callbacks import (
     AddressAddCallback,
     AddressCityCallback,
     AddressDeleteCallback,
+    AddressDeleteConfirmCallback,
     AddressesOpenCallback,
     AddressSelectCallback,
     AddressSkipCallback,
@@ -14,6 +15,7 @@ from customer_bot.presentation.callbacks import (
     CareObjectAddCallback,
     CareObjectAgeCallback,
     CareObjectDeleteCallback,
+    CareObjectDeleteConfirmCallback,
     CareObjectEditCallback,
     CareObjectMobilityCallback,
     CareObjectSelectCallback,
@@ -219,6 +221,15 @@ def care_object_card_keyboard(index: int) -> InlineKeyboardMarkup:
     )
 
 
+def care_object_delete_confirm_keyboard(index: int) -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.DELETE, CareObjectDeleteConfirmCallback(index=index))
+        .button(MsgKey.BACK_TO_LIST, CareObjectsOpenCallback())
+        .as_markup()
+    )
+
+
 def care_object_age_keyboard(object_type: str) -> InlineKeyboardMarkup:
     age_keys = (
         ("infant", "preschool", "school_age", "teenager")
@@ -270,6 +281,15 @@ def address_card_keyboard(index: int) -> InlineKeyboardMarkup:
     return (
         InlineKeyboardFactory()
         .button(MsgKey.DELETE, AddressDeleteCallback(index=index))
+        .button(MsgKey.BACK_TO_LIST, AddressesOpenCallback())
+        .as_markup()
+    )
+
+
+def address_delete_confirm_keyboard(index: int) -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.DELETE, AddressDeleteConfirmCallback(index=index))
         .button(MsgKey.BACK_TO_LIST, AddressesOpenCallback())
         .as_markup()
     )

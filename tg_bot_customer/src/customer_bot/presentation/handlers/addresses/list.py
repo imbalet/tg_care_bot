@@ -10,6 +10,7 @@ from customer_bot.application.errors import BackendClientError, BackendValidatio
 from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
     AddressDeleteCallback,
+    AddressDeleteConfirmCallback,
     AddressesOpenCallback,
     AddressSelectCallback,
 )
@@ -19,10 +20,13 @@ from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     address_card_keyboard,
     address_card_text,
+    address_delete_confirm_keyboard,
+    address_delete_confirm_text,
     address_deleted_text,
     address_validation_error_text,
     addresses_keyboard,
     addresses_list_text,
+    delete_blocked_text,
     retry_later_text,
     use_buttons_text,
 )
@@ -127,7 +131,6 @@ async def delete_address(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: AddressDeleteCallback,
@@ -143,11 +146,58 @@ async def delete_address(
         )
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=address_delete_confirm_text(),
+        reply_markup=address_delete_confirm_keyboard(callback_data.index),
+    )
+
+
+@router.callback_query(AddressDeleteConfirmCallback.filter())
+async def confirm_delete_address(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: AddressDeleteConfirmCallback,
+) -> None:
+    item = await _address_by_index(state, callback_data.index)
+    if item is None:
+        logger.warning(
+            "Stale address delete confirm callback",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "index": callback_data.index,
+            },
+        )
+        await telegram_responder.acknowledge(callback, use_buttons_text())
+        return
     try:
         await backend_client.delete_address(
             telegram_id=telegram_user_context.telegram_id,
             address_id=UUID(str(item["id"])),
         )
+    except BackendValidationError as exc:
+        logger.warning(
+            "Backend rejected address delete",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "address_id": str(item["id"]),
+            },
+        )
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=delete_blocked_text(str(exc)),
+        )
+        return
     except BackendClientError as exc:
         logger.warning(
             "Failed to delete address",

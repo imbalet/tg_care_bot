@@ -233,6 +233,18 @@ def care_object_deleted_text() -> str:
     return "Карточка удалена из активного списка."
 
 
+def care_object_delete_confirm_text() -> str:
+    return (
+        "<b>Удалить карточку?</b>\n\n"
+        "Карточка будет скрыта из профиля. Если она используется в активном "
+        "заказе, backend не позволит удалить ее."
+    )
+
+
+def delete_blocked_text(message: str) -> str:
+    return f"<b>Удаление недоступно</b>\n\n{escape(message)}"
+
+
 def care_object_card_text(item: object) -> str:
     object_type = escape(str(_field(item, "object_type", "")))
     display_name = escape(str(_field(item, "display_name", "")))
@@ -305,6 +317,14 @@ def address_created_text() -> str:
 
 def address_deleted_text() -> str:
     return "Адрес удален из активного списка."
+
+
+def address_delete_confirm_text() -> str:
+    return (
+        "<b>Удалить адрес?</b>\n\n"
+        "Адрес будет скрыт из активного списка. Старые заказы сохранят свою "
+        "историю."
+    )
 
 
 def address_validation_error_text(message: str) -> str:

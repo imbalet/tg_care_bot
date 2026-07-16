@@ -79,6 +79,10 @@ class CareObjectDeleteCallback(CallbackData, prefix="care_delete"):
     index: int
 
 
+class CareObjectDeleteConfirmCallback(CallbackData, prefix="care_delete_ok"):
+    index: int
+
+
 class CareObjectAgeCallback(CallbackData, prefix="care_age"):
     age_group: str
 
@@ -108,6 +112,10 @@ class AddressSelectCallback(CallbackData, prefix="addr_select"):
 
 
 class AddressDeleteCallback(CallbackData, prefix="addr_delete"):
+    index: int
+
+
+class AddressDeleteConfirmCallback(CallbackData, prefix="addr_delete_ok"):
     index: int
 
 
