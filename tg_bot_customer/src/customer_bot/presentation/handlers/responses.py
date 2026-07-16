@@ -13,13 +13,15 @@ async def send_step(
     telegram_user_context: TelegramUserContext,
     text: str,
     reply_markup: ReplyMarkupUnion | None = None,
+    create_new: bool = False,
 ) -> Message | None:
-    return await telegram_responder.send_step(
+    return await telegram_responder.update(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
         text=text,
         reply_markup=reply_markup,
+        create_new=create_new,
     )
 
 
@@ -32,10 +34,11 @@ async def send_screen(
     text: str,
     reply_markup: ReplyMarkupUnion | None = None,
 ) -> Message | None:
-    return await telegram_responder.update(
+    return await send_step(
         bot=bot,
         event=event,
-        telegram_id=telegram_user_context.telegram_id,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
         text=text,
         reply_markup=reply_markup,
     )

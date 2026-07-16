@@ -103,24 +103,6 @@ class TelegramResponder:
             await _delete_message(event)
         return sent
 
-    async def send_step(
-        self,
-        *,
-        bot: Bot,
-        event: Message | CallbackQuery,
-        telegram_id: int,
-        text: str,
-        reply_markup: ReplyMarkupUnion | None = None,
-    ) -> Message | None:
-        return await self._send(
-            bot=bot,
-            event=event,
-            telegram_id=telegram_id,
-            text=text,
-            reply_markup=reply_markup,
-            store_message=True,
-        )
-
     async def send_notice(
         self,
         *,
