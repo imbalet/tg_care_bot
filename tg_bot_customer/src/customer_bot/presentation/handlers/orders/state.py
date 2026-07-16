@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from aiogram.fsm.context import FSMContext
@@ -82,6 +82,13 @@ def parse_local_datetime(value: str) -> datetime | None:
     except ValueError:
         return None
     return parsed.replace(tzinfo=LOCAL_TZ)
+
+
+def parse_local_time(value: str) -> time | None:
+    try:
+        return datetime.strptime(value.strip(), "%H:%M").time()
+    except ValueError:
+        return None
 
 
 def parse_duration_interval(

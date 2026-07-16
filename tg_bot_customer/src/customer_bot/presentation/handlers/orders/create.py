@@ -1,10 +1,11 @@
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from aiogram_calendar import SimpleCalendarCallback
 
 from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
@@ -18,11 +19,14 @@ from customer_bot.presentation.callbacks import (
     OrderObjectsDoneCallback,
     OrderPhotoConsentCallback,
     OrderServiceCallback,
+    OrderStartManualCallback,
+    OrderStartTimeCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.addresses.state import AddressManagement
 from customer_bot.presentation.handlers.care_objects.state import CareObjectManagement
 from customer_bot.presentation.handlers.orders.state import (
+    LOCAL_TZ,
     OrderCreation,
 )
 from customer_bot.presentation.handlers.orders.state import (
@@ -39,6 +43,9 @@ from customer_bot.presentation.handlers.orders.state import (
 )
 from customer_bot.presentation.handlers.orders.state import (
     parse_local_datetime as _parse_local_datetime,
+)
+from customer_bot.presentation.handlers.orders.state import (
+    parse_local_time as _parse_local_time,
 )
 from customer_bot.presentation.handlers.orders.state import (
     performer_state as _performer_state,
@@ -64,10 +71,12 @@ from customer_bot.presentation.ui import (
     address_city_step_text,
     invalid_datetime_text,
     invalid_duration_text,
+    invalid_time_text,
     order_address_step_text,
     order_addresses_keyboard,
     order_comment_skip_keyboard,
     order_comment_step_text,
+    order_datetime_manual_step_text,
     order_draft_summary_text,
     order_duration_step_text,
     order_no_addresses_keyboard,
@@ -82,7 +91,12 @@ from customer_bot.presentation.ui import (
     order_publish_keyboard,
     order_services_keyboard,
     order_services_step_text,
+    order_start_calendar,
+    order_start_calendar_keyboard,
     order_start_step_text,
+    order_start_time_keyboard,
+    order_start_time_step_text,
+    order_time_manual_step_text,
     retry_later_text,
     use_buttons_text,
     validation_error_text,
@@ -366,6 +380,103 @@ async def _ask_start_at(
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_start_step_text(),
+        reply_markup=await order_start_calendar_keyboard(),
+    )
+
+
+@router.callback_query(OrderCreation.start, SimpleCalendarCallback.filter())
+async def select_start_date(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: SimpleCalendarCallback,
+) -> None:
+    selected, selected_date = await order_start_calendar().process_selection(
+        callback,
+        callback_data,
+    )
+    if not selected:
+        return
+    if not isinstance(selected_date, datetime):
+        await telegram_responder.acknowledge(callback, use_buttons_text())
+        return
+    start_date = selected_date.date()
+    await state.update_data(order_start_date=start_date.isoformat())
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=order_start_time_step_text(_format_date(start_date)),
+        reply_markup=order_start_time_keyboard(),
+    )
+
+
+@router.callback_query(OrderCreation.start, OrderStartManualCallback.filter())
+async def request_manual_start(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderStartManualCallback,
+) -> None:
+    data = await state.get_data()
+    if callback_data.mode == "time":
+        start_date = _start_date_from_state(data)
+        if start_date is None:
+            await send_step(
+                bot=bot,
+                event=callback,
+                telegram_responder=telegram_responder,
+                telegram_user_context=telegram_user_context,
+                text=order_start_step_text(),
+                reply_markup=await order_start_calendar_keyboard(),
+            )
+            return
+        await state.update_data(order_start_manual_time=True)
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=order_time_manual_step_text(_format_date(start_date)),
+        )
+        return
+    await state.update_data(order_start_manual_time=False)
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=order_datetime_manual_step_text(),
+    )
+
+
+@router.callback_query(OrderCreation.start, OrderStartTimeCallback.filter())
+async def select_start_time(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderStartTimeCallback,
+) -> None:
+    data = await state.get_data()
+    start_date = _start_date_from_state(data)
+    start_time = _parse_local_time(callback_data.value)
+    if start_date is None or start_time is None:
+        await telegram_responder.acknowledge(callback, use_buttons_text())
+        return
+    await _set_start_at_and_ask_duration(
+        callback,
+        bot,
+        state,
+        telegram_responder,
+        telegram_user_context,
+        datetime.combine(start_date, start_time, tzinfo=LOCAL_TZ),
     )
 
 
@@ -377,37 +488,84 @@ async def enter_start(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
+    data = await state.get_data()
+    manual_time = data.get("order_start_manual_time") is True
     if not message.text:
         await send_step(
             bot=bot,
             event=message,
             telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
-            text=invalid_datetime_text(),
+            text=invalid_time_text() if manual_time else invalid_datetime_text(),
         )
         return
-    start_at = _parse_local_datetime(message.text)
+    start_date = _start_date_from_state(data)
+    if manual_time and start_date is not None:
+        parsed_time = _parse_local_time(message.text)
+        start_at = (
+            datetime.combine(start_date, parsed_time, tzinfo=LOCAL_TZ)
+            if parsed_time is not None
+            else None
+        )
+    else:
+        start_at = _parse_local_datetime(message.text)
     if start_at is None:
         await send_step(
             bot=bot,
             event=message,
             telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
-            text=invalid_datetime_text(),
+            text=invalid_time_text() if manual_time else invalid_datetime_text(),
         )
         return
+    await _set_start_at_and_ask_duration(
+        message,
+        bot,
+        state,
+        telegram_responder,
+        telegram_user_context,
+        start_at,
+    )
+
+
+async def _set_start_at_and_ask_duration(
+    event: Message | CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    start_at: datetime,
+) -> None:
     data = await state.get_data()
     draft = _draft(data)
     draft["start_at"] = start_at.isoformat()
     await state.set_state(OrderCreation.duration)
-    await state.update_data(order_draft=draft)
+    await state.update_data(
+        order_draft=draft,
+        order_start_date=None,
+        order_start_manual_time=False,
+    )
     await send_step(
         bot=bot,
-        event=message,
+        event=event,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_duration_step_text(uses_days=_uses_days(draft)),
     )
+
+
+def _start_date_from_state(data: dict[str, object]) -> date | None:
+    raw_date = data.get("order_start_date")
+    if not isinstance(raw_date, str):
+        return None
+    try:
+        return date.fromisoformat(raw_date)
+    except ValueError:
+        return None
+
+
+def _format_date(value: date) -> str:
+    return value.strftime("%d.%m.%Y")
 
 
 @router.message(OrderCreation.duration)

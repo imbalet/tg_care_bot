@@ -489,7 +489,26 @@ def order_no_objects_text(object_type: str) -> str:
 
 
 def order_start_step_text() -> str:
+    return "<b>Дата и время</b>\n\nВыберите дату в календаре."
+
+
+def order_datetime_manual_step_text() -> str:
     return "<b>Дата и время</b>\n\nВведите начало в формате ГГГГ-ММ-ДД ЧЧ:ММ."
+
+
+def order_start_time_step_text(date_label: str) -> str:
+    return (
+        "<b>Время начала</b>\n\n"
+        f"Дата: {escape(date_label)}.\n"
+        "Выберите время или введите вручную."
+    )
+
+
+def order_time_manual_step_text(date_label: str) -> str:
+    return (
+        "<b>Время начала</b>\n\n"
+        f"Дата: {escape(date_label)}.\nВведите время в формате ЧЧ:ММ."
+    )
 
 
 def order_duration_step_text(*, uses_days: bool = False) -> str:
@@ -556,6 +575,10 @@ def order_published_text(order: OrderView) -> str:
 
 def invalid_datetime_text() -> str:
     return "Введите дату и время в формате ГГГГ-ММ-ДД ЧЧ:ММ."
+
+
+def invalid_time_text() -> str:
+    return "Введите время в формате ЧЧ:ММ."
 
 
 def invalid_duration_text(*, uses_days: bool = False) -> str:

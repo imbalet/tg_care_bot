@@ -1,7 +1,14 @@
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Protocol, cast
 
-from aiogram.types import InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+)
+from aiogram_calendar import SimpleCalendar
+from aiogram_calendar.common import CalendarLabels
 
 from customer_bot.presentation.callbacks import (
     AddressAddCallback,
@@ -39,6 +46,8 @@ from customer_bot.presentation.callbacks import (
     OrderPublishPoolCallback,
     OrderServiceCallback,
     OrdersListCallback,
+    OrderStartManualCallback,
+    OrderStartTimeCallback,
     ProfileOpenCallback,
     RegistrationCityCallback,
     RegistrationConfirmCallback,
@@ -49,7 +58,7 @@ from customer_bot.presentation.callbacks import (
 )
 from customer_bot.presentation.types import ContactMethod, YesNoValue
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
-from customer_bot.presentation.ui.labels import MsgKey
+from customer_bot.presentation.ui.labels import MsgKey, text
 
 CARE_OBJECT_TYPE_LABELS = {
     "child": "Ребенок",
@@ -91,6 +100,36 @@ CARE_OBJECT_SIZE_LABELS = {
     "large": "Крупный",
     "unknown": "Не указано",
 }
+
+ORDER_START_TIME_VALUES = (
+    "09:00",
+    "10:00",
+    "12:00",
+    "14:00",
+    "16:00",
+    "18:00",
+    "20:00",
+)
+
+RU_CALENDAR_LABELS = CalendarLabels(
+    days_of_week=["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+    months=[
+        "Янв",
+        "Фев",
+        "Мар",
+        "Апр",
+        "Май",
+        "Июн",
+        "Июл",
+        "Авг",
+        "Сен",
+        "Окт",
+        "Ноя",
+        "Дек",
+    ],
+    cancel_caption="Отмена",
+    today_caption="Сегодня",
+)
 
 
 class CityButtonView(Protocol):
@@ -379,6 +418,39 @@ def order_objects_keyboard(
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
+async def order_start_calendar_keyboard() -> InlineKeyboardMarkup:
+    calendar = order_start_calendar()
+    markup = cast(InlineKeyboardMarkup, await calendar.start_calendar())
+    markup.inline_keyboard.append(
+        [
+            InlineKeyboardButton(
+                text="Ввести вручную",
+                callback_data=OrderStartManualCallback(mode="datetime").pack(),
+            ),
+        ],
+    )
+    markup.inline_keyboard.append(
+        [
+            InlineKeyboardButton(
+                text=text(MsgKey.MAIN_MENU),
+                callback_data=MainMenuCallback().pack(),
+            ),
+        ],
+    )
+    return markup
+
+
+def order_start_time_keyboard() -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory(row_width=3)
+    for value in ORDER_START_TIME_VALUES:
+        keyboard.button(value, OrderStartTimeCallback(value=value))
+    return (
+        keyboard.button("Ввести вручную", OrderStartManualCallback(mode="time"))
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
+
+
 def order_addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory()
     for index, item in enumerate(items):
@@ -436,3 +508,9 @@ def _item_value(item: object, key: str, default: object = None) -> object:
     if isinstance(item, dict):
         return item.get(key, default)
     return getattr(item, key, default)
+
+
+def order_start_calendar() -> SimpleCalendar:
+    calendar = SimpleCalendar()
+    calendar._labels = RU_CALENDAR_LABELS
+    return calendar

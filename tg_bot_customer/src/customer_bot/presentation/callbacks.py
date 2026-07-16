@@ -151,6 +151,14 @@ class OrderObjectsDoneCallback(CallbackData, prefix="order_objects_done"):
     pass
 
 
+class OrderStartManualCallback(CallbackData, prefix="order_start_manual"):
+    mode: str
+
+
+class OrderStartTimeCallback(CallbackData, prefix="order_start_time"):
+    value: str
+
+
 class OrderAddressCallback(CallbackData, prefix="order_address"):
     index: int
 
