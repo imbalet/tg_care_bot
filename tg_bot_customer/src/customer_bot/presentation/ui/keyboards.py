@@ -243,6 +243,16 @@ def care_object_delete_confirm_keyboard(index: int) -> InlineKeyboardMarkup:
     )
 
 
+def care_object_saved_keyboard(object_type: str) -> InlineKeyboardMarkup:
+    list_label = CARE_OBJECT_LIST_LABELS.get(object_type, "Мои дети")
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .button(list_label, CareObjectsOpenCallback())
+        .as_markup()
+    )
+
+
 def care_object_age_keyboard(object_type: str) -> InlineKeyboardMarkup:
     age_keys = (
         ("infant", "preschool", "school_age", "teenager")

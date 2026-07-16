@@ -2,6 +2,18 @@ from collections.abc import Sequence
 from html import escape
 from typing import Protocol
 
+CARE_OBJECT_SECTION_LABELS = {
+    "child": "Мои дети",
+    "ward": "Мои подопечные",
+    "pet": "Мои питомцы",
+}
+
+CARE_OBJECT_ACCUSATIVE_LABELS = {
+    "child": "ребенка",
+    "ward": "подопечного",
+    "pet": "питомца",
+}
+
 
 class LegalDocumentView(Protocol):
     @property
@@ -467,10 +479,12 @@ def order_objects_step_text(*, selected_count: int = 0, max_count: int = 1) -> s
 
 
 def order_no_objects_text(object_type: str) -> str:
+    object_label = CARE_OBJECT_ACCUSATIVE_LABELS.get(object_type, "карточку")
+    section_label = CARE_OBJECT_SECTION_LABELS.get(object_type, "Мои дети")
     return (
         "<b>Новый заказ</b>\n\n"
-        f"Нет подходящих карточек типа: {escape(object_type)}. "
-        "Добавьте карточку в разделе «Объекты ухода»."
+        f"Нет подходящих карточек. Добавьте карточку {object_label} "
+        f"в разделе «{escape(section_label)}»."
     )
 
 
@@ -550,7 +564,7 @@ def invalid_duration_text(*, uses_days: bool = False) -> str:
 
 
 def registration_complete_text() -> str:
-    return "✅ <b>Регистрация завершена</b>\n\nОткрываю главное меню."
+    return "✅ <b>Регистрация завершена</b>"
 
 
 def backend_rejected_registration_text() -> str:

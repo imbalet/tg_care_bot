@@ -40,11 +40,13 @@ from customer_bot.presentation.ui import (
     care_object_mobility_step_text,
     care_object_name_step_text,
     care_object_notes_step_text,
+    care_object_saved_keyboard,
     care_object_size_keyboard,
     care_object_size_step_text,
     care_object_skip_keyboard,
     care_object_species_step_text,
     care_object_updated_text,
+    fallback_keyboard,
     order_objects_keyboard,
     order_objects_step_text,
     retry_later_text,
@@ -449,6 +451,7 @@ async def _create_from_draft(
         text=care_object_updated_text()
         if _optional_str(draft.get("edit_id")) is not None
         else care_object_created_text(),
+        reply_markup=care_object_saved_keyboard(str(draft["object_type"])),
     )
 
 
@@ -470,6 +473,7 @@ async def _return_to_order_objects(
             telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=care_object_created_text(),
+            reply_markup=fallback_keyboard(),
         )
         return
     try:
