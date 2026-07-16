@@ -26,6 +26,7 @@ from customer_bot.presentation.ui import (
     fallback_keyboard,
     fallback_text,
     help_text,
+    services_prices_text,
     unavailable_action_text,
 )
 
@@ -178,7 +179,6 @@ async def profile_callback(
 
 
 @router.callback_query(OrdersListCallback.filter())
-@router.callback_query(ServicesPricesCallback.filter())
 async def unavailable_section(
     callback: CallbackQuery,
     bot: Bot,
@@ -191,6 +191,56 @@ async def unavailable_section(
         telegram_id=telegram_user_context.telegram_id,
         screen_key=MAIN_MENU_KEY,
         text=unavailable_action_text(),
+        reply_markup=fallback_keyboard(),
+    )
+
+
+@router.callback_query(ServicesPricesCallback.filter())
+async def services_prices_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    active_category_store: ActiveCategoryStore,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    try:
+        category = await active_category(
+            backend_client=backend_client,
+            active_category_store=active_category_store,
+            telegram_id=telegram_user_context.telegram_id,
+        )
+        if category is None:
+            await show_category_select(
+                bot=bot,
+                event=callback,
+                telegram_user_context=telegram_user_context,
+                backend_client=backend_client,
+                telegram_responder=telegram_responder,
+            )
+            return
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to open services prices",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await _show_unavailable(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+        )
+        return
+
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        screen_key=MAIN_MENU_KEY,
+        text=services_prices_text(category),
         reply_markup=fallback_keyboard(),
     )
 
