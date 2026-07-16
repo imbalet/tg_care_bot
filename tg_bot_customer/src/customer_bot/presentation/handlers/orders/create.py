@@ -9,6 +9,8 @@ from aiogram.types import CallbackQuery, Message
 from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.callbacks import (
+    OrderAddAddressCallback,
+    OrderAddObjectCallback,
     OrderAddressCallback,
     OrderCommentSkipCallback,
     OrderCreateCallback,
@@ -18,6 +20,8 @@ from customer_bot.presentation.callbacks import (
     OrderServiceCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
+from customer_bot.presentation.handlers.addresses.state import AddressManagement
+from customer_bot.presentation.handlers.care_objects.state import CareObjectManagement
 from customer_bot.presentation.handlers.orders.state import (
     OrderCreation,
 )
@@ -56,6 +60,8 @@ from customer_bot.presentation.navigation import active_category
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.types import YesNoValue
 from customer_bot.presentation.ui import (
+    address_city_keyboard,
+    address_city_step_text,
     invalid_datetime_text,
     invalid_duration_text,
     order_address_step_text,
@@ -64,7 +70,9 @@ from customer_bot.presentation.ui import (
     order_comment_step_text,
     order_draft_summary_text,
     order_duration_step_text,
+    order_no_addresses_keyboard,
     order_no_addresses_text,
+    order_no_objects_keyboard,
     order_no_objects_text,
     order_no_services_text,
     order_objects_keyboard,
@@ -237,6 +245,7 @@ async def select_service(
             telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=order_no_objects_text(str(service["care_object_type"])),
+            reply_markup=order_no_objects_keyboard(),
         )
         return
     await state.set_state(OrderCreation.object)
@@ -465,6 +474,7 @@ async def enter_duration(
             telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             text=order_no_addresses_text(),
+            reply_markup=order_no_addresses_keyboard(),
         )
         return
     await state.set_state(OrderCreation.address)
@@ -722,4 +732,73 @@ async def _create_draft_and_show_summary(
         telegram_user_context=telegram_user_context,
         text=order_draft_summary_text(price=price, performers_count=len(performers)),
         reply_markup=order_publish_keyboard(performers),
+    )
+
+
+@router.callback_query(OrderCreation.object, OrderAddObjectCallback.filter())
+async def add_order_object(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    data = await state.get_data()
+    draft = _draft(data)
+    await state.update_data(
+        return_to_order_after_care_object=True,
+        draft={"object_type": str(draft["care_object_type"])},
+        order_draft=draft,
+    )
+    await state.set_state(CareObjectManagement.name)
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text="Введите имя или короткое название.",
+    )
+
+
+@router.callback_query(OrderCreation.address, OrderAddAddressCallback.filter())
+async def add_order_address(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    try:
+        cities = await backend_client.list_active_cities()
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load cities for order address creation",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
+        return
+    await state.update_data(
+        return_to_order_after_address=True,
+        city_ids=[str(city.id) for city in cities],
+        city_names=[city.name for city in cities],
+        address_draft={},
+    )
+    await state.set_state(AddressManagement.city)
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=address_city_step_text(),
+        reply_markup=address_city_keyboard(cities),
     )

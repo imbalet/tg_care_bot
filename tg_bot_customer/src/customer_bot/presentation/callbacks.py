@@ -135,6 +135,14 @@ class OrderCreateCallback(CallbackData, prefix="order_create"):
     pass
 
 
+class OrderAddObjectCallback(CallbackData, prefix="order_add_object"):
+    pass
+
+
+class OrderAddAddressCallback(CallbackData, prefix="order_add_address"):
+    pass
+
+
 class OrderServiceCallback(CallbackData, prefix="order_service"):
     index: int
 

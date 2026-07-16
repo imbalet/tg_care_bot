@@ -30,6 +30,7 @@ from customer_bot.presentation.handlers.addresses.state import (
 from customer_bot.presentation.handlers.addresses.state import (
     string_list as _string_list,
 )
+from customer_bot.presentation.handlers.orders.state import OrderCreation
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
@@ -42,6 +43,8 @@ from customer_bot.presentation.ui import (
     address_suggestion_step_text,
     address_suggestions_keyboard,
     address_validation_error_text,
+    order_address_step_text,
+    order_addresses_keyboard,
     retry_later_text,
     use_buttons_text,
 )
@@ -357,6 +360,17 @@ async def _advance_or_create(
             text=retry_later_text(),
         )
         return
+    data = await state.get_data()
+    if data.get("return_to_order_after_address") is True:
+        await _return_to_order_addresses(
+            event,
+            bot,
+            state,
+            backend_client,
+            telegram_responder,
+            telegram_user_context,
+        )
+        return
     await state.clear()
     logger.info(
         "Address created",
@@ -368,4 +382,51 @@ async def _advance_or_create(
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=address_created_text(),
+    )
+
+
+async def _return_to_order_addresses(
+    event: Message | CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    try:
+        addresses = await backend_client.list_addresses(
+            telegram_id=telegram_user_context.telegram_id,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to reload addresses after order inline creation",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await send_step(
+            bot=bot,
+            event=event,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
+        return
+    await state.set_state(OrderCreation.address)
+    await state.update_data(
+        address_draft={},
+        return_to_order_after_address=False,
+        order_addresses=[
+            {"id": str(address.id), "address_text": address.address_text}
+            for address in addresses
+        ],
+    )
+    await send_step(
+        bot=bot,
+        event=event,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=order_address_step_text(),
+        reply_markup=order_addresses_keyboard(addresses),
     )

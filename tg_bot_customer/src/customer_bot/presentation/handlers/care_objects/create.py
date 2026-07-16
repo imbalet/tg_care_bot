@@ -27,6 +27,7 @@ from customer_bot.presentation.handlers.care_objects.state import (
 from customer_bot.presentation.handlers.care_objects.state import (
     optional_str as _optional_str,
 )
+from customer_bot.presentation.handlers.orders.state import OrderCreation
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.types import YesNoValue
@@ -44,6 +45,8 @@ from customer_bot.presentation.ui import (
     care_object_skip_keyboard,
     care_object_species_step_text,
     care_object_updated_text,
+    order_objects_keyboard,
+    order_objects_step_text,
     retry_later_text,
     use_buttons_text,
 )
@@ -417,6 +420,17 @@ async def _create_from_draft(
             text=retry_later_text(),
         )
         return
+    data = await state.get_data()
+    if data.get("return_to_order_after_care_object") is True:
+        await _return_to_order_objects(
+            event,
+            bot,
+            state,
+            backend_client,
+            telegram_responder,
+            telegram_user_context,
+        )
+        return
     await state.clear()
     logger.info(
         "Care object saved",
@@ -434,4 +448,67 @@ async def _create_from_draft(
         text=care_object_updated_text()
         if _optional_str(draft.get("edit_id")) is not None
         else care_object_created_text(),
+    )
+
+
+async def _return_to_order_objects(
+    event: Message | CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    data = await state.get_data()
+    order_draft = data.get("order_draft")
+    if not isinstance(order_draft, dict):
+        await state.clear()
+        await send_step(
+            bot=bot,
+            event=event,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=care_object_created_text(),
+        )
+        return
+    try:
+        objects = await backend_client.list_care_objects(
+            telegram_id=telegram_user_context.telegram_id,
+            object_type=str(order_draft["care_object_type"]),
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to reload care objects after order inline creation",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await send_step(
+            bot=bot,
+            event=event,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
+        return
+    await state.set_state(OrderCreation.object)
+    await state.update_data(
+        draft={},
+        return_to_order_after_care_object=False,
+        order_draft=order_draft,
+        order_objects=[
+            {"id": str(item.id), "display_name": item.display_name} for item in objects
+        ],
+    )
+    await send_step(
+        bot=bot,
+        event=event,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=order_objects_step_text(
+            selected_count=0,
+            max_count=int(str(order_draft.get("max_objects_per_order", 1))),
+        ),
+        reply_markup=order_objects_keyboard(objects),
     )

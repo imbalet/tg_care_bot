@@ -26,6 +26,8 @@ from customer_bot.presentation.callbacks import (
     CategorySelectCallback,
     HelpCallback,
     MainMenuCallback,
+    OrderAddAddressCallback,
+    OrderAddObjectCallback,
     OrderAddressCallback,
     OrderCommentSkipCallback,
     OrderCreateCallback,
@@ -327,6 +329,15 @@ def order_services_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
+def order_no_objects_keyboard() -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button("Добавить карточку", OrderAddObjectCallback())
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
+
+
 def order_objects_keyboard(
     items: Sequence[object],
     *,
@@ -355,6 +366,15 @@ def order_addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
             OrderAddressCallback(index=index),
         )
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+
+
+def order_no_addresses_keyboard() -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.ADD_ADDRESS, OrderAddAddressCallback())
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
 
 
 def order_photo_consent_keyboard() -> InlineKeyboardMarkup:
