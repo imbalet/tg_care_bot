@@ -1,5 +1,5 @@
 from aiogram import Bot
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, Message, ReplyMarkupUnion
 
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import TelegramResponder
@@ -13,7 +13,7 @@ async def send_step(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     text: str,
-    reply_markup: InlineKeyboardMarkup | None = None,
+    reply_markup: ReplyMarkupUnion | None = None,
     key: ScreenKey = ScreenKey.FLOW,
 ) -> Message | None:
     return await telegram_responder.update(
@@ -35,7 +35,7 @@ async def send_screen(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     text: str,
-    reply_markup: InlineKeyboardMarkup | None = None,
+    reply_markup: ReplyMarkupUnion | None = None,
     key: ScreenKey = ScreenKey.MAIN,
 ) -> Message | None:
     return await telegram_responder.update(

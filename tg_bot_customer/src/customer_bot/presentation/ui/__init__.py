@@ -25,6 +25,7 @@ from .keyboards import (
     order_photo_consent_keyboard,
     order_publish_keyboard,
     order_services_keyboard,
+    phone_contact_keyboard,
     registration_summary_keyboard,
     select_city_keyboard,
     unfinished_action_keyboard,
@@ -63,6 +64,7 @@ from .texts import (
     help_text,
     invalid_datetime_text,
     invalid_duration_text,
+    invalid_phone_contact_text,
     invalid_text_input_text,
     legal_documents_text,
     order_address_step_text,
@@ -77,6 +79,7 @@ from .texts import (
     order_published_text,
     order_services_step_text,
     order_start_step_text,
+    phone_contact_received_text,
     phone_step_text,
     registration_complete_text,
     registration_unavailable_text,
@@ -89,6 +92,7 @@ from .texts import (
     unfinished_action_text,
     use_buttons_text,
     validation_error_text,
+    wrong_phone_contact_text,
 )
 
 __all__ = [
@@ -142,6 +146,7 @@ __all__ = [
     "invalid_text_input_text",
     "invalid_datetime_text",
     "invalid_duration_text",
+    "invalid_phone_contact_text",
     "legal_acceptance_keyboard",
     "legal_documents_text",
     "main_menu_keyboard",
@@ -165,6 +170,8 @@ __all__ = [
     "order_services_keyboard",
     "order_services_step_text",
     "order_start_step_text",
+    "phone_contact_keyboard",
+    "phone_contact_received_text",
     "phone_step_text",
     "registration_complete_text",
     "registration_summary_keyboard",
@@ -180,4 +187,5 @@ __all__ = [
     "unfinished_action_text",
     "use_buttons_text",
     "validation_error_text",
+    "wrong_phone_contact_text",
 ]

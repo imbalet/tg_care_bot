@@ -174,7 +174,29 @@ def full_name_step_text() -> str:
 
 
 def phone_step_text() -> str:
-    return "<b>Телефон</b>\n\nВведите номер телефона для связи."
+    return (
+        "<b>Телефон</b>\n\n"
+        "Нажмите кнопку «Поделиться номером». Ввод телефона текстом не принимается."
+    )
+
+
+def invalid_phone_contact_text() -> str:
+    return (
+        "<b>Нужен номер из Telegram</b>\n\n"
+        "Нажмите кнопку «Поделиться номером» под сообщением."
+    )
+
+
+def wrong_phone_contact_text() -> str:
+    return (
+        "<b>Нужен ваш номер</b>\n\n"
+        "Telegram прислал контакт другого пользователя. Поделитесь своим номером "
+        "кнопкой под сообщением."
+    )
+
+
+def phone_contact_received_text() -> str:
+    return "Номер получен."
 
 
 def select_city_text() -> str:

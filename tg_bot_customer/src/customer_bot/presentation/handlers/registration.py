@@ -5,7 +5,7 @@ from uuid import UUID
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 
 from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import BackendPort
@@ -25,9 +25,12 @@ from customer_bot.presentation.ui import (
     backend_rejected_registration_text,
     contact_methods_keyboard,
     full_name_step_text,
+    invalid_phone_contact_text,
     invalid_text_input_text,
     legal_acceptance_keyboard,
     legal_documents_text,
+    phone_contact_keyboard,
+    phone_contact_received_text,
     phone_step_text,
     registration_complete_text,
     registration_summary_keyboard,
@@ -38,6 +41,7 @@ from customer_bot.presentation.ui import (
     select_contact_method_text,
     summary_text,
     use_buttons_text,
+    wrong_phone_contact_text,
 )
 
 router = Router(name="registration")
@@ -170,6 +174,7 @@ async def enter_full_name(
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=phone_step_text(),
+        reply_markup=phone_contact_keyboard(),
     )
 
 
@@ -181,18 +186,40 @@ async def enter_phone(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    if not message.text or not message.text.strip():
+    if message.contact is None:
         await send_step(
             bot=bot,
             event=message,
             telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
-            text="Введите телефон текстом.",
+            text=invalid_phone_contact_text(),
+            reply_markup=phone_contact_keyboard(),
+        )
+        return
+    if (
+        message.contact.user_id is not None
+        and message.contact.user_id != telegram_user_context.telegram_id
+    ):
+        await send_step(
+            bot=bot,
+            event=message,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=wrong_phone_contact_text(),
+            reply_markup=phone_contact_keyboard(),
         )
         return
     data = await state.get_data()
-    await state.update_data(phone=message.text.strip())
+    await state.update_data(phone=message.contact.phone_number)
     await state.set_state(CustomerRegistration.city)
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=phone_contact_received_text(),
+        reply_markup=ReplyKeyboardRemove(),
+    )
     await send_step(
         bot=bot,
         event=message,

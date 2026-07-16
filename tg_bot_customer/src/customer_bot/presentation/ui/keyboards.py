@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Protocol
 
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
 from customer_bot.presentation.callbacks import (
     AddressAddCallback,
@@ -130,6 +130,17 @@ def contact_methods_keyboard() -> InlineKeyboardMarkup:
             RegistrationContactCallback(method=ContactMethod.BOTH),
         )
         .as_markup()
+    )
+
+
+def phone_contact_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Поделиться номером", request_contact=True)],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+        input_field_placeholder="Нажмите кнопку ниже",
     )
 
 

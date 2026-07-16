@@ -2,7 +2,7 @@ import logging
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, ReplyMarkupUnion
 
 from customer_bot.application.ports import ScreenMessageStore
 from customer_bot.presentation.types import ScreenKey
@@ -35,7 +35,7 @@ class TelegramResponder:
         telegram_id: int,
         screen_key: ScreenKey,
         text: str,
-        reply_markup: InlineKeyboardMarkup | None = None,
+        reply_markup: ReplyMarkupUnion | None = None,
         create_new: bool = False,
         delete_event_message: bool = True,
         store_message: bool = True,
@@ -61,7 +61,7 @@ class TelegramResponder:
         telegram_id: int,
         screen_key: ScreenKey,
         text: str,
-        reply_markup: InlineKeyboardMarkup | None = None,
+        reply_markup: ReplyMarkupUnion | None = None,
         create_new: bool = False,
         delete_event_message: bool = True,
         store_message: bool = True,
@@ -91,7 +91,11 @@ class TelegramResponder:
         ):
             target_message_id = message.message_id
 
-        if target_message_id is not None and not create_new:
+        if (
+            target_message_id is not None
+            and not create_new
+            and (reply_markup is None or isinstance(reply_markup, InlineKeyboardMarkup))
+        ):
             try:
                 await bot.edit_message_text(
                     chat_id=message.chat.id,
