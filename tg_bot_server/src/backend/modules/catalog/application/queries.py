@@ -20,6 +20,3 @@ class CatalogQueryService(Protocol):
 
     async def get_catalog(self, *, active_only: bool) -> CatalogDTO:
         pass
-
-
-__all__ = ["CatalogQueryService"]

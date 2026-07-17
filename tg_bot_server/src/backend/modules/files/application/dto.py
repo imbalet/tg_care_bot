@@ -48,11 +48,3 @@ class CreateFileLinkCommand:
     entity_id: UUID
     purpose: str
     sort_order: int = 0
-
-
-__all__ = [
-    "CreateFileCommand",
-    "CreateFileLinkCommand",
-    "FileDTO",
-    "FileLinkDTO",
-]

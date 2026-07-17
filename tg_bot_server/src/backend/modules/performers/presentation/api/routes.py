@@ -705,6 +705,3 @@ def _storage(container: Container) -> S3ObjectStorage:
         region=settings.s3_region,
         signed_url_ttl_seconds=settings.s3_signed_url_ttl_seconds,
     )
-
-
-__all__ = ["admin_router", "router"]

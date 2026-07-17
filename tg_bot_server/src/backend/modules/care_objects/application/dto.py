@@ -46,6 +46,3 @@ class UpdateCareObjectCommand:
     mobility_assistance_required: bool | None = None
     routine_notes: str | None = None
     behavior_notes: str | None = None
-
-
-__all__ = ["CareObjectDTO", "CreateCareObjectCommand", "UpdateCareObjectCommand"]

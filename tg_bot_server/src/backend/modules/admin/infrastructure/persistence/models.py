@@ -25,6 +25,3 @@ class AdminModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
     )
-
-
-__all__ = ["AdminModel"]

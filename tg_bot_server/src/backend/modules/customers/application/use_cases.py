@@ -135,12 +135,3 @@ class UpdateCustomerUsernameUseCase:
             customer.updated_at = self._clock.now()
             await self._repository.update(customer)
         return _to_dto(customer)
-
-
-__all__ = [
-    "GetCustomerProfileUseCase",
-    "RegisterCustomerCommand",
-    "RegisterCustomerUseCase",
-    "UpdateCustomerUsernameCommand",
-    "UpdateCustomerUsernameUseCase",
-]

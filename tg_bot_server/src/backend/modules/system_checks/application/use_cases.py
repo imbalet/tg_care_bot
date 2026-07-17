@@ -39,6 +39,3 @@ class CreateSystemCheckUseCase:
             name=record.name,
             created_at=record.created_at,
         )
-
-
-__all__ = ["CreateSystemCheckCommand", "CreateSystemCheckUseCase"]

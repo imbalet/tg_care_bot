@@ -148,12 +148,3 @@ async def logout(
     session_id = current[2]
     await LogoutAdminUseCase(_session_store(container)).execute(session_id)
     response.delete_cookie(ADMIN_SESSION_COOKIE, path="/admin")
-
-
-__all__ = [
-    "ADMIN_SESSION_COOKIE",
-    "CSRF_HEADER",
-    "get_current_admin",
-    "require_admin_csrf",
-    "router",
-]

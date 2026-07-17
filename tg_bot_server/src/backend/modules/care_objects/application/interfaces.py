@@ -36,6 +36,3 @@ class CareObjectQueryService(Protocol):
         object_type: str | None = None,
     ) -> tuple[CareObjectDTO, ...]:
         pass
-
-
-__all__ = ["CareObjectQueryService", "CareObjectRepository"]

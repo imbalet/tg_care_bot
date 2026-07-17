@@ -205,15 +205,3 @@ class SetPerformerCurrentAddressUseCase:
             address_id=address.id,
         )
         return address
-
-
-__all__ = [
-    "CreateCustomerAddressUseCase",
-    "CreateOwnerAddressCommand",
-    "CreatePerformerAddressUseCase",
-    "DeleteCustomerAddressUseCase",
-    "DeletePerformerAddressUseCase",
-    "SetPerformerCurrentAddressUseCase",
-    "SuggestAddressCommand",
-    "SuggestAddressesUseCase",
-]

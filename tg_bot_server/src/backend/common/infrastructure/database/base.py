@@ -14,6 +14,3 @@ metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 class Base(DeclarativeBase):
     metadata = metadata
-
-
-__all__ = ["Base", "metadata"]

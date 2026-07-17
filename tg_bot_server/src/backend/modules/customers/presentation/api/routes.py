@@ -403,6 +403,3 @@ async def delete_address(
         ).execute(telegram_id=telegram_id, address_id=address_id)
         await session.commit()
     return {"status": "deleted"}
-
-
-__all__ = ["router"]

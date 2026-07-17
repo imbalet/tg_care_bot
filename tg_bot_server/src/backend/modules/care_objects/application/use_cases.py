@@ -156,13 +156,3 @@ class DeleteCustomerCareObjectUseCase:
         if care_object is None or care_object.customer_id != customer.id:
             raise NotFoundError("Care object not found")
         await self._care_object_repository.soft_delete(care_object_id)
-
-
-__all__ = [
-    "CreateCustomerCareObjectCommand",
-    "CreateCustomerCareObjectUseCase",
-    "DeleteCustomerCareObjectUseCase",
-    "ListCustomerCareObjectsUseCase",
-    "UpdateCustomerCareObjectCommand",
-    "UpdateCustomerCareObjectUseCase",
-]

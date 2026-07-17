@@ -16,6 +16,3 @@ class Repository(Protocol[EntityT, IdT_contra]):
 
     async def delete(self, entity: EntityT) -> None:
         pass
-
-
-__all__ = ["Repository"]

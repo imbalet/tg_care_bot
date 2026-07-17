@@ -123,12 +123,3 @@ class PerformerCalendarOverrideModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-
-__all__ = [
-    "PerformerCalendarOverrideModel",
-    "PerformerInvitationModel",
-    "PerformerModel",
-    "PerformerScheduleModel",
-    "PerformerServiceModel",
-]

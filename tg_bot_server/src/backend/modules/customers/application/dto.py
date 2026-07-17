@@ -12,6 +12,3 @@ class CustomerDTO:
     contact_method: str
     city_id: UUID
     status: str
-
-
-__all__ = ["CustomerDTO"]

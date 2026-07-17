@@ -27,6 +27,3 @@ class CustomerRepository(Protocol):
 
     async def update(self, customer: Customer) -> None:
         pass
-
-
-__all__ = ["CustomerRepository"]

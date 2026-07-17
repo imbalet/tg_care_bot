@@ -212,6 +212,3 @@ def _price_preview_response(preview: PricePreviewDTO) -> PricePreviewResponse:
         total_amount=preview.total_amount,
         hold_limit_checked=preview.hold_limit_checked,
     )
-
-
-__all__ = ["router"]

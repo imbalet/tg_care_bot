@@ -315,6 +315,3 @@ def _order_to_dto(model: OrderModel) -> OrderDTO:
         platform_fee_amount=model.platform_fee_amount,
         matching_deadline_at=model.matching_deadline_at,
     )
-
-
-__all__ = ["SqlAlchemyOrderRepository"]

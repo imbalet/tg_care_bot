@@ -65,6 +65,3 @@ class S3ObjectStorage:
             Params={"Bucket": self._bucket, "Key": storage_key},
             ExpiresIn=self._signed_url_ttl_seconds,
         )
-
-
-__all__ = ["S3ObjectStorage"]

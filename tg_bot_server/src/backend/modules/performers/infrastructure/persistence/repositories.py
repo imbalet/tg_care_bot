@@ -412,6 +412,3 @@ def _performer_service_to_dto(
         approved_by_admin_id=model.approved_by_admin_id,
         approved_at=model.approved_at,
     )
-
-
-__all__ = ["SqlAlchemyPerformerRepository"]

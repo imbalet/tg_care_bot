@@ -343,24 +343,3 @@ class SetPerformerAcceptingOrdersUseCase:
         if performer is None:
             raise NotFoundError("Active performer not found")
         return performer
-
-
-__all__ = [
-    "ActivatePerformerUseCase",
-    "ApprovePerformerServiceCommand",
-    "ApprovePerformerServiceUseCase",
-    "CreateInvitationCommand",
-    "CreateInvitationUseCase",
-    "GetRegistrationStateUseCase",
-    "ListPerformerServicesUseCase",
-    "RegisterPerformerCommand",
-    "RegisterPerformerUseCase",
-    "SetPerformerAcceptingOrdersCommand",
-    "SetPerformerAcceptingOrdersUseCase",
-    "SetPerformerServiceEnabledCommand",
-    "SetPerformerServiceEnabledUseCase",
-    "SetPerformerServiceMaxObjectsCommand",
-    "SetPerformerServiceMaxObjectsUseCase",
-    "UpdatePerformerUsernameCommand",
-    "UpdatePerformerUsernameUseCase",
-]

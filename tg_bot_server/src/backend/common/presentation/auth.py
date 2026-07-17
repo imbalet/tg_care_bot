@@ -13,6 +13,3 @@ async def require_service_key(
     expected_key = get_settings().service_key
     if service_key is None or not secrets.compare_digest(service_key, expected_key):
         raise AuthenticationError()
-
-
-__all__ = ["require_service_key"]

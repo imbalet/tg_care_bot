@@ -17,6 +17,3 @@ class AdminSessionDTO:
     admin: AdminDTO
     session_id: str
     csrf_token: str
-
-
-__all__ = ["AdminDTO", "AdminSessionDTO"]

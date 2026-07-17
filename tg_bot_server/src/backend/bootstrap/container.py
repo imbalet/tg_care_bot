@@ -28,6 +28,3 @@ def create_container(settings: Settings) -> Container:
         session_factory=create_session_factory(engine),
         redis=create_redis_client(settings.redis_url),
     )
-
-
-__all__ = ["Container", "create_container"]

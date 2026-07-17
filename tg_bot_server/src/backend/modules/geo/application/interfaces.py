@@ -15,6 +15,3 @@ class Geocoder(Protocol):
 
     async def normalize(self, *, unrestricted_value: str) -> NormalizedAddressDTO:
         pass
-
-
-__all__ = ["Geocoder"]

@@ -57,12 +57,3 @@ class ServiceCategoryDTO:
 @dataclass(frozen=True)
 class CatalogDTO:
     categories: tuple[ServiceCategoryDTO, ...]
-
-
-__all__ = [
-    "CatalogDTO",
-    "CityDTO",
-    "LegalDocumentDTO",
-    "ServiceCategoryDTO",
-    "ServiceDTO",
-]

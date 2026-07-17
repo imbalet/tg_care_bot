@@ -181,11 +181,3 @@ class SqlAlchemyFileRepository:
         )
         result = await self._session.execute(statement)
         return tuple(_link_to_dto(model) for model in result.scalars())
-
-
-__all__ = [
-    "FILE_ENTITY_TYPES",
-    "FILE_PURPOSES",
-    "FILE_STATUSES",
-    "SqlAlchemyFileRepository",
-]

@@ -8,6 +8,3 @@ class SystemCheckRecord:
     id: UUID
     name: str
     created_at: datetime
-
-
-__all__ = ["SystemCheckRecord"]

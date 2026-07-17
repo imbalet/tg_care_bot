@@ -32,6 +32,3 @@ class Customer:
     anonymized_at: datetime | None
     created_at: datetime
     updated_at: datetime
-
-
-__all__ = ["ContactMethod", "Customer", "CustomerStatus"]

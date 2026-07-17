@@ -254,6 +254,3 @@ def _suitable_performer_response(
         if performer.current_address_id is not None
         else None,
     )
-
-
-__all__ = ["router"]

@@ -125,15 +125,3 @@ class LegalDocumentModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
         nullable=False,
         default=utc_now,
     )
-
-
-__all__ = [
-    "BusinessSettingModel",
-    "CityModel",
-    "DistrictModel",
-    "LegalDocumentModel",
-    "ObjectCountMultiplierModel",
-    "ServiceCategoryModel",
-    "ServiceModel",
-    "ServiceOptionModel",
-]

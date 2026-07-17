@@ -122,6 +122,3 @@ class PerformerRepository(Protocol):
 
     async def get_service_order_limit(self, service_id: UUID) -> int | None:
         pass
-
-
-__all__ = ["PerformerRepository"]

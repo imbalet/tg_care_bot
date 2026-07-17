@@ -66,6 +66,3 @@ class AvailabilityRepository(ConflictChecker, Protocol):
         limit: int,
     ) -> tuple[SuitablePerformerDTO, ...]:
         pass
-
-
-__all__ = ["AvailabilityRepository", "ConflictChecker"]

@@ -83,12 +83,3 @@ class OrderDTO:
     performer_amount: Decimal
     platform_fee_amount: Decimal
     matching_deadline_at: datetime
-
-
-__all__ = [
-    "OrderData",
-    "OrderCareObjectSnapshot",
-    "OrderDTO",
-    "PricePreviewDTO",
-    "ServicePricingDTO",
-]

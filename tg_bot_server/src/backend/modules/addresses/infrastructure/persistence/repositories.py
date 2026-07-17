@@ -123,6 +123,3 @@ class SqlAlchemyAddressRepository:
         statement = statement.order_by(AddressModel.created_at)
         result = await self._session.execute(statement)
         return tuple(_to_dto(model) for model in result.scalars())
-
-
-__all__ = ["SqlAlchemyAddressRepository"]

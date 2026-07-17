@@ -73,6 +73,3 @@ class SqlAlchemyPricingRepository:
             select(BusinessSettingModel.value).where(BusinessSettingModel.key == key),
         )
         return result.scalar_one_or_none()
-
-
-__all__ = ["SqlAlchemyPricingRepository"]

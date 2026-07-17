@@ -19,6 +19,3 @@ class UnitOfWork(Protocol):
 
     async def rollback(self) -> None:
         pass
-
-
-__all__ = ["UnitOfWork"]

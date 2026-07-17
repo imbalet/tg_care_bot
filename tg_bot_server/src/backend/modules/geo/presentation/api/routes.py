@@ -63,6 +63,3 @@ def _suggestion_response(suggestion: AddressSuggestionDTO) -> AddressSuggestionR
         longitude=suggestion.longitude,
         quality=suggestion.quality,
     )
-
-
-__all__ = ["router"]

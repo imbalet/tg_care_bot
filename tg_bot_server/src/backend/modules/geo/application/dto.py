@@ -20,6 +20,3 @@ class NormalizedAddressDTO:
     longitude: Decimal | None
     provider: str
     quality: str | None
-
-
-__all__ = ["AddressSuggestionDTO", "NormalizedAddressDTO"]

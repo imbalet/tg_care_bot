@@ -454,6 +454,3 @@ def _distance(
         second_latitude=current_address.latitude,
         second_longitude=current_address.longitude,
     )
-
-
-__all__ = ["SqlAlchemyAvailabilityRepository"]

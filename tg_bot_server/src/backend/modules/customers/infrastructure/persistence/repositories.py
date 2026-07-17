@@ -119,6 +119,3 @@ class SqlAlchemyCustomerRepository:
         model.deleted_at = customer.deleted_at
         model.anonymized_at = customer.anonymized_at
         model.updated_at = customer.updated_at
-
-
-__all__ = ["SqlAlchemyCustomerRepository"]

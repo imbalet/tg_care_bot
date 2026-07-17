@@ -32,6 +32,3 @@ class SqlAlchemyAdminAuditRepository:
                 audit_metadata=audit_metadata or {},
             ),
         )
-
-
-__all__ = ["SqlAlchemyAdminAuditRepository"]

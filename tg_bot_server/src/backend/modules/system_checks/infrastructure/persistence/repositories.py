@@ -18,6 +18,3 @@ class SqlAlchemySystemCheckRecordRepository:
                 created_at=record.created_at,
             ),
         )
-
-
-__all__ = ["SqlAlchemySystemCheckRecordRepository"]

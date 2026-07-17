@@ -44,6 +44,3 @@ class CreateAddressCommand:
     floor: str | None = None
     apartment: str | None = None
     comment: str | None = None
-
-
-__all__ = ["AddressDTO", "CreateAddressCommand"]

@@ -34,6 +34,3 @@ class AddressQueryService(Protocol):
         active_only: bool = True,
     ) -> tuple[AddressDTO, ...]:
         pass
-
-
-__all__ = ["AddressQueryService", "AddressRepository"]

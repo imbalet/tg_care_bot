@@ -79,11 +79,3 @@ def validate_avatar_file(*, content: bytes, content_type: str) -> tuple[str, str
                 raise ValidationError("Avatar file signature is invalid")
             return mime_type, extension
     raise ValidationError("Avatar file type is not allowed")
-
-
-__all__ = [
-    "MAX_AVATAR_BYTES",
-    "UploadPerformerAvatarCommand",
-    "UploadPerformerAvatarUseCase",
-    "validate_avatar_file",
-]

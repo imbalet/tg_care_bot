@@ -189,12 +189,3 @@ class OrderStatusHistoryModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
     actor_type: Mapped[str] = mapped_column(Text, nullable=False)
     actor_id: Mapped[UUID | None] = mapped_column(nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-
-__all__ = [
-    "OrderCareObjectModel",
-    "OrderMatchModel",
-    "OrderModel",
-    "OrderOptionValueModel",
-    "OrderStatusHistoryModel",
-]

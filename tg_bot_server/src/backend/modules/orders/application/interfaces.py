@@ -81,6 +81,3 @@ class OrderRepository(Protocol):
         option_values: dict[UUID, Any],
     ) -> bool:
         pass
-
-
-__all__ = ["OrderRepository", "PricingRepository"]

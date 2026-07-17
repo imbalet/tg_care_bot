@@ -25,6 +25,3 @@ class Admin:
 
         if self.status != AdminStatus.ACTIVE:
             raise AuthorizationError("Admin is blocked")
-
-
-__all__ = ["Admin", "AdminStatus"]

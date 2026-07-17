@@ -14,6 +14,3 @@ class SystemClock:
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
-
-
-__all__ = ["Clock", "SystemClock", "utc_now"]

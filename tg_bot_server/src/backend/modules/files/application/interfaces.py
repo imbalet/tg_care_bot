@@ -36,6 +36,3 @@ class FileQueryService(Protocol):
         purpose: str | None = None,
     ) -> tuple[FileLinkDTO, ...]:
         pass
-
-
-__all__ = ["FileQueryService", "FileRepository"]

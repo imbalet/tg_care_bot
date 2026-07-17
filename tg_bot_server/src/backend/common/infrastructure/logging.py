@@ -22,6 +22,3 @@ def configure_logging(log_level: str) -> None:
         ),
         cache_logger_on_first_use=True,
     )
-
-
-__all__ = ["configure_logging"]

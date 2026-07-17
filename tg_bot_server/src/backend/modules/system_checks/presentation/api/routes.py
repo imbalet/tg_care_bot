@@ -43,6 +43,3 @@ async def create_system_check(
         name=record.name,
         created_at=record.created_at.isoformat(),
     )
-
-
-__all__ = ["router"]

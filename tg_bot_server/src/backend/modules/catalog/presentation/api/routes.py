@@ -148,6 +148,3 @@ async def list_legal_documents(
         )
         for document in documents
     ]
-
-
-__all__ = ["legal_router", "router"]

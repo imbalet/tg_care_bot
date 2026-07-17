@@ -42,11 +42,3 @@ class SuitablePerformerDTO:
     performer_max_objects: int
     distance_km: Decimal | None
     current_address_id: UUID | None
-
-
-__all__ = [
-    "AvailabilityCheckDTO",
-    "CalendarOverrideDTO",
-    "PerformerScheduleDTO",
-    "SuitablePerformerDTO",
-]

@@ -59,6 +59,3 @@ class LegalAcceptanceModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
         DateTime(timezone=True),
         nullable=True,
     )
-
-
-__all__ = ["CustomerModel", "LegalAcceptanceModel"]

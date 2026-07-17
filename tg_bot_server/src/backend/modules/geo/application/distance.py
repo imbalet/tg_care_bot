@@ -22,6 +22,3 @@ def haversine_distance_km(
     )
     distance = 2 * EARTH_RADIUS_KM * asin(sqrt(haversine))
     return Decimal(str(round(distance, 3)))
-
-
-__all__ = ["EARTH_RADIUS_KM", "haversine_distance_km"]

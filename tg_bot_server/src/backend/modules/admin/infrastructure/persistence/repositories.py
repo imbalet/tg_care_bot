@@ -63,6 +63,3 @@ class SqlAlchemyAdminRepository:
         model.updated_at = now
         admin.last_login_at = now
         admin.updated_at = now
-
-
-__all__ = ["SqlAlchemyAdminRepository"]

@@ -47,6 +47,3 @@ class AddressModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
     )
-
-
-__all__ = ["AddressModel"]

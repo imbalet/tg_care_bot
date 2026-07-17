@@ -28,6 +28,3 @@ class AdminAuditLogModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
         nullable=False,
         default=dict,
     )
-
-
-__all__ = ["AdminAuditLogModel"]

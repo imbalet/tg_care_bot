@@ -118,13 +118,3 @@ class BootstrapAdminUseCase:
         )
         await self._repository.add(admin)
         return _to_dto(admin)
-
-
-__all__ = [
-    "BootstrapAdminCommand",
-    "BootstrapAdminUseCase",
-    "GetCurrentAdminUseCase",
-    "LoginAdminCommand",
-    "LoginAdminUseCase",
-    "LogoutAdminUseCase",
-]

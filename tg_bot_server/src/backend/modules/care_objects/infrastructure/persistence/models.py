@@ -32,6 +32,3 @@ class CareObjectModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
     )
-
-
-__all__ = ["CareObjectModel"]

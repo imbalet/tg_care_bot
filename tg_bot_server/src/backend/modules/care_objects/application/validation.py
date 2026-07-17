@@ -34,11 +34,3 @@ def validate_care_object_fields(
         return
     if mobility_assistance_required is not None:
         raise ValidationError("Mobility assistance is allowed only for wards")
-
-
-__all__ = [
-    "AGE_GROUPS",
-    "CARE_OBJECT_TYPES",
-    "PET_SIZES",
-    "validate_care_object_fields",
-]

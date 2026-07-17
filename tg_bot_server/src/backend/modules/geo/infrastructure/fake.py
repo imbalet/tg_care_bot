@@ -34,6 +34,3 @@ class FakeGeocoder(Geocoder):
                     quality=suggestion.quality,
                 )
         raise NotFoundError("Address suggestion not found")
-
-
-__all__ = ["FakeGeocoder"]

@@ -50,11 +50,3 @@ class PerformerServiceDTO:
     constraints: dict[str, Any]
     approved_by_admin_id: UUID | None
     approved_at: datetime | None
-
-
-__all__ = [
-    "InvitationDTO",
-    "PerformerDTO",
-    "PerformerServiceDTO",
-    "RegistrationStateDTO",
-]

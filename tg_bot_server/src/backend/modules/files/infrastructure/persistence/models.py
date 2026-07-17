@@ -36,6 +36,3 @@ class FileLinkModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
     entity_id: Mapped[UUID] = mapped_column(nullable=False)
     purpose: Mapped[str] = mapped_column(Text, nullable=False)
     sort_order: Mapped[int] = mapped_column(nullable=False, default=0)
-
-
-__all__ = ["FileLinkModel", "FileModel"]

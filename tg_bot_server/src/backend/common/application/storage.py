@@ -24,6 +24,3 @@ class ObjectStorage(Protocol):
 
     async def create_download_url(self, storage_key: str) -> str:
         pass
-
-
-__all__ = ["ObjectStorage", "StoredObject"]

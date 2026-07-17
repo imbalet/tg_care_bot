@@ -12,6 +12,3 @@ class SystemCheckRecordModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "system_check_records"
 
     name: Mapped[str] = mapped_column(String(length=100), nullable=False)
-
-
-__all__ = ["SystemCheckRecordModel"]

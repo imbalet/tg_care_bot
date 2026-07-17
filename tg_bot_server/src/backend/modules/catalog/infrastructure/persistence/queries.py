@@ -111,6 +111,3 @@ class SqlAlchemyCatalogQueryService:
                 ),
             )
         return CatalogDTO(categories=tuple(categories))
-
-
-__all__ = ["SqlAlchemyCatalogQueryService"]
