@@ -51,7 +51,7 @@ class OrderCareObjectSnapshot:
 
 
 @dataclass(frozen=True)
-class DraftOrderData:
+class OrderData:
     customer_id: UUID
     service_id: UUID
     start_at: datetime
@@ -86,7 +86,7 @@ class OrderDTO:
 
 
 __all__ = [
-    "DraftOrderData",
+    "OrderData",
     "OrderCareObjectSnapshot",
     "OrderDTO",
     "PricePreviewDTO",

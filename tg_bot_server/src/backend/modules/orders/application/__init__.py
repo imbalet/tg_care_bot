@@ -1,6 +1,6 @@
 from .dto import (
-    DraftOrderData,
     OrderCareObjectSnapshot,
+    OrderData,
     OrderDTO,
     PricePreviewDTO,
     ServicePricingDTO,
@@ -21,8 +21,8 @@ __all__ = [
     "CreateDirectOrderUseCase",
     "CreatePoolOrderCommand",
     "CreatePoolOrderUseCase",
-    "DraftOrderData",
     "OrderCareObjectSnapshot",
+    "OrderData",
     "OrderDTO",
     "OrderRepository",
     "PricePreviewDTO",

@@ -3,8 +3,8 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from backend.modules.orders.application.dto import (
-    DraftOrderData,
     OrderCareObjectSnapshot,
+    OrderData,
     OrderDTO,
     PricePreviewDTO,
     ServicePricingDTO,
@@ -34,21 +34,10 @@ class OrderRepository(Protocol):
     async def get_order(self, order_id: UUID) -> OrderDTO | None:
         pass
 
-    async def create_draft(
-        self,
-        *,
-        data: DraftOrderData,
-        service: ServicePricingDTO,
-        price: PricePreviewDTO,
-        object_snapshots: tuple[OrderCareObjectSnapshot, ...],
-        matching_deadline_minutes: int,
-    ) -> OrderDTO:
-        pass
-
     async def create_pool(
         self,
         *,
-        data: DraftOrderData,
+        data: OrderData,
         service: ServicePricingDTO,
         price: PricePreviewDTO,
         object_snapshots: tuple[OrderCareObjectSnapshot, ...],
@@ -59,7 +48,7 @@ class OrderRepository(Protocol):
     async def create_direct(
         self,
         *,
-        data: DraftOrderData,
+        data: OrderData,
         service: ServicePricingDTO,
         price: PricePreviewDTO,
         object_snapshots: tuple[OrderCareObjectSnapshot, ...],
@@ -67,33 +56,6 @@ class OrderRepository(Protocol):
         performer_id: UUID,
         response_window_minutes: int,
     ) -> OrderDTO:
-        pass
-
-    async def replace_draft(
-        self,
-        *,
-        order_id: UUID,
-        data: DraftOrderData,
-        service: ServicePricingDTO,
-        price: PricePreviewDTO,
-        object_snapshots: tuple[OrderCareObjectSnapshot, ...],
-        matching_deadline_minutes: int,
-    ) -> OrderDTO | None:
-        pass
-
-    async def cancel_draft(self, order_id: UUID) -> OrderDTO | None:
-        pass
-
-    async def publish_pool(self, order_id: UUID) -> OrderDTO | None:
-        pass
-
-    async def publish_direct(
-        self,
-        *,
-        order_id: UUID,
-        performer_id: UUID,
-        response_window_minutes: int,
-    ) -> OrderDTO | None:
         pass
 
     async def list_care_object_snapshots(

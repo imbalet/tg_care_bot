@@ -28,7 +28,7 @@ class OrderModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     schedule_policy: Mapped[str] = mapped_column(Text, nullable=False)
     photo_policy: Mapped[str | None] = mapped_column(Text, nullable=True)
     matching_mode: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(Text, nullable=False, default="draft")
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="searching")
     selected_performer_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("performers.id"),
         nullable=True,

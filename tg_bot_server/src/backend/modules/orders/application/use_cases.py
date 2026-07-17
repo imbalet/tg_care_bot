@@ -5,8 +5,8 @@ from uuid import UUID
 
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.orders.application.dto import (
-    DraftOrderData,
     OrderCareObjectSnapshot,
+    OrderData,
     OrderDTO,
     PricePreviewDTO,
     ServicePricingDTO,
@@ -104,7 +104,7 @@ async def _prepare_order(
     order_repository: OrderRepository,
     pricing_repository: PricingRepository,
 ) -> tuple[
-    DraftOrderData,
+    OrderData,
     ServicePricingDTO,
     PricePreviewDTO,
     tuple[OrderCareObjectSnapshot, ...],
@@ -157,7 +157,7 @@ async def _prepare_order(
     )
     if matching_deadline_minutes is None:
         raise ValidationError("Matching deadline setting is not configured")
-    data = DraftOrderData(
+    data = OrderData(
         customer_id=command.customer_id,
         service_id=command.service_id,
         start_at=command.start_at,

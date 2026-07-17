@@ -2,7 +2,7 @@ from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import utc_now
@@ -11,8 +11,8 @@ from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.care_objects.infrastructure import CareObjectModel
 from backend.modules.catalog.infrastructure import ServiceOptionModel
 from backend.modules.orders.application import (
-    DraftOrderData,
     OrderCareObjectSnapshot,
+    OrderData,
     OrderDTO,
     PricePreviewDTO,
     ServicePricingDTO,
@@ -38,32 +38,10 @@ class SqlAlchemyOrderRepository:
         model = await self._session.get(OrderModel, order_id)
         return _order_to_dto(model) if model is not None else None
 
-    async def create_draft(
-        self,
-        *,
-        data: DraftOrderData,
-        service: ServicePricingDTO,
-        price: PricePreviewDTO,
-        object_snapshots: tuple[OrderCareObjectSnapshot, ...],
-        matching_deadline_minutes: int,
-    ) -> OrderDTO:
-        model = _build_order_model(
-            data=data,
-            service=service,
-            price=price,
-            matching_deadline_minutes=matching_deadline_minutes,
-        )
-        self._session.add(model)
-        await self._session.flush()
-        self._replace_children(model.id, object_snapshots, data.option_values)
-        self._add_status_history(model.id, None, "draft")
-        await self._session.flush()
-        return _order_to_dto(model)
-
     async def create_pool(
         self,
         *,
-        data: DraftOrderData,
+        data: OrderData,
         service: ServicePricingDTO,
         price: PricePreviewDTO,
         object_snapshots: tuple[OrderCareObjectSnapshot, ...],
@@ -75,7 +53,6 @@ class SqlAlchemyOrderRepository:
             price=price,
             matching_deadline_minutes=matching_deadline_minutes,
         )
-        model.status = "searching"
         model.matching_mode = "pool"
         self._session.add(model)
         await self._session.flush()
@@ -87,7 +64,7 @@ class SqlAlchemyOrderRepository:
     async def create_direct(
         self,
         *,
-        data: DraftOrderData,
+        data: OrderData,
         service: ServicePricingDTO,
         price: PricePreviewDTO,
         object_snapshots: tuple[OrderCareObjectSnapshot, ...],
@@ -101,7 +78,6 @@ class SqlAlchemyOrderRepository:
             price=price,
             matching_deadline_minutes=matching_deadline_minutes,
         )
-        model.status = "searching"
         model.matching_mode = "direct"
         self._session.add(model)
         await self._session.flush()
@@ -121,83 +97,6 @@ class SqlAlchemyOrderRepository:
         )
         self._replace_children(model.id, object_snapshots, data.option_values)
         self._add_status_history(model.id, None, "searching")
-        await self._session.flush()
-        return _order_to_dto(model)
-
-    async def replace_draft(
-        self,
-        *,
-        order_id: UUID,
-        data: DraftOrderData,
-        service: ServicePricingDTO,
-        price: PricePreviewDTO,
-        object_snapshots: tuple[OrderCareObjectSnapshot, ...],
-        matching_deadline_minutes: int,
-    ) -> OrderDTO | None:
-        model = await self._session.get(OrderModel, order_id)
-        if model is None or model.status != "draft":
-            return None
-        _apply_draft(
-            model=model,
-            data=data,
-            service=service,
-            price=price,
-            matching_deadline_minutes=matching_deadline_minutes,
-        )
-        await self._delete_children(order_id)
-        self._replace_children(order_id, object_snapshots, data.option_values)
-        await self._session.flush()
-        return _order_to_dto(model)
-
-    async def cancel_draft(self, order_id: UUID) -> OrderDTO | None:
-        model = await self._session.get(OrderModel, order_id)
-        if model is None or model.status != "draft":
-            return None
-        model.status = "cancelled"
-        model.cancelled_by = "customer"
-        model.cancellation_reason = "customer_changed_plans"
-        model.cancelled_at = utc_now()
-        self._add_status_history(order_id, "draft", "cancelled")
-        await self._session.flush()
-        return _order_to_dto(model)
-
-    async def publish_pool(self, order_id: UUID) -> OrderDTO | None:
-        model = await self._session.get(OrderModel, order_id)
-        if model is None or model.status != "draft":
-            return None
-        model.status = "searching"
-        model.matching_mode = "pool"
-        self._add_status_history(order_id, "draft", "searching")
-        await self._session.flush()
-        return _order_to_dto(model)
-
-    async def publish_direct(
-        self,
-        *,
-        order_id: UUID,
-        performer_id: UUID,
-        response_window_minutes: int,
-    ) -> OrderDTO | None:
-        model = await self._session.get(OrderModel, order_id)
-        if model is None or model.status != "draft":
-            return None
-        if not await self._performer_can_receive_direct(model, performer_id):
-            raise ValidationError("Performer is not suitable for direct order")
-        now = utc_now()
-        model.status = "searching"
-        model.matching_mode = "direct"
-        self._session.add(
-            OrderMatchModel(
-                order_id=model.id,
-                performer_id=performer_id,
-                source="direct",
-                status="pending",
-                starts_at=model.start_at,
-                ends_at=model.end_at,
-                response_expires_at=now + timedelta(minutes=response_window_minutes),
-            ),
-        )
-        self._add_status_history(order_id, "draft", "searching")
         await self._session.flush()
         return _order_to_dto(model)
 
@@ -301,18 +200,6 @@ class SqlAlchemyOrderRepository:
                 ),
             )
 
-    async def _delete_children(self, order_id: UUID) -> None:
-        await self._session.execute(
-            delete(OrderOptionValueModel).where(
-                OrderOptionValueModel.order_id == order_id,
-            ),
-        )
-        await self._session.execute(
-            delete(OrderCareObjectModel).where(
-                OrderCareObjectModel.order_id == order_id,
-            ),
-        )
-
     def _add_status_history(
         self,
         order_id: UUID,
@@ -333,13 +220,13 @@ class SqlAlchemyOrderRepository:
 
 def _build_order_model(
     *,
-    data: DraftOrderData,
+    data: OrderData,
     service: ServicePricingDTO,
     price: PricePreviewDTO,
     matching_deadline_minutes: int,
 ) -> OrderModel:
     model = OrderModel()
-    _apply_draft(
+    _apply_order_data(
         model=model,
         data=data,
         service=service,
@@ -349,10 +236,10 @@ def _build_order_model(
     return model
 
 
-def _apply_draft(
+def _apply_order_data(
     *,
     model: OrderModel,
-    data: DraftOrderData,
+    data: OrderData,
     service: ServicePricingDTO,
     price: PricePreviewDTO,
     matching_deadline_minutes: int,
@@ -364,7 +251,7 @@ def _apply_draft(
     model.schedule_policy = service.schedule_policy
     model.photo_policy = service.photo_policy
     model.matching_mode = None
-    model.status = "draft"
+    model.status = "searching"
     model.address_id = data.address_id
     model.location_source = service.location_policy
     model.start_at = data.start_at
