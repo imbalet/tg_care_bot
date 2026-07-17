@@ -222,10 +222,10 @@ def create_admin_surface(container: Container) -> Admin:
         UseCaseManagedModelView(PerformerServiceModel, label="Performer services")
     )
     admin.add_view(
-        CatalogModelView(PerformerScheduleModel, label="Performer schedules")
+        ReadOnlyModelView(PerformerScheduleModel, label="Performer schedules"),
     )
     admin.add_view(
-        CatalogModelView(
+        ReadOnlyModelView(
             PerformerCalendarOverrideModel,
             label="Performer calendar overrides",
         ),
