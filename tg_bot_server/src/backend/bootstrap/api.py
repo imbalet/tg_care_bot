@@ -37,9 +37,6 @@ from backend.modules.performers.presentation.api import router as performers_rou
 from backend.modules.system_checks.presentation.api import (
     router as system_checks_router,
 )
-from backend.modules.telegram_topics.presentation.api import (
-    router as telegram_topics_router,
-)
 
 logger = structlog.get_logger(__name__)
 
@@ -71,7 +68,6 @@ def create_app() -> FastAPI:
     app.include_router(orders_router)
     app.include_router(performers_router)
     app.include_router(admin_performers_router)
-    app.include_router(telegram_topics_router)
     app.include_router(system_checks_router)
 
     @app.middleware("http")
