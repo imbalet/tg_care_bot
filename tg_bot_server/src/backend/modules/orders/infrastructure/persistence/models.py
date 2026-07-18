@@ -37,7 +37,10 @@ class OrderModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
         ForeignKey("order_matches.id"),
         nullable=True,
     )
-    active_payment_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    active_payment_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("payments.id"),
+        nullable=True,
+    )
     address_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("addresses.id"),
         nullable=True,
