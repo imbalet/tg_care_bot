@@ -463,6 +463,10 @@ async def _ask_start_at(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.set_state(OrderCreation.start)
+    await state.update_data(
+        order_start_date=None,
+        order_start_manual_time=False,
+    )
     await send_step(
         bot=bot,
         event=callback,
@@ -566,6 +570,17 @@ async def select_start_time(
         telegram_responder,
         telegram_user_context,
         datetime.combine(start_date, start_time, tzinfo=LOCAL_TZ),
+    )
+
+
+@router.callback_query(SimpleCalendarCallback.filter())
+async def stale_start_calendar(
+    callback: CallbackQuery,
+    telegram_responder: TelegramResponder,
+) -> None:
+    await telegram_responder.acknowledge(
+        callback,
+        "Начните создание заказа заново.",
     )
 
 
