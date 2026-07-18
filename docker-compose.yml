@@ -94,7 +94,7 @@ services:
       S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
       S3_REGION: ${S3_REGION:?S3_REGION is required}
       S3_SIGNED_URL_TTL_SECONDS: ${S3_SIGNED_URL_TTL_SECONDS:?S3_SIGNED_URL_TTL_SECONDS is required}
-    command: ["python", "-m", "backend.main"]
+    command: ["uvicorn", "backend.bootstrap.api:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "18000:8000"
     depends_on:
