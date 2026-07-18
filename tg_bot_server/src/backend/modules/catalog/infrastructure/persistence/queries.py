@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -22,6 +24,15 @@ from backend.modules.catalog.infrastructure.persistence.models import (
 class SqlAlchemyCatalogQueryService(CatalogQueryService):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def get_city_timezone(self, city_id: UUID) -> str | None:
+        result = await self._session.execute(
+            select(CityModel.timezone).where(
+                CityModel.id == city_id,
+                CityModel.is_active.is_(True),
+            ),
+        )
+        return result.scalar_one_or_none()
 
     async def list_cities(self, *, active_only: bool) -> tuple[CityDTO, ...]:
         statement = select(CityModel).order_by(CityModel.name)

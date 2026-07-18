@@ -23,6 +23,7 @@ class CalendarOverrideDTO:
     starts_at: datetime
     ends_at: datetime
     comment: str | None
+    timezone: str
 
 
 @dataclass(frozen=True)

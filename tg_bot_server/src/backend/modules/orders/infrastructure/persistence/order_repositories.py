@@ -10,7 +10,7 @@ from backend.common.application import utc_now
 from backend.common.domain import ValidationError
 from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.care_objects.infrastructure import CareObjectModel
-from backend.modules.catalog.infrastructure import ServiceOptionModel
+from backend.modules.catalog.infrastructure import CityModel, ServiceOptionModel
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.orders.application import (
     OrderCareObjectSnapshot,
@@ -39,7 +39,7 @@ class SqlAlchemyOrderRepository(OrderRepository):
 
     async def get_order(self, order_id: UUID) -> OrderDTO | None:
         model = await self._session.get(OrderModel, order_id)
-        return _order_to_dto(model) if model is not None else None
+        return await self._order_to_dto(model) if model is not None else None
 
     async def create_pool(
         self,
@@ -62,7 +62,7 @@ class SqlAlchemyOrderRepository(OrderRepository):
         self._replace_children(model.id, object_snapshots, data.option_values)
         self._add_status_history(model.id, None, "searching")
         await self._session.flush()
-        return _order_to_dto(model)
+        return _order_to_dto(model, data.timezone)
 
     async def create_direct(
         self,
@@ -101,7 +101,7 @@ class SqlAlchemyOrderRepository(OrderRepository):
         self._replace_children(model.id, object_snapshots, data.option_values)
         self._add_status_history(model.id, None, "searching")
         await self._session.flush()
-        return _order_to_dto(model)
+        return _order_to_dto(model, data.timezone)
 
     async def _performer_can_receive_direct(
         self,
@@ -170,6 +170,27 @@ class SqlAlchemyOrderRepository(OrderRepository):
             ),
         )
         return result.scalar_one_or_none()
+
+    async def get_customer_timezone(self, customer_id: UUID) -> str | None:
+        result = await self._session.execute(
+            select(CityModel.timezone)
+            .join(CustomerModel, CustomerModel.city_id == CityModel.id)
+            .where(
+                CustomerModel.id == customer_id,
+                CustomerModel.status == "active",
+                CustomerModel.deleted_at.is_(None),
+                CityModel.is_active.is_(True),
+            ),
+        )
+        return result.scalar_one_or_none()
+
+    async def _order_to_dto(self, model: OrderModel) -> OrderDTO:
+        if model.customer_id is None:
+            raise ValidationError("Order customer is required")
+        timezone = await self.get_customer_timezone(model.customer_id)
+        if timezone is None:
+            raise ValidationError("Order customer city is invalid")
+        return _order_to_dto(model, timezone)
 
     async def service_options_exist(
         self,
@@ -331,7 +352,7 @@ def _option_value_matches(value_type: str, value: Any) -> bool:
     return value_type == "json"
 
 
-def _order_to_dto(model: OrderModel) -> OrderDTO:
+def _order_to_dto(model: OrderModel, timezone: str) -> OrderDTO:
     if model.customer_id is None:
         raise ValidationError("Order customer is required")
     return OrderDTO(
@@ -353,4 +374,5 @@ def _order_to_dto(model: OrderModel) -> OrderDTO:
         performer_amount=model.performer_amount,
         platform_fee_amount=model.platform_fee_amount,
         matching_deadline_at=model.matching_deadline_at,
+        timezone=timezone,
     )

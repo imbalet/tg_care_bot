@@ -1,4 +1,5 @@
 from typing import Protocol
+from uuid import UUID
 
 from backend.modules.catalog.application.dto import (
     CatalogDTO,
@@ -8,6 +9,9 @@ from backend.modules.catalog.application.dto import (
 
 
 class CatalogQueryService(Protocol):
+    async def get_city_timezone(self, city_id: UUID) -> str | None:
+        pass
+
     async def list_cities(self, *, active_only: bool) -> tuple[CityDTO, ...]:
         pass
 

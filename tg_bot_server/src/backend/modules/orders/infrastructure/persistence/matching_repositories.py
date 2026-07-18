@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.common.application import utc_now
 from backend.common.domain import ConflictError, NotFoundError, ValidationError
 from backend.modules.availability.infrastructure import SqlAlchemyAvailabilityRepository
-from backend.modules.catalog.infrastructure import BusinessSettingModel
+from backend.modules.catalog.infrastructure import BusinessSettingModel, CityModel
+from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.application import (
     MatchActionDTO,
@@ -58,7 +59,7 @@ class SqlAlchemyMatchingRepository:
                 ends_at=order.end_at,
             )
             if check.is_available:
-                orders.append(_order_to_dto(order))
+                orders.append(await self._order_to_dto(order))
         return tuple(orders)
 
     async def create_pool_response(
@@ -117,7 +118,7 @@ class SqlAlchemyMatchingRepository:
             deduplication_key=f"pool-response-created:{match.id}",
         )
         await self._session.flush()
-        return _match_to_dto(match)
+        return _match_to_dto(match, await self._order_timezone(order))
 
     async def list_order_matches(
         self,
@@ -131,7 +132,8 @@ class SqlAlchemyMatchingRepository:
             .where(OrderMatchModel.order_id == order.id)
             .order_by(OrderMatchModel.created_at),
         )
-        return tuple(_match_to_dto(match) for match in result.scalars())
+        timezone = await self._order_timezone(order)
+        return tuple(_match_to_dto(match, timezone) for match in result.scalars())
 
     async def reject_pool_response(
         self,
@@ -157,7 +159,7 @@ class SqlAlchemyMatchingRepository:
             deduplication_key=f"pool-response-rejected:{match.id}",
         )
         await self._session.flush()
-        return _match_to_dto(match)
+        return _match_to_dto(match, await self._order_timezone(match.order_id))
 
     async def accept_direct(
         self,
@@ -206,7 +208,7 @@ class SqlAlchemyMatchingRepository:
             deduplication_key=f"direct-rejected:{match.id}",
         )
         await self._session.flush()
-        return _match_to_dto(match)
+        return _match_to_dto(match, await self._order_timezone(match.order_id))
 
     async def select_pool_response(
         self,
@@ -305,10 +307,11 @@ class SqlAlchemyMatchingRepository:
             deduplication_key=f"{notification_type}:performer:{match.id}",
         )
         await self._session.flush()
+        timezone = await self._order_timezone(order)
         return MatchActionDTO(
-            order=_order_to_dto(order),
-            match=_match_to_dto(match),
-            payment=_payment_to_dto(payment),
+            order=_order_to_dto(order, timezone),
+            match=_match_to_dto(match, timezone),
+            payment=_payment_to_dto(payment, timezone),
         )
 
     async def _create_payment_attempt(
@@ -489,8 +492,36 @@ class SqlAlchemyMatchingRepository:
             raise NotFoundError("Order match not found")
         return match
 
+    async def _order_to_dto(self, model: OrderModel) -> OrderDTO:
+        return _order_to_dto(model, await self._order_timezone(model))
 
-def _order_to_dto(model: OrderModel) -> OrderDTO:
+    async def _order_timezone(self, order: OrderModel | UUID) -> str:
+        if isinstance(order, OrderModel):
+            customer_id = order.customer_id
+        else:
+            result = await self._session.execute(
+                select(OrderModel.customer_id).where(OrderModel.id == order),
+            )
+            customer_id = result.scalar_one_or_none()
+        if customer_id is None:
+            raise ValidationError("Order customer is required")
+        timezone_result = await self._session.execute(
+            select(CityModel.timezone)
+            .join(CustomerModel, CustomerModel.city_id == CityModel.id)
+            .where(
+                CustomerModel.id == customer_id,
+                CustomerModel.status == "active",
+                CustomerModel.deleted_at.is_(None),
+                CityModel.is_active.is_(True),
+            ),
+        )
+        timezone = timezone_result.scalar_one_or_none()
+        if timezone is None:
+            raise ValidationError("Order customer city is invalid")
+        return timezone
+
+
+def _order_to_dto(model: OrderModel, timezone: str) -> OrderDTO:
     if model.customer_id is None:
         raise ValidationError("Order customer is required")
     return OrderDTO(
@@ -512,10 +543,11 @@ def _order_to_dto(model: OrderModel) -> OrderDTO:
         performer_amount=model.performer_amount,
         platform_fee_amount=model.platform_fee_amount,
         matching_deadline_at=model.matching_deadline_at,
+        timezone=timezone,
     )
 
 
-def _match_to_dto(model: OrderMatchModel) -> OrderMatchDTO:
+def _match_to_dto(model: OrderMatchModel, timezone: str) -> OrderMatchDTO:
     return OrderMatchDTO(
         id=model.id,
         order_id=model.order_id,
@@ -528,12 +560,14 @@ def _match_to_dto(model: OrderMatchModel) -> OrderMatchDTO:
         selected_at=model.selected_at,
         closed_at=model.closed_at,
         close_reason=model.close_reason,
+        timezone=timezone,
     )
 
 
-def _payment_to_dto(model: PaymentModel) -> PaymentPromptDTO:
+def _payment_to_dto(model: PaymentModel, timezone: str) -> PaymentPromptDTO:
     return PaymentPromptDTO(
         payment_id=model.id,
         confirmation_url=model.confirmation_url,
         expires_at=model.expires_at,
+        timezone=timezone,
     )

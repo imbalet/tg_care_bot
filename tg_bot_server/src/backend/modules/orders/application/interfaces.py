@@ -77,6 +77,9 @@ class OrderRepository(Protocol):
     async def get_customer_city_id(self, customer_id: UUID) -> UUID | None:
         pass
 
+    async def get_customer_timezone(self, customer_id: UUID) -> str | None:
+        pass
+
     async def service_options_exist(
         self,
         *,

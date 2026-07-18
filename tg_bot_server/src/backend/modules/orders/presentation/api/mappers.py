@@ -1,3 +1,4 @@
+from backend.common.application import to_timezone
 from backend.modules.orders.application import (
     CreateDirectOrderCommand,
     CreatePoolOrderCommand,
@@ -49,6 +50,9 @@ def create_direct_command(request: DirectOrderRequest) -> CreateDirectOrderComma
 
 
 def order_response(order: OrderDTO) -> OrderResponse:
+    start_at = to_timezone(order.start_at, order.timezone)
+    end_at = to_timezone(order.end_at, order.timezone)
+    matching_deadline_at = to_timezone(order.matching_deadline_at, order.timezone)
     return OrderResponse(
         id=str(order.id),
         customer_id=str(order.customer_id) if order.customer_id is not None else None,
@@ -61,13 +65,14 @@ def order_response(order: OrderDTO) -> OrderResponse:
         status=order.status,
         address_id=str(order.address_id) if order.address_id is not None else None,
         location_source=order.location_source,
-        start_at=order.start_at.isoformat(),
-        end_at=order.end_at.isoformat(),
+        start_at=start_at.isoformat(),
+        end_at=end_at.isoformat(),
         objects_count=order.objects_count,
         total_amount=order.total_amount,
         performer_amount=order.performer_amount,
         platform_fee_amount=order.platform_fee_amount,
-        matching_deadline_at=order.matching_deadline_at.isoformat(),
+        matching_deadline_at=matching_deadline_at.isoformat(),
+        timezone=order.timezone,
     )
 
 
@@ -93,28 +98,42 @@ def price_preview_response(preview: PricePreviewDTO) -> PricePreviewResponse:
 
 
 def match_response(match: OrderMatchDTO) -> OrderMatchResponse:
+    starts_at = to_timezone(match.starts_at, match.timezone)
+    ends_at = to_timezone(match.ends_at, match.timezone)
+    response_expires_at = to_timezone(match.response_expires_at, match.timezone)
+    selected_at = (
+        to_timezone(match.selected_at, match.timezone)
+        if match.selected_at is not None
+        else None
+    )
+    closed_at = (
+        to_timezone(match.closed_at, match.timezone)
+        if match.closed_at is not None
+        else None
+    )
     return OrderMatchResponse(
         id=str(match.id),
         order_id=str(match.order_id),
         performer_id=str(match.performer_id),
         source=match.source,
         status=match.status,
-        starts_at=match.starts_at.isoformat(),
-        ends_at=match.ends_at.isoformat(),
-        response_expires_at=match.response_expires_at.isoformat(),
-        selected_at=match.selected_at.isoformat()
-        if match.selected_at is not None
-        else None,
-        closed_at=match.closed_at.isoformat() if match.closed_at is not None else None,
+        starts_at=starts_at.isoformat(),
+        ends_at=ends_at.isoformat(),
+        response_expires_at=response_expires_at.isoformat(),
+        selected_at=selected_at.isoformat() if selected_at is not None else None,
+        closed_at=closed_at.isoformat() if closed_at is not None else None,
         close_reason=match.close_reason,
+        timezone=match.timezone,
     )
 
 
 def payment_prompt_response(payment: PaymentPromptDTO) -> PaymentPromptResponse:
+    expires_at = to_timezone(payment.expires_at, payment.timezone)
     return PaymentPromptResponse(
         payment_id=str(payment.payment_id),
         confirmation_url=payment.confirmation_url,
-        expires_at=payment.expires_at.isoformat(),
+        expires_at=expires_at.isoformat(),
+        timezone=payment.timezone,
     )
 
 

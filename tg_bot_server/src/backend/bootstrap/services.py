@@ -5,7 +5,7 @@ from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from backend.common.application import utc_now
+from backend.common.application import to_utc, utc_now
 from backend.common.domain import NotFoundError, ValidationError
 from backend.common.infrastructure import S3ObjectStorage
 from backend.common.infrastructure.database import SqlAlchemyUnitOfWork
@@ -355,9 +355,22 @@ class ApplicationServices:
         command: CalculatePricePreviewCommand,
     ) -> Any:
         async with self._uow() as uow:
+            timezone = await SqlAlchemyOrderRepository(
+                uow.session,
+            ).get_customer_timezone(command.customer_id)
+            if timezone is None:
+                raise ValidationError("Customer is inactive or unknown")
             return await CalculatePricePreviewUseCase(
                 SqlAlchemyPricingRepository(uow.session),
-            ).execute(command)
+            ).execute(
+                CalculatePricePreviewCommand(
+                    customer_id=command.customer_id,
+                    service_id=command.service_id,
+                    start_at=to_utc(command.start_at, timezone),
+                    end_at=to_utc(command.end_at, timezone),
+                    objects_count=command.objects_count,
+                ),
+            )
 
     async def list_available_pool_orders(
         self,
@@ -510,6 +523,7 @@ class ApplicationServices:
                 payment_id=data.payment.id,
                 confirmation_url=data.payment.confirmation_url,
                 expires_at=data.payment.expires_at,
+                timezone=result.payment.timezone,
             ),
         )
 
@@ -626,9 +640,23 @@ class ApplicationServices:
         command: AddCalendarOverrideCommand,
     ) -> Any:
         async with self._uow() as uow:
+            repository = SqlAlchemyAvailabilityRepository(uow.session)
+            timezone = await repository.get_performer_timezone_by_telegram_id(
+                command.telegram_id,
+            )
+            if timezone is None:
+                raise NotFoundError("Performer not found")
             override = await AddCalendarOverrideUseCase(
-                SqlAlchemyAvailabilityRepository(uow.session),
-            ).execute(command)
+                repository,
+            ).execute(
+                AddCalendarOverrideCommand(
+                    telegram_id=command.telegram_id,
+                    override_type=command.override_type,
+                    starts_at=to_utc(command.starts_at, timezone),
+                    ends_at=to_utc(command.ends_at, timezone),
+                    comment=command.comment,
+                ),
+            )
             await uow.commit()
             return override
 
@@ -643,18 +671,50 @@ class ApplicationServices:
         command: CheckPerformerAvailabilityCommand,
     ) -> Any:
         async with self._uow() as uow:
+            repository = SqlAlchemyAvailabilityRepository(uow.session)
+            timezone = await repository.get_performer_timezone(command.performer_id)
+            if timezone is None:
+                raise NotFoundError("Performer not found")
             return await CheckPerformerAvailabilityUseCase(
-                SqlAlchemyAvailabilityRepository(uow.session),
-            ).execute(command)
+                repository,
+            ).execute(
+                CheckPerformerAvailabilityCommand(
+                    performer_id=command.performer_id,
+                    service_id=command.service_id,
+                    starts_at=to_utc(command.starts_at, timezone),
+                    ends_at=to_utc(command.ends_at, timezone),
+                    exclude_order_id=command.exclude_order_id,
+                    exclude_match_id=command.exclude_match_id,
+                ),
+            )
 
     async def find_suitable_performers(
         self,
         command: FindSuitablePerformersCommand,
     ) -> Any:
         async with self._uow() as uow:
+            repository = SqlAlchemyAvailabilityRepository(uow.session)
+            timezone = await SqlAlchemyCatalogQueryService(
+                uow.session
+            ).get_city_timezone(
+                command.city_id,
+            )
+            if timezone is None:
+                raise ValidationError("City is inactive or unknown")
             return await FindSuitablePerformersUseCase(
-                SqlAlchemyAvailabilityRepository(uow.session),
-            ).execute(command)
+                repository,
+            ).execute(
+                FindSuitablePerformersCommand(
+                    city_id=command.city_id,
+                    service_id=command.service_id,
+                    starts_at=to_utc(command.starts_at, timezone),
+                    ends_at=to_utc(command.ends_at, timezone),
+                    objects_count=command.objects_count,
+                    care_object_ids=command.care_object_ids,
+                    address_id=command.address_id,
+                    limit=command.limit,
+                ),
+            )
 
     async def create_invitation(
         self,

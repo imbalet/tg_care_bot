@@ -11,6 +11,15 @@ from backend.modules.availability.application.dto import (
 
 
 class ConflictChecker(Protocol):
+    async def get_performer_timezone(self, performer_id: UUID) -> str | None:
+        pass
+
+    async def get_performer_timezone_by_telegram_id(
+        self,
+        telegram_id: int,
+    ) -> str | None:
+        pass
+
     async def check(
         self,
         *,

@@ -13,6 +13,7 @@ MONEY_QUANT = Decimal("0.01")
 
 @dataclass(frozen=True)
 class CalculatePricePreviewCommand:
+    customer_id: UUID
     service_id: UUID
     start_at: datetime
     end_at: datetime

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class PricePreviewRequest(BaseModel):
+    customer_id: UUID
     service_id: UUID
     start_at: datetime
     end_at: datetime
@@ -48,6 +49,7 @@ class OrderResponse(BaseModel):
     performer_amount: Decimal
     platform_fee_amount: Decimal
     matching_deadline_at: str
+    timezone: str
 
 
 class PricePreviewResponse(BaseModel):
@@ -89,12 +91,14 @@ class OrderMatchResponse(BaseModel):
     selected_at: str | None
     closed_at: str | None
     close_reason: str | None
+    timezone: str
 
 
 class PaymentPromptResponse(BaseModel):
     payment_id: str
     confirmation_url: str | None
     expires_at: str
+    timezone: str
 
 
 class MatchActionResponse(BaseModel):

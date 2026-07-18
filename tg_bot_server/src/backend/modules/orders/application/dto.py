@@ -63,6 +63,7 @@ class OrderData:
     customer_comment: str | None
     report_photo_consent: bool | None
     option_values: dict[UUID, Any]
+    timezone: str
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,7 @@ class OrderDTO:
     performer_amount: Decimal
     platform_fee_amount: Decimal
     matching_deadline_at: datetime
+    timezone: str
 
 
 @dataclass(frozen=True)
@@ -92,6 +94,7 @@ class PaymentPromptDTO:
     payment_id: UUID
     confirmation_url: str | None
     expires_at: datetime
+    timezone: str
 
 
 @dataclass(frozen=True)
@@ -107,6 +110,7 @@ class OrderMatchDTO:
     selected_at: datetime | None
     closed_at: datetime | None
     close_reason: str | None
+    timezone: str
 
 
 @dataclass(frozen=True)

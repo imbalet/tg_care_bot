@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from backend.common.application import to_utc
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.availability.application import AvailabilityRepository
 from backend.modules.orders.application.dto import (
@@ -91,7 +92,11 @@ class CreateDirectOrderUseCase:
             self._order_repository,
             self._pricing_repository,
         )
-        await self._ensure_direct_performer_suitable(command)
+        await self._ensure_direct_performer_suitable(
+            command=command,
+            starts_at=data.start_at,
+            ends_at=data.end_at,
+        )
         return await self._order_repository.create_direct(
             data=data,
             service=service,
@@ -104,7 +109,10 @@ class CreateDirectOrderUseCase:
 
     async def _ensure_direct_performer_suitable(
         self,
+        *,
         command: CreateDirectOrderCommand,
+        starts_at: datetime,
+        ends_at: datetime,
     ) -> None:
         city_id = await self._order_repository.get_customer_city_id(command.customer_id)
         if city_id is None:
@@ -112,8 +120,8 @@ class CreateDirectOrderUseCase:
         suitable = await self._availability_repository.find_suitable_performers(
             city_id=city_id,
             service_id=command.service_id,
-            starts_at=command.start_at,
-            ends_at=command.end_at,
+            starts_at=starts_at,
+            ends_at=ends_at,
             objects_count=len(command.care_object_ids),
             care_object_ids=command.care_object_ids,
             address_id=command.address_id,
@@ -137,8 +145,11 @@ async def _prepare_order(
     service = await pricing_repository.get_service_pricing(command.service_id)
     if service is None:
         raise NotFoundError("Service not found")
-    if await order_repository.get_customer_city_id(command.customer_id) is None:
+    timezone = await order_repository.get_customer_timezone(command.customer_id)
+    if timezone is None:
         raise ValidationError("Customer is inactive or unknown")
+    start_at = to_utc(command.start_at, timezone)
+    end_at = to_utc(command.end_at, timezone)
     if not command.care_object_ids:
         raise ValidationError("Order must include care objects")
     snapshots = await order_repository.list_care_object_snapshots(
@@ -178,9 +189,10 @@ async def _prepare_order(
         raise ValidationError("Service option is inactive or unknown")
     price = await CalculatePricePreviewUseCase(pricing_repository).execute(
         CalculatePricePreviewCommand(
+            customer_id=command.customer_id,
             service_id=command.service_id,
-            start_at=command.start_at,
-            end_at=command.end_at,
+            start_at=start_at,
+            end_at=end_at,
             objects_count=len(snapshots),
         ),
     )
@@ -192,12 +204,13 @@ async def _prepare_order(
     data = OrderData(
         customer_id=command.customer_id,
         service_id=command.service_id,
-        start_at=command.start_at,
-        end_at=command.end_at,
+        start_at=start_at,
+        end_at=end_at,
         care_object_ids=command.care_object_ids,
         address_id=command.address_id,
         customer_comment=command.customer_comment,
         report_photo_consent=command.report_photo_consent,
         option_values=command.option_values,
+        timezone=timezone,
     )
     return data, service, price, snapshots, matching_deadline_minutes

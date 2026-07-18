@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.common.application import utc_now
+from backend.common.application import to_timezone, utc_now
 from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.availability.application import (
     AvailabilityCheckDTO,
@@ -16,7 +16,7 @@ from backend.modules.availability.application import (
     SuitablePerformerDTO,
 )
 from backend.modules.care_objects.infrastructure import CareObjectModel
-from backend.modules.catalog.infrastructure import ServiceModel
+from backend.modules.catalog.infrastructure import CityModel, ServiceModel
 from backend.modules.geo.application import haversine_distance_km
 from backend.modules.orders.infrastructure.persistence.models import (
     OrderMatchModel,
@@ -67,6 +67,31 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
         await self._session.flush()
         return _schedule_to_dto(model)
 
+    async def get_performer_timezone(self, performer_id: UUID) -> str | None:
+        result = await self._session.execute(
+            select(CityModel.timezone)
+            .join(PerformerModel, PerformerModel.city_id == CityModel.id)
+            .where(
+                PerformerModel.id == performer_id,
+                CityModel.is_active.is_(True),
+            ),
+        )
+        return result.scalar_one_or_none()
+
+    async def get_performer_timezone_by_telegram_id(
+        self,
+        telegram_id: int,
+    ) -> str | None:
+        result = await self._session.execute(
+            select(CityModel.timezone)
+            .join(PerformerModel, PerformerModel.city_id == CityModel.id)
+            .where(
+                PerformerModel.telegram_id == telegram_id,
+                CityModel.is_active.is_(True),
+            ),
+        )
+        return result.scalar_one_or_none()
+
     async def add_override(
         self,
         *,
@@ -88,7 +113,10 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
         )
         self._session.add(model)
         await self._session.flush()
-        return _override_to_dto(model)
+        timezone = await self.get_performer_timezone(performer.id)
+        if timezone is None:
+            return None
+        return _override_to_dto(model, timezone)
 
     async def get_calendar_by_telegram_id(
         self,
@@ -97,6 +125,9 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
         performer = await self._get_performer_by_telegram_id(telegram_id)
         if performer is None:
             return None
+        performer_timezone = await self.get_performer_timezone(performer.id)
+        if performer_timezone is None:
+            return None
         schedule = await self._get_active_schedule(performer.id)
         overrides_result = await self._session.execute(
             select(PerformerCalendarOverrideModel)
@@ -104,7 +135,8 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
             .order_by(PerformerCalendarOverrideModel.starts_at),
         )
         overrides = tuple(
-            _override_to_dto(model) for model in overrides_result.scalars()
+            _override_to_dto(model, performer_timezone)
+            for model in overrides_result.scalars()
         )
         return _schedule_to_dto(schedule) if schedule is not None else None, overrides
 
@@ -119,6 +151,10 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
         exclude_match_id: UUID | None = None,
     ) -> AvailabilityCheckDTO:
         reasons: list[str] = []
+        timezone = await self.get_performer_timezone(performer_id)
+        if timezone is None:
+            reasons.append("performer_not_found")
+            return AvailabilityCheckDTO(performer_id, False, tuple(reasons))
         schedule_policy = await self._get_schedule_policy(service_id)
         if schedule_policy is None:
             reasons.append("service_not_found")
@@ -141,8 +177,8 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
             reasons.append("unavailable_override")
         if schedule_policy == "working_hours" and not await self._is_in_working_hours(
             performer_id,
-            starts_at,
-            ends_at,
+            to_timezone(starts_at, timezone),
+            to_timezone(ends_at, timezone),
         ):
             reasons.append("outside_working_hours")
         return AvailabilityCheckDTO(
@@ -384,7 +420,10 @@ def _schedule_to_dto(model: PerformerScheduleModel) -> PerformerScheduleDTO:
     )
 
 
-def _override_to_dto(model: PerformerCalendarOverrideModel) -> CalendarOverrideDTO:
+def _override_to_dto(
+    model: PerformerCalendarOverrideModel,
+    timezone: str,
+) -> CalendarOverrideDTO:
     return CalendarOverrideDTO(
         id=model.id,
         performer_id=model.performer_id,
@@ -392,6 +431,7 @@ def _override_to_dto(model: PerformerCalendarOverrideModel) -> CalendarOverrideD
         starts_at=model.starts_at,
         ends_at=model.ends_at,
         comment=model.comment,
+        timezone=timezone,
     )
 
 

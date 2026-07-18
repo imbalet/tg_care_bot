@@ -1,3 +1,4 @@
+from backend.common.application import to_timezone
 from backend.modules.availability.application import (
     AvailabilityCheckDTO,
     CalendarOverrideDTO,
@@ -27,13 +28,16 @@ def schedule_response(schedule: PerformerScheduleDTO) -> ScheduleResponse:
 
 
 def override_response(override: CalendarOverrideDTO) -> CalendarOverrideResponse:
+    starts_at = to_timezone(override.starts_at, override.timezone)
+    ends_at = to_timezone(override.ends_at, override.timezone)
     return CalendarOverrideResponse(
         id=str(override.id),
         performer_id=str(override.performer_id),
         override_type=override.override_type,
-        starts_at=override.starts_at.isoformat(),
-        ends_at=override.ends_at.isoformat(),
+        starts_at=starts_at.isoformat(),
+        ends_at=ends_at.isoformat(),
         comment=override.comment,
+        timezone=override.timezone,
     )
 
 

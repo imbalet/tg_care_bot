@@ -35,6 +35,7 @@ class CalendarOverrideResponse(BaseModel):
     starts_at: str
     ends_at: str
     comment: str | None
+    timezone: str
 
 
 class CalendarResponse(BaseModel):

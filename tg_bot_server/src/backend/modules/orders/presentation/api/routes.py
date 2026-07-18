@@ -64,6 +64,7 @@ async def price_preview(
 ) -> PricePreviewResponse:
     preview = await container.services().calculate_price_preview(
         CalculatePricePreviewCommand(
+            customer_id=request.customer_id,
             service_id=request.service_id,
             start_at=request.start_at,
             end_at=request.end_at,
