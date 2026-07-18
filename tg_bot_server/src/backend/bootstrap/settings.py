@@ -38,6 +38,16 @@ class Settings(BaseSettings):
         validation_alias="WORKER_POLL_INTERVAL_SECONDS",
     )
     worker_batch_limit: int = Field(default=50, validation_alias="WORKER_BATCH_LIMIT")
+    customer_bot_token: str = Field(default="", validation_alias="CUSTOMER_BOT_TOKEN")
+    executor_bot_token: str = Field(default="", validation_alias="EXECUTOR_BOT_TOKEN")
+    telegram_api_base_url: str = Field(
+        default="https://api.telegram.org",
+        validation_alias="TELEGRAM_API_BASE_URL",
+    )
+    telegram_timeout_seconds: float = Field(
+        default=5.0,
+        validation_alias="TELEGRAM_TIMEOUT_SECONDS",
+    )
     admin_session_ttl_seconds: int = Field(
         default=86_400,
         validation_alias="ADMIN_SESSION_TTL_SECONDS",

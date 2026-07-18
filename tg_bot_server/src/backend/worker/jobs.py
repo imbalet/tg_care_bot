@@ -2,14 +2,17 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from html import escape
 from typing import Protocol
 from uuid import UUID
 
+import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.common.application import utc_now
 from backend.common.infrastructure.database import for_update_skip_locked
+from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.infrastructure import (
     OrderMatchModel,
@@ -17,6 +20,7 @@ from backend.modules.orders.infrastructure import (
     OrderStatusHistoryModel,
 )
 from backend.modules.payments.infrastructure import PaymentModel
+from backend.modules.performers.infrastructure import PerformerModel
 
 
 class WorkerJob(Protocol):
@@ -69,10 +73,18 @@ class NotificationWorkerJob:
         self,
         session_factory: async_sessionmaker[AsyncSession],
         batch_limit: int,
+        customer_bot_token: str,
+        executor_bot_token: str,
+        telegram_api_base_url: str,
+        telegram_timeout_seconds: float,
         max_attempts: int = 3,
     ) -> None:
         self._session_factory = session_factory
         self._batch_limit = batch_limit
+        self._customer_bot_token = customer_bot_token
+        self._executor_bot_token = executor_bot_token
+        self._telegram_api_base_url = telegram_api_base_url.rstrip("/")
+        self._telegram_timeout_seconds = telegram_timeout_seconds
         self._max_attempts = max_attempts
 
     async def run_once(self) -> None:
@@ -93,10 +105,75 @@ class NotificationWorkerJob:
             notifications = tuple(result.scalars())
             for notification in notifications:
                 notification.attempts += 1
-                notification.status = "sent"
-                notification.sent_at = now
-                notification.last_error = None
+                try:
+                    await self._send_notification(session, notification)
+                except Exception as exc:
+                    notification.last_error = type(exc).__name__
+                    if notification.attempts >= self._max_attempts:
+                        notification.status = "failed"
+                    continue
+                else:
+                    notification.status = "sent"
+                    notification.sent_at = now
+                    notification.last_error = None
             await session.commit()
+
+    async def _send_notification(
+        self,
+        session: AsyncSession,
+        notification: NotificationModel,
+    ) -> None:
+        token, chat_id = await self._telegram_target(session, notification)
+        text = _notification_text(notification)
+        async with httpx.AsyncClient(timeout=self._telegram_timeout_seconds) as client:
+            response = await client.post(
+                f"{self._telegram_api_base_url}/bot{token}/sendMessage",
+                json={
+                    "chat_id": chat_id,
+                    "text": text,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                },
+            )
+            response.raise_for_status()
+        payload = response.json()
+        if payload.get("ok") is not True:
+            raise RuntimeError("Telegram sendMessage failed")
+
+    async def _telegram_target(
+        self,
+        session: AsyncSession,
+        notification: NotificationModel,
+    ) -> tuple[str, int]:
+        if notification.recipient_type == "customer":
+            if not self._customer_bot_token:
+                raise RuntimeError("Customer bot token is not configured")
+            if notification.customer_id is None:
+                raise RuntimeError("Notification customer is missing")
+            result = await session.execute(
+                select(CustomerModel.telegram_id).where(
+                    CustomerModel.id == notification.customer_id,
+                ),
+            )
+            telegram_id = result.scalar_one_or_none()
+            if telegram_id is None:
+                raise RuntimeError("Customer telegram id is missing")
+            return self._customer_bot_token, int(telegram_id)
+        if notification.recipient_type == "performer":
+            if not self._executor_bot_token:
+                raise RuntimeError("Executor bot token is not configured")
+            if notification.performer_id is None:
+                raise RuntimeError("Notification performer is missing")
+            result = await session.execute(
+                select(PerformerModel.telegram_id).where(
+                    PerformerModel.id == notification.performer_id,
+                ),
+            )
+            telegram_id = result.scalar_one_or_none()
+            if telegram_id is None:
+                raise RuntimeError("Performer telegram id is missing")
+            return self._executor_bot_token, int(telegram_id)
+        raise RuntimeError("Admin Telegram notifications are not configured")
 
 
 class DeadlinesWorkerJob:
@@ -380,6 +457,28 @@ class DeadlinesWorkerJob:
                 delete_after=now + timedelta(days=30),
             ),
         )
+
+
+def _notification_text(notification: NotificationModel) -> str:
+    direction = (
+        "Заказчик"
+        if notification.recipient_type == "customer"
+        else "Исполнитель"
+        if notification.recipient_type == "performer"
+        else "Админ"
+    )
+    lines = [
+        f"<b>{escape(direction)}</b>",
+        escape(notification.type),
+    ]
+    if notification.entity_type and notification.entity_id:
+        lines.append(
+            f"{escape(notification.entity_type)}: {escape(str(notification.entity_id))}"
+        )
+    order_id = notification.payload.get("order_id")
+    if order_id is not None:
+        lines.append(f"Заказ: {escape(str(order_id))}")
+    return "\n".join(lines)
 
 
 @dataclass(frozen=True)

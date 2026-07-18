@@ -72,6 +72,10 @@ async def amain() -> None:
             NotificationWorkerJob(
                 container.session_factory,
                 settings.worker_batch_limit,
+                customer_bot_token=settings.customer_bot_token,
+                executor_bot_token=settings.executor_bot_token,
+                telegram_api_base_url=settings.telegram_api_base_url,
+                telegram_timeout_seconds=settings.telegram_timeout_seconds,
             ),
         ],
     )

@@ -124,6 +124,10 @@ services:
       SERVICE_KEY: ${SERVICE_KEY:?SERVICE_KEY is required}
       WORKER_POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:?WORKER_POLL_INTERVAL_SECONDS is required}
       WORKER_BATCH_LIMIT: ${WORKER_BATCH_LIMIT:?WORKER_BATCH_LIMIT is required}
+      CUSTOMER_BOT_TOKEN: ${CUSTOMER_BOT_TOKEN:-}
+      EXECUTOR_BOT_TOKEN: ${EXECUTOR_BOT_TOKEN:-}
+      TELEGRAM_API_BASE_URL: ${TELEGRAM_API_BASE_URL:-https://api.telegram.org}
+      TELEGRAM_TIMEOUT_SECONDS: ${TELEGRAM_TIMEOUT_SECONDS:-5}
     command: ["python", "-m", "backend.worker.main"]
     depends_on:
       postgres:
