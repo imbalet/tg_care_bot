@@ -11,6 +11,7 @@ class InvitationDTO:
     status: str
     expires_at: datetime | None
     accepted_performer_id: UUID | None
+    updated_at: datetime
 
 
 @dataclass(frozen=True)

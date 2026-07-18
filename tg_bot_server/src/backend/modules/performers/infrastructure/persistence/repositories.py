@@ -38,6 +38,13 @@ class SqlAlchemyPerformerRepository(PerformerRepository):
         expires_at: datetime | None,
     ) -> InvitationDTO:
         now = utc_now()
+        existing = await self._pending_invitation_model(telegram_id)
+        if existing is not None:
+            existing.created_by_admin_id = created_by_admin_id
+            existing.expires_at = expires_at
+            existing.updated_at = now
+            await self._session.flush()
+            return _invitation_to_dto(existing)
         model = PerformerInvitationModel(
             id=new_uuid(),
             telegram_id=telegram_id,
@@ -77,6 +84,21 @@ class SqlAlchemyPerformerRepository(PerformerRepository):
         if model is None:
             return None
         return _invitation_to_dto(model)
+
+    async def _pending_invitation_model(
+        self,
+        telegram_id: int,
+    ) -> PerformerInvitationModel | None:
+        result = await self._session.execute(
+            select(PerformerInvitationModel)
+            .where(
+                PerformerInvitationModel.telegram_id == telegram_id,
+                PerformerInvitationModel.status == "pending",
+            )
+            .order_by(PerformerInvitationModel.created_at.desc())
+            .with_for_update(),
+        )
+        return result.scalars().first()
 
     async def mark_invitation_expired(self, invitation_id: UUID) -> None:
         model = await self._session.get(PerformerInvitationModel, invitation_id)
@@ -381,6 +403,7 @@ def _invitation_to_dto(model: PerformerInvitationModel) -> InvitationDTO:
         status=model.status,
         expires_at=model.expires_at,
         accepted_performer_id=model.accepted_performer_id,
+        updated_at=model.updated_at,
     )
 
 

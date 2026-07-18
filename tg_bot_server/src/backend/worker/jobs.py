@@ -173,6 +173,12 @@ class NotificationWorkerJob:
             if telegram_id is None:
                 raise RuntimeError("Performer telegram id is missing")
             return self._executor_bot_token, int(telegram_id)
+        if notification.recipient_type == "performer_invitation":
+            if not self._executor_bot_token:
+                raise RuntimeError("Executor bot token is not configured")
+            if notification.recipient_telegram_id is None:
+                raise RuntimeError("Invitation recipient telegram id is missing")
+            return self._executor_bot_token, int(notification.recipient_telegram_id)
         raise RuntimeError("Admin Telegram notifications are not configured")
 
 
@@ -460,6 +466,11 @@ class DeadlinesWorkerJob:
 
 
 def _notification_text(notification: NotificationModel) -> str:
+    if notification.type == "performer_invitation_created":
+        return (
+            "Вас пригласили зарегистрироваться исполнителем в We Are Close.\n"
+            "Откройте бот исполнителя и отправьте /start."
+        )
     direction = (
         "Заказчик"
         if notification.recipient_type == "customer"

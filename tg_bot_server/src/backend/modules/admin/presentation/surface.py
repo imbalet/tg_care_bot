@@ -1,5 +1,5 @@
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import Request
@@ -7,10 +7,15 @@ from starlette.responses import Response
 from starlette_admin import action
 from starlette_admin.auth import AdminUser, AuthProvider
 from starlette_admin.contrib.sqla import Admin, ModelView
-from starlette_admin.exceptions import LoginFailed
+from starlette_admin.exceptions import FormValidationError, LoginFailed
 
 from backend.bootstrap.container import Container
-from backend.common.domain import AuthenticationError, AuthorizationError
+from backend.common.domain import (
+    AuthenticationError,
+    AuthorizationError,
+    ConflictError,
+    ValidationError,
+)
 from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.admin.application import (
     LoginAdminCommand,
@@ -44,6 +49,7 @@ from backend.modules.orders.infrastructure import (
     OrderStatusHistoryModel,
 )
 from backend.modules.payments.infrastructure import PaymentModel, RefundModel
+from backend.modules.performers.application import CreateInvitationCommand
 from backend.modules.performers.infrastructure import (
     PerformerCalendarOverrideModel,
     PerformerInvitationModel,
@@ -144,6 +150,57 @@ class UseCaseManagedModelView(ReadOnlyModelView):
     """Admin mutations for this model must go through application use cases."""
 
 
+class PerformerInvitationView(ReadOnlyModelView):
+    exclude_fields_from_create = [
+        "id",
+        "created_by_admin_id",
+        "status",
+        "accepted_performer_id",
+        "created_at",
+        "updated_at",
+    ]
+
+    def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
+        super().__init__(model, **kwargs)
+        self._container = container
+
+    def can_create(self, request: Request) -> bool:
+        return self.is_accessible(request)
+
+    async def validate(self, request: Request, data: dict[str, Any]) -> None:
+        errors: dict[str | int, Any] = {}
+        telegram_id = data.get("telegram_id")
+        if not isinstance(telegram_id, int) or telegram_id <= 0:
+            errors["telegram_id"] = "Telegram ID must be a positive integer"
+        if errors:
+            raise FormValidationError(errors)
+
+    async def create(
+        self,
+        request: Request,
+        data: dict[str, Any],
+    ) -> PerformerInvitationModel:
+        await self.validate(request, data)
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"telegram_id": "Admin session is required"})
+        try:
+            invitation = await self._container.services().create_invitation(
+                CreateInvitationCommand(
+                    telegram_id=data["telegram_id"],
+                    created_by_admin_id=admin.id,
+                    expires_at=data.get("expires_at"),
+                ),
+                audit_admin_id=admin.id,
+            )
+        except (ConflictError, ValidationError) as exc:
+            raise FormValidationError({"telegram_id": str(exc)}) from exc
+        model = await request.state.session.get(PerformerInvitationModel, invitation.id)
+        if model is None:
+            raise FormValidationError({"telegram_id": "Invitation was not created"})
+        return cast(PerformerInvitationModel, model)
+
+
 class FileReviewView(ReadOnlyModelView):
     actions = ["hide_file"]
 
@@ -195,7 +252,11 @@ def create_admin_surface(container: Container) -> Admin:
     admin.add_view(ReadOnlyModelView(CustomerModel, label="Customers"))
     admin.add_view(ReadOnlyModelView(PerformerModel, label="Performers"))
     admin.add_view(
-        ReadOnlyModelView(PerformerInvitationModel, label="Performer invitations"),
+        PerformerInvitationView(
+            PerformerInvitationModel,
+            container,
+            label="Performer invitations",
+        ),
     )
     admin.add_view(
         UseCaseManagedModelView(PerformerServiceModel, label="Performer services")

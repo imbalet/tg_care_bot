@@ -53,6 +53,7 @@ from .schemas import (
     AddressResponse,
     ApprovePerformerServiceRequest,
     CreateAddressRequest,
+    CreateAdminInvitationRequest,
     CreateInvitationRequest,
     FileResponse,
     InvitationResponse,
@@ -91,7 +92,7 @@ async def create_invitation(
 
 @admin_router.post("/invitations", status_code=201)
 async def create_invitation_as_admin(
-    request: CreateInvitationRequest,
+    request: CreateAdminInvitationRequest,
     container: Annotated[Container, Depends(get_container)],
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> InvitationResponse:

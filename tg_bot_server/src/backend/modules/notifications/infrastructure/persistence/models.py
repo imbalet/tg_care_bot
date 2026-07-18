@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, SmallInteger, Text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, SmallInteger, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,6 +27,10 @@ class NotificationModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     )
     admin_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("admins.id"), nullable=True
+    )
+    recipient_telegram_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
     )
     channel: Mapped[str] = mapped_column(Text, nullable=False, default="telegram")
     type: Mapped[str] = mapped_column(Text, nullable=False)

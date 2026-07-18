@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
@@ -74,6 +75,7 @@ from backend.modules.files.application import (
 )
 from backend.modules.files.infrastructure import SqlAlchemyFileRepository
 from backend.modules.geo.infrastructure import DaDataGeocoder
+from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.application import (
     CalculatePricePreviewCommand,
     CalculatePricePreviewUseCase,
@@ -672,6 +674,29 @@ class ApplicationServices:
                     entity_id=invitation.id,
                     audit_metadata={"telegram_id": command.telegram_id},
                 )
+            now = utc_now()
+            uow.session.add(
+                NotificationModel(
+                    recipient_type="performer_invitation",
+                    customer_id=None,
+                    performer_id=None,
+                    admin_id=None,
+                    recipient_telegram_id=command.telegram_id,
+                    channel="telegram",
+                    type="performer_invitation_created",
+                    entity_type="performer_invitation",
+                    entity_id=invitation.id,
+                    payload={"telegram_id": str(command.telegram_id)},
+                    deduplication_key=(
+                        f"performer-invitation-created:{invitation.id}:"
+                        f"{invitation.updated_at.isoformat()}"
+                    ),
+                    status="pending",
+                    attempts=0,
+                    scheduled_at=now,
+                    delete_after=now + timedelta(days=30),
+                ),
+            )
             await uow.commit()
             return invitation
 

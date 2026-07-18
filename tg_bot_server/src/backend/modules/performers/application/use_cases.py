@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from backend.common.application import Clock, SystemClock
-from backend.common.domain import NotFoundError, ValidationError
+from backend.common.domain import ConflictError, NotFoundError, ValidationError
 from backend.modules.performers.application.dto import (
     InvitationDTO,
     PerformerDTO,
@@ -26,6 +26,11 @@ class CreateInvitationUseCase:
         self._repository = repository
 
     async def execute(self, command: CreateInvitationCommand) -> InvitationDTO:
+        existing = await self._repository.get_performer_by_telegram_id(
+            command.telegram_id,
+        )
+        if existing is not None:
+            raise ConflictError("Performer is already registered")
         return await self._repository.create_invitation(
             telegram_id=command.telegram_id,
             created_by_admin_id=command.created_by_admin_id,

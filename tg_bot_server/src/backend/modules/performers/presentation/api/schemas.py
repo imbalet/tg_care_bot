@@ -11,6 +11,11 @@ class CreateInvitationRequest(BaseModel):
     expires_at: datetime | None = None
 
 
+class CreateAdminInvitationRequest(BaseModel):
+    telegram_id: int
+    expires_at: datetime | None = None
+
+
 class RegisterPerformerRequest(BaseModel):
     telegram_id: int
     full_name: str = Field(min_length=1)
