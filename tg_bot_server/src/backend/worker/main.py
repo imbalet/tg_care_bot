@@ -6,6 +6,7 @@ from backend.bootstrap.container import create_container
 from backend.bootstrap.settings import get_settings
 from backend.common.infrastructure.logging import configure_logging
 from backend.worker.jobs import (
+    DeadlinesWorkerJob,
     NoopWorkerJob,
     NotificationWorkerJob,
     RetryPolicy,
@@ -64,6 +65,10 @@ async def amain() -> None:
     worker = Worker(
         settings.worker_poll_interval_seconds,
         jobs=[
+            DeadlinesWorkerJob(
+                container.session_factory,
+                settings.worker_batch_limit,
+            ),
             NotificationWorkerJob(
                 container.session_factory,
                 settings.worker_batch_limit,
