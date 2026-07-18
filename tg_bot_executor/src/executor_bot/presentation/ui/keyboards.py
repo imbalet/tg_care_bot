@@ -14,9 +14,12 @@ from executor_bot.presentation.callbacks import (
     CalendarUnavailableTomorrowCallback,
     CategoryChangeCallback,
     CategorySelectCallback,
+    DirectAcceptCallback,
+    DirectRejectCallback,
     ExecutorOrdersOpenCallback,
     HelpCallback,
     MainMenuCallback,
+    PoolRespondCallback,
     ProfileOpenCallback,
     RegistrationCityCallback,
     RegistrationConfirmCallback,
@@ -163,6 +166,27 @@ def orders_filter_keyboard(*, is_available_orders: bool) -> InlineKeyboardMarkup
     )
 
 
+def available_orders_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    for item in items:
+        order_id = str(getattr(item, "id", ""))
+        service_name = str(getattr(item, "service_name", "Заказ"))
+        keyboard.button(
+            f"Откликнуться: {service_name}",
+            PoolRespondCallback(order_id=order_id),
+        )
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+
+
+def direct_offer_keyboard(match_id: str) -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button("Принять", DirectAcceptCallback(match_id=match_id))
+        .button("Отклонить", DirectRejectCallback(match_id=match_id))
+        .as_markup()
+    )
+
+
 def work_addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory().button(
         MsgKey.ADD_ADDRESS,
@@ -257,9 +281,11 @@ def calendar_keyboard() -> InlineKeyboardMarkup:
 
 __all__ = [
     "avatar_keyboard",
+    "available_orders_keyboard",
     "calendar_keyboard",
     "category_select_keyboard",
     "contact_methods_keyboard",
+    "direct_offer_keyboard",
     "fallback_keyboard",
     "legal_acceptance_keyboard",
     "main_menu_keyboard",

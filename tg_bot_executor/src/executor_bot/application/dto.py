@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -110,12 +112,44 @@ class PerformerScheduleDTO:
     work_end_time: str
 
 
+@dataclass(frozen=True)
+class AvailableOrderDTO:
+    id: UUID
+    service_name: str
+    matching_mode: str | None
+    status: str
+    start_at: datetime
+    end_at: datetime
+    objects_count: int
+    total_amount: Decimal
+
+
+@dataclass(frozen=True)
+class OrderMatchDTO:
+    id: UUID
+    order_id: UUID
+    performer_id: UUID
+    source: str
+    status: str
+
+
+@dataclass(frozen=True)
+class MatchActionDTO:
+    order_id: UUID
+    match_id: UUID
+    status: str
+    confirmation_url: str | None
+
+
 __all__ = [
     "AddressDTO",
     "AddressSuggestionDTO",
+    "AvailableOrderDTO",
     "CityDTO",
     "FileDTO",
     "LegalDocumentDTO",
+    "MatchActionDTO",
+    "OrderMatchDTO",
     "PerformerProfileDTO",
     "PerformerScheduleDTO",
     "PerformerServiceDTO",

@@ -5,9 +5,12 @@ from uuid import UUID
 from executor_bot.application.dto import (
     AddressDTO,
     AddressSuggestionDTO,
+    AvailableOrderDTO,
     CityDTO,
     FileDTO,
     LegalDocumentDTO,
+    MatchActionDTO,
+    OrderMatchDTO,
     PerformerProfileDTO,
     PerformerScheduleDTO,
     PerformerServiceDTO,
@@ -137,3 +140,30 @@ class BackendPort(Protocol):
     ) -> PerformerScheduleDTO: ...
 
     async def add_tomorrow_unavailable(self, *, telegram_id: int) -> None: ...
+
+    async def list_available_orders(
+        self,
+        *,
+        performer_id: UUID,
+    ) -> tuple[AvailableOrderDTO, ...]: ...
+
+    async def create_pool_response(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+    ) -> OrderMatchDTO: ...
+
+    async def accept_direct_match(
+        self,
+        *,
+        match_id: UUID,
+        performer_id: UUID,
+    ) -> MatchActionDTO: ...
+
+    async def reject_direct_match(
+        self,
+        *,
+        match_id: UUID,
+        performer_id: UUID,
+    ) -> OrderMatchDTO: ...

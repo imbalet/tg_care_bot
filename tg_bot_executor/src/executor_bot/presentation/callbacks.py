@@ -31,6 +31,18 @@ class ExecutorOrdersOpenCallback(CallbackData, prefix="orders_list"):
     scope: OrderFilterScope = OrderFilterScope.CURRENT_CATEGORY
 
 
+class PoolRespondCallback(CallbackData, prefix="pool_resp"):
+    order_id: str
+
+
+class DirectAcceptCallback(CallbackData, prefix="direct_accept"):
+    match_id: str
+
+
+class DirectRejectCallback(CallbackData, prefix="direct_reject"):
+    match_id: str
+
+
 class RegistrationLegalAcceptCallback(CallbackData, prefix="reg_legal"):
     pass
 

@@ -1,4 +1,5 @@
 from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 from typing import Any, cast
 from uuid import UUID
 
@@ -7,9 +8,12 @@ import httpx
 from executor_bot.application.dto import (
     AddressDTO,
     AddressSuggestionDTO,
+    AvailableOrderDTO,
     CityDTO,
     FileDTO,
     LegalDocumentDTO,
+    MatchActionDTO,
+    OrderMatchDTO,
     PerformerProfileDTO,
     PerformerScheduleDTO,
     PerformerServiceDTO,
@@ -333,6 +337,61 @@ class BackendClient(BackendPort):
         )
         self._raise_for_status(response)
 
+    async def list_available_orders(
+        self,
+        *,
+        performer_id: UUID,
+    ) -> tuple[AvailableOrderDTO, ...]:
+        response = await self._request(
+            "GET",
+            "/api/orders/available",
+            params={"performer_id": str(performer_id)},
+        )
+        self._raise_for_status(response)
+        return tuple(_available_order_from_json(item) for item in response.json())
+
+    async def create_pool_response(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+    ) -> OrderMatchDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/{order_id}/pool-responses",
+            json={"performer_id": str(performer_id)},
+        )
+        self._raise_for_status(response)
+        return _order_match_from_json(response.json())
+
+    async def accept_direct_match(
+        self,
+        *,
+        match_id: UUID,
+        performer_id: UUID,
+    ) -> MatchActionDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/matches/{match_id}/direct/accept",
+            json={"performer_id": str(performer_id)},
+        )
+        self._raise_for_status(response)
+        return _match_action_from_json(response.json())
+
+    async def reject_direct_match(
+        self,
+        *,
+        match_id: UUID,
+        performer_id: UUID,
+    ) -> OrderMatchDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/matches/{match_id}/direct/reject",
+            json={"performer_id": str(performer_id)},
+        )
+        self._raise_for_status(response)
+        return _order_match_from_json(response.json())
+
     async def _request(
         self,
         method: str,
@@ -472,13 +531,61 @@ def _schedule_from_json(data: dict[str, object]) -> PerformerScheduleDTO:
     )
 
 
+def _available_order_from_json(data: dict[str, object]) -> AvailableOrderDTO:
+    return AvailableOrderDTO(
+        id=UUID(str(data["id"])),
+        service_name=str(data["service_name"]),
+        matching_mode=data["matching_mode"]
+        if isinstance(data["matching_mode"], str)
+        else None,
+        status=str(data["status"]),
+        start_at=datetime.fromisoformat(str(data["start_at"])),
+        end_at=datetime.fromisoformat(str(data["end_at"])),
+        objects_count=int(cast(str | int, data["objects_count"])),
+        total_amount=Decimal(str(data["total_amount"])),
+    )
+
+
+def _order_match_from_json(data: dict[str, object]) -> OrderMatchDTO:
+    return OrderMatchDTO(
+        id=UUID(str(data["id"])),
+        order_id=UUID(str(data["order_id"])),
+        performer_id=UUID(str(data["performer_id"])),
+        source=str(data["source"]),
+        status=str(data["status"]),
+    )
+
+
+def _match_action_from_json(data: dict[str, object]) -> MatchActionDTO:
+    order_data = data["order"]
+    match_data = data["match"]
+    payment_data = data.get("payment")
+    if not isinstance(order_data, dict) or not isinstance(match_data, dict):
+        raise BackendUnavailableError("Backend response is invalid")
+    confirmation_url = None
+    if isinstance(payment_data, dict) and isinstance(
+        payment_data.get("confirmation_url"),
+        str,
+    ):
+        confirmation_url = str(payment_data["confirmation_url"])
+    return MatchActionDTO(
+        order_id=UUID(str(order_data["id"])),
+        match_id=UUID(str(match_data["id"])),
+        status=str(order_data["status"]),
+        confirmation_url=confirmation_url,
+    )
+
+
 __all__ = [
     "AddressDTO",
     "AddressSuggestionDTO",
+    "AvailableOrderDTO",
     "BackendClient",
     "CityDTO",
     "FileDTO",
     "LegalDocumentDTO",
+    "MatchActionDTO",
+    "OrderMatchDTO",
     "PerformerProfileDTO",
     "PerformerScheduleDTO",
     "PerformerServiceDTO",

@@ -2,6 +2,7 @@ from .adapters import (
     RedisActiveCategoryStore,
     RedisCurrentMessageStore,
     RedisUsernameSyncCache,
+    RedisViewedAvailableOrdersStore,
 )
 from .keys import ExecutorRedisKeys, executor_redis_keys
 from .message_registry import MessageRegistry, RegisteredMessage
@@ -13,6 +14,7 @@ __all__ = [
     "RedisActiveCategoryStore",
     "RedisCurrentMessageStore",
     "RedisUsernameSyncCache",
+    "RedisViewedAvailableOrdersStore",
     "RegisteredMessage",
     "create_fsm_storage",
     "executor_redis_keys",

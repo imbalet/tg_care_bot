@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 
-from executor_bot.application.ports import ActiveCategoryStore, BackendPort
+from executor_bot.application.ports import (
+    ActiveCategoryStore,
+    BackendPort,
+    ViewedAvailableOrdersStore,
+)
 from executor_bot.application.services import UsernameSyncService
 from executor_bot.presentation.services import TelegramResponder
 
@@ -10,6 +14,7 @@ class AppContext:
     backend_client: BackendPort
     telegram_responder: TelegramResponder
     active_category_store: ActiveCategoryStore
+    viewed_available_orders_store: ViewedAvailableOrdersStore
     username_sync_service: UsernameSyncService
 
 

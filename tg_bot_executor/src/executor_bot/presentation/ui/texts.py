@@ -304,8 +304,47 @@ def available_orders_placeholder_text(scope: object) -> str:
     return (
         "<b>Доступные заказы</b>\n\n"
         f"Фильтр: {scope_text}.\n\n"
-        "Список заказов будет подключен после backend-контракта."
+        "Сейчас подходящих заказов нет."
     )
+
+
+def available_orders_text(items: Sequence[object], scope: object) -> str:
+    if not items:
+        return available_orders_placeholder_text(scope)
+    lines = ["<b>Доступные заказы</b>", "", f"Фильтр: {_order_scope_text(scope)}."]
+    for index, item in enumerate(items, start=1):
+        service = escape(str(getattr(item, "service_name", "Услуга")))
+        start_at = escape(str(getattr(item, "start_at", "")))
+        end_at = escape(str(getattr(item, "end_at", "")))
+        amount = escape(str(getattr(item, "total_amount", "")))
+        objects_count = escape(str(getattr(item, "objects_count", "")))
+        lines.extend(
+            (
+                "",
+                f"{index}. <b>{service}</b>",
+                f"{start_at} - {end_at}",
+                f"Объектов: {objects_count}",
+                f"Сумма: {amount}",
+            ),
+        )
+    return "\n".join(lines)
+
+
+def pool_response_created_text() -> str:
+    return "Отклик создан. Заказ появился в ваших откликах."
+
+
+def direct_accept_created_text(confirmation_url: str | None) -> str:
+    if confirmation_url is None:
+        return "Direct-заказ принят. Заказчик получил запрос на оплату."
+    return (
+        "Direct-заказ принят. Заказчик получил запрос на оплату.\n\n"
+        f"Платежная ссылка: {escape(confirmation_url)}"
+    )
+
+
+def direct_rejected_text() -> str:
+    return "Direct-приглашение отклонено."
 
 
 def executor_orders_placeholder_text(scope: object) -> str:
@@ -376,12 +415,15 @@ __all__ = [
     "avatar_upload_step_text",
     "avatar_uploaded_text",
     "available_orders_placeholder_text",
+    "available_orders_text",
     "calendar_text",
     "calendar_updated_text",
     "category_select_text",
     "executor_main_menu_text",
     "executor_orders_placeholder_text",
     "executor_profile_text",
+    "direct_accept_created_text",
+    "direct_rejected_text",
     "fallback_text",
     "full_name_step_text",
     "help_text",
@@ -391,6 +433,7 @@ __all__ = [
     "no_invitation_text",
     "phone_step_text",
     "phone_contact_received_text",
+    "pool_response_created_text",
     "registration_complete_text",
     "registration_unavailable_text",
     "retry_later_text",

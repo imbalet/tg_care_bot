@@ -1,4 +1,5 @@
 import logging
+from time import time
 
 from redis.asyncio import Redis
 
@@ -6,6 +7,7 @@ from executor_bot.application.ports import (
     ActiveCategoryStore,
     CurrentMessageStore,
     UsernameSyncCache,
+    ViewedAvailableOrdersStore,
 )
 
 from .keys import ExecutorRedisKeys, executor_redis_keys
@@ -83,3 +85,27 @@ class RedisCurrentMessageStore(CurrentMessageStore):
 
     async def delete(self, telegram_id: int) -> None:
         await self._redis.delete(self._keys.current_message(telegram_id))
+
+
+class RedisViewedAvailableOrdersStore(ViewedAvailableOrdersStore):
+    def __init__(
+        self,
+        redis: Redis,
+        keys: ExecutorRedisKeys = executor_redis_keys,
+    ) -> None:
+        self._redis = redis
+        self._keys = keys
+
+    async def list_viewed(self, telegram_id: int) -> set[str]:
+        values = await self._redis.zrange(
+            self._keys.viewed_available_orders(telegram_id),
+            0,
+            -1,
+        )
+        return {value for value in values if isinstance(value, str)}
+
+    async def mark_viewed(self, telegram_id: int, order_id: str) -> None:
+        await self._redis.zadd(
+            self._keys.viewed_available_orders(telegram_id),
+            {order_id: time()},
+        )

@@ -17,6 +17,7 @@ from executor_bot.infrastructure.redis import (
     RedisActiveCategoryStore,
     RedisCurrentMessageStore,
     RedisUsernameSyncCache,
+    RedisViewedAvailableOrdersStore,
     create_fsm_storage,
 )
 from executor_bot.presentation.contexts import AppContext
@@ -77,6 +78,7 @@ async def amain() -> None:
     )
     current_message_store = RedisCurrentMessageStore(redis)
     active_category_store = RedisActiveCategoryStore(redis)
+    viewed_available_orders_store = RedisViewedAvailableOrdersStore(redis)
     username_sync_cache = RedisUsernameSyncCache(redis)
     username_sync_service = UsernameSyncService(
         backend=backend_client,
@@ -102,6 +104,7 @@ async def amain() -> None:
                 backend_client=backend_client,
                 telegram_responder=telegram_responder,
                 active_category_store=active_category_store,
+                viewed_available_orders_store=viewed_available_orders_store,
                 username_sync_service=username_sync_service,
             ),
         )
