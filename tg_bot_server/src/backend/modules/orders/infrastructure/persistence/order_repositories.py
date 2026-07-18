@@ -14,6 +14,7 @@ from backend.modules.orders.application import (
     OrderCareObjectSnapshot,
     OrderData,
     OrderDTO,
+    OrderRepository,
     PricePreviewDTO,
     ServicePricingDTO,
 )
@@ -30,7 +31,7 @@ from backend.modules.performers.infrastructure import (
 )
 
 
-class SqlAlchemyOrderRepository:
+class SqlAlchemyOrderRepository(OrderRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 

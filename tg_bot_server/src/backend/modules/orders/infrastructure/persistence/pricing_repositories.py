@@ -9,10 +9,10 @@ from backend.modules.catalog.infrastructure import (
     ObjectCountMultiplierModel,
     ServiceModel,
 )
-from backend.modules.orders.application import ServicePricingDTO
+from backend.modules.orders.application import PricingRepository, ServicePricingDTO
 
 
-class SqlAlchemyPricingRepository:
+class SqlAlchemyPricingRepository(PricingRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
