@@ -14,7 +14,10 @@ from backend.common.domain import (
 from backend.modules.admin.application import (
     LoginAdminCommand,
 )
-from backend.modules.payments.application import CreateManualRefundCommand
+from backend.modules.payments.application import (
+    CreateManualRefundCommand,
+    RetryPaymentOperationCommand,
+)
 
 from .mappers import admin_response
 from .schemas import (
@@ -24,6 +27,7 @@ from .schemas import (
     LoginResponse,
     ManualRefundRequest,
     ManualRefundResponse,
+    PaymentRetryResponse,
     UpdateBusinessSettingRequest,
 )
 
@@ -142,4 +146,22 @@ async def create_manual_refund(
         status=refund.status,
         reason=refund.reason,
         provider_refund_id=refund.provider_refund_id,
+    )
+
+
+@router.post("/payments/{payment_id}/retry-check")
+async def retry_payment_operation(
+    payment_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+    current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
+) -> PaymentRetryResponse:
+    admin_id = UUID(current[0].id)
+    result = await container.services().retry_payment_operation(
+        command=RetryPaymentOperationCommand(payment_id=payment_id),
+        admin_id=admin_id,
+    )
+    return PaymentRetryResponse(
+        status=result.status if result is not None else "checked",
+        applied=result.applied if result is not None else False,
+        unapplied_reason=result.unapplied_reason if result is not None else None,
     )

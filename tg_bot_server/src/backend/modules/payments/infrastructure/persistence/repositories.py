@@ -377,6 +377,19 @@ class SqlAlchemyPaymentRepository:
             expires_at=payment.expires_at if payment is not None else None,
         )
 
+    async def mark_provider_status(
+        self,
+        *,
+        payment_id: UUID,
+        status: str,
+        failure_code: str | None,
+    ) -> None:
+        payment = await self._lock_payment(payment_id)
+        if payment.status in {"succeeded", "succeeded_unapplied", "expired"}:
+            return
+        payment.status = status
+        payment.failure_code = failure_code
+
 
 def _payment_to_dto(model: PaymentModel) -> PaymentAttemptDTO:
     return PaymentAttemptDTO(

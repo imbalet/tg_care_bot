@@ -1,5 +1,6 @@
 import hashlib
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -11,6 +12,8 @@ from backend.modules.payments.application import (
     PaymentGatewayInitResult,
     PaymentGatewayRefundCommand,
     PaymentGatewayRefundResult,
+    PaymentGatewayStateCommand,
+    PaymentGatewayStateResult,
 )
 
 
@@ -117,6 +120,37 @@ class TBankPaymentGateway:
         refund_id = data.get("PaymentId") or command.provider_payment_id
         return PaymentGatewayRefundResult(provider_refund_id=str(refund_id))
 
+    async def get_payment_state(
+        self,
+        command: PaymentGatewayStateCommand,
+    ) -> PaymentGatewayStateResult:
+        payload: dict[str, Any] = {
+            "TerminalKey": self._terminal_key,
+            "PaymentId": command.provider_payment_id,
+        }
+        payload["Token"] = _sign_payload(payload, self._password)
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=self._timeout_seconds,
+        ) as client:
+            response = await client.post("/GetState", json=payload)
+            response.raise_for_status()
+        data = response.json()
+        if data.get("Success") is not True:
+            details = data.get("Details") or data.get("Message") or "unknown"
+            raise ValidationError(f"T-Bank get state failed: {details}")
+        amount = data.get("Amount")
+        status = data.get("Status")
+        payment_id = data.get("PaymentId")
+        if amount is None or status is None or payment_id is None:
+            raise ValidationError("T-Bank get state response is incomplete")
+        return PaymentGatewayStateResult(
+            provider_payment_id=str(payment_id),
+            status=str(status),
+            amount=Decimal(int(amount)) / Decimal("100"),
+            paid_at=_provider_datetime(data.get("PaymentDate") or data.get("Date")),
+        )
+
 
 def verify_tbank_token(payload: dict[str, Any], password: str) -> bool:
     token = payload.get("Token")
@@ -138,3 +172,13 @@ def _sign_payload(payload: dict[str, Any], password: str) -> str:
 
 def _amount_to_kopecks(amount: Decimal) -> int:
     return int((amount * Decimal("100")).quantize(Decimal("1"), ROUND_HALF_UP))
+
+
+def _provider_datetime(raw: object) -> datetime:
+    if isinstance(raw, str):
+        try:
+            value = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+        except ValueError:
+            pass
+    return datetime.now(UTC)

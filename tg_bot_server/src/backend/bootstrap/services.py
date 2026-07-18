@@ -96,6 +96,8 @@ from backend.modules.payments.application import (
     PaymentGatewayInitCommand,
     PaymentGatewayRefundCommand,
     PaymentWebhookCommand,
+    RetryPaymentOperationCommand,
+    RetryPaymentOperationUseCase,
 )
 from backend.modules.payments.infrastructure import (
     SqlAlchemyPaymentRepository,
@@ -577,6 +579,33 @@ class ApplicationServices:
             return await GetCustomerPaymentStatusUseCase(
                 SqlAlchemyPaymentRepository(uow.session),
             ).execute(command)
+
+    async def retry_payment_operation(
+        self,
+        *,
+        command: RetryPaymentOperationCommand,
+        admin_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            result = await RetryPaymentOperationUseCase(
+                SqlAlchemyPaymentRepository(uow.session),
+                self._payment_gateway(),
+            ).execute(command)
+            uow.session.add(
+                AdminAuditLogModel(
+                    admin_id=admin_id,
+                    action="retry_payment_operation",
+                    entity_type="payment",
+                    entity_id=command.payment_id,
+                    reason=None,
+                    audit_metadata={
+                        "applied": result.applied if result is not None else False,
+                        "status": result.status if result is not None else None,
+                    },
+                ),
+            )
+            await uow.commit()
+            return result
 
     async def set_performer_schedule(
         self,

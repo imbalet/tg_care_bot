@@ -47,3 +47,9 @@ class ManualRefundResponse(BaseModel):
     status: str
     reason: str
     provider_refund_id: str | None
+
+
+class PaymentRetryResponse(BaseModel):
+    status: str
+    applied: bool
+    unapplied_reason: str | None

@@ -92,6 +92,19 @@ class PaymentGatewayRefundResult:
 
 
 @dataclass(frozen=True)
+class PaymentGatewayStateCommand:
+    provider_payment_id: str
+
+
+@dataclass(frozen=True)
+class PaymentGatewayStateResult:
+    provider_payment_id: str
+    status: str
+    amount: Decimal
+    paid_at: datetime
+
+
+@dataclass(frozen=True)
 class PaymentStatusDTO:
     order_id: UUID
     order_status: str

@@ -6,6 +6,7 @@ from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.payments.application.dto import (
     PaymentGatewayInitCommand,
     PaymentGatewayRefundCommand,
+    PaymentGatewayStateCommand,
     PaymentStatusDTO,
     PaymentWebhookCommand,
     PaymentWebhookResult,
@@ -155,3 +156,50 @@ class GetCustomerPaymentStatusUseCase:
         if result is None:
             raise NotFoundError("Order not found")
         return result
+
+
+@dataclass(frozen=True)
+class RetryPaymentOperationCommand:
+    payment_id: UUID
+
+
+class RetryPaymentOperationUseCase:
+    def __init__(
+        self,
+        repository: PaymentRepository,
+        gateway: PaymentGateway,
+    ) -> None:
+        self._repository = repository
+        self._gateway = gateway
+
+    async def execute(
+        self,
+        command: RetryPaymentOperationCommand,
+    ) -> PaymentWebhookResult | None:
+        data = await self._repository.get_initialization_data(command.payment_id)
+        if data is None:
+            raise NotFoundError("Payment not found")
+        if data.payment.provider_payment_id is None:
+            raise ValidationError("Provider payment id is not available")
+        state = await self._gateway.get_payment_state(
+            PaymentGatewayStateCommand(
+                provider_payment_id=data.payment.provider_payment_id,
+            ),
+        )
+        if state.status in {"CONFIRMED", "AUTHORIZED"}:
+            return await self._repository.apply_successful_webhook(
+                PaymentWebhookCommand(
+                    provider_payment_id=state.provider_payment_id,
+                    status=state.status,
+                    amount=state.amount,
+                    paid_at=state.paid_at,
+                    raw_payload={},
+                ),
+            )
+        if state.status in {"REJECTED", "CANCELED", "DEADLINE_EXPIRED"}:
+            await self._repository.mark_provider_status(
+                payment_id=data.payment.id,
+                status="failed",
+                failure_code=state.status.lower(),
+            )
+        return None
