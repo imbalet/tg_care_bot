@@ -13,19 +13,16 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    db_host: str = Field(default="localhost", validation_alias="DB_HOST")
+    db_host: str = Field(validation_alias="DB_HOST")
     db_port: int = Field(default=5432, validation_alias="DB_PORT")
-    db_name: str = Field(default="we_are_close", validation_alias="DB_NAME")
-    db_user: str = Field(default="postgres", validation_alias="DB_USER")
-    db_pass: str = Field(default="postgres", validation_alias="DB_PASS")
+    db_name: str = Field(validation_alias="DB_NAME")
+    db_user: str = Field(validation_alias="DB_USER")
+    db_pass: str = Field(validation_alias="DB_PASS")
     redis_host: str = Field(default="localhost", validation_alias="REDIS_HOST")
     redis_port: int = Field(default=6379, validation_alias="REDIS_PORT")
     redis_db: int = Field(default=0, validation_alias="REDIS_DB")
     redis_password: str = Field(default="", validation_alias="REDIS_PASSWORD")
-    service_key: str = Field(
-        default="dev-service-key",
-        validation_alias="SERVICE_KEY",
-    )
+    service_key: str = Field(validation_alias="SERVICE_KEY")
     app_name: str = Field(default="we-are-close-api", validation_alias="APP_NAME")
     environment: Literal["local", "test", "production"] = Field(
         default="local",
@@ -56,12 +53,10 @@ class Settings(BaseSettings):
         validation_alias="DADATA_TIMEOUT_SECONDS",
     )
     dadata_retry_count: int = Field(default=1, validation_alias="DADATA_RETRY_COUNT")
-    s3_endpoint_url: str = Field(default="", validation_alias="S3_ENDPOINT_URL")
-    s3_access_key_id: str = Field(default="", validation_alias="S3_ACCESS_KEY_ID")
-    s3_secret_access_key: str = Field(
-        default="", validation_alias="S3_SECRET_ACCESS_KEY"
-    )
-    s3_bucket: str = Field(default="we-are-close-files", validation_alias="S3_BUCKET")
+    s3_endpoint_url: str = Field(validation_alias="S3_ENDPOINT_URL")
+    s3_access_key_id: str = Field(validation_alias="S3_ACCESS_KEY_ID")
+    s3_secret_access_key: str = Field(validation_alias="S3_SECRET_ACCESS_KEY")
+    s3_bucket: str = Field(validation_alias="S3_BUCKET")
     s3_region: str = Field(default="us-east-1", validation_alias="S3_REGION")
     s3_signed_url_ttl_seconds: int = Field(
         default=900,
