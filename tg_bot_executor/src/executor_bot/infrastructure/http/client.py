@@ -1,108 +1,32 @@
-from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Any, cast
 from uuid import UUID
 
 import httpx
 
-from .errors import (
+from executor_bot.application.dto import (
+    AddressDTO,
+    AddressSuggestionDTO,
+    CityDTO,
+    FileDTO,
+    LegalDocumentDTO,
+    PerformerProfileDTO,
+    PerformerScheduleDTO,
+    PerformerServiceDTO,
+    RegistrationStateDTO,
+    ServiceCategoryDTO,
+    ServiceDTO,
+    TelegramTopicDTO,
+)
+from executor_bot.application.errors import (
     BackendUnauthorizedError,
     BackendUnavailableError,
     BackendValidationError,
 )
+from executor_bot.application.ports import BackendPort
 
 
-@dataclass(frozen=True)
-class CityDTO:
-    id: UUID
-    name: str
-
-
-@dataclass(frozen=True)
-class LegalDocumentDTO:
-    id: UUID
-    document_type: str
-    version: str
-    content_url: str
-
-
-@dataclass(frozen=True)
-class PerformerProfileDTO:
-    id: UUID
-    telegram_id: int
-    full_name: str
-    phone: str
-    telegram_username: str | None
-    contact_method: str
-    city_id: UUID
-    about_text: str | None
-    status: str
-    is_accepting_orders: bool
-    current_address_id: UUID | None
-
-
-@dataclass(frozen=True)
-class RegistrationStateDTO:
-    state: str
-    performer: PerformerProfileDTO | None
-
-
-@dataclass(frozen=True)
-class TelegramTopicDTO:
-    id: UUID
-    topic_kind: str
-    chat_id: int
-    message_thread_id: int | None
-    status: str
-
-
-@dataclass(frozen=True)
-class AddressSuggestionDTO:
-    value: str
-    unrestricted_value: str
-
-
-@dataclass(frozen=True)
-class AddressDTO:
-    id: UUID
-    city_id: UUID
-    address_text: str
-    entrance: str | None
-    floor: str | None
-    apartment: str | None
-    comment: str | None
-
-
-@dataclass(frozen=True)
-class FileDTO:
-    id: UUID
-    mime_type: str
-    size_bytes: int | None
-    status: str
-
-
-@dataclass(frozen=True)
-class PerformerServiceDTO:
-    service_id: UUID
-    service_code: str
-    service_name: str
-    service_location_policy: str
-    is_approved: bool
-    is_enabled: bool
-    admin_max_objects: int
-    performer_max_objects: int
-    constraints: dict[str, Any]
-
-
-@dataclass(frozen=True)
-class PerformerScheduleDTO:
-    schedule_type: str
-    work_days: tuple[int, ...] | None
-    work_start_time: str
-    work_end_time: str
-
-
-class BackendClient:
+class BackendClient(BackendPort):
     def __init__(
         self,
         base_url: str,
@@ -158,6 +82,13 @@ class BackendClient:
             )
             for item in response.json()
         )
+
+    async def list_catalog_categories(self) -> tuple[ServiceCategoryDTO, ...]:
+        response = await self._request("GET", "/api/catalog")
+        self._raise_for_status(response)
+        payload = response.json()
+        categories = payload["categories"] if isinstance(payload, dict) else []
+        return tuple(_service_category_from_json(item) for item in categories)
 
     async def register_performer(
         self,
@@ -509,6 +440,43 @@ def _topic_from_json(data: dict[str, object]) -> TelegramTopicDTO:
         if data["message_thread_id"] is not None
         else None,
         status=str(data["status"]),
+    )
+
+
+def _service_category_from_json(data: dict[str, object]) -> ServiceCategoryDTO:
+    services = data.get("services")
+    return ServiceCategoryDTO(
+        id=UUID(str(data["id"])),
+        code=str(data["code"]),
+        name=str(data["name"]),
+        sort_order=int(cast(str | int, data["sort_order"])),
+        care_object_type=str(data["care_object_type"]),
+        services=tuple(
+            _service_from_json(item) for item in services if isinstance(item, dict)
+        )
+        if isinstance(services, list)
+        else (),
+    )
+
+
+def _service_from_json(data: dict[str, object]) -> ServiceDTO:
+    return ServiceDTO(
+        id=UUID(str(data["id"])),
+        code=str(data["code"]),
+        name=str(data["name"]),
+        description=str(data["description"]),
+        price_type=str(data["price_type"]),
+        base_price=str(data["base_price"]),
+        location_policy=str(data["location_policy"]),
+        photo_policy=str(data["photo_policy"]),
+        schedule_policy=str(data["schedule_policy"]),
+        allows_multiday=bool(data["allows_multiday"]),
+        min_duration_minutes=int(cast(str | int, data["min_duration_minutes"]))
+        if data.get("min_duration_minutes") is not None
+        else None,
+        max_duration_minutes=int(cast(str | int, data["max_duration_minutes"]))
+        if data.get("max_duration_minutes") is not None
+        else None,
     )
 
 

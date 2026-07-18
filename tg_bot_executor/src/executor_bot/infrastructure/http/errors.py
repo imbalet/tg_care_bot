@@ -1,18 +1,9 @@
-class BackendClientError(Exception):
-    """Base backend client error."""
-
-
-class BackendUnavailableError(BackendClientError):
-    """Backend did not return a usable response."""
-
-
-class BackendUnauthorizedError(BackendClientError):
-    """Backend rejected the service credentials."""
-
-
-class BackendValidationError(BackendClientError):
-    """Backend rejected user-provided data."""
-
+from executor_bot.application.errors import (
+    BackendClientError,
+    BackendUnauthorizedError,
+    BackendUnavailableError,
+    BackendValidationError,
+)
 
 __all__ = [
     "BackendClientError",
