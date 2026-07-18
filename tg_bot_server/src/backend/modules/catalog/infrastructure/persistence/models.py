@@ -74,6 +74,7 @@ class ServiceModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(nullable=False, default=True)
     sort_order: Mapped[int] = mapped_column(nullable=False, default=0)
     category: Mapped[ServiceCategoryModel] = relationship(back_populates="services")
+    options: Mapped[list[ServiceOptionModel]] = relationship(lazy="selectin")
 
 
 class ServiceOptionModel(UuidPrimaryKeyMixin, TimestampMixin, Base):

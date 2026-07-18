@@ -4,6 +4,7 @@ from backend.modules.catalog.application import (
     LegalDocumentDTO,
     ServiceCategoryDTO,
     ServiceDTO,
+    ServiceOptionDTO,
 )
 
 from .schemas import (
@@ -11,6 +12,7 @@ from .schemas import (
     CityResponse,
     LegalDocumentResponse,
     ServiceCategoryResponse,
+    ServiceOptionResponse,
     ServiceResponse,
 )
 
@@ -22,6 +24,17 @@ def city_response(city: CityDTO) -> CityResponse:
         slug=city.slug,
         timezone=city.timezone,
         is_active=city.is_active,
+    )
+
+
+def service_option_response(option: ServiceOptionDTO) -> ServiceOptionResponse:
+    return ServiceOptionResponse(
+        id=str(option.id),
+        code=option.code,
+        name=option.name,
+        value_type=option.value_type,
+        is_required=option.is_required,
+        sort_order=option.sort_order,
     )
 
 
@@ -42,6 +55,7 @@ def service_response(service: ServiceDTO) -> ServiceResponse:
         duration_step_minutes=service.duration_step_minutes,
         is_active=service.is_active,
         sort_order=service.sort_order,
+        options=[service_option_response(option) for option in service.options],
     )
 
 

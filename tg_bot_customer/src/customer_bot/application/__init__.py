@@ -9,6 +9,7 @@ from .dto import (
     PricePreviewDTO,
     ServiceCategoryDTO,
     ServiceDTO,
+    ServiceOptionDTO,
     SuitablePerformerDTO,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     "PricePreviewDTO",
     "ServiceCategoryDTO",
     "ServiceDTO",
+    "ServiceOptionDTO",
     "SuitablePerformerDTO",
 ]

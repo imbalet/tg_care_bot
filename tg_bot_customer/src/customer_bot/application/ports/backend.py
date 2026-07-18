@@ -136,6 +136,7 @@ class BackendPort(Protocol):
         address_id: UUID | None,
         customer_comment: str | None,
         report_photo_consent: bool | None,
+        option_values: dict[UUID, object],
     ) -> OrderDTO: ...
 
     async def create_order_direct(
@@ -149,6 +150,7 @@ class BackendPort(Protocol):
         address_id: UUID | None,
         customer_comment: str | None,
         report_photo_consent: bool | None,
+        option_values: dict[UUID, object],
         performer_id: UUID,
     ) -> OrderDTO: ...
 

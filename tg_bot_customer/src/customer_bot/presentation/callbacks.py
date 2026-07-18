@@ -151,6 +151,14 @@ class OrderObjectsDoneCallback(CallbackData, prefix="order_objects_done"):
     pass
 
 
+class OrderOptionToggleCallback(CallbackData, prefix="order_option"):
+    index: int
+
+
+class OrderOptionsDoneCallback(CallbackData, prefix="order_options_done"):
+    pass
+
+
 class OrderStartManualCallback(CallbackData, prefix="order_start_manual"):
     mode: str
 

@@ -17,6 +17,8 @@ from customer_bot.presentation.callbacks import (
     OrderCreateCallback,
     OrderObjectCallback,
     OrderObjectsDoneCallback,
+    OrderOptionsDoneCallback,
+    OrderOptionToggleCallback,
     OrderPhotoConsentCallback,
     OrderServiceCallback,
     OrderStartManualCallback,
@@ -64,6 +66,8 @@ from customer_bot.presentation.ui import (
     order_no_services_text,
     order_objects_keyboard,
     order_objects_step_text,
+    order_options_keyboard,
+    order_options_step_text,
     order_photo_consent_keyboard,
     order_photo_consent_step_text,
     order_publish_keyboard,
@@ -305,7 +309,7 @@ async def select_object(
     max_objects = int(str(order_draft.get("max_objects_per_order", 1)))
     await state.update_data(order_draft=order_draft)
     if max_objects <= 1 and selected:
-        await _ask_start_at(
+        await _ask_options_or_start(
             callback, bot, state, telegram_responder, telegram_user_context
         )
         return
@@ -341,6 +345,105 @@ async def finish_object_selection(
             callback, "Выберите хотя бы одну карточку."
         )
         return
+    await _ask_options_or_start(
+        callback,
+        bot,
+        state,
+        telegram_responder,
+        telegram_user_context,
+    )
+
+
+async def _ask_options_or_start(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    data = await state.get_data()
+    order_draft = draft(data)
+    options = order_draft.get("options")
+    if isinstance(options, list) and options:
+        await state.set_state(OrderCreation.options)
+        await state.update_data(order_options=options)
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=order_options_step_text(selected_count=0),
+            reply_markup=order_options_keyboard(options, selected_ids=()),
+        )
+        return
+    order_draft["option_values"] = {}
+    await state.update_data(order_draft=order_draft)
+    await _ask_start_at(callback, bot, state, telegram_responder, telegram_user_context)
+
+
+@router.callback_query(OrderCreation.options, OrderOptionToggleCallback.filter())
+async def toggle_option(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderOptionToggleCallback,
+) -> None:
+    item = await item_by_index(state, "order_options", callback_data.index)
+    if item is None:
+        data = await state.get_data()
+        options = draft(data).get("options")
+        if isinstance(options, list) and 0 <= callback_data.index < len(options):
+            item = options[callback_data.index]
+        if not isinstance(item, dict):
+            await telegram_responder.acknowledge(callback, use_buttons_text())
+            return
+    data = await state.get_data()
+    order_draft = draft(data)
+    selected = string_list(order_draft.get("selected_option_ids"))
+    item_id = str(item["id"])
+    if item_id in selected:
+        selected.remove(item_id)
+    else:
+        selected.append(item_id)
+    order_draft["selected_option_ids"] = selected
+    options = order_draft.get("options")
+    await state.update_data(order_draft=order_draft)
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=order_options_step_text(selected_count=len(selected)),
+        reply_markup=order_options_keyboard(
+            options if isinstance(options, list) else (),
+            selected_ids=selected,
+        ),
+    )
+
+
+@router.callback_query(OrderCreation.options, OrderOptionsDoneCallback.filter())
+async def finish_options(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    data = await state.get_data()
+    order_draft = draft(data)
+    options = order_draft.get("options")
+    selected = set(string_list(order_draft.get("selected_option_ids")))
+    option_values = {}
+    if isinstance(options, list):
+        option_values = {
+            str(option["id"]): True
+            for option in options
+            if isinstance(option, dict) and str(option.get("id")) in selected
+        }
+    order_draft["option_values"] = option_values
+    await state.update_data(order_draft=order_draft)
     await _ask_start_at(callback, bot, state, telegram_responder, telegram_user_context)
 
 

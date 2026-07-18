@@ -41,6 +41,8 @@ from customer_bot.presentation.callbacks import (
     OrderCreateCallback,
     OrderObjectCallback,
     OrderObjectsDoneCallback,
+    OrderOptionsDoneCallback,
+    OrderOptionToggleCallback,
     OrderPhotoConsentCallback,
     OrderPublishDirectCallback,
     OrderPublishPoolCallback,
@@ -459,6 +461,26 @@ def order_addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
             OrderAddressCallback(index=index),
         )
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+
+
+def order_options_keyboard(
+    items: Sequence[object],
+    selected_ids: Sequence[str],
+) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    selected = set(selected_ids)
+    for index, item in enumerate(items):
+        item_id = str(_item_value(item, "id", ""))
+        marker = "✓ " if item_id in selected else ""
+        keyboard.button(
+            f"{marker}{_item_label(item, 'name', index)}",
+            OrderOptionToggleCallback(index=index),
+        )
+    return (
+        keyboard.button("Готово", OrderOptionsDoneCallback())
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
 
 
 def order_no_addresses_keyboard() -> InlineKeyboardMarkup:

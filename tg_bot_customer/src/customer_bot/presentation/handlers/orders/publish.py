@@ -64,6 +64,7 @@ async def publish_pool(
             address_id=order_request.address_id,
             customer_comment=order_request.customer_comment,
             report_photo_consent=order_request.report_photo_consent,
+            option_values=order_request.option_values,
         )
     except BackendValidationError as exc:
         logger.warning(
@@ -157,6 +158,7 @@ async def publish_direct(
             address_id=order_request.address_id,
             customer_comment=order_request.customer_comment,
             report_photo_consent=order_request.report_photo_consent,
+            option_values=order_request.option_values,
             performer_id=UUID(str(performer["performer_id"])),
         )
     except BackendValidationError as exc:
@@ -214,6 +216,7 @@ class _OrderRequest:
     address_id: UUID | None
     customer_comment: str | None
     report_photo_consent: bool | None
+    option_values: dict[UUID, object]
 
 
 def _order_request(order_draft: dict[str, object]) -> _OrderRequest:
@@ -232,4 +235,14 @@ def _order_request(order_draft: dict[str, object]) -> _OrderRequest:
         if order_draft.get("customer_comment")
         else None,
         report_photo_consent=consent_value if isinstance(consent_value, bool) else None,
+        option_values={
+            UUID(str(key)): value
+            for key, value in _dict(order_draft.get("option_values")).items()
+        },
     )
+
+
+def _dict(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): item for key, item in value.items()}

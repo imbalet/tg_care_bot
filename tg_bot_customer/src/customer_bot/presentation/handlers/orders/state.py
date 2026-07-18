@@ -16,6 +16,7 @@ LOCAL_TZ = ZoneInfo("Europe/Moscow")
 class OrderCreation(StatesGroup):
     service = State()
     object = State()
+    options = State()
     start = State()
     duration = State()
     address = State()
@@ -45,6 +46,15 @@ def service_states(
                     "duration_step_minutes": service.duration_step_minutes,
                     "location_policy": service.location_policy,
                     "photo_policy": service.photo_policy,
+                    "options": [
+                        {
+                            "id": str(option.id),
+                            "name": option.name,
+                            "value_type": option.value_type,
+                            "is_required": option.is_required,
+                        }
+                        for option in service.options
+                    ],
                 },
             )
     return services

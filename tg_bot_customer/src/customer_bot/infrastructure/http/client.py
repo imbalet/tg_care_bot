@@ -17,6 +17,7 @@ from customer_bot.application.dto import (
     PricePreviewDTO,
     ServiceCategoryDTO,
     ServiceDTO,
+    ServiceOptionDTO,
     SuitablePerformerDTO,
 )
 from customer_bot.application.ports import BackendPort
@@ -320,6 +321,7 @@ class BackendClient(BackendPort):
         address_id: UUID | None,
         customer_comment: str | None,
         report_photo_consent: bool | None,
+        option_values: dict[UUID, object],
     ) -> OrderDTO:
         response = await self._request(
             "POST",
@@ -333,6 +335,7 @@ class BackendClient(BackendPort):
                 address_id=address_id,
                 customer_comment=customer_comment,
                 report_photo_consent=report_photo_consent,
+                option_values=option_values,
             ),
         )
         self._raise_for_status(response)
@@ -349,6 +352,7 @@ class BackendClient(BackendPort):
         address_id: UUID | None,
         customer_comment: str | None,
         report_photo_consent: bool | None,
+        option_values: dict[UUID, object],
         performer_id: UUID,
     ) -> OrderDTO:
         payload = _order_request_json(
@@ -360,6 +364,7 @@ class BackendClient(BackendPort):
             address_id=address_id,
             customer_comment=customer_comment,
             report_photo_consent=report_photo_consent,
+            option_values=option_values,
         )
         payload["performer_id"] = str(performer_id)
         response = await self._request(
@@ -490,6 +495,7 @@ def _service_category_from_json(data: dict[str, object]) -> ServiceCategoryDTO:
 
 
 def _service_from_json(data: dict[str, object]) -> ServiceDTO:
+    raw_options = data["options"] if isinstance(data["options"], list) else []
     return ServiceDTO(
         id=UUID(str(data["id"])),
         code=str(data["code"]),
@@ -510,6 +516,17 @@ def _service_from_json(data: dict[str, object]) -> ServiceDTO:
         duration_step_minutes=int(cast(str | int, data["duration_step_minutes"]))
         if data["duration_step_minutes"] is not None
         else None,
+        options=tuple(_service_option_from_json(item) for item in raw_options),
+    )
+
+
+def _service_option_from_json(data: dict[str, object]) -> ServiceOptionDTO:
+    return ServiceOptionDTO(
+        id=UUID(str(data["id"])),
+        code=str(data["code"]),
+        name=str(data["name"]),
+        value_type=str(data["value_type"]),
+        is_required=bool(data["is_required"]),
     )
 
 
@@ -569,6 +586,7 @@ def _order_request_json(
     address_id: UUID | None,
     customer_comment: str | None,
     report_photo_consent: bool | None,
+    option_values: dict[UUID, object],
 ) -> dict[str, object]:
     return {
         "customer_id": str(customer_id),
@@ -579,7 +597,7 @@ def _order_request_json(
         "address_id": str(address_id) if address_id is not None else None,
         "customer_comment": customer_comment,
         "report_photo_consent": report_photo_consent,
-        "option_values": {},
+        "option_values": {str(key): value for key, value in option_values.items()},
     }
 
 

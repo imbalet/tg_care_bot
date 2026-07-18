@@ -8,12 +8,14 @@ from backend.modules.catalog.application.dto import (
     LegalDocumentDTO,
     ServiceCategoryDTO,
     ServiceDTO,
+    ServiceOptionDTO,
 )
 from backend.modules.catalog.application.queries import CatalogQueryService
 from backend.modules.catalog.infrastructure.persistence.models import (
     CityModel,
     LegalDocumentModel,
     ServiceCategoryModel,
+    ServiceModel,
 )
 
 
@@ -64,7 +66,11 @@ class SqlAlchemyCatalogQueryService(CatalogQueryService):
     async def get_catalog(self, *, active_only: bool) -> CatalogDTO:
         statement = (
             select(ServiceCategoryModel)
-            .options(selectinload(ServiceCategoryModel.services))
+            .options(
+                selectinload(ServiceCategoryModel.services).selectinload(
+                    ServiceModel.options,
+                ),
+            )
             .order_by(ServiceCategoryModel.sort_order, ServiceCategoryModel.code)
         )
         if active_only:
@@ -106,6 +112,27 @@ class SqlAlchemyCatalogQueryService(CatalogQueryService):
                             duration_step_minutes=service.duration_step_minutes,
                             is_active=service.is_active,
                             sort_order=service.sort_order,
+                            options=tuple(
+                                ServiceOptionDTO(
+                                    id=option.id,
+                                    code=option.code,
+                                    name=option.name,
+                                    value_type=option.value_type,
+                                    is_required=option.is_required,
+                                    sort_order=option.sort_order,
+                                )
+                                for option in sorted(
+                                    (
+                                        option
+                                        for option in service.options
+                                        if option.is_active or not active_only
+                                    ),
+                                    key=lambda option: (
+                                        option.sort_order,
+                                        option.code,
+                                    ),
+                                )
+                            ),
                         )
                         for service in services
                     ),

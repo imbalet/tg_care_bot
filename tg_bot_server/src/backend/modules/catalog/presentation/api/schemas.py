@@ -20,6 +20,15 @@ class LegalDocumentResponse(BaseModel):
     published_at: str
 
 
+class ServiceOptionResponse(BaseModel):
+    id: str
+    code: str
+    name: str
+    value_type: str
+    is_required: bool
+    sort_order: int
+
+
 class ServiceResponse(BaseModel):
     id: str
     code: str
@@ -36,6 +45,7 @@ class ServiceResponse(BaseModel):
     duration_step_minutes: int | None
     is_active: bool
     sort_order: int
+    options: list[ServiceOptionResponse]
 
 
 class ServiceCategoryResponse(BaseModel):

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
 
@@ -176,16 +177,24 @@ class SqlAlchemyOrderRepository(OrderRepository):
         service_id: UUID,
         option_values: dict[UUID, Any],
     ) -> bool:
-        if not option_values:
-            return True
         result = await self._session.execute(
-            select(ServiceOptionModel.id).where(
+            select(ServiceOptionModel).where(
                 ServiceOptionModel.service_id == service_id,
-                ServiceOptionModel.id.in_(tuple(option_values)),
                 ServiceOptionModel.is_active.is_(True),
             ),
         )
-        return set(result.scalars()) == set(option_values)
+        options = tuple(result.scalars())
+        options_by_id = {option.id: option for option in options}
+        provided_ids = set(option_values)
+        required_ids = {option.id for option in options if option.is_required}
+        if not provided_ids.issubset(options_by_id):
+            return False
+        if not required_ids.issubset(provided_ids):
+            return False
+        return all(
+            _option_value_matches(options_by_id[option_id].value_type, value)
+            for option_id, value in option_values.items()
+        )
 
     def _replace_children(
         self,
@@ -302,6 +311,24 @@ def _care_object_summary(model: CareObjectModel) -> str | None:
     else:
         values = [model.age_group]
     return ", ".join(value for value in values if value)
+
+
+def _option_value_matches(value_type: str, value: Any) -> bool:
+    if value_type == "boolean":
+        return isinstance(value, bool)
+    if value_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if value_type == "decimal":
+        if isinstance(value, bool) or not isinstance(value, int | float | str):
+            return False
+        try:
+            Decimal(str(value))
+        except InvalidOperation:
+            return False
+        return True
+    if value_type == "string":
+        return isinstance(value, str)
+    return value_type == "json"
 
 
 def _order_to_dto(model: OrderModel) -> OrderDTO:

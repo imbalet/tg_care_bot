@@ -19,6 +19,15 @@ class LegalDocumentDTO:
 
 
 @dataclass(frozen=True)
+class ServiceOptionDTO:
+    id: UUID
+    code: str
+    name: str
+    value_type: str
+    is_required: bool
+
+
+@dataclass(frozen=True)
 class ServiceDTO:
     id: UUID
     code: str
@@ -33,6 +42,7 @@ class ServiceDTO:
     min_duration_minutes: int | None
     max_duration_minutes: int | None
     duration_step_minutes: int | None
+    options: tuple[ServiceOptionDTO, ...]
 
 
 @dataclass(frozen=True)

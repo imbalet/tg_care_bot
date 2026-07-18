@@ -520,6 +520,13 @@ def order_address_step_text() -> str:
     return "<b>Адрес</b>\n\nВыберите адрес заказа."
 
 
+def order_options_step_text(selected_count: int) -> str:
+    return (
+        "<b>Дополнительные опции</b>\n\n"
+        f"Выбрано: {selected_count}. Можно оставить без опций."
+    )
+
+
 def order_no_addresses_text() -> str:
     return "<b>Новый заказ</b>\n\nДобавьте адрес в разделе «Адреса»."
 
@@ -548,6 +555,7 @@ def order_draft_summary_text(
             f"Услуга: {escape(price.service_name)}",
             f"Длительность: {price.duration_minutes} мин.",
             f"Объектов: {price.objects_count}",
+            "Опции: учтены в заказе",
             f"Услуга: {escape(str(price.service_amount))}",
             f"Комиссия: {escape(str(price.platform_fee_amount))}",
             f"Итого: {escape(str(price.total_amount))}",
