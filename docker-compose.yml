@@ -7,6 +7,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     ports:
       - "15432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test:
         ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
@@ -18,6 +20,8 @@ services:
     image: redis:8-alpine
     ports:
       - "16379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -33,6 +37,8 @@ services:
     ports:
       - "19000:9000"
       - "19001:9001"
+    volumes:
+      - minio_data:/data
 
   migrate:
     build:
@@ -111,7 +117,15 @@ services:
       PAYMENT_RECEIPT_METHOD: ${PAYMENT_RECEIPT_METHOD:?PAYMENT_RECEIPT_METHOD is required}
       PAYMENT_RECEIPT_OBJECT: ${PAYMENT_RECEIPT_OBJECT:?PAYMENT_RECEIPT_OBJECT is required}
       PAYMENT_RECEIPT_DEFAULTS_ALLOWED: ${PAYMENT_RECEIPT_DEFAULTS_ALLOWED:?PAYMENT_RECEIPT_DEFAULTS_ALLOWED is required}
-    command: ["uvicorn", "backend.bootstrap.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    command:
+      [
+        "uvicorn",
+        "backend.bootstrap.api:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
     ports:
       - "18000:8000"
     depends_on:
@@ -207,3 +221,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
