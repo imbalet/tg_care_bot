@@ -3,9 +3,12 @@ from dataclasses import dataclass
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from backend.bootstrap.resources import (
+    create_database_engine,
+    create_database_session_factory,
+    create_redis,
+)
 from backend.bootstrap.settings import Settings
-from backend.common.infrastructure.database import create_engine, create_session_factory
-from backend.common.infrastructure.redis import create_redis_client
 
 
 @dataclass(frozen=True)
@@ -21,10 +24,10 @@ class Container:
 
 
 def create_container(settings: Settings) -> Container:
-    engine = create_engine(settings.database_url)
+    engine = create_database_engine(settings)
     return Container(
         settings=settings,
         engine=engine,
-        session_factory=create_session_factory(engine),
-        redis=create_redis_client(settings.redis_url),
+        session_factory=create_database_session_factory(engine),
+        redis=create_redis(settings),
     )
