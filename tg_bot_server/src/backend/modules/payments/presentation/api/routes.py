@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
@@ -14,7 +14,7 @@ from backend.modules.payments.application import (
 )
 from backend.modules.payments.infrastructure import verify_tbank_token
 
-from .schemas import PaymentStatusResponse, PaymentWebhookResponse
+from .schemas import PaymentStatusResponse
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -25,7 +25,7 @@ SUCCESS_STATUSES = {"CONFIRMED", "AUTHORIZED"}
 async def tbank_webhook(
     request: Request,
     container: Annotated[Container, Depends(get_container)],
-) -> PaymentWebhookResponse:
+) -> Response:
     payload = await request.json()
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="Invalid webhook payload")
@@ -35,15 +35,15 @@ async def tbank_webhook(
     if not verify_tbank_token(payload, settings.tbank_password):
         raise HTTPException(status_code=403, detail="Invalid token")
     if payload.get("Success") is not True:
-        return PaymentWebhookResponse(status="ignored")
+        return Response("OK", media_type="text/plain")
     status = str(payload.get("Status"))
     if status not in SUCCESS_STATUSES:
-        return PaymentWebhookResponse(status="ignored")
+        return Response("OK", media_type="text/plain")
     payment_id = payload.get("PaymentId")
     amount = payload.get("Amount")
     if payment_id is None or amount is None:
         raise HTTPException(status_code=400, detail="Invalid payment webhook")
-    result = await container.services().apply_payment_webhook(
+    await container.services().apply_payment_webhook(
         PaymentWebhookCommand(
             provider_payment_id=str(payment_id),
             status=status,
@@ -52,7 +52,7 @@ async def tbank_webhook(
             raw_payload=_safe_payload(payload),
         ),
     )
-    return PaymentWebhookResponse(status=result.status)
+    return Response("OK", media_type="text/plain")
 
 
 @router.get(
