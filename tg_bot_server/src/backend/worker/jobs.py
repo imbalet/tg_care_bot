@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -12,10 +12,31 @@ class WorkerJob(Protocol):
 
 
 class WorkerLogger(Protocol):
-    def warning(self, event: str, **kwargs: object) -> None:
+    def warning(
+        self,
+        msg: object,
+        *args: object,
+        extra: Mapping[str, object] | None = None,
+    ) -> None:
         pass
 
-    def exception(self, event: str, **kwargs: object) -> None:
+    def exception(
+        self,
+        msg: object,
+        *args: object,
+        extra: Mapping[str, object] | None = None,
+    ) -> None:
+        pass
+
+
+class WorkerRunner(Protocol):
+    def stop(self) -> None:
+        pass
+
+    async def run(self) -> None:
+        pass
+
+    async def run_once(self) -> None:
         pass
 
 
@@ -51,17 +72,21 @@ async def run_with_retry(
             if attempt >= policy.max_attempts:
                 logger.exception(
                     "worker_operation_failed",
-                    operation_name=operation_name,
-                    attempt=attempt,
-                    max_attempts=policy.max_attempts,
+                    extra={
+                        "operation_name": operation_name,
+                        "attempt": attempt,
+                        "max_attempts": policy.max_attempts,
+                    },
                 )
                 raise
             delay = policy.delay_for_attempt(attempt)
             logger.warning(
                 "worker_operation_retrying",
-                operation_name=operation_name,
-                attempt=attempt,
-                max_attempts=policy.max_attempts,
-                delay_seconds=delay,
+                extra={
+                    "operation_name": operation_name,
+                    "attempt": attempt,
+                    "max_attempts": policy.max_attempts,
+                    "delay_seconds": delay,
+                },
             )
             await asyncio.sleep(delay)

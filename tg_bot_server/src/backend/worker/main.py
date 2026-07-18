@@ -1,17 +1,22 @@
 import asyncio
+import logging
 import signal
-
-import structlog
 
 from backend.bootstrap.container import create_container
 from backend.bootstrap.settings import get_settings
 from backend.common.infrastructure.logging import configure_logging
-from backend.worker.jobs import NoopWorkerJob, RetryPolicy, WorkerJob, run_with_retry
+from backend.worker.jobs import (
+    NoopWorkerJob,
+    RetryPolicy,
+    WorkerJob,
+    WorkerRunner,
+    run_with_retry,
+)
 
-logger = structlog.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
-class Worker:
+class Worker(WorkerRunner):
     def __init__(
         self,
         poll_interval_seconds: float,
@@ -47,7 +52,7 @@ class Worker:
                 logger,
                 job.name,
             )
-            logger.info("worker_job_completed", job_name=job.name)
+            logger.info("worker_job_completed", extra={"job_name": job.name})
         logger.info("worker_iteration_completed")
 
 
