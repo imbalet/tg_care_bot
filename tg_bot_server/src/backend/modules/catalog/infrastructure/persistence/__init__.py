@@ -9,6 +9,7 @@ from .models import (
     ServiceOptionModel,
 )
 from .queries import SqlAlchemyCatalogQueryService
+from .settings import SqlAlchemyBusinessSettingRepository
 
 __all__ = [
     "BusinessSettingModel",
@@ -19,5 +20,6 @@ __all__ = [
     "ServiceCategoryModel",
     "ServiceModel",
     "ServiceOptionModel",
+    "SqlAlchemyBusinessSettingRepository",
     "SqlAlchemyCatalogQueryService",
 ]

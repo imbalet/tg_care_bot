@@ -5,17 +5,10 @@ from fastapi import APIRouter, Depends, File, UploadFile
 
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
-from backend.common.domain import NotFoundError
-from backend.common.infrastructure import S3ObjectStorage
 from backend.common.presentation import require_service_key
 from backend.modules.addresses.application import (
     CreateOwnerAddressCommand,
-    CreatePerformerAddressUseCase,
-    DeletePerformerAddressUseCase,
-    SetPerformerCurrentAddressUseCase,
 )
-from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
-from backend.modules.admin.infrastructure import SqlAlchemyAdminAuditRepository
 from backend.modules.admin.presentation.api.routes import (
     get_current_admin,
     require_admin_csrf,
@@ -23,11 +16,8 @@ from backend.modules.admin.presentation.api.routes import (
 from backend.modules.admin.presentation.api.schemas import AdminResponse
 from backend.modules.availability.application import (
     AddCalendarOverrideCommand,
-    AddCalendarOverrideUseCase,
     SetPerformerScheduleCommand,
-    SetPerformerScheduleUseCase,
 )
-from backend.modules.availability.infrastructure import SqlAlchemyAvailabilityRepository
 from backend.modules.availability.presentation.api.mappers import (
     override_response,
     schedule_response,
@@ -40,32 +30,15 @@ from backend.modules.availability.presentation.api.schemas import (
 )
 from backend.modules.files.application import (
     UploadPerformerAvatarCommand,
-    UploadPerformerAvatarUseCase,
 )
-from backend.modules.files.infrastructure import SqlAlchemyFileRepository
-from backend.modules.geo.infrastructure import DaDataGeocoder
 from backend.modules.performers.application import (
-    ActivatePerformerUseCase,
     ApprovePerformerServiceCommand,
-    ApprovePerformerServiceUseCase,
     CreateInvitationCommand,
-    CreateInvitationUseCase,
-    GetRegistrationStateUseCase,
-    ListPerformerServicesUseCase,
     RegisterPerformerCommand,
-    RegisterPerformerUseCase,
     SetPerformerAcceptingOrdersCommand,
-    SetPerformerAcceptingOrdersUseCase,
     SetPerformerServiceEnabledCommand,
-    SetPerformerServiceEnabledUseCase,
     SetPerformerServiceMaxObjectsCommand,
-    SetPerformerServiceMaxObjectsUseCase,
     UpdatePerformerUsernameCommand,
-    UpdatePerformerUsernameUseCase,
-)
-from backend.modules.performers.infrastructure import (
-    PerformerModel,
-    SqlAlchemyPerformerRepository,
 )
 
 from .mappers import (
@@ -106,17 +79,13 @@ async def create_invitation(
     request: CreateInvitationRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> InvitationResponse:
-    async with container.session_factory() as session:
-        invitation = await CreateInvitationUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute(
-            CreateInvitationCommand(
-                telegram_id=request.telegram_id,
-                created_by_admin_id=request.created_by_admin_id,
-                expires_at=request.expires_at,
-            ),
-        )
-        await session.commit()
+    invitation = await container.services().create_invitation(
+        CreateInvitationCommand(
+            telegram_id=request.telegram_id,
+            created_by_admin_id=request.created_by_admin_id,
+            expires_at=request.expires_at,
+        ),
+    )
     return invitation_response(invitation)
 
 
@@ -127,24 +96,14 @@ async def create_invitation_as_admin(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> InvitationResponse:
     admin_id = UUID(current[0].id)
-    async with container.session_factory() as session:
-        invitation = await CreateInvitationUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute(
-            CreateInvitationCommand(
-                telegram_id=request.telegram_id,
-                created_by_admin_id=admin_id,
-                expires_at=request.expires_at,
-            ),
-        )
-        await SqlAlchemyAdminAuditRepository(session).add(
-            admin_id=admin_id,
-            action="create_performer_invitation",
-            entity_type="performer_invitation",
-            entity_id=invitation.id,
-            audit_metadata={"telegram_id": request.telegram_id},
-        )
-        await session.commit()
+    invitation = await container.services().create_invitation(
+        CreateInvitationCommand(
+            telegram_id=request.telegram_id,
+            created_by_admin_id=admin_id,
+            expires_at=request.expires_at,
+        ),
+        audit_admin_id=admin_id,
+    )
     return invitation_response(invitation)
 
 
@@ -153,11 +112,7 @@ async def registration_state(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> RegistrationStateResponse:
-    async with container.session_factory() as session:
-        state = await GetRegistrationStateUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute(telegram_id)
-        await session.commit()
+    state = await container.services().get_registration_state(telegram_id)
     return registration_state_response(state)
 
 
@@ -166,22 +121,18 @@ async def register_by_invitation(
     request: RegisterPerformerRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerResponse:
-    async with container.session_factory() as session:
-        performer = await RegisterPerformerUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute(
-            RegisterPerformerCommand(
-                telegram_id=request.telegram_id,
-                full_name=request.full_name,
-                phone=request.phone,
-                city_id=request.city_id,
-                contact_method=request.contact_method,
-                about_text=request.about_text,
-                telegram_username=request.telegram_username,
-                accepted_legal_document_ids=tuple(request.accepted_legal_document_ids),
-            ),
-        )
-        await session.commit()
+    performer = await container.services().register_performer(
+        RegisterPerformerCommand(
+            telegram_id=request.telegram_id,
+            full_name=request.full_name,
+            phone=request.phone,
+            city_id=request.city_id,
+            contact_method=request.contact_method,
+            about_text=request.about_text,
+            telegram_username=request.telegram_username,
+            accepted_legal_document_ids=tuple(request.accepted_legal_document_ids),
+        ),
+    )
     return performer_response(performer)
 
 
@@ -190,11 +141,7 @@ async def activate(
     performer_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerResponse:
-    async with container.session_factory() as session:
-        performer = await ActivatePerformerUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute(performer_id)
-        await session.commit()
+    performer = await container.services().activate_performer(performer_id)
     return performer_response(performer)
 
 
@@ -205,17 +152,10 @@ async def activate_as_admin(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> PerformerResponse:
     admin_id = UUID(current[0].id)
-    async with container.session_factory() as session:
-        performer = await ActivatePerformerUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute(performer_id)
-        await SqlAlchemyAdminAuditRepository(session).add(
-            admin_id=admin_id,
-            action="activate_performer",
-            entity_type="performer",
-            entity_id=performer.id,
-        )
-        await session.commit()
+    performer = await container.services().activate_performer(
+        performer_id,
+        audit_admin_id=admin_id,
+    )
     return performer_response(performer)
 
 
@@ -228,30 +168,16 @@ async def approve_service_as_admin(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> PerformerServiceResponse:
     admin_id = UUID(current[0].id)
-    async with container.session_factory() as session:
-        service = await ApprovePerformerServiceUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute(
-            ApprovePerformerServiceCommand(
-                performer_id=performer_id,
-                service_id=service_id,
-                admin_max_objects=request.admin_max_objects,
-                constraints=request.constraints,
-                approved_by_admin_id=admin_id,
-            ),
-        )
-        await SqlAlchemyAdminAuditRepository(session).add(
-            admin_id=admin_id,
-            action="approve_performer_service",
-            entity_type="performer_service",
-            entity_id=service.id,
-            audit_metadata={
-                "performer_id": str(performer_id),
-                "service_id": str(service_id),
-                "admin_max_objects": request.admin_max_objects,
-            },
-        )
-        await session.commit()
+    service = await container.services().approve_performer_service(
+        ApprovePerformerServiceCommand(
+            performer_id=performer_id,
+            service_id=service_id,
+            admin_max_objects=request.admin_max_objects,
+            constraints=request.constraints,
+            approved_by_admin_id=admin_id,
+        ),
+        audit_admin_id=admin_id,
+    )
     return performer_service_response(service)
 
 
@@ -261,10 +187,7 @@ async def list_services_as_admin(
     container: Annotated[Container, Depends(get_container)],
     _current: Annotated[tuple[AdminResponse, str, str], Depends(get_current_admin)],
 ) -> list[PerformerServiceResponse]:
-    async with container.session_factory() as session:
-        services = await ListPerformerServicesUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute_for_performer(performer_id)
+    services = await container.services().list_performer_services_by_id(performer_id)
     return [performer_service_response(service) for service in services]
 
 
@@ -276,31 +199,19 @@ async def set_schedule_as_admin(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> ScheduleResponse:
     admin_id = UUID(current[0].id)
-    async with container.session_factory() as session:
-        performer = await session.get(PerformerModel, performer_id)
-        if performer is None:
-            raise NotFoundError("Performer not found")
-        schedule = await SetPerformerScheduleUseCase(
-            SqlAlchemyAvailabilityRepository(session),
-        ).execute(
-            SetPerformerScheduleCommand(
-                telegram_id=performer.telegram_id,
-                schedule_type=request.schedule_type,
-                work_days=tuple(request.work_days)
-                if request.work_days is not None
-                else None,
-                work_start_time=request.work_start_time,
-                work_end_time=request.work_end_time,
-            ),
-        )
-        await SqlAlchemyAdminAuditRepository(session).add(
-            admin_id=admin_id,
-            action="set_performer_schedule",
-            entity_type="performer_schedule",
-            entity_id=schedule.id,
-            audit_metadata={"performer_id": str(performer_id)},
-        )
-        await session.commit()
+    schedule = await container.services().set_schedule_as_admin(
+        performer_id,
+        lambda telegram_id: SetPerformerScheduleCommand(
+            telegram_id=telegram_id,
+            schedule_type=request.schedule_type,
+            work_days=tuple(request.work_days)
+            if request.work_days is not None
+            else None,
+            work_start_time=request.work_start_time,
+            work_end_time=request.work_end_time,
+        ),
+        audit_admin_id=admin_id,
+    )
     return schedule_response(schedule)
 
 
@@ -312,29 +223,17 @@ async def add_override_as_admin(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> CalendarOverrideResponse:
     admin_id = UUID(current[0].id)
-    async with container.session_factory() as session:
-        performer = await session.get(PerformerModel, performer_id)
-        if performer is None:
-            raise NotFoundError("Performer not found")
-        override = await AddCalendarOverrideUseCase(
-            SqlAlchemyAvailabilityRepository(session),
-        ).execute(
-            AddCalendarOverrideCommand(
-                telegram_id=performer.telegram_id,
-                override_type=request.override_type,
-                starts_at=request.starts_at,
-                ends_at=request.ends_at,
-                comment=request.comment,
-            ),
-        )
-        await SqlAlchemyAdminAuditRepository(session).add(
-            admin_id=admin_id,
-            action="add_performer_calendar_override",
-            entity_type="performer_calendar_override",
-            entity_id=override.id,
-            audit_metadata={"performer_id": str(performer_id)},
-        )
-        await session.commit()
+    override = await container.services().add_override_as_admin(
+        performer_id,
+        lambda telegram_id: AddCalendarOverrideCommand(
+            telegram_id=telegram_id,
+            override_type=request.override_type,
+            starts_at=request.starts_at,
+            ends_at=request.ends_at,
+            comment=request.comment,
+        ),
+        audit_admin_id=admin_id,
+    )
     return override_response(override)
 
 
@@ -344,16 +243,12 @@ async def update_telegram_username(
     request: UpdateTelegramUsernameRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerResponse:
-    async with container.session_factory() as session:
-        performer = await UpdatePerformerUsernameUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute(
-            UpdatePerformerUsernameCommand(
-                telegram_id=telegram_id,
-                telegram_username=request.telegram_username,
-            ),
-        )
-        await session.commit()
+    performer = await container.services().update_performer_username(
+        UpdatePerformerUsernameCommand(
+            telegram_id=telegram_id,
+            telegram_username=request.telegram_username,
+        ),
+    )
     return performer_response(performer)
 
 
@@ -362,10 +257,9 @@ async def list_services_by_telegram(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> list[PerformerServiceResponse]:
-    async with container.session_factory() as session:
-        services = await ListPerformerServicesUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute_by_telegram_id(telegram_id)
+    services = await container.services().list_performer_services_by_telegram(
+        telegram_id,
+    )
     return [performer_service_response(service) for service in services]
 
 
@@ -376,17 +270,13 @@ async def set_service_enabled(
     request: SetPerformerServiceEnabledRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerServiceResponse:
-    async with container.session_factory() as session:
-        service = await SetPerformerServiceEnabledUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute(
-            SetPerformerServiceEnabledCommand(
-                telegram_id=telegram_id,
-                service_id=service_id,
-                is_enabled=request.is_enabled,
-            ),
-        )
-        await session.commit()
+    service = await container.services().set_performer_service_enabled(
+        SetPerformerServiceEnabledCommand(
+            telegram_id=telegram_id,
+            service_id=service_id,
+            is_enabled=request.is_enabled,
+        ),
+    )
     return performer_service_response(service)
 
 
@@ -397,17 +287,13 @@ async def set_service_max_objects(
     request: SetPerformerServiceMaxObjectsRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerServiceResponse:
-    async with container.session_factory() as session:
-        service = await SetPerformerServiceMaxObjectsUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute(
-            SetPerformerServiceMaxObjectsCommand(
-                telegram_id=telegram_id,
-                service_id=service_id,
-                performer_max_objects=request.performer_max_objects,
-            ),
-        )
-        await session.commit()
+    service = await container.services().set_performer_service_max_objects(
+        SetPerformerServiceMaxObjectsCommand(
+            telegram_id=telegram_id,
+            service_id=service_id,
+            performer_max_objects=request.performer_max_objects,
+        ),
+    )
     return performer_service_response(service)
 
 
@@ -417,16 +303,12 @@ async def set_accepting_orders(
     request: SetAcceptingOrdersRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerResponse:
-    async with container.session_factory() as session:
-        performer = await SetPerformerAcceptingOrdersUseCase(
-            SqlAlchemyPerformerRepository(session),
-        ).execute(
-            SetPerformerAcceptingOrdersCommand(
-                telegram_id=telegram_id,
-                is_accepting_orders=request.is_accepting_orders,
-            ),
-        )
-        await session.commit()
+    performer = await container.services().set_performer_accepting_orders(
+        SetPerformerAcceptingOrdersCommand(
+            telegram_id=telegram_id,
+            is_accepting_orders=request.is_accepting_orders,
+        ),
+    )
     return performer_response(performer)
 
 
@@ -435,15 +317,9 @@ async def list_addresses(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> list[AddressResponse]:
-    async with container.session_factory() as session:
-        performer = await SqlAlchemyPerformerRepository(
-            session,
-        ).get_performer_by_telegram_id(telegram_id)
-        if performer is None:
-            raise NotFoundError("Performer is not registered")
-        addresses = await SqlAlchemyAddressRepository(session).list_for_performer(
-            performer.id,
-        )
+    addresses = await container.services().list_performer_addresses(
+        telegram_id=telegram_id,
+    )
     return [address_response(address) for address in addresses]
 
 
@@ -453,23 +329,17 @@ async def create_address(
     request: CreateAddressRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> AddressResponse:
-    async with container.session_factory() as session:
-        address = await CreatePerformerAddressUseCase(
-            SqlAlchemyPerformerRepository(session),
-            SqlAlchemyAddressRepository(session),
-            _geocoder(container),
-        ).execute(
-            CreateOwnerAddressCommand(
-                telegram_id=telegram_id,
-                city_id=request.city_id,
-                unrestricted_value=request.unrestricted_value,
-                entrance=request.entrance,
-                floor=request.floor,
-                apartment=request.apartment,
-                comment=request.comment,
-            ),
-        )
-        await session.commit()
+    address = await container.services().create_performer_address(
+        CreateOwnerAddressCommand(
+            telegram_id=telegram_id,
+            city_id=request.city_id,
+            unrestricted_value=request.unrestricted_value,
+            entrance=request.entrance,
+            floor=request.floor,
+            apartment=request.apartment,
+            comment=request.comment,
+        ),
+    )
     return address_response(address)
 
 
@@ -479,12 +349,10 @@ async def set_current_address(
     address_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> AddressResponse:
-    async with container.session_factory() as session:
-        address = await SetPerformerCurrentAddressUseCase(
-            SqlAlchemyPerformerRepository(session),
-            SqlAlchemyAddressRepository(session),
-        ).execute(telegram_id=telegram_id, address_id=address_id)
-        await session.commit()
+    address = await container.services().set_performer_current_address(
+        telegram_id=telegram_id,
+        address_id=address_id,
+    )
     return address_response(address)
 
 
@@ -494,12 +362,10 @@ async def delete_address(
     address_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> dict[str, str]:
-    async with container.session_factory() as session:
-        await DeletePerformerAddressUseCase(
-            SqlAlchemyPerformerRepository(session),
-            SqlAlchemyAddressRepository(session),
-        ).execute(telegram_id=telegram_id, address_id=address_id)
-        await session.commit()
+    await container.services().delete_performer_address(
+        telegram_id=telegram_id,
+        address_id=address_id,
+    )
     return {"status": "deleted"}
 
 
@@ -510,21 +376,15 @@ async def upload_avatar(
     file: Annotated[UploadFile, File()],
 ) -> FileResponse:
     content = await file.read()
-    async with container.session_factory() as session:
-        stored_file = await UploadPerformerAvatarUseCase(
-            SqlAlchemyPerformerRepository(session),
-            SqlAlchemyFileRepository(session),
-            _storage(container),
-        ).execute(
-            UploadPerformerAvatarCommand(
-                telegram_id=telegram_id,
-                content=content,
-                content_type=file.content_type or "",
-                original_name=file.filename,
-                telegram_file_id=None,
-            ),
-        )
-        await session.commit()
+    stored_file = await container.services().upload_performer_avatar(
+        UploadPerformerAvatarCommand(
+            telegram_id=telegram_id,
+            content=content,
+            content_type=file.content_type or "",
+            original_name=file.filename,
+            telegram_file_id=None,
+        ),
+    )
     return file_response(stored_file)
 
 
@@ -533,48 +393,5 @@ async def delete_avatar(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> dict[str, str]:
-    async with container.session_factory() as session:
-        performer = await SqlAlchemyPerformerRepository(
-            session,
-        ).get_performer_by_telegram_id(telegram_id)
-        if performer is None:
-            raise NotFoundError("Performer is not registered")
-        file_repository = SqlAlchemyFileRepository(session)
-        avatar = await file_repository.get_avatar_for_entity(
-            entity_type="performer",
-            entity_id=performer.id,
-        )
-        if avatar is None:
-            raise NotFoundError("Avatar not found")
-        if avatar.storage_key is not None:
-            await _storage(container).delete(avatar.storage_key)
-        await file_repository.delete_avatar_link(
-            entity_type="performer",
-            entity_id=performer.id,
-        )
-        await file_repository.mark_deleted(avatar.id)
-        await session.commit()
+    await container.services().delete_performer_avatar(telegram_id=telegram_id)
     return {"status": "deleted"}
-
-
-def _geocoder(container: Container) -> DaDataGeocoder:
-    settings = container.settings
-    return DaDataGeocoder(
-        api_key=settings.dadata_api_key,
-        secret_key=settings.dadata_secret_key,
-        base_url=settings.dadata_base_url,
-        timeout_seconds=settings.dadata_timeout_seconds,
-        retry_count=settings.dadata_retry_count,
-    )
-
-
-def _storage(container: Container) -> S3ObjectStorage:
-    settings = container.settings
-    return S3ObjectStorage(
-        endpoint_url=settings.s3_endpoint_url,
-        access_key_id=settings.s3_access_key_id,
-        secret_access_key=settings.s3_secret_access_key,
-        bucket=settings.s3_bucket,
-        region=settings.s3_region,
-        signed_url_ttl_seconds=settings.s3_signed_url_ttl_seconds,
-    )

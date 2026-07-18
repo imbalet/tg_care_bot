@@ -1,7 +1,11 @@
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+
+if TYPE_CHECKING:
+    from backend.bootstrap.services import ApplicationServices
 
 from backend.bootstrap.resources import (
     create_database_engine,
@@ -17,6 +21,11 @@ class Container:
     engine: AsyncEngine
     session_factory: async_sessionmaker[AsyncSession]
     redis: Redis
+
+    def services(self) -> ApplicationServices:
+        from backend.bootstrap.services import ApplicationServices
+
+        return ApplicationServices(self)
 
     async def close(self) -> None:
         await self.redis.aclose()

@@ -13,16 +13,10 @@ from backend.bootstrap.container import Container
 from backend.common.domain import AuthenticationError, AuthorizationError
 from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.admin.application import (
-    GetCurrentAdminUseCase,
     LoginAdminCommand,
-    LoginAdminUseCase,
-    LogoutAdminUseCase,
 )
 from backend.modules.admin.infrastructure import (
     AdminAuditLogModel,
-    Argon2PasswordHasher,
-    RedisAdminSessionStore,
-    SqlAlchemyAdminRepository,
 )
 from backend.modules.admin.presentation.api.routes import ADMIN_SESSION_COOKIE
 from backend.modules.care_objects.infrastructure import CareObjectModel
@@ -67,15 +61,12 @@ class AdminSurfaceAuthProvider(AuthProvider):
         session_id = request.cookies.get(ADMIN_SESSION_COOKIE)
         if session_id is None:
             return False
-        async with self._container.session_factory() as session:
-            use_case = GetCurrentAdminUseCase(
-                repository=SqlAlchemyAdminRepository(session),
-                session_store=self._session_store(),
+        try:
+            admin, _csrf_token = await self._container.services().get_current_admin(
+                session_id,
             )
-            try:
-                admin, _csrf_token = await use_case.execute(session_id)
-            except AuthenticationError, AuthorizationError:
-                return False
+        except AuthenticationError, AuthorizationError:
+            return False
         request.state.admin_user = admin
         return True
 
@@ -87,19 +78,12 @@ class AdminSurfaceAuthProvider(AuthProvider):
         request: Request,
         response: Response,
     ) -> Response:
-        async with self._container.session_factory() as session:
-            use_case = LoginAdminUseCase(
-                repository=SqlAlchemyAdminRepository(session),
-                password_hasher=Argon2PasswordHasher(),
-                session_store=self._session_store(),
+        try:
+            result = await self._container.services().login_admin(
+                LoginAdminCommand(email=username, password=password),
             )
-            try:
-                result = await use_case.execute(
-                    LoginAdminCommand(email=username, password=password),
-                )
-            except (AuthenticationError, AuthorizationError) as exc:
-                raise LoginFailed("Invalid email or password") from exc
-            await session.commit()
+        except (AuthenticationError, AuthorizationError) as exc:
+            raise LoginFailed("Invalid email or password") from exc
         response.set_cookie(
             key=ADMIN_SESSION_COOKIE,
             value=result.session_id,
@@ -114,7 +98,7 @@ class AdminSurfaceAuthProvider(AuthProvider):
     async def logout(self, request: Request, response: Response) -> Response:
         session_id = request.cookies.get(ADMIN_SESSION_COOKIE)
         if session_id is not None:
-            await LogoutAdminUseCase(self._session_store()).execute(session_id)
+            await self._container.services().logout_admin(session_id)
         response.delete_cookie(ADMIN_SESSION_COOKIE, path="/admin")
         return response
 
@@ -123,12 +107,6 @@ class AdminSurfaceAuthProvider(AuthProvider):
         if admin is None:
             return None
         return AdminUser(username=admin.email)
-
-    def _session_store(self) -> RedisAdminSessionStore:
-        return RedisAdminSessionStore(
-            redis=self._container.redis,
-            ttl_seconds=self._container.settings.admin_session_ttl_seconds,
-        )
 
 
 class CatalogModelView(ModelView):

@@ -5,16 +5,8 @@ from fastapi import APIRouter, Depends
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
 from backend.common.presentation import require_service_key
-from backend.modules.availability.infrastructure import SqlAlchemyAvailabilityRepository
 from backend.modules.orders.application import (
     CalculatePricePreviewCommand,
-    CalculatePricePreviewUseCase,
-    CreateDirectOrderUseCase,
-    CreatePoolOrderUseCase,
-)
-from backend.modules.orders.infrastructure import (
-    SqlAlchemyOrderRepository,
-    SqlAlchemyPricingRepository,
 )
 
 from .mappers import (
@@ -43,12 +35,7 @@ async def create_pool(
     request: OrderRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderResponse:
-    async with container.session_factory() as session:
-        order = await CreatePoolOrderUseCase(
-            SqlAlchemyOrderRepository(session),
-            SqlAlchemyPricingRepository(session),
-        ).execute(create_pool_command(request))
-        await session.commit()
+    order = await container.services().create_pool_order(create_pool_command(request))
     return order_response(order)
 
 
@@ -57,13 +44,9 @@ async def create_direct(
     request: DirectOrderRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderResponse:
-    async with container.session_factory() as session:
-        order = await CreateDirectOrderUseCase(
-            SqlAlchemyOrderRepository(session),
-            SqlAlchemyPricingRepository(session),
-            SqlAlchemyAvailabilityRepository(session),
-        ).execute(create_direct_command(request))
-        await session.commit()
+    order = await container.services().create_direct_order(
+        create_direct_command(request),
+    )
     return order_response(order)
 
 
@@ -72,15 +55,12 @@ async def price_preview(
     request: PricePreviewRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PricePreviewResponse:
-    async with container.session_factory() as session:
-        preview = await CalculatePricePreviewUseCase(
-            SqlAlchemyPricingRepository(session),
-        ).execute(
-            CalculatePricePreviewCommand(
-                service_id=request.service_id,
-                start_at=request.start_at,
-                end_at=request.end_at,
-                objects_count=request.objects_count,
-            ),
-        )
+    preview = await container.services().calculate_price_preview(
+        CalculatePricePreviewCommand(
+            service_id=request.service_id,
+            start_at=request.start_at,
+            end_at=request.end_at,
+            objects_count=request.objects_count,
+        ),
+    )
     return price_preview_response(preview)

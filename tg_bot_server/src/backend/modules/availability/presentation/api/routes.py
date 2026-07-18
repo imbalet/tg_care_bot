@@ -9,16 +9,10 @@ from backend.bootstrap.dependencies import get_container
 from backend.common.presentation import require_service_key
 from backend.modules.availability.application import (
     AddCalendarOverrideCommand,
-    AddCalendarOverrideUseCase,
     CheckPerformerAvailabilityCommand,
-    CheckPerformerAvailabilityUseCase,
     FindSuitablePerformersCommand,
-    FindSuitablePerformersUseCase,
-    GetPerformerCalendarUseCase,
     SetPerformerScheduleCommand,
-    SetPerformerScheduleUseCase,
 )
-from backend.modules.availability.infrastructure import SqlAlchemyAvailabilityRepository
 
 from .mappers import (
     availability_response,
@@ -50,21 +44,17 @@ async def set_schedule(
     request: SetScheduleRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> ScheduleResponse:
-    async with container.session_factory() as session:
-        schedule = await SetPerformerScheduleUseCase(
-            SqlAlchemyAvailabilityRepository(session),
-        ).execute(
-            SetPerformerScheduleCommand(
-                telegram_id=telegram_id,
-                schedule_type=request.schedule_type,
-                work_days=tuple(request.work_days)
-                if request.work_days is not None
-                else None,
-                work_start_time=request.work_start_time,
-                work_end_time=request.work_end_time,
-            ),
-        )
-        await session.commit()
+    schedule = await container.services().set_performer_schedule(
+        SetPerformerScheduleCommand(
+            telegram_id=telegram_id,
+            schedule_type=request.schedule_type,
+            work_days=tuple(request.work_days)
+            if request.work_days is not None
+            else None,
+            work_start_time=request.work_start_time,
+            work_end_time=request.work_end_time,
+        ),
+    )
     return schedule_response(schedule)
 
 
@@ -77,19 +67,15 @@ async def add_override(
     request: AddOverrideRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> CalendarOverrideResponse:
-    async with container.session_factory() as session:
-        override = await AddCalendarOverrideUseCase(
-            SqlAlchemyAvailabilityRepository(session),
-        ).execute(
-            AddCalendarOverrideCommand(
-                telegram_id=telegram_id,
-                override_type=request.override_type,
-                starts_at=request.starts_at,
-                ends_at=request.ends_at,
-                comment=request.comment,
-            ),
-        )
-        await session.commit()
+    override = await container.services().add_calendar_override(
+        AddCalendarOverrideCommand(
+            telegram_id=telegram_id,
+            override_type=request.override_type,
+            starts_at=request.starts_at,
+            ends_at=request.ends_at,
+            comment=request.comment,
+        ),
+    )
     return override_response(override)
 
 
@@ -98,10 +84,9 @@ async def get_calendar(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> CalendarResponse:
-    async with container.session_factory() as session:
-        schedule, overrides = await GetPerformerCalendarUseCase(
-            SqlAlchemyAvailabilityRepository(session),
-        ).execute(telegram_id)
+    schedule, overrides = await container.services().get_performer_calendar(
+        telegram_id,
+    )
     return calendar_response(schedule, overrides)
 
 
@@ -115,19 +100,16 @@ async def check_availability(
     exclude_order_id: UUID | None = None,
     exclude_match_id: UUID | None = None,
 ) -> AvailabilityCheckResponse:
-    async with container.session_factory() as session:
-        result = await CheckPerformerAvailabilityUseCase(
-            SqlAlchemyAvailabilityRepository(session),
-        ).execute(
-            CheckPerformerAvailabilityCommand(
-                performer_id=performer_id,
-                service_id=service_id,
-                starts_at=starts_at,
-                ends_at=ends_at,
-                exclude_order_id=exclude_order_id,
-                exclude_match_id=exclude_match_id,
-            ),
-        )
+    result = await container.services().check_performer_availability(
+        CheckPerformerAvailabilityCommand(
+            performer_id=performer_id,
+            service_id=service_id,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            exclude_order_id=exclude_order_id,
+            exclude_match_id=exclude_match_id,
+        ),
+    )
     return availability_response(result)
 
 
@@ -143,19 +125,16 @@ async def find_suitable_performers(
     address_id: UUID | None = None,
     limit: int = 20,
 ) -> list[SuitablePerformerResponse]:
-    async with container.session_factory() as session:
-        performers = await FindSuitablePerformersUseCase(
-            SqlAlchemyAvailabilityRepository(session),
-        ).execute(
-            FindSuitablePerformersCommand(
-                city_id=city_id,
-                service_id=service_id,
-                starts_at=starts_at,
-                ends_at=ends_at,
-                objects_count=objects_count,
-                care_object_ids=tuple(care_object_ids or ()),
-                address_id=address_id,
-                limit=limit,
-            ),
-        )
+    performers = await container.services().find_suitable_performers(
+        FindSuitablePerformersCommand(
+            city_id=city_id,
+            service_id=service_id,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            objects_count=objects_count,
+            care_object_ids=tuple(care_object_ids or ()),
+            address_id=address_id,
+            limit=limit,
+        ),
+    )
     return [suitable_performer_response(performer) for performer in performers]

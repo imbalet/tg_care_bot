@@ -7,27 +7,12 @@ from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
 from backend.common.presentation import require_service_key
 from backend.modules.addresses.application import (
-    CreateCustomerAddressUseCase,
     CreateOwnerAddressCommand,
-    DeleteCustomerAddressUseCase,
 )
-from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
 from backend.modules.care_objects.application import (
     CreateCustomerCareObjectCommand,
-    CreateCustomerCareObjectUseCase,
-    DeleteCustomerCareObjectUseCase,
-    ListCustomerCareObjectsUseCase,
     UpdateCustomerCareObjectCommand,
-    UpdateCustomerCareObjectUseCase,
 )
-from backend.modules.care_objects.infrastructure import SqlAlchemyCareObjectRepository
-from backend.modules.customers.application import (
-    GetCustomerProfileUseCase,
-    RegisterCustomerUseCase,
-    UpdateCustomerUsernameUseCase,
-)
-from backend.modules.customers.infrastructure import SqlAlchemyCustomerRepository
-from backend.modules.geo.infrastructure import DaDataGeocoder
 
 from .mappers import (
     address_response,
@@ -54,26 +39,12 @@ router = APIRouter(
 )
 
 
-def _geocoder(container: Container) -> DaDataGeocoder:
-    settings = container.settings
-    return DaDataGeocoder(
-        api_key=settings.dadata_api_key,
-        secret_key=settings.dadata_secret_key,
-        base_url=settings.dadata_base_url,
-        timeout_seconds=settings.dadata_timeout_seconds,
-        retry_count=settings.dadata_retry_count,
-    )
-
-
 @router.get("/by-telegram/{telegram_id}/profile")
 async def get_profile(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> CustomerResponse:
-    async with container.session_factory() as session:
-        customer = await GetCustomerProfileUseCase(
-            SqlAlchemyCustomerRepository(session),
-        ).execute(telegram_id)
+    customer = await container.services().get_customer_profile(telegram_id)
     return customer_response(customer)
 
 
@@ -82,11 +53,9 @@ async def register(
     request: RegisterCustomerRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> CustomerResponse:
-    async with container.session_factory() as session:
-        customer = await RegisterCustomerUseCase(
-            SqlAlchemyCustomerRepository(session),
-        ).execute(register_customer_command(request))
-        await session.commit()
+    customer = await container.services().register_customer(
+        register_customer_command(request),
+    )
     return customer_response(customer)
 
 
@@ -96,11 +65,9 @@ async def update_telegram_username(
     request: UpdateTelegramUsernameRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> CustomerResponse:
-    async with container.session_factory() as session:
-        customer = await UpdateCustomerUsernameUseCase(
-            SqlAlchemyCustomerRepository(session),
-        ).execute(update_customer_username_command(telegram_id, request))
-        await session.commit()
+    customer = await container.services().update_customer_username(
+        update_customer_username_command(telegram_id, request),
+    )
     return customer_response(customer)
 
 
@@ -110,13 +77,10 @@ async def list_care_objects(
     container: Annotated[Container, Depends(get_container)],
     object_type: Annotated[str | None, Query()] = None,
 ) -> list[CareObjectResponse]:
-    async with container.session_factory() as session:
-        customer_repository = SqlAlchemyCustomerRepository(session)
-        care_object_repository = SqlAlchemyCareObjectRepository(session)
-        care_objects = await ListCustomerCareObjectsUseCase(
-            customer_repository,
-            care_object_repository,
-        ).execute(telegram_id=telegram_id, object_type=object_type)
+    care_objects = await container.services().list_customer_care_objects(
+        telegram_id=telegram_id,
+        object_type=object_type,
+    )
     return [care_object_response(care_object) for care_object in care_objects]
 
 
@@ -126,25 +90,20 @@ async def create_care_object(
     request: CreateCareObjectRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> CareObjectResponse:
-    async with container.session_factory() as session:
-        care_object = await CreateCustomerCareObjectUseCase(
-            SqlAlchemyCustomerRepository(session),
-            SqlAlchemyCareObjectRepository(session),
-        ).execute(
-            CreateCustomerCareObjectCommand(
-                telegram_id=telegram_id,
-                object_type=request.object_type,
-                display_name=request.display_name,
-                age_group=request.age_group,
-                species=request.species,
-                breed=request.breed,
-                pet_size=request.pet_size,
-                mobility_assistance_required=request.mobility_assistance_required,
-                routine_notes=request.routine_notes,
-                behavior_notes=request.behavior_notes,
-            ),
-        )
-        await session.commit()
+    care_object = await container.services().create_customer_care_object(
+        CreateCustomerCareObjectCommand(
+            telegram_id=telegram_id,
+            object_type=request.object_type,
+            display_name=request.display_name,
+            age_group=request.age_group,
+            species=request.species,
+            breed=request.breed,
+            pet_size=request.pet_size,
+            mobility_assistance_required=request.mobility_assistance_required,
+            routine_notes=request.routine_notes,
+            behavior_notes=request.behavior_notes,
+        ),
+    )
     return care_object_response(care_object)
 
 
@@ -155,25 +114,20 @@ async def update_care_object(
     request: CareObjectRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> CareObjectResponse:
-    async with container.session_factory() as session:
-        care_object = await UpdateCustomerCareObjectUseCase(
-            SqlAlchemyCustomerRepository(session),
-            SqlAlchemyCareObjectRepository(session),
-        ).execute(
-            UpdateCustomerCareObjectCommand(
-                telegram_id=telegram_id,
-                care_object_id=care_object_id,
-                display_name=request.display_name,
-                age_group=request.age_group,
-                species=request.species,
-                breed=request.breed,
-                pet_size=request.pet_size,
-                mobility_assistance_required=request.mobility_assistance_required,
-                routine_notes=request.routine_notes,
-                behavior_notes=request.behavior_notes,
-            ),
-        )
-        await session.commit()
+    care_object = await container.services().update_customer_care_object(
+        UpdateCustomerCareObjectCommand(
+            telegram_id=telegram_id,
+            care_object_id=care_object_id,
+            display_name=request.display_name,
+            age_group=request.age_group,
+            species=request.species,
+            breed=request.breed,
+            pet_size=request.pet_size,
+            mobility_assistance_required=request.mobility_assistance_required,
+            routine_notes=request.routine_notes,
+            behavior_notes=request.behavior_notes,
+        ),
+    )
     return care_object_response(care_object)
 
 
@@ -183,12 +137,10 @@ async def delete_care_object(
     care_object_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> dict[str, str]:
-    async with container.session_factory() as session:
-        await DeleteCustomerCareObjectUseCase(
-            SqlAlchemyCustomerRepository(session),
-            SqlAlchemyCareObjectRepository(session),
-        ).execute(telegram_id=telegram_id, care_object_id=care_object_id)
-        await session.commit()
+    await container.services().delete_customer_care_object(
+        telegram_id=telegram_id,
+        care_object_id=care_object_id,
+    )
     return {"status": "deleted"}
 
 
@@ -197,13 +149,9 @@ async def list_addresses(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> list[AddressResponse]:
-    async with container.session_factory() as session:
-        customer = await GetCustomerProfileUseCase(
-            SqlAlchemyCustomerRepository(session),
-        ).execute(telegram_id)
-        addresses = await SqlAlchemyAddressRepository(session).list_for_customer(
-            customer.id,
-        )
+    addresses = await container.services().list_customer_addresses(
+        telegram_id=telegram_id,
+    )
     return [address_response(address) for address in addresses]
 
 
@@ -213,23 +161,17 @@ async def create_address(
     request: CreateAddressRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> AddressResponse:
-    async with container.session_factory() as session:
-        address = await CreateCustomerAddressUseCase(
-            SqlAlchemyCustomerRepository(session),
-            SqlAlchemyAddressRepository(session),
-            _geocoder(container),
-        ).execute(
-            CreateOwnerAddressCommand(
-                telegram_id=telegram_id,
-                city_id=request.city_id,
-                unrestricted_value=request.unrestricted_value,
-                entrance=request.entrance,
-                floor=request.floor,
-                apartment=request.apartment,
-                comment=request.comment,
-            ),
-        )
-        await session.commit()
+    address = await container.services().create_customer_address(
+        CreateOwnerAddressCommand(
+            telegram_id=telegram_id,
+            city_id=request.city_id,
+            unrestricted_value=request.unrestricted_value,
+            entrance=request.entrance,
+            floor=request.floor,
+            apartment=request.apartment,
+            comment=request.comment,
+        ),
+    )
     return address_response(address)
 
 
@@ -239,10 +181,8 @@ async def delete_address(
     address_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> dict[str, str]:
-    async with container.session_factory() as session:
-        await DeleteCustomerAddressUseCase(
-            SqlAlchemyCustomerRepository(session),
-            SqlAlchemyAddressRepository(session),
-        ).execute(telegram_id=telegram_id, address_id=address_id)
-        await session.commit()
+    await container.services().delete_customer_address(
+        telegram_id=telegram_id,
+        address_id=address_id,
+    )
     return {"status": "deleted"}

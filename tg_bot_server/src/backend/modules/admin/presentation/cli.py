@@ -3,33 +3,20 @@ import asyncio
 
 from backend.bootstrap.container import create_container
 from backend.bootstrap.settings import get_settings
-from backend.modules.admin.application import (
-    BootstrapAdminCommand,
-    BootstrapAdminUseCase,
-)
-from backend.modules.admin.infrastructure import (
-    Argon2PasswordHasher,
-    SqlAlchemyAdminRepository,
-)
+from backend.modules.admin.application import BootstrapAdminCommand
 
 
 async def bootstrap_admin(email: str, full_name: str, password: str) -> None:
     settings = get_settings()
     container = create_container(settings)
     try:
-        async with container.session_factory() as session:
-            use_case = BootstrapAdminUseCase(
-                repository=SqlAlchemyAdminRepository(session),
-                password_hasher=Argon2PasswordHasher(),
-            )
-            await use_case.execute(
-                BootstrapAdminCommand(
-                    email=email,
-                    full_name=full_name,
-                    password=password,
-                ),
-            )
-            await session.commit()
+        await container.services().bootstrap_admin(
+            BootstrapAdminCommand(
+                email=email,
+                full_name=full_name,
+                password=password,
+            ),
+        )
     finally:
         await container.close()
 

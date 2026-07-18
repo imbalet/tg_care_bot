@@ -8,10 +8,7 @@ from backend.bootstrap.dependencies import get_container
 from backend.common.presentation import require_service_key
 from backend.modules.addresses.application import (
     SuggestAddressCommand,
-    SuggestAddressesUseCase,
 )
-from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
-from backend.modules.geo.infrastructure import DaDataGeocoder
 
 from .mappers import suggestion_response
 from .schemas import AddressSuggestionResponse
@@ -29,17 +26,7 @@ async def address_suggestions(
     city_id: Annotated[UUID, Query()],
     query: Annotated[str, Query(min_length=1)],
 ) -> list[AddressSuggestionResponse]:
-    settings = container.settings
-    geocoder = DaDataGeocoder(
-        api_key=settings.dadata_api_key,
-        secret_key=settings.dadata_secret_key,
-        base_url=settings.dadata_base_url,
-        timeout_seconds=settings.dadata_timeout_seconds,
-        retry_count=settings.dadata_retry_count,
+    suggestions = await container.services().suggest_addresses(
+        SuggestAddressCommand(city_id=city_id, query=query),
     )
-    async with container.session_factory() as session:
-        suggestions = await SuggestAddressesUseCase(
-            SqlAlchemyAddressRepository(session),
-            geocoder,
-        ).execute(SuggestAddressCommand(city_id=city_id, query=query))
     return [suggestion_response(suggestion) for suggestion in suggestions]

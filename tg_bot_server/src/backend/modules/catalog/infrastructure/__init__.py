@@ -7,6 +7,7 @@ from .persistence import (
     ServiceCategoryModel,
     ServiceModel,
     ServiceOptionModel,
+    SqlAlchemyBusinessSettingRepository,
     SqlAlchemyCatalogQueryService,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "ServiceCategoryModel",
     "ServiceModel",
     "ServiceOptionModel",
+    "SqlAlchemyBusinessSettingRepository",
     "SqlAlchemyCatalogQueryService",
 ]

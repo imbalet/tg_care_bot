@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, Query
 
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
-from backend.modules.catalog.infrastructure import SqlAlchemyCatalogQueryService
 
 from .mappers import catalog_response, city_response, legal_document_response
 from .schemas import CatalogResponse, CityResponse, LegalDocumentResponse
@@ -18,10 +17,7 @@ async def list_cities(
     container: Annotated[Container, Depends(get_container)],
     active_only: Annotated[bool, Query(alias="active")] = True,
 ) -> list[CityResponse]:
-    async with container.session_factory() as session:
-        cities = await SqlAlchemyCatalogQueryService(session).list_cities(
-            active_only=active_only,
-        )
+    cities = await container.services().list_cities(active_only=active_only)
     return [city_response(city) for city in cities]
 
 
@@ -30,10 +26,7 @@ async def get_catalog(
     container: Annotated[Container, Depends(get_container)],
     active_only: Annotated[bool, Query(alias="active")] = True,
 ) -> CatalogResponse:
-    async with container.session_factory() as session:
-        catalog = await SqlAlchemyCatalogQueryService(session).get_catalog(
-            active_only=active_only,
-        )
+    catalog = await container.services().get_catalog(active_only=active_only)
     return catalog_response(catalog)
 
 
@@ -42,8 +35,7 @@ async def list_legal_documents(
     container: Annotated[Container, Depends(get_container)],
     active_only: Annotated[bool, Query(alias="active")] = True,
 ) -> list[LegalDocumentResponse]:
-    async with container.session_factory() as session:
-        documents = await SqlAlchemyCatalogQueryService(session).list_legal_documents(
-            active_only=active_only,
-        )
+    documents = await container.services().list_legal_documents(
+        active_only=active_only,
+    )
     return [legal_document_response(document) for document in documents]

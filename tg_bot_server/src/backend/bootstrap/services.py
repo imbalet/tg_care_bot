@@ -1,0 +1,718 @@
+from collections.abc import Callable
+from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
+from typing import TYPE_CHECKING, Any
+from uuid import UUID
+
+from backend.common.application import utc_now
+from backend.common.domain import NotFoundError, ValidationError
+from backend.common.infrastructure import S3ObjectStorage
+from backend.common.infrastructure.database import SqlAlchemyUnitOfWork
+from backend.modules.addresses.application import (
+    CreateCustomerAddressUseCase,
+    CreateOwnerAddressCommand,
+    CreatePerformerAddressUseCase,
+    DeleteCustomerAddressUseCase,
+    DeletePerformerAddressUseCase,
+    SetPerformerCurrentAddressUseCase,
+    SuggestAddressCommand,
+    SuggestAddressesUseCase,
+)
+from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
+from backend.modules.admin.application import (
+    BootstrapAdminCommand,
+    BootstrapAdminUseCase,
+    GetCurrentAdminUseCase,
+    LoginAdminCommand,
+    LoginAdminUseCase,
+    LogoutAdminUseCase,
+)
+from backend.modules.admin.infrastructure import (
+    Argon2PasswordHasher,
+    RedisAdminSessionStore,
+    SqlAlchemyAdminAuditRepository,
+    SqlAlchemyAdminRepository,
+)
+from backend.modules.admin.presentation.api.schemas import BusinessSettingResponse
+from backend.modules.availability.application import (
+    AddCalendarOverrideCommand,
+    AddCalendarOverrideUseCase,
+    CheckPerformerAvailabilityCommand,
+    CheckPerformerAvailabilityUseCase,
+    FindSuitablePerformersCommand,
+    FindSuitablePerformersUseCase,
+    GetPerformerCalendarUseCase,
+    SetPerformerScheduleCommand,
+    SetPerformerScheduleUseCase,
+)
+from backend.modules.availability.infrastructure import SqlAlchemyAvailabilityRepository
+from backend.modules.care_objects.application import (
+    CreateCustomerCareObjectCommand,
+    CreateCustomerCareObjectUseCase,
+    DeleteCustomerCareObjectUseCase,
+    ListCustomerCareObjectsUseCase,
+    UpdateCustomerCareObjectCommand,
+    UpdateCustomerCareObjectUseCase,
+)
+from backend.modules.care_objects.infrastructure import SqlAlchemyCareObjectRepository
+from backend.modules.catalog.infrastructure import (
+    SqlAlchemyBusinessSettingRepository,
+    SqlAlchemyCatalogQueryService,
+)
+from backend.modules.customers.application import (
+    GetCustomerProfileUseCase,
+    RegisterCustomerCommand,
+    RegisterCustomerUseCase,
+    UpdateCustomerUsernameCommand,
+    UpdateCustomerUsernameUseCase,
+)
+from backend.modules.customers.infrastructure import SqlAlchemyCustomerRepository
+from backend.modules.files.application import (
+    UploadPerformerAvatarCommand,
+    UploadPerformerAvatarUseCase,
+)
+from backend.modules.files.infrastructure import SqlAlchemyFileRepository
+from backend.modules.geo.infrastructure import DaDataGeocoder
+from backend.modules.orders.application import (
+    CalculatePricePreviewCommand,
+    CalculatePricePreviewUseCase,
+    CreateDirectOrderCommand,
+    CreateDirectOrderUseCase,
+    CreatePoolOrderCommand,
+    CreatePoolOrderUseCase,
+)
+from backend.modules.orders.infrastructure import (
+    SqlAlchemyOrderRepository,
+    SqlAlchemyPricingRepository,
+)
+from backend.modules.performers.application import (
+    ActivatePerformerUseCase,
+    ApprovePerformerServiceCommand,
+    ApprovePerformerServiceUseCase,
+    CreateInvitationCommand,
+    CreateInvitationUseCase,
+    GetRegistrationStateUseCase,
+    ListPerformerServicesUseCase,
+    RegisterPerformerCommand,
+    RegisterPerformerUseCase,
+    SetPerformerAcceptingOrdersCommand,
+    SetPerformerAcceptingOrdersUseCase,
+    SetPerformerServiceEnabledCommand,
+    SetPerformerServiceEnabledUseCase,
+    SetPerformerServiceMaxObjectsCommand,
+    SetPerformerServiceMaxObjectsUseCase,
+    UpdatePerformerUsernameCommand,
+    UpdatePerformerUsernameUseCase,
+)
+from backend.modules.performers.infrastructure import (
+    PerformerModel,
+    SqlAlchemyPerformerRepository,
+)
+
+if TYPE_CHECKING:
+    from backend.bootstrap.container import Container
+
+
+@dataclass(frozen=True)
+class ApplicationServices:
+    container: Container
+
+    def _uow(self) -> SqlAlchemyUnitOfWork:
+        return SqlAlchemyUnitOfWork(self.container.session_factory)
+
+    def _session_store(self) -> RedisAdminSessionStore:
+        return RedisAdminSessionStore(
+            redis=self.container.redis,
+            ttl_seconds=self.container.settings.admin_session_ttl_seconds,
+        )
+
+    def _geocoder(self) -> DaDataGeocoder:
+        settings = self.container.settings
+        return DaDataGeocoder(
+            api_key=settings.dadata_api_key,
+            secret_key=settings.dadata_secret_key,
+            base_url=settings.dadata_base_url,
+            timeout_seconds=settings.dadata_timeout_seconds,
+            retry_count=settings.dadata_retry_count,
+        )
+
+    def _storage(self) -> S3ObjectStorage:
+        settings = self.container.settings
+        return S3ObjectStorage(
+            endpoint_url=settings.s3_endpoint_url,
+            access_key_id=settings.s3_access_key_id,
+            secret_access_key=settings.s3_secret_access_key,
+            bucket=settings.s3_bucket,
+            region=settings.s3_region,
+            signed_url_ttl_seconds=settings.s3_signed_url_ttl_seconds,
+        )
+
+    async def list_cities(self, *, active_only: bool) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyCatalogQueryService(uow.session).list_cities(
+                active_only=active_only,
+            )
+
+    async def get_catalog(self, *, active_only: bool) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyCatalogQueryService(uow.session).get_catalog(
+                active_only=active_only,
+            )
+
+    async def list_legal_documents(self, *, active_only: bool) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyCatalogQueryService(
+                uow.session,
+            ).list_legal_documents(active_only=active_only)
+
+    async def suggest_addresses(self, command: SuggestAddressCommand) -> Any:
+        async with self._uow() as uow:
+            return await SuggestAddressesUseCase(
+                SqlAlchemyAddressRepository(uow.session),
+                self._geocoder(),
+            ).execute(command)
+
+    async def get_customer_profile(self, telegram_id: int) -> Any:
+        async with self._uow() as uow:
+            return await GetCustomerProfileUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+            ).execute(telegram_id)
+
+    async def register_customer(self, command: RegisterCustomerCommand) -> Any:
+        async with self._uow() as uow:
+            customer = await RegisterCustomerUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return customer
+
+    async def update_customer_username(
+        self,
+        command: UpdateCustomerUsernameCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            customer = await UpdateCustomerUsernameUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return customer
+
+    async def list_customer_care_objects(
+        self,
+        *,
+        telegram_id: int,
+        object_type: str | None,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await ListCustomerCareObjectsUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+                SqlAlchemyCareObjectRepository(uow.session),
+            ).execute(telegram_id=telegram_id, object_type=object_type)
+
+    async def create_customer_care_object(
+        self,
+        command: CreateCustomerCareObjectCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            care_object = await CreateCustomerCareObjectUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+                SqlAlchemyCareObjectRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return care_object
+
+    async def update_customer_care_object(
+        self,
+        command: UpdateCustomerCareObjectCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            care_object = await UpdateCustomerCareObjectUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+                SqlAlchemyCareObjectRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return care_object
+
+    async def delete_customer_care_object(
+        self,
+        *,
+        telegram_id: int,
+        care_object_id: UUID,
+    ) -> None:
+        async with self._uow() as uow:
+            await DeleteCustomerCareObjectUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+                SqlAlchemyCareObjectRepository(uow.session),
+            ).execute(telegram_id=telegram_id, care_object_id=care_object_id)
+            await uow.commit()
+
+    async def list_customer_addresses(self, *, telegram_id: int) -> Any:
+        async with self._uow() as uow:
+            customer = await GetCustomerProfileUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+            ).execute(telegram_id)
+            return await SqlAlchemyAddressRepository(uow.session).list_for_customer(
+                customer.id,
+            )
+
+    async def create_customer_address(
+        self,
+        command: CreateOwnerAddressCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            address = await CreateCustomerAddressUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+                SqlAlchemyAddressRepository(uow.session),
+                self._geocoder(),
+            ).execute(command)
+            await uow.commit()
+            return address
+
+    async def delete_customer_address(
+        self,
+        *,
+        telegram_id: int,
+        address_id: UUID,
+    ) -> None:
+        async with self._uow() as uow:
+            await DeleteCustomerAddressUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+                SqlAlchemyAddressRepository(uow.session),
+            ).execute(telegram_id=telegram_id, address_id=address_id)
+            await uow.commit()
+
+    async def create_pool_order(self, command: CreatePoolOrderCommand) -> Any:
+        async with self._uow() as uow:
+            order = await CreatePoolOrderUseCase(
+                SqlAlchemyOrderRepository(uow.session),
+                SqlAlchemyPricingRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return order
+
+    async def create_direct_order(self, command: CreateDirectOrderCommand) -> Any:
+        async with self._uow() as uow:
+            order = await CreateDirectOrderUseCase(
+                SqlAlchemyOrderRepository(uow.session),
+                SqlAlchemyPricingRepository(uow.session),
+                SqlAlchemyAvailabilityRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return order
+
+    async def calculate_price_preview(
+        self,
+        command: CalculatePricePreviewCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await CalculatePricePreviewUseCase(
+                SqlAlchemyPricingRepository(uow.session),
+            ).execute(command)
+
+    async def set_performer_schedule(
+        self,
+        command: SetPerformerScheduleCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            schedule = await SetPerformerScheduleUseCase(
+                SqlAlchemyAvailabilityRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return schedule
+
+    async def add_calendar_override(
+        self,
+        command: AddCalendarOverrideCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            override = await AddCalendarOverrideUseCase(
+                SqlAlchemyAvailabilityRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return override
+
+    async def get_performer_calendar(self, telegram_id: int) -> Any:
+        async with self._uow() as uow:
+            return await GetPerformerCalendarUseCase(
+                SqlAlchemyAvailabilityRepository(uow.session),
+            ).execute(telegram_id)
+
+    async def check_performer_availability(
+        self,
+        command: CheckPerformerAvailabilityCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await CheckPerformerAvailabilityUseCase(
+                SqlAlchemyAvailabilityRepository(uow.session),
+            ).execute(command)
+
+    async def find_suitable_performers(
+        self,
+        command: FindSuitablePerformersCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await FindSuitablePerformersUseCase(
+                SqlAlchemyAvailabilityRepository(uow.session),
+            ).execute(command)
+
+    async def create_invitation(
+        self,
+        command: CreateInvitationCommand,
+        *,
+        audit_admin_id: UUID | None = None,
+    ) -> Any:
+        async with self._uow() as uow:
+            invitation = await CreateInvitationUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(command)
+            if audit_admin_id is not None:
+                await SqlAlchemyAdminAuditRepository(uow.session).add(
+                    admin_id=audit_admin_id,
+                    action="create_performer_invitation",
+                    entity_type="performer_invitation",
+                    entity_id=invitation.id,
+                    audit_metadata={"telegram_id": command.telegram_id},
+                )
+            await uow.commit()
+            return invitation
+
+    async def get_registration_state(self, telegram_id: int) -> Any:
+        async with self._uow() as uow:
+            return await GetRegistrationStateUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(telegram_id)
+
+    async def register_performer(self, command: RegisterPerformerCommand) -> Any:
+        async with self._uow() as uow:
+            performer = await RegisterPerformerUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return performer
+
+    async def activate_performer(
+        self,
+        performer_id: UUID,
+        *,
+        audit_admin_id: UUID | None = None,
+    ) -> Any:
+        async with self._uow() as uow:
+            performer = await ActivatePerformerUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(performer_id)
+            if audit_admin_id is not None:
+                await SqlAlchemyAdminAuditRepository(uow.session).add(
+                    admin_id=audit_admin_id,
+                    action="activate_performer",
+                    entity_type="performer",
+                    entity_id=performer.id,
+                )
+            await uow.commit()
+            return performer
+
+    async def approve_performer_service(
+        self,
+        command: ApprovePerformerServiceCommand,
+        *,
+        audit_admin_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            service = await ApprovePerformerServiceUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(command)
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=audit_admin_id,
+                action="approve_performer_service",
+                entity_type="performer_service",
+                entity_id=service.id,
+                audit_metadata={
+                    "performer_id": str(command.performer_id),
+                    "service_id": str(command.service_id),
+                    "admin_max_objects": command.admin_max_objects,
+                },
+            )
+            await uow.commit()
+            return service
+
+    async def list_performer_services_by_id(self, performer_id: UUID) -> Any:
+        async with self._uow() as uow:
+            return await ListPerformerServicesUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute_for_performer(performer_id)
+
+    async def list_performer_services_by_telegram(self, telegram_id: int) -> Any:
+        async with self._uow() as uow:
+            return await ListPerformerServicesUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute_by_telegram_id(telegram_id)
+
+    async def set_schedule_as_admin(
+        self,
+        performer_id: UUID,
+        command_factory: Callable[[int], SetPerformerScheduleCommand],
+        *,
+        audit_admin_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            performer = await uow.session.get(PerformerModel, performer_id)
+            if performer is None:
+                raise NotFoundError("Performer not found")
+            schedule = await SetPerformerScheduleUseCase(
+                SqlAlchemyAvailabilityRepository(uow.session),
+            ).execute(command_factory(performer.telegram_id))
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=audit_admin_id,
+                action="set_performer_schedule",
+                entity_type="performer_schedule",
+                entity_id=schedule.id,
+                audit_metadata={"performer_id": str(performer_id)},
+            )
+            await uow.commit()
+            return schedule
+
+    async def add_override_as_admin(
+        self,
+        performer_id: UUID,
+        command_factory: Callable[[int], AddCalendarOverrideCommand],
+        *,
+        audit_admin_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            performer = await uow.session.get(PerformerModel, performer_id)
+            if performer is None:
+                raise NotFoundError("Performer not found")
+            override = await AddCalendarOverrideUseCase(
+                SqlAlchemyAvailabilityRepository(uow.session),
+            ).execute(command_factory(performer.telegram_id))
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=audit_admin_id,
+                action="add_performer_calendar_override",
+                entity_type="performer_calendar_override",
+                entity_id=override.id,
+                audit_metadata={"performer_id": str(performer_id)},
+            )
+            await uow.commit()
+            return override
+
+    async def update_performer_username(
+        self,
+        command: UpdatePerformerUsernameCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            performer = await UpdatePerformerUsernameUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return performer
+
+    async def set_performer_service_enabled(
+        self,
+        command: SetPerformerServiceEnabledCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            service = await SetPerformerServiceEnabledUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return service
+
+    async def set_performer_service_max_objects(
+        self,
+        command: SetPerformerServiceMaxObjectsCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            service = await SetPerformerServiceMaxObjectsUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return service
+
+    async def set_performer_accepting_orders(
+        self,
+        command: SetPerformerAcceptingOrdersCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            performer = await SetPerformerAcceptingOrdersUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return performer
+
+    async def list_performer_addresses(self, *, telegram_id: int) -> Any:
+        async with self._uow() as uow:
+            performer = await SqlAlchemyPerformerRepository(
+                uow.session,
+            ).get_performer_by_telegram_id(telegram_id)
+            if performer is None:
+                raise NotFoundError("Performer is not registered")
+            return await SqlAlchemyAddressRepository(uow.session).list_for_performer(
+                performer.id,
+            )
+
+    async def create_performer_address(
+        self,
+        command: CreateOwnerAddressCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            address = await CreatePerformerAddressUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+                SqlAlchemyAddressRepository(uow.session),
+                self._geocoder(),
+            ).execute(command)
+            await uow.commit()
+            return address
+
+    async def set_performer_current_address(
+        self,
+        *,
+        telegram_id: int,
+        address_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            address = await SetPerformerCurrentAddressUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+                SqlAlchemyAddressRepository(uow.session),
+            ).execute(telegram_id=telegram_id, address_id=address_id)
+            await uow.commit()
+            return address
+
+    async def delete_performer_address(
+        self,
+        *,
+        telegram_id: int,
+        address_id: UUID,
+    ) -> None:
+        async with self._uow() as uow:
+            await DeletePerformerAddressUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+                SqlAlchemyAddressRepository(uow.session),
+            ).execute(telegram_id=telegram_id, address_id=address_id)
+            await uow.commit()
+
+    async def upload_performer_avatar(
+        self,
+        command: UploadPerformerAvatarCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            stored_file = await UploadPerformerAvatarUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+                SqlAlchemyFileRepository(uow.session),
+                self._storage(),
+            ).execute(command)
+            await uow.commit()
+            return stored_file
+
+    async def delete_performer_avatar(self, *, telegram_id: int) -> None:
+        async with self._uow() as uow:
+            performer = await SqlAlchemyPerformerRepository(
+                uow.session,
+            ).get_performer_by_telegram_id(telegram_id)
+            if performer is None:
+                raise NotFoundError("Performer is not registered")
+            file_repository = SqlAlchemyFileRepository(uow.session)
+            avatar = await file_repository.get_avatar_for_entity(
+                entity_type="performer",
+                entity_id=performer.id,
+            )
+            if avatar is None:
+                raise NotFoundError("Avatar not found")
+            if avatar.storage_key is not None:
+                await self._storage().delete(avatar.storage_key)
+            await file_repository.delete_avatar_link(
+                entity_type="performer",
+                entity_id=performer.id,
+            )
+            await file_repository.mark_deleted(avatar.id)
+            await uow.commit()
+
+    async def login_admin(self, command: LoginAdminCommand) -> Any:
+        async with self._uow() as uow:
+            result = await LoginAdminUseCase(
+                repository=SqlAlchemyAdminRepository(uow.session),
+                password_hasher=Argon2PasswordHasher(),
+                session_store=self._session_store(),
+            ).execute(command)
+            await uow.commit()
+            return result
+
+    async def get_current_admin(self, session_id: str) -> Any:
+        async with self._uow() as uow:
+            return await GetCurrentAdminUseCase(
+                repository=SqlAlchemyAdminRepository(uow.session),
+                session_store=self._session_store(),
+            ).execute(session_id)
+
+    async def logout_admin(self, session_id: str) -> None:
+        await LogoutAdminUseCase(self._session_store()).execute(session_id)
+
+    async def bootstrap_admin(self, command: BootstrapAdminCommand) -> Any:
+        async with self._uow() as uow:
+            admin = await BootstrapAdminUseCase(
+                repository=SqlAlchemyAdminRepository(uow.session),
+                password_hasher=Argon2PasswordHasher(),
+            ).execute(command)
+            await uow.commit()
+            return admin
+
+    async def update_business_setting(
+        self,
+        *,
+        key: str,
+        value: object,
+        admin_id: UUID,
+    ) -> BusinessSettingResponse:
+        async with self._uow() as uow:
+            setting = await SqlAlchemyBusinessSettingRepository(
+                uow.session,
+            ).get_by_key(key)
+            if setting is None:
+                raise NotFoundError("Business setting not found")
+            new_value = _validated_setting_value(setting.value_type, value)
+            old_value = setting.value
+            setting.value = new_value
+            setting.updated_by_admin_id = admin_id
+            setting.updated_at = utc_now()
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="update_business_setting",
+                entity_type="business_setting",
+                entity_id=setting.id,
+                audit_metadata={
+                    "key": key,
+                    "old_value": old_value,
+                    "new_value": new_value,
+                },
+            )
+            response = BusinessSettingResponse(
+                key=setting.key,
+                value=setting.value,
+                value_type=setting.value_type,
+            )
+            await uow.commit()
+            return response
+
+
+def _validated_setting_value(value_type: str, value: object) -> object:
+    if value is None:
+        return None
+    if value_type == "boolean":
+        if not isinstance(value, bool):
+            raise ValidationError("Business setting value must be boolean")
+        return value
+    if value_type in {"number", "integer", "decimal"}:
+        if isinstance(value, bool) or not isinstance(value, int | float | str):
+            raise ValidationError("Business setting value must be numeric")
+        try:
+            parsed = Decimal(str(value))
+        except InvalidOperation as exc:
+            raise ValidationError("Business setting value must be numeric") from exc
+        if value_type == "integer" and parsed % 1:
+            raise ValidationError("Business setting value must be integer")
+        return value
+    if value_type == "string":
+        if not isinstance(value, str):
+            raise ValidationError("Business setting value must be string")
+        return value
+    if value_type == "json":
+        return value
+    raise ValidationError("Business setting value type is invalid")
