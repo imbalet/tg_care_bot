@@ -18,7 +18,10 @@ from backend.modules.availability.application import (
 from backend.modules.care_objects.infrastructure import CareObjectModel
 from backend.modules.catalog.infrastructure import ServiceModel
 from backend.modules.geo.application import haversine_distance_km
-from backend.modules.orders.infrastructure import OrderMatchModel, OrderModel
+from backend.modules.orders.infrastructure.persistence.models import (
+    OrderMatchModel,
+    OrderModel,
+)
 from backend.modules.performers.infrastructure import (
     PerformerCalendarOverrideModel,
     PerformerModel,
