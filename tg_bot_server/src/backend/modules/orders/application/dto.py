@@ -85,3 +85,32 @@ class OrderDTO:
     performer_amount: Decimal
     platform_fee_amount: Decimal
     matching_deadline_at: datetime
+
+
+@dataclass(frozen=True)
+class PaymentPromptDTO:
+    payment_id: UUID
+    confirmation_url: str | None
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class OrderMatchDTO:
+    id: UUID
+    order_id: UUID
+    performer_id: UUID
+    source: str
+    status: str
+    starts_at: datetime
+    ends_at: datetime
+    response_expires_at: datetime
+    selected_at: datetime | None
+    closed_at: datetime | None
+    close_reason: str | None
+
+
+@dataclass(frozen=True)
+class MatchActionDTO:
+    order: OrderDTO
+    match: OrderMatchDTO
+    payment: PaymentPromptDTO | None

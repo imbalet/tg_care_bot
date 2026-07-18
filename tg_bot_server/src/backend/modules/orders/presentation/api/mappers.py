@@ -1,14 +1,20 @@
 from backend.modules.orders.application import (
     CreateDirectOrderCommand,
     CreatePoolOrderCommand,
+    MatchActionDTO,
     OrderDTO,
+    OrderMatchDTO,
+    PaymentPromptDTO,
     PricePreviewDTO,
 )
 
 from .schemas import (
     DirectOrderRequest,
+    MatchActionResponse,
+    OrderMatchResponse,
     OrderRequest,
     OrderResponse,
+    PaymentPromptResponse,
     PricePreviewResponse,
 )
 
@@ -83,4 +89,40 @@ def price_preview_response(preview: PricePreviewDTO) -> PricePreviewResponse:
         performer_amount=preview.performer_amount,
         total_amount=preview.total_amount,
         hold_limit_checked=preview.hold_limit_checked,
+    )
+
+
+def match_response(match: OrderMatchDTO) -> OrderMatchResponse:
+    return OrderMatchResponse(
+        id=str(match.id),
+        order_id=str(match.order_id),
+        performer_id=str(match.performer_id),
+        source=match.source,
+        status=match.status,
+        starts_at=match.starts_at.isoformat(),
+        ends_at=match.ends_at.isoformat(),
+        response_expires_at=match.response_expires_at.isoformat(),
+        selected_at=match.selected_at.isoformat()
+        if match.selected_at is not None
+        else None,
+        closed_at=match.closed_at.isoformat() if match.closed_at is not None else None,
+        close_reason=match.close_reason,
+    )
+
+
+def payment_prompt_response(payment: PaymentPromptDTO) -> PaymentPromptResponse:
+    return PaymentPromptResponse(
+        payment_id=str(payment.payment_id),
+        confirmation_url=payment.confirmation_url,
+        expires_at=payment.expires_at.isoformat(),
+    )
+
+
+def match_action_response(result: MatchActionDTO) -> MatchActionResponse:
+    return MatchActionResponse(
+        order=order_response(result.order),
+        match=match_response(result.match),
+        payment=payment_prompt_response(result.payment)
+        if result.payment is not None
+        else None,
     )

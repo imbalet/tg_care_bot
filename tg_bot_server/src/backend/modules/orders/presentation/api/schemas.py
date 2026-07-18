@@ -67,3 +67,37 @@ class PricePreviewResponse(BaseModel):
     performer_amount: Decimal
     total_amount: Decimal
     hold_limit_checked: bool
+
+
+class PerformerMatchActionRequest(BaseModel):
+    performer_id: UUID
+
+
+class CustomerMatchActionRequest(BaseModel):
+    customer_id: UUID
+
+
+class OrderMatchResponse(BaseModel):
+    id: str
+    order_id: str
+    performer_id: str
+    source: str
+    status: str
+    starts_at: str
+    ends_at: str
+    response_expires_at: str
+    selected_at: str | None
+    closed_at: str | None
+    close_reason: str | None
+
+
+class PaymentPromptResponse(BaseModel):
+    payment_id: str
+    confirmation_url: str | None
+    expires_at: str
+
+
+class MatchActionResponse(BaseModel):
+    order: OrderResponse
+    match: OrderMatchResponse
+    payment: PaymentPromptResponse | None

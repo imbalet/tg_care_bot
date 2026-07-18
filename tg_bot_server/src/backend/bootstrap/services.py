@@ -82,6 +82,7 @@ from backend.modules.orders.application import (
     CreatePoolOrderUseCase,
 )
 from backend.modules.orders.infrastructure import (
+    SqlAlchemyMatchingRepository,
     SqlAlchemyOrderRepository,
     SqlAlchemyPricingRepository,
 )
@@ -308,6 +309,96 @@ class ApplicationServices:
             return await CalculatePricePreviewUseCase(
                 SqlAlchemyPricingRepository(uow.session),
             ).execute(command)
+
+    async def list_available_pool_orders(
+        self,
+        *,
+        performer_id: UUID,
+        limit: int,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyMatchingRepository(
+                uow.session,
+            ).list_available_pool_orders(performer_id=performer_id, limit=limit)
+
+    async def create_pool_response(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            match = await SqlAlchemyMatchingRepository(
+                uow.session,
+            ).create_pool_response(order_id=order_id, performer_id=performer_id)
+            await uow.commit()
+            return match
+
+    async def list_order_matches(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyMatchingRepository(uow.session).list_order_matches(
+                order_id=order_id,
+                customer_id=customer_id,
+            )
+
+    async def reject_pool_response(
+        self,
+        *,
+        match_id: UUID,
+        customer_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            match = await SqlAlchemyMatchingRepository(
+                uow.session,
+            ).reject_pool_response(match_id=match_id, customer_id=customer_id)
+            await uow.commit()
+            return match
+
+    async def accept_direct_match(
+        self,
+        *,
+        match_id: UUID,
+        performer_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            result = await SqlAlchemyMatchingRepository(uow.session).accept_direct(
+                match_id=match_id,
+                performer_id=performer_id,
+            )
+            await uow.commit()
+            return result
+
+    async def reject_direct_match(
+        self,
+        *,
+        match_id: UUID,
+        performer_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            match = await SqlAlchemyMatchingRepository(uow.session).reject_direct(
+                match_id=match_id,
+                performer_id=performer_id,
+            )
+            await uow.commit()
+            return match
+
+    async def select_pool_response(
+        self,
+        *,
+        match_id: UUID,
+        customer_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            result = await SqlAlchemyMatchingRepository(
+                uow.session,
+            ).select_pool_response(match_id=match_id, customer_id=customer_id)
+            await uow.commit()
+            return result
 
     async def set_performer_schedule(
         self,
