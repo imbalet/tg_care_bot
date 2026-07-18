@@ -1,1 +1,1 @@
-"""Availability presentation."""
+"""Availability presentation package."""

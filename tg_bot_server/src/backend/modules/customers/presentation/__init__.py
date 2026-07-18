@@ -1,1 +1,1 @@
-__all__: list[str] = []
+"""Customers presentation package."""

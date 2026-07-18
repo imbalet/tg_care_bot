@@ -1,1 +1,1 @@
-"""Orders presentation."""
+"""Orders presentation package."""
