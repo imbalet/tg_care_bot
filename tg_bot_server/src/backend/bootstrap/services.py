@@ -109,6 +109,10 @@ from backend.modules.performers.infrastructure import (
     PerformerModel,
     SqlAlchemyPerformerRepository,
 )
+from backend.modules.system_checks.application import (
+    CreateSystemCheckCommand,
+    CreateSystemCheckUseCase,
+)
 
 if TYPE_CHECKING:
     from backend.bootstrap.container import Container
@@ -781,6 +785,9 @@ class ApplicationServices:
             )
             await uow.commit()
             return response
+
+    async def create_system_check(self, command: CreateSystemCheckCommand) -> Any:
+        return await CreateSystemCheckUseCase(self._uow()).execute(command)
 
 
 def _validated_setting_value(value_type: str, value: object) -> object:
