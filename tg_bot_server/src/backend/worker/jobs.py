@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.common.application import utc_now
 from backend.common.infrastructure.database import for_update_skip_locked
+from backend.modules.admin.infrastructure import AdminModel
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.infrastructure import (
@@ -21,6 +22,8 @@ from backend.modules.orders.infrastructure import (
 )
 from backend.modules.payments.infrastructure import PaymentModel
 from backend.modules.performers.infrastructure import PerformerModel
+
+_ADMIN_TABLE = AdminModel.__table__
 
 
 class WorkerJob(Protocol):
