@@ -62,6 +62,40 @@ class Settings(BaseSettings):
         default=900,
         validation_alias="S3_SIGNED_URL_TTL_SECONDS",
     )
+    payment_provider: Literal["tbank_test"] = Field(
+        default="tbank_test",
+        validation_alias="PAYMENT_PROVIDER",
+    )
+    tbank_base_url: str = Field(
+        default="https://rest-api-test.tinkoff.ru/v2",
+        validation_alias="TBANK_BASE_URL",
+    )
+    tbank_terminal_key: str = Field(default="", validation_alias="TBANK_TERMINAL_KEY")
+    tbank_password: str = Field(default="", validation_alias="TBANK_PASSWORD")
+    tbank_timeout_seconds: float = Field(
+        default=5.0,
+        validation_alias="TBANK_TIMEOUT_SECONDS",
+    )
+    payment_receipt_taxation: str = Field(
+        default="osn",
+        validation_alias="PAYMENT_RECEIPT_TAXATION",
+    )
+    payment_receipt_tax: str = Field(
+        default="vat20",
+        validation_alias="PAYMENT_RECEIPT_TAX",
+    )
+    payment_receipt_method: str = Field(
+        default="full_prepayment",
+        validation_alias="PAYMENT_RECEIPT_METHOD",
+    )
+    payment_receipt_object: str = Field(
+        default="service",
+        validation_alias="PAYMENT_RECEIPT_OBJECT",
+    )
+    payment_receipt_defaults_allowed: bool = Field(
+        default=True,
+        validation_alias="PAYMENT_RECEIPT_DEFAULTS_ALLOWED",
+    )
 
     @property
     def database_url(self) -> str:

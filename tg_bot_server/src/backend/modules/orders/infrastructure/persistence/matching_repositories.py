@@ -261,7 +261,7 @@ class SqlAlchemyMatchingRepository:
             if performer.current_address_id is None:
                 raise ValidationError("Performer work address is required")
             order.address_id = performer.current_address_id
-        payment = await self._create_mock_payment(order, match.performer_id)
+        payment = await self._create_payment_attempt(order, match.performer_id)
         match.status = "selected"
         match.responded_at = match.responded_at or now
         match.selected_at = now
@@ -311,7 +311,7 @@ class SqlAlchemyMatchingRepository:
             payment=_payment_to_dto(payment),
         )
 
-    async def _create_mock_payment(
+    async def _create_payment_attempt(
         self,
         order: OrderModel,
         performer_id: UUID,
@@ -332,16 +332,15 @@ class SqlAlchemyMatchingRepository:
             order_id=order.id,
             performer_id=performer_id,
             attempt_number=attempt_number,
-            provider="mock",
+            provider="tbank_test",
             idempotency_key=f"payment:{order.id}:{attempt_number}",
             amount=order.total_amount,
-            status="pending",
+            status="created",
             confirmation_url=None,
             expires_at=expires_at,
         )
         self._session.add(payment)
         await self._session.flush()
-        payment.confirmation_url = f"mock://payment/{payment.id}"
         return payment
 
     async def _next_payment_attempt_number(self, order_id: UUID) -> int:

@@ -86,6 +86,12 @@ from backend.modules.orders.infrastructure import (
     SqlAlchemyOrderRepository,
     SqlAlchemyPricingRepository,
 )
+from backend.modules.payments.application import PaymentGatewayInitCommand
+from backend.modules.payments.infrastructure import (
+    SqlAlchemyPaymentRepository,
+    TBankPaymentGateway,
+    TBankReceiptSettings,
+)
 from backend.modules.performers.application import (
     ActivatePerformerUseCase,
     ApprovePerformerServiceCommand,
@@ -150,6 +156,30 @@ class ApplicationServices:
             bucket=settings.s3_bucket,
             region=settings.s3_region,
             signed_url_ttl_seconds=settings.s3_signed_url_ttl_seconds,
+        )
+
+    def _payment_gateway(self) -> TBankPaymentGateway:
+        settings = self.container.settings
+        if not settings.tbank_terminal_key or not settings.tbank_password:
+            raise ValidationError("T-Bank payment credentials are not configured")
+        if (
+            settings.environment == "production"
+            and settings.payment_receipt_defaults_allowed
+        ):
+            raise ValidationError(
+                "Production payment receipt settings must be explicit"
+            )
+        return TBankPaymentGateway(
+            base_url=settings.tbank_base_url,
+            terminal_key=settings.tbank_terminal_key,
+            password=settings.tbank_password,
+            receipt=TBankReceiptSettings(
+                taxation=settings.payment_receipt_taxation,
+                tax=settings.payment_receipt_tax,
+                payment_method=settings.payment_receipt_method,
+                payment_object=settings.payment_receipt_object,
+            ),
+            timeout_seconds=settings.tbank_timeout_seconds,
         )
 
     async def list_cities(self, *, active_only: bool) -> Any:
@@ -375,7 +405,10 @@ class ApplicationServices:
                 performer_id=performer_id,
             )
             await uow.commit()
-            return result
+        if result.payment is not None:
+            await self._initialize_payment(result.payment.payment_id)
+            return await self._with_payment_prompt(result)
+        return result
 
     async def reject_direct_match(
         self,
@@ -402,7 +435,68 @@ class ApplicationServices:
                 uow.session,
             ).select_pool_response(match_id=match_id, customer_id=customer_id)
             await uow.commit()
+        if result.payment is not None:
+            await self._initialize_payment(result.payment.payment_id)
+            return await self._with_payment_prompt(result)
+        return result
+
+    async def _initialize_payment(self, payment_id: UUID) -> None:
+        async with self._uow() as uow:
+            repository = SqlAlchemyPaymentRepository(uow.session)
+            data = await repository.get_initialization_data(payment_id)
+        if data is None:
+            raise NotFoundError("Payment not found")
+        if data.payment.status != "created":
+            return
+        gateway = self._payment_gateway()
+        description = f"Оплата заказа {data.payment.order_id} ({data.service_name})"
+        try:
+            result = await gateway.create_payment(
+                PaymentGatewayInitCommand(
+                    payment_id=data.payment.id,
+                    order_id=data.payment.order_id,
+                    idempotency_key=data.payment.idempotency_key,
+                    amount=data.payment.amount,
+                    description=description,
+                    customer_phone=data.customer_phone,
+                    customer_name=data.customer_name,
+                ),
+            )
+        except Exception:
+            async with self._uow() as uow:
+                await SqlAlchemyPaymentRepository(
+                    uow.session,
+                ).mark_provider_initialization_failed(
+                    payment_id=data.payment.id,
+                    failure_code="provider_init_failed",
+                )
+                await uow.commit()
+            raise
+        async with self._uow() as uow:
+            await SqlAlchemyPaymentRepository(uow.session).mark_provider_initialized(
+                payment_id=data.payment.id,
+                provider_payment_id=result.provider_payment_id,
+                provider_deal_id=result.provider_deal_id,
+                confirmation_url=result.confirmation_url,
+            )
+            await uow.commit()
+
+    async def _with_payment_prompt(self, result: Any) -> Any:
+        async with self._uow() as uow:
+            data = await SqlAlchemyPaymentRepository(
+                uow.session,
+            ).get_initialization_data(result.payment.payment_id)
+        if data is None:
             return result
+        return type(result)(
+            order=result.order,
+            match=result.match,
+            payment=type(result.payment)(
+                payment_id=data.payment.id,
+                confirmation_url=data.payment.confirmation_url,
+                expires_at=data.payment.expires_at,
+            ),
+        )
 
     async def set_performer_schedule(
         self,
