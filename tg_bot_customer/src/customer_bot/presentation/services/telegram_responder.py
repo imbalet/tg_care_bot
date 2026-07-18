@@ -35,7 +35,7 @@ class TelegramResponder:
         text: str,
         reply_markup: ReplyMarkupUnion | None = None,
         create_new: bool = False,
-        delete_event_message: bool = True,
+        delete_event_message: bool = False,
     ) -> Message | None:
         message = event if isinstance(event, Message) else event.message
         if not isinstance(message, Message):

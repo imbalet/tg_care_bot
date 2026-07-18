@@ -14,6 +14,7 @@ async def send_step(
     text: str,
     reply_markup: ReplyMarkupUnion | None = None,
     create_new: bool = False,
+    delete_event_message: bool = False,
 ) -> Message | None:
     return await telegram_responder.update(
         bot=bot,
@@ -22,6 +23,7 @@ async def send_step(
         text=text,
         reply_markup=reply_markup,
         create_new=create_new,
+        delete_event_message=delete_event_message,
     )
 
 
