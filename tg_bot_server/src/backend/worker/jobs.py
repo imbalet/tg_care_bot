@@ -474,25 +474,40 @@ def _notification_text(notification: NotificationModel) -> str:
             "Вас пригласили зарегистрироваться исполнителем в We Are Close.\n"
             "Откройте бот исполнителя и отправьте /start."
         )
-    direction = (
-        "Заказчик"
-        if notification.recipient_type == "customer"
-        else "Исполнитель"
-        if notification.recipient_type == "performer"
-        else "Админ"
-    )
-    lines = [
-        f"<b>{escape(direction)}</b>",
-        escape(notification.type),
-    ]
-    if notification.entity_type and notification.entity_id:
-        lines.append(
-            f"{escape(notification.entity_type)}: {escape(str(notification.entity_id))}"
-        )
+    title = _notification_title(notification)
+    body = _notification_body(notification)
+    lines = [f"<b>{escape(title)}</b>", escape(body)]
     order_id = notification.payload.get("order_id")
     if order_id is not None:
         lines.append(f"Заказ: {escape(str(order_id))}")
     return "\n".join(lines)
+
+
+def _notification_title(notification: NotificationModel) -> str:
+    if notification.recipient_type == "customer":
+        return "Заказчик"
+    if notification.recipient_type == "performer":
+        return "Исполнитель"
+    return "Админ"
+
+
+def _notification_body(notification: NotificationModel) -> str:
+    messages = {
+        "direct_accepted": "Исполнитель принял приглашение. Заказ ожидает оплаты.",
+        "direct_rejected": "Исполнитель отклонил приглашение.",
+        "direct_match_expired": "Direct-приглашение истекло.",
+        "pool_response_created": "Поступил новый отклик на заказ.",
+        "pool_response_rejected": "Заказчик отклонил отклик.",
+        "pool_response_selected": "Отклик выбран. Заказ ожидает оплаты.",
+        "pool_match_expired": "Отклик истек.",
+        "order_matching_expired": "Срок подбора истек. Заказ закрыт.",
+        "payment_confirmed": "Оплата подтверждена. Заказ закреплен.",
+        "payment_expired_order_searching": (
+            "Оплата не поступила вовремя. Заказ вернулся в подбор."
+        ),
+        "payment_expired_order_expired": ("Оплата не поступила вовремя. Заказ закрыт."),
+    }
+    return messages.get(notification.type, notification.type)
 
 
 @dataclass(frozen=True)
