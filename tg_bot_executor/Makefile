@@ -1,9 +1,9 @@
 .PHONY: lint check
 
 lint:
-	uv run ruff format .
-	uv run ruff check --fix .
-	uv run ruff check .
-	uv run mypy src tests
+	uv run ruff format src
+	uv run ruff check --fix src
+	uv run ruff check src
+	uv run mypy src
 
 check: lint
