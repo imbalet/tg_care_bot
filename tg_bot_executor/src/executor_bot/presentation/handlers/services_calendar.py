@@ -28,6 +28,7 @@ from executor_bot.presentation.ui import (
     services_keyboard,
     services_text,
     services_updated_text,
+    use_buttons_text,
 )
 
 router = Router(name="services_calendar")
@@ -112,6 +113,7 @@ async def toggle_service(
 ) -> None:
     item = await _service_by_index(state, callback_data.index)
     if item is None:
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     try:
         await backend_client.set_service_enabled(
@@ -149,9 +151,11 @@ async def reduce_service_limit(
 ) -> None:
     item = await _service_by_index(state, callback_data.index)
     if item is None:
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     raw_limit = item["performer_max_objects"]
     if not isinstance(raw_limit, int):
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     next_limit = max(1, raw_limit - 1)
     try:

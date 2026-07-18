@@ -159,6 +159,7 @@ async def select_city(
     index = callback_data.index
     city_ids = _string_list(data["city_ids"])
     if index < 0 or index >= len(city_ids):
+        await telegram_responder.acknowledge(callback, "Выберите действие кнопкой.")
         return
     draft = _draft(data)
     draft["city_id"] = city_ids[index]
@@ -249,11 +250,14 @@ async def select_suggestion(
     suggestions = data.get("work_address_suggestions")
     index = callback_data.index
     if not isinstance(suggestions, list):
+        await telegram_responder.acknowledge(callback, "Выберите действие кнопкой.")
         return
     if index < 0 or index >= len(suggestions):
+        await telegram_responder.acknowledge(callback, "Выберите действие кнопкой.")
         return
     suggestion = suggestions[index]
     if not isinstance(suggestion, dict):
+        await telegram_responder.acknowledge(callback, "Выберите действие кнопкой.")
         return
     draft = _draft(data)
     draft["unrestricted_value"] = str(suggestion["unrestricted_value"])
@@ -327,9 +331,11 @@ async def select_address(
 ) -> None:
     item = await _address_by_index(state, callback_data.index)
     if item is None:
+        await telegram_responder.acknowledge(callback, "Выберите действие кнопкой.")
         return
     index = item["index"]
     if not isinstance(index, int):
+        await telegram_responder.acknowledge(callback, "Выберите действие кнопкой.")
         return
     await send_step(
         bot=bot,
@@ -353,6 +359,7 @@ async def set_current_address(
 ) -> None:
     item = await _address_by_index(state, callback_data.index)
     if item is None:
+        await telegram_responder.acknowledge(callback, "Выберите действие кнопкой.")
         return
     try:
         await backend_client.set_current_work_address(
@@ -389,6 +396,7 @@ async def delete_address(
 ) -> None:
     item = await _address_by_index(state, callback_data.index)
     if item is None:
+        await telegram_responder.acknowledge(callback, "Выберите действие кнопкой.")
         return
     try:
         await backend_client.delete_work_address(

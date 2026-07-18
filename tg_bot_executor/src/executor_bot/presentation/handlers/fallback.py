@@ -114,6 +114,8 @@ async def help_callback(
             text=help_text(),
             reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
         )
+        return
+    await callback.answer("Сообщение недоступно", show_alert=True)
 
 
 @router.callback_query(ProfileOpenCallback.filter())
