@@ -334,13 +334,8 @@ def pool_response_created_text() -> str:
     return "Отклик создан. Заказ появился в ваших откликах."
 
 
-def direct_accept_created_text(confirmation_url: str | None) -> str:
-    if confirmation_url is None:
-        return "Direct-заказ принят. Заказчик получил запрос на оплату."
-    return (
-        "Direct-заказ принят. Заказчик получил запрос на оплату.\n\n"
-        f"Платежная ссылка: {escape(confirmation_url)}"
-    )
+def direct_accept_created_text() -> str:
+    return "Direct-заказ принят. Заказчик получил запрос на оплату."
 
 
 def direct_rejected_text() -> str:

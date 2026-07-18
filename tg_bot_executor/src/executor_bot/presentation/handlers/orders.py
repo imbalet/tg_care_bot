@@ -133,11 +133,11 @@ async def direct_accept_callback(
         )
         if state.performer is None:
             raise ValueError("Performer is not registered")
-        result = await backend_client.accept_direct_match(
+        await backend_client.accept_direct_match(
             match_id=UUID(callback_data.match_id),
             performer_id=state.performer.id,
         )
-        text = direct_accept_created_text(result.confirmation_url)
+        text = direct_accept_created_text()
     except BackendClientError, ValueError:
         text = "Direct-приглашение уже недоступно."
     await telegram_responder.update(
