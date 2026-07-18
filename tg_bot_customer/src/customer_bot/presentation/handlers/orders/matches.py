@@ -10,6 +10,7 @@ from customer_bot.presentation.callbacks import (
     OrderResponseRejectCallback,
     OrderResponseSelectCallback,
     OrderResponsesOpenCallback,
+    PaymentRefreshCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.responses import send_step
@@ -20,6 +21,8 @@ from customer_bot.presentation.ui import (
     order_response_rejected_text,
     order_response_selected_text,
     order_response_unavailable_text,
+    payment_status_keyboard,
+    payment_status_text,
     retry_later_text,
 )
 
@@ -139,6 +142,52 @@ async def select_order_match(
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_response_selected_text(action),
+        reply_markup=payment_status_keyboard(action.order_id),
+    )
+
+
+@router.callback_query(PaymentRefreshCallback.filter())
+async def refresh_payment_status(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: PaymentRefreshCallback,
+) -> None:
+    try:
+        customer_id = await _customer_id(
+            backend_client=backend_client,
+            telegram_id=telegram_user_context.telegram_id,
+        )
+        status = await backend_client.get_payment_status(
+            order_id=callback_data.order_id,
+            customer_id=customer_id,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to refresh payment status",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
+        return
+
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=payment_status_text(status),
+        reply_markup=payment_status_keyboard(status.order_id),
     )
 
 

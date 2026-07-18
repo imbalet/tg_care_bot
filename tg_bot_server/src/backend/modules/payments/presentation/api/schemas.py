@@ -16,3 +16,12 @@ class TBankWebhookRequest(BaseModel):
 
 class PaymentWebhookResponse(BaseModel):
     status: str
+
+
+class PaymentStatusResponse(BaseModel):
+    order_id: str
+    order_status: str
+    payment_id: str | None
+    payment_status: str | None
+    confirmation_url: str | None
+    expires_at: str | None

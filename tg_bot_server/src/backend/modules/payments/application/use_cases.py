@@ -6,6 +6,7 @@ from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.payments.application.dto import (
     PaymentGatewayInitCommand,
     PaymentGatewayRefundCommand,
+    PaymentStatusDTO,
     PaymentWebhookCommand,
     PaymentWebhookResult,
     RefundDTO,
@@ -131,3 +132,26 @@ class CompleteManualRefundUseCase:
             refund_id=refund.id,
             provider_refund_id=result.provider_refund_id,
         )
+
+
+@dataclass(frozen=True)
+class GetCustomerPaymentStatusCommand:
+    order_id: UUID
+    customer_id: UUID
+
+
+class GetCustomerPaymentStatusUseCase:
+    def __init__(self, repository: PaymentRepository) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        command: GetCustomerPaymentStatusCommand,
+    ) -> PaymentStatusDTO:
+        result = await self._repository.get_customer_payment_status(
+            order_id=command.order_id,
+            customer_id=command.customer_id,
+        )
+        if result is None:
+            raise NotFoundError("Order not found")
+        return result

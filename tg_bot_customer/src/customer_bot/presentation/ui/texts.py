@@ -632,6 +632,25 @@ def order_response_selected_text(action: MatchActionView) -> str:
     return "\n".join(lines)
 
 
+def payment_status_text(status: object) -> str:
+    order_status = escape(str(getattr(status, "order_status", "")))
+    payment_status = getattr(status, "payment_status", None)
+    confirmation_url = getattr(status, "confirmation_url", None)
+    expires_at = getattr(status, "expires_at", None)
+    lines = [
+        "<b>Статус оплаты</b>",
+        "",
+        f"Статус заказа: {order_status}",
+    ]
+    if payment_status is not None:
+        lines.append(f"Статус платежа: {escape(str(payment_status))}")
+    if expires_at is not None:
+        lines.append(f"Оплатить до: {escape(str(expires_at))}")
+    if confirmation_url:
+        lines.extend(("", f"Оплата: {escape(str(confirmation_url))}"))
+    return "\n".join(lines)
+
+
 def order_response_rejected_text() -> str:
     return "Отклик отклонен."
 

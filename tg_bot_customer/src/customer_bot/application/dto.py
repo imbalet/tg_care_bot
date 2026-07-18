@@ -142,6 +142,16 @@ class MatchActionDTO:
 
 
 @dataclass(frozen=True)
+class PaymentStatusDTO:
+    order_id: UUID
+    order_status: str
+    payment_id: UUID | None
+    payment_status: str | None
+    confirmation_url: str | None
+    expires_at: datetime | None
+
+
+@dataclass(frozen=True)
 class SuitablePerformerDTO:
     performer_id: UUID
     full_name: str

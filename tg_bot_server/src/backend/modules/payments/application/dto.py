@@ -89,3 +89,13 @@ class PaymentGatewayRefundCommand:
 @dataclass(frozen=True)
 class PaymentGatewayRefundResult:
     provider_refund_id: str
+
+
+@dataclass(frozen=True)
+class PaymentStatusDTO:
+    order_id: UUID
+    order_status: str
+    payment_id: UUID | None
+    payment_status: str | None
+    confirmation_url: str | None
+    expires_at: datetime | None

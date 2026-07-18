@@ -18,6 +18,7 @@ from backend.modules.orders.infrastructure.persistence.models import (
 from backend.modules.payments.application import (
     PaymentAttemptDTO,
     PaymentInitializationData,
+    PaymentStatusDTO,
     PaymentWebhookCommand,
     PaymentWebhookResult,
     RefundDTO,
@@ -351,6 +352,30 @@ class SqlAlchemyPaymentRepository:
             select(RefundModel).where(RefundModel.id == refund_id).with_for_update(),
         )
         return result.scalar_one()
+
+    async def get_customer_payment_status(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> PaymentStatusDTO | None:
+        result = await self._session.execute(
+            select(OrderModel, PaymentModel)
+            .outerjoin(PaymentModel, PaymentModel.id == OrderModel.active_payment_id)
+            .where(OrderModel.id == order_id, OrderModel.customer_id == customer_id),
+        )
+        row = result.one_or_none()
+        if row is None:
+            return None
+        order, payment = row
+        return PaymentStatusDTO(
+            order_id=order.id,
+            order_status=order.status,
+            payment_id=payment.id if payment is not None else None,
+            payment_status=payment.status if payment is not None else None,
+            confirmation_url=payment.confirmation_url if payment is not None else None,
+            expires_at=payment.expires_at if payment is not None else None,
+        )
 
 
 def _payment_to_dto(model: PaymentModel) -> PaymentAttemptDTO:

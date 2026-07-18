@@ -1,15 +1,20 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
-from backend.modules.payments.application import PaymentWebhookCommand
+from backend.common.presentation import require_service_key
+from backend.modules.payments.application import (
+    GetCustomerPaymentStatusCommand,
+    PaymentWebhookCommand,
+)
 from backend.modules.payments.infrastructure import verify_tbank_token
 
-from .schemas import PaymentWebhookResponse
+from .schemas import PaymentStatusResponse, PaymentWebhookResponse
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -48,6 +53,33 @@ async def tbank_webhook(
         ),
     )
     return PaymentWebhookResponse(status=result.status)
+
+
+@router.get(
+    "/orders/{order_id}/status",
+    dependencies=[Depends(require_service_key)],
+)
+async def get_customer_payment_status(
+    order_id: str,
+    customer_id: str,
+    container: Annotated[Container, Depends(get_container)],
+) -> PaymentStatusResponse:
+    result = await container.services().get_customer_payment_status(
+        GetCustomerPaymentStatusCommand(
+            order_id=UUID(order_id),
+            customer_id=UUID(customer_id),
+        ),
+    )
+    return PaymentStatusResponse(
+        order_id=str(result.order_id),
+        order_status=result.order_status,
+        payment_id=str(result.payment_id) if result.payment_id is not None else None,
+        payment_status=result.payment_status,
+        confirmation_url=result.confirmation_url,
+        expires_at=result.expires_at.isoformat()
+        if result.expires_at is not None
+        else None,
+    )
 
 
 def _paid_at(payload: dict[str, Any]) -> datetime:

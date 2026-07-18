@@ -91,6 +91,8 @@ from backend.modules.payments.application import (
     ApplyPaymentWebhookUseCase,
     CreateManualRefundCommand,
     CreateManualRefundUseCase,
+    GetCustomerPaymentStatusCommand,
+    GetCustomerPaymentStatusUseCase,
     PaymentGatewayInitCommand,
     PaymentGatewayRefundCommand,
     PaymentWebhookCommand,
@@ -566,6 +568,15 @@ class ApplicationServices:
             )
             await uow.commit()
         return refund
+
+    async def get_customer_payment_status(
+        self,
+        command: GetCustomerPaymentStatusCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await GetCustomerPaymentStatusUseCase(
+                SqlAlchemyPaymentRepository(uow.session),
+            ).execute(command)
 
     async def set_performer_schedule(
         self,

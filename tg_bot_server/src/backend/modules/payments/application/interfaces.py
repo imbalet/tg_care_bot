@@ -8,6 +8,7 @@ from backend.modules.payments.application.dto import (
     PaymentGatewayRefundCommand,
     PaymentGatewayRefundResult,
     PaymentInitializationData,
+    PaymentStatusDTO,
     PaymentWebhookCommand,
     PaymentWebhookResult,
     RefundDTO,
@@ -78,4 +79,12 @@ class PaymentRepository(Protocol):
         pass
 
     async def mark_refund_failed(self, *, refund_id: UUID) -> None:
+        pass
+
+    async def get_customer_payment_status(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> PaymentStatusDTO | None:
         pass

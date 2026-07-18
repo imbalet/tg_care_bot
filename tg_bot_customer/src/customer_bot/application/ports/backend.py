@@ -12,6 +12,7 @@ from customer_bot.application.dto import (
     MatchActionDTO,
     OrderDTO,
     OrderMatchDTO,
+    PaymentStatusDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
     SuitablePerformerDTO,
@@ -188,3 +189,10 @@ class BackendPort(Protocol):
         match_id: UUID,
         customer_id: UUID,
     ) -> OrderMatchDTO: ...
+
+    async def get_payment_status(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> PaymentStatusDTO: ...

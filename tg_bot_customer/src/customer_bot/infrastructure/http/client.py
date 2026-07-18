@@ -16,6 +16,7 @@ from customer_bot.application.dto import (
     MatchActionDTO,
     OrderDTO,
     OrderMatchDTO,
+    PaymentStatusDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
     ServiceDTO,
@@ -450,6 +451,20 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return _order_match_from_json(response.json())
 
+    async def get_payment_status(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> PaymentStatusDTO:
+        response = await self._request(
+            "GET",
+            f"/api/payments/orders/{order_id}/status",
+            params={"customer_id": str(customer_id)},
+        )
+        self._raise_for_status(response)
+        return _payment_status_from_json(response.json())
+
     async def _request(
         self,
         method: str,
@@ -699,4 +714,24 @@ def _match_action_from_json(data: dict[str, object]) -> MatchActionDTO:
         order_status=str(data["order_status"]),
         match_id=UUID(str(data["match_id"])),
         payment_confirmation_url=confirmation_url,
+    )
+
+
+def _payment_status_from_json(data: dict[str, object]) -> PaymentStatusDTO:
+    expires_at = data["expires_at"] if isinstance(data["expires_at"], str) else None
+    return PaymentStatusDTO(
+        order_id=UUID(str(data["order_id"])),
+        order_status=str(data["order_status"]),
+        payment_id=UUID(str(data["payment_id"]))
+        if data["payment_id"] is not None
+        else None,
+        payment_status=data["payment_status"]
+        if isinstance(data["payment_status"], str)
+        else None,
+        confirmation_url=data["confirmation_url"]
+        if isinstance(data["confirmation_url"], str)
+        else None,
+        expires_at=datetime.fromisoformat(expires_at)
+        if expires_at is not None
+        else None,
     )

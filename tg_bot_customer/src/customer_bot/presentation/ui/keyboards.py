@@ -53,6 +53,7 @@ from customer_bot.presentation.callbacks import (
     OrdersListCallback,
     OrderStartManualCallback,
     OrderStartTimeCallback,
+    PaymentRefreshCallback,
     ProfileOpenCallback,
     RegistrationCityCallback,
     RegistrationConfirmCallback,
@@ -548,6 +549,17 @@ def order_matches_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
         keyboard.button(
             f"Отклонить #{index}",
             OrderResponseRejectCallback(match_id=match_id),
+        )
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+
+
+def payment_status_keyboard(order_id: object) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    parsed_order_id = _item_value({"id": order_id}, "id")
+    if parsed_order_id is not None:
+        keyboard.button(
+            "Обновить статус оплаты",
+            PaymentRefreshCallback(order_id=parsed_order_id),
         )
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 

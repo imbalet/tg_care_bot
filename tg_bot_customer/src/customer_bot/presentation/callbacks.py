@@ -45,6 +45,10 @@ class OrderResponseRejectCallback(CallbackData, prefix="order_resp_reject"):
     match_id: UUID
 
 
+class PaymentRefreshCallback(CallbackData, prefix="payment_refresh"):
+    order_id: UUID
+
+
 class ServicesPricesCallback(CallbackData, prefix="services_prices"):
     pass
 
