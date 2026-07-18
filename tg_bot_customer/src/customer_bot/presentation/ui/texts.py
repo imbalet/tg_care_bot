@@ -513,7 +513,7 @@ def order_no_objects_text(object_type: str) -> str:
 
 
 def order_start_step_text() -> str:
-    return "<b>Дата и время</b>\n\nВыберите дату в календаре."
+    return "<b>Дата и время</b>\n\nВыберите дату в календаре или введите вручную."
 
 
 def order_datetime_manual_step_text() -> str:

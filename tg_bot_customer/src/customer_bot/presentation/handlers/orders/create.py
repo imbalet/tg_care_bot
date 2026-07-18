@@ -486,6 +486,24 @@ async def select_start_date(
     telegram_user_context: TelegramUserContext,
     callback_data: SimpleCalendarCallback,
 ) -> None:
+    await _process_start_calendar_selection(
+        callback,
+        bot,
+        state,
+        telegram_responder,
+        telegram_user_context,
+        callback_data,
+    )
+
+
+async def _process_start_calendar_selection(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: SimpleCalendarCallback,
+) -> None:
     selected, selected_date = await order_start_calendar().process_selection(
         callback,
         callback_data,
@@ -516,6 +534,14 @@ async def request_manual_start(
     telegram_user_context: TelegramUserContext,
     callback_data: OrderStartManualCallback,
 ) -> None:
+    logger.info(
+        "Order start manual requested",
+        extra={
+            "telegram_id": telegram_user_context.telegram_id,
+            "mode": callback_data.mode,
+            "state": await state.get_state(),
+        },
+    )
     data = await state.get_data()
     if callback_data.mode == "time":
         start_date = _start_date_from_state(data)
@@ -537,6 +563,9 @@ async def request_manual_start(
             telegram_user_context=telegram_user_context,
             text=order_time_manual_step_text(_format_date(start_date)),
         )
+        return
+    if callback_data.mode != "datetime":
+        await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     await state.update_data(order_start_manual_time=False)
     await send_step(
@@ -576,11 +605,27 @@ async def select_start_time(
 @router.callback_query(SimpleCalendarCallback.filter())
 async def stale_start_calendar(
     callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
     telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: SimpleCalendarCallback,
 ) -> None:
-    await telegram_responder.acknowledge(
+    data = await state.get_data()
+    if not draft(data):
+        await telegram_responder.acknowledge(
+            callback,
+            "Начните создание заказа заново.",
+        )
+        return
+    await state.set_state(OrderCreation.start)
+    await _process_start_calendar_selection(
         callback,
-        "Начните создание заказа заново.",
+        bot,
+        state,
+        telegram_responder,
+        telegram_user_context,
+        callback_data,
     )
 
 
