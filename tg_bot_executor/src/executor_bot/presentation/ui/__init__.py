@@ -19,6 +19,7 @@ from .keyboards import (
 )
 from .texts import (
     about_step_text,
+    available_orders_placeholder_text,
     avatar_deleted_text,
     avatar_menu_text,
     avatar_upload_step_text,
@@ -28,6 +29,7 @@ from .texts import (
     calendar_updated_text,
     category_select_text,
     executor_main_menu_text,
+    executor_orders_placeholder_text,
     executor_profile_text,
     fallback_text,
     full_name_step_text,
@@ -69,6 +71,7 @@ __all__ = [
     "avatar_menu_text",
     "avatar_upload_step_text",
     "avatar_uploaded_text",
+    "available_orders_placeholder_text",
     "calendar_keyboard",
     "calendar_text",
     "calendar_updated_text",
@@ -76,6 +79,7 @@ __all__ = [
     "category_select_text",
     "contact_methods_keyboard",
     "executor_main_menu_text",
+    "executor_orders_placeholder_text",
     "executor_profile_text",
     "fallback_keyboard",
     "fallback_text",

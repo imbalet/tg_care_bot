@@ -3,6 +3,7 @@ from .addresses import router as addresses_router
 from .avatar import router as avatar_router
 from .category import router as category_router
 from .fallback import router as fallback_router
+from .orders import router as orders_router
 from .registration import router as registration_router
 from .services_calendar import router as services_calendar_router
 from .start import router as start_router
@@ -12,6 +13,7 @@ __all__ = [
     "avatar_router",
     "category_router",
     "fallback_router",
+    "orders_router",
     "registration_router",
     "services_calendar_router",
     "start_router",

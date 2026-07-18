@@ -26,6 +26,7 @@ from executor_bot.presentation.handlers import (
     avatar_router,
     category_router,
     fallback_router,
+    orders_router,
     registration_router,
     services_calendar_router,
     start_router,
@@ -62,6 +63,7 @@ async def amain() -> None:
     dispatcher.include_router(avatar_router)
     dispatcher.include_router(services_calendar_router)
     dispatcher.include_router(category_router)
+    dispatcher.include_router(orders_router)
     dispatcher.include_router(fallback_router)
 
     bot = Bot(

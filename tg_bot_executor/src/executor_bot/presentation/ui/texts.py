@@ -299,6 +299,24 @@ def calendar_updated_text() -> str:
     return "Календарь обновлен."
 
 
+def available_orders_placeholder_text(scope: object) -> str:
+    scope_text = _order_scope_text(scope)
+    return (
+        "<b>Доступные заказы</b>\n\n"
+        f"Фильтр: {scope_text}.\n\n"
+        "Список заказов будет подключен после backend-контракта."
+    )
+
+
+def executor_orders_placeholder_text(scope: object) -> str:
+    scope_text = _order_scope_text(scope)
+    return (
+        "<b>Мои заказы</b>\n\n"
+        f"Фильтр: {scope_text}.\n\n"
+        "Список заказов будет подключен после backend-контракта."
+    )
+
+
 def registration_complete_text() -> str:
     return (
         "✅ <b>Регистрация отправлена</b>\n\n"
@@ -346,6 +364,10 @@ def unavailable_action_text() -> str:
     )
 
 
+def _order_scope_text(scope: object) -> str:
+    return "все направления" if str(scope) == "all" else "текущее направление"
+
+
 __all__ = [
     "about_step_text",
     "backend_rejected_registration_text",
@@ -353,10 +375,12 @@ __all__ = [
     "avatar_menu_text",
     "avatar_upload_step_text",
     "avatar_uploaded_text",
+    "available_orders_placeholder_text",
     "calendar_text",
     "calendar_updated_text",
     "category_select_text",
     "executor_main_menu_text",
+    "executor_orders_placeholder_text",
     "executor_profile_text",
     "fallback_text",
     "full_name_step_text",
