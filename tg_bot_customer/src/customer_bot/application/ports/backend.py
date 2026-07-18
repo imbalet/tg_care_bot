@@ -122,6 +122,7 @@ class BackendPort(Protocol):
     async def preview_order_price(
         self,
         *,
+        customer_id: UUID,
         service_id: UUID,
         start_at: datetime,
         end_at: datetime,

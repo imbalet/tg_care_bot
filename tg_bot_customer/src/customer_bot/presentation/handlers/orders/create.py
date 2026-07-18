@@ -28,7 +28,6 @@ from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.addresses.state import AddressManagement
 from customer_bot.presentation.handlers.care_objects.state import CareObjectManagement
 from customer_bot.presentation.handlers.orders.state import (
-    LOCAL_TZ,
     OrderCreation,
     care_object_state,
     draft,
@@ -598,7 +597,7 @@ async def select_start_time(
         state,
         telegram_responder,
         telegram_user_context,
-        datetime.combine(start_date, start_time, tzinfo=LOCAL_TZ),
+        datetime.combine(start_date, start_time),
     )
 
 
@@ -652,7 +651,7 @@ async def enter_start(
     if manual_time and start_date is not None:
         parsed_time = parse_local_time(message.text)
         start_at = (
-            datetime.combine(start_date, parsed_time, tzinfo=LOCAL_TZ)
+            datetime.combine(start_date, parsed_time)
             if parsed_time is not None
             else None
         )
@@ -982,6 +981,7 @@ async def _create_draft_and_show_summary(
         )
         objects_count = int(str(order_draft["objects_count"]))
         price = await backend_client.preview_order_price(
+            customer_id=profile.id,
             service_id=UUID(str(order_draft["service_id"])),
             start_at=start_at,
             end_at=end_at,

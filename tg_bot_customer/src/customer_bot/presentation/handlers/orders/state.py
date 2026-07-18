@@ -1,5 +1,4 @@
 from datetime import datetime, time, timedelta
-from zoneinfo import ZoneInfo
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -9,8 +8,6 @@ from customer_bot.application.dto import (
     ServiceCategoryDTO,
     SuitablePerformerDTO,
 )
-
-LOCAL_TZ = ZoneInfo("Europe/Moscow")
 
 
 class OrderCreation(StatesGroup):
@@ -88,10 +85,9 @@ async def item_by_index(
 
 def parse_local_datetime(value: str) -> datetime | None:
     try:
-        parsed = datetime.strptime(value.strip(), "%Y-%m-%d %H:%M")
+        return datetime.strptime(value.strip(), "%Y-%m-%d %H:%M")
     except ValueError:
         return None
-    return parsed.replace(tzinfo=LOCAL_TZ)
 
 
 def parse_local_time(value: str) -> time | None:

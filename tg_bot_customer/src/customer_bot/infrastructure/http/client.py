@@ -295,6 +295,7 @@ class BackendClient(BackendPort):
     async def preview_order_price(
         self,
         *,
+        customer_id: UUID,
         service_id: UUID,
         start_at: datetime,
         end_at: datetime,
@@ -304,6 +305,7 @@ class BackendClient(BackendPort):
             "POST",
             "/api/orders/price-preview",
             json={
+                "customer_id": str(customer_id),
                 "service_id": str(service_id),
                 "start_at": start_at.isoformat(),
                 "end_at": end_at.isoformat(),
