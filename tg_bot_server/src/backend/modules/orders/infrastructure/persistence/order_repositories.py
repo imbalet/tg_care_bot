@@ -10,6 +10,7 @@ from backend.common.domain import ValidationError
 from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.care_objects.infrastructure import CareObjectModel
 from backend.modules.catalog.infrastructure import ServiceOptionModel
+from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.orders.application import (
     OrderCareObjectSnapshot,
     OrderData,
@@ -158,6 +159,16 @@ class SqlAlchemyOrderRepository(OrderRepository):
             ),
         )
         return result.scalar_one_or_none() is not None
+
+    async def get_customer_city_id(self, customer_id: UUID) -> UUID | None:
+        result = await self._session.execute(
+            select(CustomerModel.city_id).where(
+                CustomerModel.id == customer_id,
+                CustomerModel.status == "active",
+                CustomerModel.deleted_at.is_(None),
+            ),
+        )
+        return result.scalar_one_or_none()
 
     async def service_options_exist(
         self,

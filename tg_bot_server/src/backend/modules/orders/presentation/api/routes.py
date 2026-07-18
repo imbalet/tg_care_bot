@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
 from backend.common.presentation import require_service_key
+from backend.modules.availability.infrastructure import SqlAlchemyAvailabilityRepository
 from backend.modules.orders.application import (
     CalculatePricePreviewCommand,
     CalculatePricePreviewUseCase,
@@ -60,6 +61,7 @@ async def create_direct(
         order = await CreateDirectOrderUseCase(
             SqlAlchemyOrderRepository(session),
             SqlAlchemyPricingRepository(session),
+            SqlAlchemyAvailabilityRepository(session),
         ).execute(create_direct_command(request))
         await session.commit()
     return order_response(order)

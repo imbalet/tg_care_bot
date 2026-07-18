@@ -9,6 +9,8 @@ from uuid import UUID
 class ServicePricingDTO:
     service_id: UUID
     category_id: UUID
+    category_object_type: str
+    max_objects_per_order: int
     service_code: str
     service_name: str
     price_type: str

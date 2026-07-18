@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.modules.catalog.infrastructure import (
     BusinessSettingModel,
     ObjectCountMultiplierModel,
+    ServiceCategoryModel,
     ServiceModel,
 )
 from backend.modules.orders.application import PricingRepository, ServicePricingDTO
@@ -17,12 +18,23 @@ class SqlAlchemyPricingRepository(PricingRepository):
         self._session = session
 
     async def get_service_pricing(self, service_id: UUID) -> ServicePricingDTO | None:
-        model = await self._session.get(ServiceModel, service_id)
-        if model is None:
+        result = await self._session.execute(
+            select(ServiceModel, ServiceCategoryModel)
+            .join(
+                ServiceCategoryModel,
+                ServiceCategoryModel.id == ServiceModel.category_id,
+            )
+            .where(ServiceModel.id == service_id),
+        )
+        row = result.tuples().one_or_none()
+        if row is None:
             return None
+        model, category = row
         return ServicePricingDTO(
             service_id=model.id,
             category_id=model.category_id,
+            category_object_type=category.care_object_type,
+            max_objects_per_order=category.max_objects_per_order,
             service_code=model.code,
             service_name=model.name,
             price_type=model.price_type,

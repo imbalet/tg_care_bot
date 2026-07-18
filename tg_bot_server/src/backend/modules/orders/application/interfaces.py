@@ -74,6 +74,9 @@ class OrderRepository(Protocol):
     ) -> bool:
         pass
 
+    async def get_customer_city_id(self, customer_id: UUID) -> UUID | None:
+        pass
+
     async def service_options_exist(
         self,
         *,

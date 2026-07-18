@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from backend.common.domain import NotFoundError, ValidationError
+from backend.modules.availability.application import AvailabilityRepository
 from backend.modules.orders.application.dto import (
     OrderCareObjectSnapshot,
     OrderData,
@@ -73,9 +74,11 @@ class CreateDirectOrderUseCase:
         self,
         order_repository: OrderRepository,
         pricing_repository: PricingRepository,
+        availability_repository: AvailabilityRepository,
     ) -> None:
         self._order_repository = order_repository
         self._pricing_repository = pricing_repository
+        self._availability_repository = availability_repository
 
     async def execute(self, command: CreateDirectOrderCommand) -> OrderDTO:
         response_window = await self._pricing_repository.get_integer_setting(
@@ -88,6 +91,7 @@ class CreateDirectOrderUseCase:
             self._order_repository,
             self._pricing_repository,
         )
+        await self._ensure_direct_performer_suitable(command)
         return await self._order_repository.create_direct(
             data=data,
             service=service,
@@ -97,6 +101,26 @@ class CreateDirectOrderUseCase:
             performer_id=command.performer_id,
             response_window_minutes=response_window,
         )
+
+    async def _ensure_direct_performer_suitable(
+        self,
+        command: CreateDirectOrderCommand,
+    ) -> None:
+        city_id = await self._order_repository.get_customer_city_id(command.customer_id)
+        if city_id is None:
+            raise ValidationError("Customer is inactive or unknown")
+        suitable = await self._availability_repository.find_suitable_performers(
+            city_id=city_id,
+            service_id=command.service_id,
+            starts_at=command.start_at,
+            ends_at=command.end_at,
+            objects_count=len(command.care_object_ids),
+            care_object_ids=command.care_object_ids,
+            address_id=command.address_id,
+            limit=100,
+        )
+        if all(item.performer_id != command.performer_id for item in suitable):
+            raise ValidationError("Performer is not suitable for direct order")
 
 
 async def _prepare_order(
@@ -121,6 +145,12 @@ async def _prepare_order(
     )
     if len(snapshots) != len(set(command.care_object_ids)):
         raise ValidationError("Care object is inactive or unknown")
+    if len(snapshots) > service.max_objects_per_order:
+        raise ValidationError("Order objects count exceeds service limit")
+    if any(
+        snapshot.object_type != service.category_object_type for snapshot in snapshots
+    ):
+        raise ValidationError("Care object category does not match service")
     if service.location_policy == "customer_address":
         if command.address_id is None:
             raise ValidationError("Customer address is required")
