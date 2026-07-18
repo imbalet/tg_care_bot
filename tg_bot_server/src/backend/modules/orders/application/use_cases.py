@@ -137,6 +137,8 @@ async def _prepare_order(
     service = await pricing_repository.get_service_pricing(command.service_id)
     if service is None:
         raise NotFoundError("Service not found")
+    if await order_repository.get_customer_city_id(command.customer_id) is None:
+        raise ValidationError("Customer is inactive or unknown")
     if not command.care_object_ids:
         raise ValidationError("Order must include care objects")
     snapshots = await order_repository.list_care_object_snapshots(
