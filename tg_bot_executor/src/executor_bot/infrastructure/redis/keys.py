@@ -14,6 +14,12 @@ class ExecutorRedisKeys:
     def username_sync_cache(self, telegram_id: int) -> str:
         return self._join("username_sync", str(telegram_id))
 
+    def active_category(self, telegram_id: int) -> str:
+        return f"tg:performer:{telegram_id}:active_category"
+
+    def current_message(self, telegram_id: int) -> str:
+        return self._join("screen", str(telegram_id), "current")
+
     def topic_kind_by_thread(self, telegram_id: int, message_thread_id: int) -> str:
         return self._join("topics", str(telegram_id), "thread", str(message_thread_id))
 

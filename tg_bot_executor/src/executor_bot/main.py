@@ -8,9 +8,15 @@ from aiogram.methods.delete_webhook import DeleteWebhook
 from aiogram.types import BotCommand
 from redis.asyncio import Redis
 
+from executor_bot.application.services import UsernameSyncService
 from executor_bot.bootstrap import get_settings
 from executor_bot.infrastructure.http import BackendClient
-from executor_bot.infrastructure.redis import create_fsm_storage
+from executor_bot.infrastructure.redis import (
+    RedisActiveCategoryStore,
+    RedisUsernameSyncCache,
+    create_fsm_storage,
+)
+from executor_bot.presentation.contexts import AppContext
 from executor_bot.presentation.handlers import (
     addresses_router,
     avatar_router,
@@ -20,6 +26,7 @@ from executor_bot.presentation.handlers import (
     start_router,
 )
 from executor_bot.presentation.middlewares import (
+    AppContextMiddleware,
     TelegramTopicsEnsureMiddleware,
     TelegramUserContextMiddleware,
     TelegramUsernameSyncMiddleware,
@@ -36,7 +43,8 @@ async def amain() -> None:
         fsm_strategy=FSMStrategy.USER_IN_TOPIC,
     )
     dispatcher.update.middleware(TelegramUserContextMiddleware())
-    dispatcher.update.middleware(TelegramUsernameSyncMiddleware(redis))
+    dispatcher.update.middleware(AppContextMiddleware())
+    dispatcher.update.middleware(TelegramUsernameSyncMiddleware())
     dispatcher.update.middleware(TelegramTopicsEnsureMiddleware())
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)
@@ -56,6 +64,12 @@ async def amain() -> None:
     )
     menu_manager = MenuManager(redis)
     topic_setup_service = TelegramTopicSetupService(redis)
+    active_category_store = RedisActiveCategoryStore(redis)
+    username_sync_cache = RedisUsernameSyncCache(redis)
+    username_sync_service = UsernameSyncService(
+        backend=backend_client,
+        cache=username_sync_cache,
+    )
     try:
         await bot.set_my_commands(
             [
@@ -67,7 +81,11 @@ async def amain() -> None:
         await bot(DeleteWebhook(drop_pending_updates=True))
         await dispatcher.start_polling(
             bot,
-            backend_client=backend_client,
+            app_context=AppContext(
+                backend_client=backend_client,
+                active_category_store=active_category_store,
+                username_sync_service=username_sync_service,
+            ),
             menu_manager=menu_manager,
             topic_setup_service=topic_setup_service,
         )
