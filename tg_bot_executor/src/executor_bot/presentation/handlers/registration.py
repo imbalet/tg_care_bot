@@ -6,12 +6,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from executor_bot.infrastructure.http import (
-    BackendClient,
-    BackendClientError,
-    BackendValidationError,
-)
+from executor_bot.application.errors import BackendClientError, BackendValidationError
+from executor_bot.application.ports import BackendPort
+from executor_bot.presentation.handlers.responses import send_step
 from executor_bot.presentation.middlewares import TelegramUserContext
+from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
     about_step_text,
     backend_rejected_registration_text,
@@ -66,13 +65,22 @@ class ExecutorRegistration(StatesGroup):
 async def start_registration(
     message: Message,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
 ) -> None:
     try:
         cities = await backend_client.list_active_cities()
         documents = await backend_client.list_active_legal_documents()
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=message,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     await state.set_state(ExecutorRegistration.legal_acceptance)
     await state.update_data(
@@ -80,8 +88,12 @@ async def start_registration(
         city_names=[city.name for city in cities],
         legal_document_ids=[str(document.id) for document in documents],
     )
-    await message.answer(
-        legal_documents_text(documents),
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=legal_documents_text(documents),
         reply_markup=legal_acceptance_keyboard(documents),
     )
 
@@ -231,7 +243,7 @@ async def confirm_registration(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()

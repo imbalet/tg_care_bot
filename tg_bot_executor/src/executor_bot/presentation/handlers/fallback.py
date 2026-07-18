@@ -2,9 +2,10 @@ from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
-from executor_bot.infrastructure.http import BackendClient, BackendClientError
+from executor_bot.application.errors import BackendClientError
+from executor_bot.application.ports import BackendPort
 from executor_bot.presentation.middlewares import TelegramUserContext
-from executor_bot.presentation.services import MenuManager
+from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
     executor_main_menu_text,
     executor_profile_text,
@@ -23,8 +24,8 @@ router = Router(name="fallback")
 async def main_menu_callback(
     callback: CallbackQuery,
     bot: Bot,
-    backend_client: BackendClient,
-    menu_manager: MenuManager,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     message = callback.message
@@ -36,7 +37,7 @@ async def main_menu_callback(
             telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await menu_manager.update(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
@@ -45,7 +46,7 @@ async def main_menu_callback(
         )
         return
     if registration_state.state != "registered":
-        await menu_manager.update(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
@@ -53,7 +54,7 @@ async def main_menu_callback(
             reply_markup=fallback_keyboard(include_main_menu=False),
         )
         return
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
@@ -67,8 +68,8 @@ async def help_callback(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
-    menu_manager: MenuManager,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     message = callback.message
@@ -84,7 +85,7 @@ async def help_callback(
                 ).state == "registered"
             except BackendClientError:
                 include_main_menu = False
-        await menu_manager.update(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
@@ -97,8 +98,8 @@ async def help_callback(
 async def profile_callback(
     callback: CallbackQuery,
     bot: Bot,
-    backend_client: BackendClient,
-    menu_manager: MenuManager,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     message = callback.message
@@ -110,7 +111,7 @@ async def profile_callback(
             telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await menu_manager.update(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
@@ -119,7 +120,7 @@ async def profile_callback(
         )
         return
     if state.performer is None:
-        await menu_manager.update(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
@@ -127,7 +128,7 @@ async def profile_callback(
             reply_markup=fallback_keyboard(),
         )
         return
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
@@ -140,10 +141,10 @@ async def profile_callback(
 async def unknown_callback(
     callback: CallbackQuery,
     bot: Bot,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
@@ -156,10 +157,10 @@ async def unknown_callback(
 async def unknown_message(
     message: Message,
     bot: Bot,
-    menu_manager: MenuManager,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await menu_manager.update(
+    await telegram_responder.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
