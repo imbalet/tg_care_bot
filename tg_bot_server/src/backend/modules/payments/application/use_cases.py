@@ -180,6 +180,12 @@ class RetryPaymentOperationUseCase:
         if data is None:
             raise NotFoundError("Payment not found")
         if data.payment.provider_payment_id is None:
+            if data.payment.status == "created":
+                await InitializePaymentUseCase(
+                    self._repository,
+                    self._gateway,
+                ).execute(InitializePaymentCommand(command.payment_id))
+                return None
             raise ValidationError("Provider payment id is not available")
         state = await self._gateway.get_payment_state(
             PaymentGatewayStateCommand(
