@@ -1,9 +1,14 @@
-from aiogram import Bot, F, Router
+from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from executor_bot.application.errors import BackendClientError
 from executor_bot.application.ports import BackendPort
+from executor_bot.presentation.callbacks import (
+    HelpCallback,
+    MainMenuCallback,
+    ProfileOpenCallback,
+)
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
@@ -15,12 +20,11 @@ from executor_bot.presentation.ui import (
     main_menu_keyboard,
     unavailable_action_text,
 )
-from executor_bot.presentation.ui.keyboards import HELP, MAIN_MENU
 
 router = Router(name="fallback")
 
 
-@router.callback_query(F.data == MAIN_MENU)
+@router.callback_query(MainMenuCallback.filter())
 async def main_menu_callback(
     callback: CallbackQuery,
     bot: Bot,
@@ -63,7 +67,7 @@ async def main_menu_callback(
     )
 
 
-@router.callback_query(F.data == HELP)
+@router.callback_query(HelpCallback.filter())
 async def help_callback(
     callback: CallbackQuery,
     bot: Bot,
@@ -94,7 +98,7 @@ async def help_callback(
         )
 
 
-@router.callback_query(F.data == "profile:open")
+@router.callback_query(ProfileOpenCallback.filter())
 async def profile_callback(
     callback: CallbackQuery,
     bot: Bot,

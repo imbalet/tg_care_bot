@@ -6,6 +6,11 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
 from executor_bot.infrastructure.http import BackendClient, BackendClientError
+from executor_bot.presentation.callbacks import (
+    AvatarDeleteCallback,
+    AvatarOpenCallback,
+    AvatarUploadCallback,
+)
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.ui import (
     avatar_deleted_text,
@@ -15,11 +20,6 @@ from executor_bot.presentation.ui import (
     avatar_uploaded_text,
     retry_later_text,
 )
-from executor_bot.presentation.ui.keyboards import (
-    AVATAR_DELETE,
-    AVATAR_OPEN,
-    AVATAR_UPLOAD,
-)
 
 router = Router(name="avatar")
 
@@ -28,7 +28,7 @@ class AvatarManagement(StatesGroup):
     waiting_file = State()
 
 
-@router.callback_query(F.data == AVATAR_OPEN)
+@router.callback_query(AvatarOpenCallback.filter())
 async def open_avatar(callback: CallbackQuery) -> None:
     await callback.answer()
     message = _callback_message(callback)
@@ -36,7 +36,7 @@ async def open_avatar(callback: CallbackQuery) -> None:
         await message.answer(avatar_menu_text(), reply_markup=avatar_keyboard())
 
 
-@router.callback_query(F.data == AVATAR_UPLOAD)
+@router.callback_query(AvatarUploadCallback.filter())
 async def start_upload(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.set_state(AvatarManagement.waiting_file)
@@ -45,7 +45,7 @@ async def start_upload(callback: CallbackQuery, state: FSMContext) -> None:
         await message.answer(avatar_upload_step_text())
 
 
-@router.callback_query(F.data == AVATAR_DELETE)
+@router.callback_query(AvatarDeleteCallback.filter())
 async def delete_avatar(
     callback: CallbackQuery,
     backend_client: BackendClient,

@@ -1,16 +1,24 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from aiogram import Bot, F, Router
+from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
 from executor_bot.application.errors import BackendClientError, BackendValidationError
 from executor_bot.application.ports import BackendPort
+from executor_bot.presentation.callbacks import (
+    RegistrationCityCallback,
+    RegistrationConfirmCallback,
+    RegistrationContactCallback,
+    RegistrationEditCallback,
+    RegistrationLegalAcceptCallback,
+)
 from executor_bot.presentation.handlers.responses import send_step
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.services import TelegramResponder
+from executor_bot.presentation.types import ContactMethod
 from executor_bot.presentation.ui import (
     about_step_text,
     backend_rejected_registration_text,
@@ -30,20 +38,13 @@ from executor_bot.presentation.ui import (
     summary_text,
     use_buttons_text,
 )
-from executor_bot.presentation.ui.keyboards import (
-    REGISTRATION_ACCEPT_LEGAL,
-    REGISTRATION_CITY_PREFIX,
-    REGISTRATION_CONFIRM,
-    REGISTRATION_CONTACT_PREFIX,
-    REGISTRATION_EDIT,
-)
 
 router = Router(name="registration")
 
-CONTACT_METHOD_LABELS = {
-    "telegram": "Telegram",
-    "phone": "Телефон",
-    "both": "Telegram и телефон",
+CONTACT_METHOD_LABELS: dict[ContactMethod, str] = {
+    ContactMethod.TELEGRAM: "Telegram",
+    ContactMethod.PHONE: "Телефон",
+    ContactMethod.BOTH: "Telegram и телефон",
 }
 
 
@@ -100,7 +101,7 @@ async def start_registration(
 
 @router.callback_query(
     ExecutorRegistration.legal_acceptance,
-    F.data == REGISTRATION_ACCEPT_LEGAL,
+    RegistrationLegalAcceptCallback.filter(),
 )
 async def accept_legal(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
@@ -141,14 +142,18 @@ async def enter_phone(message: Message, state: FSMContext) -> None:
 
 @router.callback_query(
     ExecutorRegistration.city,
-    F.data.startswith(REGISTRATION_CITY_PREFIX),
+    RegistrationCityCallback.filter(),
 )
-async def enter_city(callback: CallbackQuery, state: FSMContext) -> None:
+async def enter_city(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: RegistrationCityCallback,
+) -> None:
     await callback.answer()
     data = await state.get_data()
     city_ids = _string_list(data["city_ids"])
-    city_index = _callback_index(callback.data, REGISTRATION_CITY_PREFIX)
-    if city_index is None or city_index < 0 or city_index >= len(city_ids):
+    city_index = callback_data.index
+    if city_index < 0 or city_index >= len(city_ids):
         message = _callback_message(callback)
         if message is not None:
             await message.answer(
@@ -181,19 +186,15 @@ async def unknown_city_action(message: Message, state: FSMContext) -> None:
 
 @router.callback_query(
     ExecutorRegistration.contact_method,
-    F.data.startswith(REGISTRATION_CONTACT_PREFIX),
+    RegistrationContactCallback.filter(),
 )
-async def enter_contact_method(callback: CallbackQuery, state: FSMContext) -> None:
+async def enter_contact_method(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: RegistrationContactCallback,
+) -> None:
     await callback.answer()
-    contact_method = _callback_value(callback.data, REGISTRATION_CONTACT_PREFIX)
-    if contact_method is None:
-        message = _callback_message(callback)
-        if message is not None:
-            await message.answer(
-                use_buttons_text(),
-                reply_markup=contact_methods_keyboard(),
-            )
-        return
+    contact_method = callback_data.method
     label = CONTACT_METHOD_LABELS.get(contact_method)
     if label is None:
         message = _callback_message(callback)
@@ -229,7 +230,7 @@ async def enter_about_text(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.callback_query(ExecutorRegistration.summary, F.data == REGISTRATION_EDIT)
+@router.callback_query(ExecutorRegistration.summary, RegistrationEditCallback.filter())
 async def edit_registration(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
     await state.set_state(ExecutorRegistration.full_name)
@@ -238,7 +239,10 @@ async def edit_registration(callback: CallbackQuery, state: FSMContext) -> None:
         await message.answer(full_name_step_text())
 
 
-@router.callback_query(ExecutorRegistration.summary, F.data == REGISTRATION_CONFIRM)
+@router.callback_query(
+    ExecutorRegistration.summary,
+    RegistrationConfirmCallback.filter(),
+)
 async def confirm_registration(
     callback: CallbackQuery,
     bot: Bot,
@@ -287,19 +291,6 @@ async def unknown_summary_action(message: Message) -> None:
 
 def _cities_from_state(data: dict[str, object]) -> tuple[_CityView, ...]:
     return tuple(_CityView(name) for name in _string_list(data["city_names"]))
-
-
-def _callback_index(data: str | None, prefix: str) -> int | None:
-    value = _callback_value(data, prefix)
-    if value is None or not value.isdigit():
-        return None
-    return int(value)
-
-
-def _callback_value(data: str | None, prefix: str) -> str | None:
-    if data is None or not data.startswith(prefix):
-        return None
-    return data.removeprefix(prefix)
 
 
 def _callback_message(callback: CallbackQuery) -> Message | None:

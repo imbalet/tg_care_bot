@@ -1,7 +1,7 @@
 from datetime import time
 from uuid import UUID
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -9,6 +9,15 @@ from executor_bot.infrastructure.http import (
     BackendClient,
     BackendClientError,
     PerformerServiceDTO,
+)
+from executor_bot.presentation.callbacks import (
+    AcceptingOrdersCallback,
+    CalendarOpenCallback,
+    CalendarScheduleCallback,
+    CalendarUnavailableTomorrowCallback,
+    ServiceLimitCallback,
+    ServicesOpenCallback,
+    ServiceToggleCallback,
 )
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.ui import (
@@ -20,23 +29,11 @@ from executor_bot.presentation.ui import (
     services_text,
     services_updated_text,
 )
-from executor_bot.presentation.ui.keyboards import (
-    ACCEPTING_OFF,
-    ACCEPTING_ON,
-    CALENDAR_EVERY_DAY,
-    CALENDAR_OPEN,
-    CALENDAR_UNAVAILABLE_TOMORROW,
-    CALENDAR_WEEKDAYS,
-    CALENDAR_WEEKENDS,
-    SERVICES_LIMIT_PREFIX,
-    SERVICES_OPEN,
-    SERVICES_TOGGLE_PREFIX,
-)
 
 router = Router(name="services_calendar")
 
 
-@router.callback_query(F.data == SERVICES_OPEN)
+@router.callback_query(ServicesOpenCallback.filter())
 async def open_services(
     callback: CallbackQuery,
     state: FSMContext,
@@ -63,11 +60,12 @@ async def open_services(
     )
 
 
-@router.callback_query(F.data.in_({ACCEPTING_ON, ACCEPTING_OFF}))
+@router.callback_query(AcceptingOrdersCallback.filter())
 async def toggle_accepting_orders(
     callback: CallbackQuery,
     backend_client: BackendClient,
     telegram_user_context: TelegramUserContext,
+    callback_data: AcceptingOrdersCallback,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
@@ -76,7 +74,7 @@ async def toggle_accepting_orders(
     try:
         await backend_client.set_accepting_orders(
             telegram_id=telegram_user_context.telegram_id,
-            is_accepting_orders=callback.data == ACCEPTING_ON,
+            is_accepting_orders=callback_data.value,
         )
     except BackendClientError:
         await message.answer(retry_later_text())
@@ -84,15 +82,16 @@ async def toggle_accepting_orders(
     await message.answer(services_updated_text())
 
 
-@router.callback_query(F.data.startswith(SERVICES_TOGGLE_PREFIX))
+@router.callback_query(ServiceToggleCallback.filter())
 async def toggle_service(
     callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendClient,
     telegram_user_context: TelegramUserContext,
+    callback_data: ServiceToggleCallback,
 ) -> None:
     await callback.answer()
-    item = await _service_from_callback(callback, state, SERVICES_TOGGLE_PREFIX)
+    item = await _service_by_index(state, callback_data.index)
     message = _callback_message(callback)
     if item is None or message is None:
         return
@@ -108,15 +107,16 @@ async def toggle_service(
     await message.answer(services_updated_text())
 
 
-@router.callback_query(F.data.startswith(SERVICES_LIMIT_PREFIX))
+@router.callback_query(ServiceLimitCallback.filter())
 async def reduce_service_limit(
     callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendClient,
     telegram_user_context: TelegramUserContext,
+    callback_data: ServiceLimitCallback,
 ) -> None:
     await callback.answer()
-    item = await _service_from_callback(callback, state, SERVICES_LIMIT_PREFIX)
+    item = await _service_by_index(state, callback_data.index)
     message = _callback_message(callback)
     if item is None or message is None:
         return
@@ -136,7 +136,7 @@ async def reduce_service_limit(
     await message.answer(services_updated_text())
 
 
-@router.callback_query(F.data == CALENDAR_OPEN)
+@router.callback_query(CalendarOpenCallback.filter())
 async def open_calendar(callback: CallbackQuery) -> None:
     await callback.answer()
     message = _callback_message(callback)
@@ -144,23 +144,21 @@ async def open_calendar(callback: CallbackQuery) -> None:
         await message.answer(calendar_text(), reply_markup=calendar_keyboard())
 
 
-@router.callback_query(
-    F.data.in_({CALENDAR_EVERY_DAY, CALENDAR_WEEKDAYS, CALENDAR_WEEKENDS}),
-)
+@router.callback_query(CalendarScheduleCallback.filter())
 async def set_schedule(
     callback: CallbackQuery,
     backend_client: BackendClient,
     telegram_user_context: TelegramUserContext,
+    callback_data: CalendarScheduleCallback,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
     if message is None:
         return
-    schedule_type = str(callback.data).removeprefix("calendar:schedule:")
     try:
         await backend_client.set_schedule(
             telegram_id=telegram_user_context.telegram_id,
-            schedule_type=schedule_type,
+            schedule_type=callback_data.schedule_type,
             work_days=None,
             work_start_time=time(9),
             work_end_time=time(18),
@@ -171,7 +169,7 @@ async def set_schedule(
     await message.answer(calendar_updated_text())
 
 
-@router.callback_query(F.data == CALENDAR_UNAVAILABLE_TOMORROW)
+@router.callback_query(CalendarUnavailableTomorrowCallback.filter())
 async def add_unavailable_tomorrow(
     callback: CallbackQuery,
     backend_client: BackendClient,
@@ -195,27 +193,16 @@ def _callback_message(callback: CallbackQuery) -> Message | None:
     return callback.message if isinstance(callback.message, Message) else None
 
 
-async def _service_from_callback(
-    callback: CallbackQuery,
+async def _service_by_index(
     state: FSMContext,
-    prefix: str,
+    index: int,
 ) -> dict[str, object] | None:
     data = await state.get_data()
-    index = _callback_index(callback.data, prefix)
     services = data.get("performer_services")
-    if index is None or not isinstance(services, list) or index >= len(services):
+    if not isinstance(services, list) or index < 0 or index >= len(services):
         return None
     item = services[index]
     return item if isinstance(item, dict) else None
-
-
-def _callback_index(value: str | None, prefix: str) -> int | None:
-    if value is None or not value.startswith(prefix):
-        return None
-    try:
-        return int(value.removeprefix(prefix))
-    except ValueError:
-        return None
 
 
 def _service_state(item: PerformerServiceDTO) -> dict[str, object]:

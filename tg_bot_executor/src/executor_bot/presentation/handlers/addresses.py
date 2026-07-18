@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
@@ -10,6 +10,16 @@ from executor_bot.infrastructure.http import (
     BackendClient,
     BackendClientError,
     BackendValidationError,
+)
+from executor_bot.presentation.callbacks import (
+    WorkAddressAddCallback,
+    WorkAddressCityCallback,
+    WorkAddressCurrentCallback,
+    WorkAddressDeleteCallback,
+    WorkAddressesOpenCallback,
+    WorkAddressSelectCallback,
+    WorkAddressSkipCallback,
+    WorkAddressSuggestionCallback,
 )
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.ui import (
@@ -30,16 +40,6 @@ from executor_bot.presentation.ui import (
     work_addresses_keyboard,
     work_addresses_list_text,
 )
-from executor_bot.presentation.ui.keyboards import (
-    WORK_ADDRESS_ADD,
-    WORK_ADDRESS_CITY_PREFIX,
-    WORK_ADDRESS_CURRENT_PREFIX,
-    WORK_ADDRESS_DELETE_PREFIX,
-    WORK_ADDRESS_SELECT_PREFIX,
-    WORK_ADDRESS_SKIP,
-    WORK_ADDRESS_SUGGESTION_PREFIX,
-    WORK_ADDRESSES_OPEN,
-)
 
 router = Router(name="work_addresses")
 
@@ -58,7 +58,7 @@ class WorkAddressManagement(StatesGroup):
     extra = State()
 
 
-@router.callback_query(F.data == WORK_ADDRESSES_OPEN)
+@router.callback_query(WorkAddressesOpenCallback.filter())
 async def open_work_addresses(
     callback: CallbackQuery,
     state: FSMContext,
@@ -86,7 +86,7 @@ async def open_work_addresses(
     )
 
 
-@router.callback_query(F.data == WORK_ADDRESS_ADD)
+@router.callback_query(WorkAddressAddCallback.filter())
 async def add_work_address(
     callback: CallbackQuery,
     state: FSMContext,
@@ -117,15 +117,19 @@ async def add_work_address(
 
 @router.callback_query(
     WorkAddressManagement.city,
-    F.data.startswith(WORK_ADDRESS_CITY_PREFIX),
+    WorkAddressCityCallback.filter(),
 )
-async def select_city(callback: CallbackQuery, state: FSMContext) -> None:
+async def select_city(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: WorkAddressCityCallback,
+) -> None:
     await callback.answer()
     message = _callback_message(callback)
     data = await state.get_data()
-    index = _callback_index(callback.data, WORK_ADDRESS_CITY_PREFIX)
+    index = callback_data.index
     city_ids = _string_list(data["city_ids"])
-    if message is None or index is None or index >= len(city_ids):
+    if message is None or index < 0 or index >= len(city_ids):
         return
     draft = _draft(data)
     draft["city_id"] = city_ids[index]
@@ -171,17 +175,21 @@ async def enter_query(
 
 @router.callback_query(
     WorkAddressManagement.suggestion,
-    F.data.startswith(WORK_ADDRESS_SUGGESTION_PREFIX),
+    WorkAddressSuggestionCallback.filter(),
 )
-async def select_suggestion(callback: CallbackQuery, state: FSMContext) -> None:
+async def select_suggestion(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: WorkAddressSuggestionCallback,
+) -> None:
     await callback.answer()
     message = _callback_message(callback)
     data = await state.get_data()
     suggestions = data.get("work_address_suggestions")
-    index = _callback_index(callback.data, WORK_ADDRESS_SUGGESTION_PREFIX)
-    if message is None or index is None or not isinstance(suggestions, list):
+    index = callback_data.index
+    if message is None or not isinstance(suggestions, list):
         return
-    if index >= len(suggestions):
+    if index < 0 or index >= len(suggestions):
         return
     suggestion = suggestions[index]
     if not isinstance(suggestion, dict):
@@ -214,7 +222,7 @@ async def enter_extra(
     )
 
 
-@router.callback_query(WorkAddressManagement.extra, F.data == WORK_ADDRESS_SKIP)
+@router.callback_query(WorkAddressManagement.extra, WorkAddressSkipCallback.filter())
 async def skip_extra(
     callback: CallbackQuery,
     state: FSMContext,
@@ -235,11 +243,15 @@ async def skip_extra(
     )
 
 
-@router.callback_query(F.data.startswith(WORK_ADDRESS_SELECT_PREFIX))
-async def select_address(callback: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(WorkAddressSelectCallback.filter())
+async def select_address(
+    callback: CallbackQuery,
+    state: FSMContext,
+    callback_data: WorkAddressSelectCallback,
+) -> None:
     await callback.answer()
     message = _callback_message(callback)
-    item = await _address_from_callback(callback, state, WORK_ADDRESS_SELECT_PREFIX)
+    item = await _address_by_index(state, callback_data.index)
     if message is None or item is None:
         return
     index = item["index"]
@@ -251,16 +263,17 @@ async def select_address(callback: CallbackQuery, state: FSMContext) -> None:
     )
 
 
-@router.callback_query(F.data.startswith(WORK_ADDRESS_CURRENT_PREFIX))
+@router.callback_query(WorkAddressCurrentCallback.filter())
 async def set_current_address(
     callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendClient,
     telegram_user_context: TelegramUserContext,
+    callback_data: WorkAddressCurrentCallback,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
-    item = await _address_from_callback(callback, state, WORK_ADDRESS_CURRENT_PREFIX)
+    item = await _address_by_index(state, callback_data.index)
     if message is None or item is None:
         return
     try:
@@ -274,16 +287,17 @@ async def set_current_address(
     await message.answer(work_address_current_text())
 
 
-@router.callback_query(F.data.startswith(WORK_ADDRESS_DELETE_PREFIX))
+@router.callback_query(WorkAddressDeleteCallback.filter())
 async def delete_address(
     callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendClient,
     telegram_user_context: TelegramUserContext,
+    callback_data: WorkAddressDeleteCallback,
 ) -> None:
     await callback.answer()
     message = _callback_message(callback)
-    item = await _address_from_callback(callback, state, WORK_ADDRESS_DELETE_PREFIX)
+    item = await _address_by_index(state, callback_data.index)
     if message is None or item is None:
         return
     try:
@@ -342,15 +356,13 @@ def _address_state(item: AddressDTO) -> dict[str, object]:
     }
 
 
-async def _address_from_callback(
-    callback: CallbackQuery,
+async def _address_by_index(
     state: FSMContext,
-    prefix: str,
+    index: int,
 ) -> dict[str, object] | None:
-    index = _callback_index(callback.data, prefix)
     data = await state.get_data()
     items = data.get("work_addresses")
-    if index is None or not isinstance(items, list) or index >= len(items):
+    if not isinstance(items, list) or index < 0 or index >= len(items):
         return None
     item = items[index]
     if not isinstance(item, dict):
@@ -365,19 +377,6 @@ def _draft(data: dict[str, object]) -> dict[str, object]:
     if isinstance(draft, dict):
         return dict(draft)
     raise TypeError("Expected work address draft in FSM state")
-
-
-def _callback_index(data: str | None, prefix: str) -> int | None:
-    value = _callback_value(data, prefix)
-    if value is None or not value.isdigit():
-        return None
-    return int(value)
-
-
-def _callback_value(data: str | None, prefix: str) -> str | None:
-    if data is None or not data.startswith(prefix):
-        return None
-    return data.removeprefix(prefix)
 
 
 def _callback_message(callback: CallbackQuery) -> Message | None:
