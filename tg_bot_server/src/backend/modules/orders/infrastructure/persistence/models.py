@@ -124,7 +124,7 @@ class OrderModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
 class OrderMatchModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "order_matches"
 
-    order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), nullable=False)
+    order_id: Mapped[UUID] = mapped_column(ForeignKey(OrderModel.id), nullable=False)
     performer_id: Mapped[UUID] = mapped_column(
         ForeignKey("performers.id"),
         nullable=False,
@@ -159,7 +159,7 @@ class OrderMatchModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
 class OrderCareObjectModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "order_care_objects"
 
-    order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), nullable=False)
+    order_id: Mapped[UUID] = mapped_column(ForeignKey(OrderModel.id), nullable=False)
     care_object_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("care_objects.id"),
         nullable=True,
@@ -172,7 +172,7 @@ class OrderCareObjectModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
 class OrderOptionValueModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "order_option_values"
 
-    order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), nullable=False)
+    order_id: Mapped[UUID] = mapped_column(ForeignKey(OrderModel.id), nullable=False)
     service_option_id: Mapped[UUID] = mapped_column(
         ForeignKey("service_options.id"),
         nullable=False,
@@ -183,7 +183,7 @@ class OrderOptionValueModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
 class OrderStatusHistoryModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "order_status_history"
 
-    order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), nullable=False)
+    order_id: Mapped[UUID] = mapped_column(ForeignKey(OrderModel.id), nullable=False)
     from_status: Mapped[str | None] = mapped_column(Text, nullable=True)
     to_status: Mapped[str] = mapped_column(Text, nullable=False)
     actor_type: Mapped[str] = mapped_column(Text, nullable=False)

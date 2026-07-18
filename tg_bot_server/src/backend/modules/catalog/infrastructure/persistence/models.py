@@ -28,7 +28,7 @@ class CityModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
 class DistrictModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "districts"
 
-    city_id: Mapped[UUID] = mapped_column(ForeignKey("cities.id"), nullable=False)
+    city_id: Mapped[UUID] = mapped_column(ForeignKey(CityModel.id), nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     is_active: Mapped[bool] = mapped_column(nullable=False, default=True)
 
@@ -52,7 +52,7 @@ class ServiceModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "services"
 
     category_id: Mapped[UUID] = mapped_column(
-        ForeignKey("service_categories.id"),
+        ForeignKey(ServiceCategoryModel.id),
         nullable=False,
     )
     code: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
@@ -79,7 +79,9 @@ class ServiceModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
 class ServiceOptionModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "service_options"
 
-    service_id: Mapped[UUID] = mapped_column(ForeignKey("services.id"), nullable=False)
+    service_id: Mapped[UUID] = mapped_column(
+        ForeignKey(ServiceModel.id), nullable=False
+    )
     code: Mapped[str] = mapped_column(Text, nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     value_type: Mapped[str] = mapped_column(Text, nullable=False)
@@ -92,7 +94,7 @@ class ObjectCountMultiplierModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "object_count_multipliers"
 
     category_id: Mapped[UUID] = mapped_column(
-        ForeignKey("service_categories.id"),
+        ForeignKey(ServiceCategoryModel.id),
         nullable=False,
     )
     objects_count: Mapped[int] = mapped_column(nullable=False)

@@ -31,7 +31,7 @@ class FileModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
 class FileLinkModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "file_links"
 
-    file_id: Mapped[UUID] = mapped_column(ForeignKey("files.id"), nullable=False)
+    file_id: Mapped[UUID] = mapped_column(ForeignKey(FileModel.id), nullable=False)
     entity_type: Mapped[str] = mapped_column(Text, nullable=False)
     entity_id: Mapped[UUID] = mapped_column(nullable=False)
     purpose: Mapped[str] = mapped_column(Text, nullable=False)

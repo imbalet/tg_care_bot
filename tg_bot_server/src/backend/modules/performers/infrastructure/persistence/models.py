@@ -63,7 +63,7 @@ class PerformerInvitationModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
         nullable=True,
     )
     accepted_performer_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("performers.id"),
+        ForeignKey(PerformerModel.id),
         nullable=True,
     )
 
@@ -72,7 +72,7 @@ class PerformerServiceModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "performer_services"
 
     performer_id: Mapped[UUID] = mapped_column(
-        ForeignKey("performers.id"),
+        ForeignKey(PerformerModel.id),
         nullable=False,
     )
     service_id: Mapped[UUID] = mapped_column(ForeignKey("services.id"), nullable=False)
@@ -99,7 +99,7 @@ class PerformerScheduleModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "performer_schedules"
 
     performer_id: Mapped[UUID] = mapped_column(
-        ForeignKey("performers.id"),
+        ForeignKey(PerformerModel.id),
         nullable=False,
     )
     schedule_type: Mapped[str] = mapped_column(Text, nullable=False)
@@ -116,7 +116,7 @@ class PerformerCalendarOverrideModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "performer_calendar_overrides"
 
     performer_id: Mapped[UUID] = mapped_column(
-        ForeignKey("performers.id"),
+        ForeignKey(PerformerModel.id),
         nullable=False,
     )
     override_type: Mapped[str] = mapped_column(Text, nullable=False)
