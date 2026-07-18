@@ -11,7 +11,9 @@ from executor_bot.presentation.callbacks import (
     AvatarOpenCallback,
     AvatarUploadCallback,
 )
+from executor_bot.presentation.handlers.responses import send_step
 from executor_bot.presentation.middlewares import TelegramUserContext
+from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
     avatar_deleted_text,
     avatar_keyboard,
@@ -29,40 +31,68 @@ class AvatarManagement(StatesGroup):
 
 
 @router.callback_query(AvatarOpenCallback.filter())
-async def open_avatar(callback: CallbackQuery) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
-    if message is not None:
-        await message.answer(avatar_menu_text(), reply_markup=avatar_keyboard())
+async def open_avatar(
+    callback: CallbackQuery,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=avatar_menu_text(),
+        reply_markup=avatar_keyboard(),
+    )
 
 
 @router.callback_query(AvatarUploadCallback.filter())
-async def start_upload(callback: CallbackQuery, state: FSMContext) -> None:
-    await callback.answer()
+async def start_upload(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     await state.set_state(AvatarManagement.waiting_file)
-    message = _callback_message(callback)
-    if message is not None:
-        await message.answer(avatar_upload_step_text())
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=avatar_upload_step_text(),
+    )
 
 
 @router.callback_query(AvatarDeleteCallback.filter())
 async def delete_avatar(
     callback: CallbackQuery,
+    bot: Bot,
     backend_client: BackendClient,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await callback.answer()
-    message = _callback_message(callback)
-    if message is None:
-        return
     try:
         await backend_client.delete_avatar(
             telegram_id=telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
-    await message.answer(avatar_deleted_text())
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=avatar_deleted_text(),
+    )
 
 
 @router.message(AvatarManagement.waiting_file, F.photo)
@@ -71,6 +101,7 @@ async def upload_photo(
     state: FSMContext,
     bot: Bot,
     backend_client: BackendClient,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.photo:
@@ -80,7 +111,9 @@ async def upload_photo(
     await _upload(
         message,
         state,
+        bot,
         backend_client,
+        telegram_responder,
         telegram_user_context,
         filename="telegram-photo.jpg",
         content=content,
@@ -94,6 +127,7 @@ async def upload_document(
     state: FSMContext,
     bot: Bot,
     backend_client: BackendClient,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     document = message.document
@@ -103,7 +137,9 @@ async def upload_document(
     await _upload(
         message,
         state,
+        bot,
         backend_client,
+        telegram_responder,
         telegram_user_context,
         filename=document.file_name or "avatar",
         content=content,
@@ -114,7 +150,9 @@ async def upload_document(
 async def _upload(
     message: Message,
     state: FSMContext,
+    bot: Bot,
     backend_client: BackendClient,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     *,
     filename: str,
@@ -129,10 +167,22 @@ async def _upload(
             content_type=content_type,
         )
     except BackendClientError:
-        await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=message,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     await state.clear()
-    await message.answer(avatar_uploaded_text())
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=avatar_uploaded_text(),
+    )
 
 
 async def _download_telegram_file(bot: Bot, file_id: str) -> bytes:
@@ -142,10 +192,6 @@ async def _download_telegram_file(bot: Bot, file_id: str) -> bytes:
     buffer = BytesIO()
     await bot.download_file(telegram_file.file_path, destination=buffer)
     return buffer.getvalue()
-
-
-def _callback_message(callback: CallbackQuery) -> Message | None:
-    return callback.message if isinstance(callback.message, Message) else None
 
 
 __all__ = ["AvatarManagement", "router"]

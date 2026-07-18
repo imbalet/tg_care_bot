@@ -4,7 +4,7 @@ from uuid import UUID
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 
 from executor_bot.application.errors import BackendClientError, BackendValidationError
 from executor_bot.application.ports import BackendPort
@@ -25,9 +25,12 @@ from executor_bot.presentation.ui import (
     backend_rejected_registration_text,
     contact_methods_keyboard,
     full_name_step_text,
+    invalid_phone_contact_text,
     invalid_text_input_text,
     legal_acceptance_keyboard,
     legal_documents_text,
+    phone_contact_keyboard,
+    phone_contact_received_text,
     phone_step_text,
     registration_complete_text,
     registration_summary_keyboard,
@@ -38,6 +41,7 @@ from executor_bot.presentation.ui import (
     select_contact_method_text,
     summary_text,
     use_buttons_text,
+    wrong_phone_contact_text,
 )
 
 router = Router(name="registration")
@@ -104,39 +108,117 @@ async def start_registration(
     ExecutorRegistration.legal_acceptance,
     RegistrationLegalAcceptCallback.filter(),
 )
-async def accept_legal(callback: CallbackQuery, state: FSMContext) -> None:
-    await callback.answer()
+async def accept_legal(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     await state.set_state(ExecutorRegistration.full_name)
-    message = _callback_message(callback)
-    if message is not None:
-        await message.answer(full_name_step_text())
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=full_name_step_text(),
+    )
 
 
 @router.message(ExecutorRegistration.legal_acceptance)
-async def reject_legal(message: Message) -> None:
-    await message.answer(use_buttons_text(), reply_markup=legal_acceptance_keyboard())
+async def reject_legal(
+    message: Message,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=use_buttons_text(),
+        reply_markup=legal_acceptance_keyboard(),
+    )
 
 
 @router.message(ExecutorRegistration.full_name)
-async def enter_full_name(message: Message, state: FSMContext) -> None:
+async def enter_full_name(
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     if not message.text or not message.text.strip():
-        await message.answer(invalid_text_input_text("Введите ФИО текстом."))
+        await send_step(
+            bot=bot,
+            event=message,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=invalid_text_input_text("Введите ФИО текстом."),
+        )
         return
     await state.update_data(full_name=message.text.strip())
     await state.set_state(ExecutorRegistration.phone)
-    await message.answer(phone_step_text())
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=phone_step_text(),
+        reply_markup=phone_contact_keyboard(),
+    )
 
 
 @router.message(ExecutorRegistration.phone)
-async def enter_phone(message: Message, state: FSMContext) -> None:
-    if not message.text or not message.text.strip():
-        await message.answer(invalid_text_input_text("Введите телефон текстом."))
+async def enter_phone(
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    if message.contact is None:
+        await send_step(
+            bot=bot,
+            event=message,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=invalid_phone_contact_text(),
+            reply_markup=phone_contact_keyboard(),
+        )
+        return
+    if (
+        message.contact.user_id is not None
+        and message.contact.user_id != telegram_user_context.telegram_id
+    ):
+        await send_step(
+            bot=bot,
+            event=message,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=wrong_phone_contact_text(),
+            reply_markup=phone_contact_keyboard(),
+        )
         return
     data = await state.get_data()
-    await state.update_data(phone=message.text.strip())
+    await state.update_data(phone=message.contact.phone_number)
     await state.set_state(ExecutorRegistration.city)
-    await message.answer(
-        select_city_text(),
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=phone_contact_received_text(),
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=select_city_text(),
         reply_markup=select_city_keyboard(_cities_from_state(data)),
     )
 
@@ -147,20 +229,24 @@ async def enter_phone(message: Message, state: FSMContext) -> None:
 )
 async def enter_city(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
     callback_data: RegistrationCityCallback,
 ) -> None:
-    await callback.answer()
     data = await state.get_data()
     city_ids = _string_list(data["city_ids"])
     city_index = callback_data.index
     if city_index < 0 or city_index >= len(city_ids):
-        message = _callback_message(callback)
-        if message is not None:
-            await message.answer(
-                registration_unavailable_text(),
-                reply_markup=select_city_keyboard(_cities_from_state(data)),
-            )
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=registration_unavailable_text(),
+            reply_markup=select_city_keyboard(_cities_from_state(data)),
+        )
         return
     city_id = city_ids[city_index]
     await state.update_data(
@@ -168,19 +254,31 @@ async def enter_city(
         city_name=_string_list(data["city_names"])[city_index],
     )
     await state.set_state(ExecutorRegistration.contact_method)
-    message = _callback_message(callback)
-    if message is not None:
-        await message.answer(
-            select_contact_method_text(),
-            reply_markup=contact_methods_keyboard(),
-        )
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=select_contact_method_text(),
+        reply_markup=contact_methods_keyboard(),
+    )
 
 
 @router.message(ExecutorRegistration.city)
-async def unknown_city_action(message: Message, state: FSMContext) -> None:
+async def unknown_city_action(
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     data = await state.get_data()
-    await message.answer(
-        use_buttons_text(),
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=use_buttons_text(),
         reply_markup=select_city_keyboard(_cities_from_state(data)),
     )
 
@@ -191,53 +289,98 @@ async def unknown_city_action(message: Message, state: FSMContext) -> None:
 )
 async def enter_contact_method(
     callback: CallbackQuery,
+    bot: Bot,
     state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
     callback_data: RegistrationContactCallback,
 ) -> None:
-    await callback.answer()
     contact_method = callback_data.method
     label = CONTACT_METHOD_LABELS.get(contact_method)
     if label is None:
-        message = _callback_message(callback)
-        if message is not None:
-            await message.answer(
-                use_buttons_text(),
-                reply_markup=contact_methods_keyboard(),
-            )
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=use_buttons_text(),
+            reply_markup=contact_methods_keyboard(),
+        )
         return
     await state.update_data(contact_method=contact_method, contact_method_label=label)
     await state.set_state(ExecutorRegistration.about_text)
-    message = _callback_message(callback)
-    if message is not None:
-        await message.answer(about_step_text())
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=about_step_text(),
+    )
 
 
 @router.message(ExecutorRegistration.contact_method)
-async def unknown_contact_method_action(message: Message) -> None:
-    await message.answer(use_buttons_text(), reply_markup=contact_methods_keyboard())
+async def unknown_contact_method_action(
+    message: Message,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=use_buttons_text(),
+        reply_markup=contact_methods_keyboard(),
+    )
 
 
 @router.message(ExecutorRegistration.about_text)
-async def enter_about_text(message: Message, state: FSMContext) -> None:
+async def enter_about_text(
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     if not message.text or not message.text.strip():
-        await message.answer(invalid_text_input_text("Введите описание текстом."))
+        await send_step(
+            bot=bot,
+            event=message,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=invalid_text_input_text("Введите описание текстом."),
+        )
         return
     await state.update_data(about_text=message.text.strip())
     data = await state.get_data()
     await state.set_state(ExecutorRegistration.summary)
-    await message.answer(
-        summary_text(data),
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=summary_text(data),
         reply_markup=registration_summary_keyboard(),
     )
 
 
 @router.callback_query(ExecutorRegistration.summary, RegistrationEditCallback.filter())
-async def edit_registration(callback: CallbackQuery, state: FSMContext) -> None:
-    await callback.answer()
+async def edit_registration(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     await state.set_state(ExecutorRegistration.full_name)
-    message = _callback_message(callback)
-    if message is not None:
-        await message.answer(full_name_step_text())
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=full_name_step_text(),
+    )
 
 
 @router.callback_query(
@@ -252,9 +395,7 @@ async def confirm_registration(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await callback.answer()
     data = await state.get_data()
-    message = _callback_message(callback)
     try:
         await backend_client.register_performer(
             telegram_id=telegram_user_context.telegram_id,
@@ -270,17 +411,25 @@ async def confirm_registration(
             ),
         )
     except BackendValidationError:
-        if message is not None:
-            await message.answer(backend_rejected_registration_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=backend_rejected_registration_text(),
+        )
         await state.clear()
         return
     except BackendClientError:
-        if message is not None:
-            await message.answer(retry_later_text())
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=retry_later_text(),
+        )
         return
     await state.clear()
-    if message is None:
-        return
     await telegram_responder.send_notice(
         bot=bot,
         event=callback,
@@ -298,19 +447,24 @@ async def confirm_registration(
 
 
 @router.message(ExecutorRegistration.summary)
-async def unknown_summary_action(message: Message) -> None:
-    await message.answer(
-        use_buttons_text(),
+async def unknown_summary_action(
+    message: Message,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=use_buttons_text(),
         reply_markup=registration_summary_keyboard(),
     )
 
 
 def _cities_from_state(data: dict[str, object]) -> tuple[_CityView, ...]:
     return tuple(_CityView(name) for name in _string_list(data["city_names"]))
-
-
-def _callback_message(callback: CallbackQuery) -> Message | None:
-    return callback.message if isinstance(callback.message, Message) else None
 
 
 def _string_list(value: object) -> list[str]:
