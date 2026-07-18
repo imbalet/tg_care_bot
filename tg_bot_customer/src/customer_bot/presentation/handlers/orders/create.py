@@ -88,6 +88,14 @@ router = Router(name="orders_create")
 logger = logging.getLogger(__name__)
 
 
+def _order_start_time_value(value: str) -> str:
+    if ":" in value:
+        return value
+    if len(value) == 4 and value.isdigit():
+        return f"{value[:2]}:{value[2:]}"
+    return value
+
+
 @router.callback_query(OrderCreateCallback.filter())
 async def start_order_creation(
     callback: CallbackQuery,
@@ -547,7 +555,7 @@ async def select_start_time(
 ) -> None:
     data = await state.get_data()
     start_date = _start_date_from_state(data)
-    start_time = parse_local_time(callback_data.value)
+    start_time = parse_local_time(_order_start_time_value(callback_data.value))
     if start_date is None or start_time is None:
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return

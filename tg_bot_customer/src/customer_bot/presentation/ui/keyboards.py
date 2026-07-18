@@ -117,6 +117,11 @@ ORDER_START_TIME_VALUES = (
     "20:00",
 )
 
+
+def _order_start_time_callback_value(value: str) -> str:
+    return value.replace(":", "")
+
+
 RU_CALENDAR_LABELS = CalendarLabels(
     days_of_week=["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
     months=[
@@ -449,7 +454,10 @@ async def order_start_calendar_keyboard() -> InlineKeyboardMarkup:
 def order_start_time_keyboard() -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory(row_width=3)
     for value in ORDER_START_TIME_VALUES:
-        keyboard.button(value, OrderStartTimeCallback(value=value))
+        keyboard.button(
+            value,
+            OrderStartTimeCallback(value=_order_start_time_callback_value(value)),
+        )
     return (
         keyboard.button("Ввести вручную", OrderStartManualCallback(mode="time"))
         .button(MsgKey.MAIN_MENU, MainMenuCallback())
