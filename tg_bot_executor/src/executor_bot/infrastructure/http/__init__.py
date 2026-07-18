@@ -7,7 +7,6 @@ from .client import (
     PerformerProfileDTO,
     PerformerScheduleDTO,
     PerformerServiceDTO,
-    TelegramTopicDTO,
 )
 from .errors import (
     BackendClientError,
@@ -28,5 +27,4 @@ __all__ = [
     "PerformerProfileDTO",
     "PerformerScheduleDTO",
     "PerformerServiceDTO",
-    "TelegramTopicDTO",
 ]

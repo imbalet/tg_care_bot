@@ -20,14 +20,8 @@ class ExecutorRedisKeys:
     def current_message(self, telegram_id: int) -> str:
         return self._join("screen", str(telegram_id), "current")
 
-    def topic_kind_by_thread(self, telegram_id: int, message_thread_id: int) -> str:
-        return self._join("topics", str(telegram_id), "thread", str(message_thread_id))
-
-    def topic_thread_by_kind(self, telegram_id: int, topic_kind: str) -> str:
-        return self._join("topics", str(telegram_id), "kind", topic_kind)
-
-    def menu_message(self, telegram_id: int, topic_key: str) -> str:
-        return self._join("menu", str(telegram_id), topic_key)
+    def menu_message(self, telegram_id: int) -> str:
+        return self.current_message(telegram_id)
 
     def _join(self, *parts: str) -> str:
         return ":".join((self.prefix, *parts))

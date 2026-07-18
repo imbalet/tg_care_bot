@@ -128,9 +128,7 @@ def summary_text(data: dict[str, object]) -> str:
     )
 
 
-def executor_main_menu_text(topic_kind: str | None = None) -> str:
-    if topic_kind == "notifications":
-        return "<b>Уведомления</b>\n\nЗдесь будут системные сообщения сервиса."
+def executor_main_menu_text() -> str:
     return "<b>Заказы</b>\n\nВыберите действие."
 
 

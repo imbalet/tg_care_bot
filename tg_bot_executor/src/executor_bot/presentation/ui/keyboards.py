@@ -121,13 +121,7 @@ def registration_summary_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def main_menu_keyboard(topic_kind: str | None = None) -> InlineKeyboardMarkup:
-    if topic_kind == "notifications":
-        return InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="Помощь", callback_data=HELP)],
-            ],
-        )
+def main_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [

@@ -10,7 +10,6 @@ from .dto import (
     RegistrationStateDTO,
     ServiceCategoryDTO,
     ServiceDTO,
-    TelegramTopicDTO,
 )
 from .errors import (
     BackendClientError,
@@ -35,5 +34,4 @@ __all__ = [
     "RegistrationStateDTO",
     "ServiceCategoryDTO",
     "ServiceDTO",
-    "TelegramTopicDTO",
 ]

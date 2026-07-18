@@ -6,7 +6,7 @@ from aiogram.types import Message
 from executor_bot.infrastructure.http import BackendClient, BackendClientError
 from executor_bot.presentation.handlers.registration import start_registration
 from executor_bot.presentation.middlewares import TelegramUserContext
-from executor_bot.presentation.services import MenuManager, TelegramTopicSetupService
+from executor_bot.presentation.services import MenuManager
 from executor_bot.presentation.ui import (
     executor_main_menu_text,
     fallback_keyboard,
@@ -26,7 +26,6 @@ async def start(
     state: FSMContext,
     backend_client: BackendClient,
     menu_manager: MenuManager,
-    topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await _open_start_or_menu(
@@ -35,7 +34,6 @@ async def start(
         state=state,
         backend_client=backend_client,
         menu_manager=menu_manager,
-        topic_setup_service=topic_setup_service,
         telegram_user_context=telegram_user_context,
         start_registration_if_invited=True,
     )
@@ -48,7 +46,6 @@ async def menu(
     state: FSMContext,
     backend_client: BackendClient,
     menu_manager: MenuManager,
-    topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await _open_start_or_menu(
@@ -57,7 +54,6 @@ async def menu(
         state=state,
         backend_client=backend_client,
         menu_manager=menu_manager,
-        topic_setup_service=topic_setup_service,
         telegram_user_context=telegram_user_context,
         start_registration_if_invited=False,
     )
@@ -80,18 +76,12 @@ async def help_command(
         ).state == "registered"
     except BackendClientError:
         include_main_menu = False
-    topic_key = await menu_manager.topic_key(
-        telegram_id=telegram_user_context.telegram_id,
-        message_thread_id=telegram_user_context.message_thread_id,
-    )
     await menu_manager.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=topic_key,
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
-        message_thread_id=telegram_user_context.message_thread_id,
     )
 
 
@@ -102,7 +92,6 @@ async def _open_start_or_menu(
     state: FSMContext,
     backend_client: BackendClient,
     menu_manager: MenuManager,
-    topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,
     start_registration_if_invited: bool,
 ) -> None:
@@ -115,25 +104,12 @@ async def _open_start_or_menu(
         return
     if registration_state.state == "registered":
         await state.clear()
-        if telegram_user_context.chat_id is not None:
-            await topic_setup_service.ensure(
-                bot=bot,
-                backend_client=backend_client,
-                telegram_id=telegram_user_context.telegram_id,
-                chat_id=telegram_user_context.chat_id,
-            )
-        topic_key = await menu_manager.topic_key(
-            telegram_id=telegram_user_context.telegram_id,
-            message_thread_id=telegram_user_context.message_thread_id,
-        )
         await menu_manager.update(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            topic_key=topic_key,
-            text=executor_main_menu_text(topic_key),
-            reply_markup=main_menu_keyboard(topic_key),
-            message_thread_id=telegram_user_context.message_thread_id,
+            text=executor_main_menu_text(),
+            reply_markup=main_menu_keyboard(),
         )
         return
     if registration_state.state == "no_invitation":
@@ -147,10 +123,8 @@ async def _open_start_or_menu(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key="general",
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=False),
-        message_thread_id=telegram_user_context.message_thread_id,
     )
 
 

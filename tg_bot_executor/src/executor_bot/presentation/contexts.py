@@ -16,4 +16,3 @@ class TelegramUserContext:
     telegram_id: int
     username: str | None
     chat_id: int | None
-    message_thread_id: int | None

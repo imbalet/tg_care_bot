@@ -12,7 +12,6 @@ from executor_bot.infrastructure.http import (
     BackendValidationError,
 )
 from executor_bot.presentation.middlewares import TelegramUserContext
-from executor_bot.presentation.services import TelegramTopicSetupService
 from executor_bot.presentation.ui import (
     about_step_text,
     backend_rejected_registration_text,
@@ -233,7 +232,6 @@ async def confirm_registration(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendClient,
-    topic_setup_service: TelegramTopicSetupService,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()
@@ -253,13 +251,6 @@ async def confirm_registration(
                 for document_id in _string_list(data["legal_document_ids"])
             ),
         )
-        if telegram_user_context.chat_id is not None:
-            await topic_setup_service.ensure(
-                bot=bot,
-                backend_client=backend_client,
-                telegram_id=telegram_user_context.telegram_id,
-                chat_id=telegram_user_context.chat_id,
-            )
     except BackendValidationError:
         if message is not None:
             await message.answer(backend_rejected_registration_text())

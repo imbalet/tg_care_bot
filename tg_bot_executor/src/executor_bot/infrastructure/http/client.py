@@ -16,7 +16,6 @@ from executor_bot.application.dto import (
     RegistrationStateDTO,
     ServiceCategoryDTO,
     ServiceDTO,
-    TelegramTopicDTO,
 )
 from executor_bot.application.errors import (
     BackendUnauthorizedError,
@@ -134,40 +133,6 @@ class BackendClient(BackendPort):
         )
         self._raise_for_status(response)
         return _performer_from_json(response.json())
-
-    async def ensure_telegram_topics(
-        self,
-        *,
-        telegram_id: int,
-        chat_id: int,
-    ) -> tuple[TelegramTopicDTO, ...]:
-        response = await self._request(
-            "POST",
-            f"/api/telegram-topics/performer/{telegram_id}/ensure",
-            json={"chat_id": chat_id},
-        )
-        self._raise_for_status(response)
-        return tuple(_topic_from_json(item) for item in response.json())
-
-    async def update_telegram_topic_mapping(
-        self,
-        *,
-        topic_id: UUID,
-        chat_id: int,
-        message_thread_id: int | None,
-        status: str,
-    ) -> TelegramTopicDTO:
-        response = await self._request(
-            "PATCH",
-            f"/api/telegram-topics/{topic_id}/mapping",
-            json={
-                "chat_id": chat_id,
-                "message_thread_id": message_thread_id,
-                "status": status,
-            },
-        )
-        self._raise_for_status(response)
-        return _topic_from_json(response.json())
 
     async def suggest_addresses(
         self,
@@ -431,18 +396,6 @@ def _performer_from_json(data: dict[str, object]) -> PerformerProfileDTO:
     )
 
 
-def _topic_from_json(data: dict[str, object]) -> TelegramTopicDTO:
-    return TelegramTopicDTO(
-        id=UUID(str(data["id"])),
-        topic_kind=str(data["topic_kind"]),
-        chat_id=int(cast(str | int, data["chat_id"])),
-        message_thread_id=int(cast(str | int, data["message_thread_id"]))
-        if data["message_thread_id"] is not None
-        else None,
-        status=str(data["status"]),
-    )
-
-
 def _service_category_from_json(data: dict[str, object]) -> ServiceCategoryDTO:
     services = data.get("services")
     return ServiceCategoryDTO(
@@ -530,5 +483,4 @@ __all__ = [
     "PerformerScheduleDTO",
     "PerformerServiceDTO",
     "RegistrationStateDTO",
-    "TelegramTopicDTO",
 ]

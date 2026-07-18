@@ -65,15 +65,6 @@ class RegistrationStateDTO:
 
 
 @dataclass(frozen=True)
-class TelegramTopicDTO:
-    id: UUID
-    topic_kind: str
-    chat_id: int
-    message_thread_id: int | None
-    status: str
-
-
-@dataclass(frozen=True)
 class AddressSuggestionDTO:
     value: str
     unrestricted_value: str
@@ -131,5 +122,4 @@ __all__ = [
     "RegistrationStateDTO",
     "ServiceCategoryDTO",
     "ServiceDTO",
-    "TelegramTopicDTO",
 ]

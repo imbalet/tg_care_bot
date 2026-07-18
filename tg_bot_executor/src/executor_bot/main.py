@@ -27,11 +27,10 @@ from executor_bot.presentation.handlers import (
 )
 from executor_bot.presentation.middlewares import (
     AppContextMiddleware,
-    TelegramTopicsEnsureMiddleware,
     TelegramUserContextMiddleware,
     TelegramUsernameSyncMiddleware,
 )
-from executor_bot.presentation.services import MenuManager, TelegramTopicSetupService
+from executor_bot.presentation.services import MenuManager
 
 
 async def amain() -> None:
@@ -40,12 +39,11 @@ async def amain() -> None:
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
     dispatcher = Dispatcher(
         storage=storage,
-        fsm_strategy=FSMStrategy.USER_IN_TOPIC,
+        fsm_strategy=FSMStrategy.USER_IN_CHAT,
     )
     dispatcher.update.middleware(TelegramUserContextMiddleware())
     dispatcher.update.middleware(AppContextMiddleware())
     dispatcher.update.middleware(TelegramUsernameSyncMiddleware())
-    dispatcher.update.middleware(TelegramTopicsEnsureMiddleware())
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)
     dispatcher.include_router(addresses_router)
@@ -63,7 +61,6 @@ async def amain() -> None:
         timeout_seconds=settings.request_timeout_seconds,
     )
     menu_manager = MenuManager(redis)
-    topic_setup_service = TelegramTopicSetupService(redis)
     active_category_store = RedisActiveCategoryStore(redis)
     username_sync_cache = RedisUsernameSyncCache(redis)
     username_sync_service = UsernameSyncService(
@@ -87,7 +84,6 @@ async def amain() -> None:
                 username_sync_service=username_sync_service,
             ),
             menu_manager=menu_manager,
-            topic_setup_service=topic_setup_service,
         )
     finally:
         await backend_client.close()

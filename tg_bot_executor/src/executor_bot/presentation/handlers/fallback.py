@@ -40,10 +40,8 @@ async def main_menu_callback(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            topic_key="general",
             text=unavailable_action_text(),
             reply_markup=fallback_keyboard(),
-            message_thread_id=telegram_user_context.message_thread_id,
         )
         return
     if registration_state.state != "registered":
@@ -51,24 +49,16 @@ async def main_menu_callback(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            topic_key="general",
             text=help_text(),
             reply_markup=fallback_keyboard(include_main_menu=False),
-            message_thread_id=telegram_user_context.message_thread_id,
         )
         return
-    topic_key = await menu_manager.topic_key(
-        telegram_id=telegram_user_context.telegram_id,
-        message_thread_id=telegram_user_context.message_thread_id,
-    )
     await menu_manager.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=topic_key,
-        text=executor_main_menu_text(topic_key),
-        reply_markup=main_menu_keyboard(topic_key),
-        message_thread_id=telegram_user_context.message_thread_id,
+        text=executor_main_menu_text(),
+        reply_markup=main_menu_keyboard(),
     )
 
 
@@ -94,18 +84,12 @@ async def help_callback(
                 ).state == "registered"
             except BackendClientError:
                 include_main_menu = False
-        topic_key = await menu_manager.topic_key(
-            telegram_id=telegram_user_context.telegram_id,
-            message_thread_id=telegram_user_context.message_thread_id,
-        )
         await menu_manager.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            topic_key=topic_key,
             text=help_text(),
             reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
-            message_thread_id=telegram_user_context.message_thread_id,
         )
 
 
@@ -130,10 +114,8 @@ async def profile_callback(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            topic_key="general",
             text=unavailable_action_text(),
             reply_markup=fallback_keyboard(),
-            message_thread_id=telegram_user_context.message_thread_id,
         )
         return
     if state.performer is None:
@@ -141,24 +123,16 @@ async def profile_callback(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            topic_key="general",
             text=fallback_text(),
             reply_markup=fallback_keyboard(),
-            message_thread_id=telegram_user_context.message_thread_id,
         )
         return
-    topic_key = await menu_manager.topic_key(
-        telegram_id=telegram_user_context.telegram_id,
-        message_thread_id=telegram_user_context.message_thread_id,
-    )
     await menu_manager.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=topic_key,
         text=executor_profile_text(state.performer),
         reply_markup=fallback_keyboard(),
-        message_thread_id=telegram_user_context.message_thread_id,
     )
 
 
@@ -169,18 +143,12 @@ async def unknown_callback(
     menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    topic_key = await menu_manager.topic_key(
-        telegram_id=telegram_user_context.telegram_id,
-        message_thread_id=telegram_user_context.message_thread_id,
-    )
     await menu_manager.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=topic_key,
         text=unavailable_action_text(),
         reply_markup=fallback_keyboard(),
-        message_thread_id=telegram_user_context.message_thread_id,
     )
 
 
@@ -191,18 +159,12 @@ async def unknown_message(
     menu_manager: MenuManager,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    topic_key = await menu_manager.topic_key(
-        telegram_id=telegram_user_context.telegram_id,
-        message_thread_id=telegram_user_context.message_thread_id,
-    )
     await menu_manager.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        topic_key=topic_key,
         text=fallback_text(),
         reply_markup=fallback_keyboard(),
-        message_thread_id=telegram_user_context.message_thread_id,
     )
 
 
