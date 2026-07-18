@@ -5,6 +5,8 @@ from backend.modules.payments.application.dto import (
     PaymentGatewayInitCommand,
     PaymentGatewayInitResult,
     PaymentInitializationData,
+    PaymentWebhookCommand,
+    PaymentWebhookResult,
 )
 
 
@@ -39,4 +41,10 @@ class PaymentRepository(Protocol):
         payment_id: UUID,
         failure_code: str,
     ) -> None:
+        pass
+
+    async def apply_successful_webhook(
+        self,
+        command: PaymentWebhookCommand,
+    ) -> PaymentWebhookResult | None:
         pass

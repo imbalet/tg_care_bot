@@ -1,13 +1,24 @@
+from datetime import datetime, timedelta
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.common.application import utc_now
+from backend.modules.catalog.infrastructure import BusinessSettingModel
 from backend.modules.customers.infrastructure import CustomerModel
-from backend.modules.orders.infrastructure.persistence.models import OrderModel
+from backend.modules.notifications.infrastructure import NotificationModel
+from backend.modules.orders.infrastructure.persistence.models import (
+    OrderMatchModel,
+    OrderModel,
+    OrderStatusHistoryModel,
+)
 from backend.modules.payments.application import (
     PaymentAttemptDTO,
     PaymentInitializationData,
+    PaymentWebhookCommand,
+    PaymentWebhookResult,
 )
 from backend.modules.payments.infrastructure.persistence.models import PaymentModel
 
@@ -78,6 +89,191 @@ class SqlAlchemyPaymentRepository:
             return
         payment.failure_code = failure_code
 
+    async def apply_successful_webhook(
+        self,
+        command: PaymentWebhookCommand,
+    ) -> PaymentWebhookResult | None:
+        payment_probe = await self._get_payment_by_provider_id(
+            command.provider_payment_id,
+        )
+        if payment_probe is None:
+            return None
+        order = await self._lock_order(payment_probe.order_id)
+        payment = await self._lock_payment(payment_probe.id)
+        match = (
+            await self._lock_match(order.selected_match_id)
+            if order.selected_match_id is not None
+            else None
+        )
+        if payment.status == "succeeded":
+            return PaymentWebhookResult(
+                payment_id=payment.id,
+                order_id=order.id,
+                status=payment.status,
+                applied=payment.applied_at is not None,
+                unapplied_reason=payment.unapplied_reason,
+            )
+        if payment.status == "succeeded_unapplied":
+            return PaymentWebhookResult(
+                payment_id=payment.id,
+                order_id=order.id,
+                status=payment.status,
+                applied=False,
+                unapplied_reason=payment.unapplied_reason,
+            )
+        payment.paid_at = command.paid_at
+        unapplied_reason = _unapplied_reason(
+            order=order,
+            payment=payment,
+            match=match,
+            paid_amount=command.amount,
+            paid_at=command.paid_at,
+        )
+        if unapplied_reason is not None:
+            payment.status = "succeeded_unapplied"
+            payment.unapplied_reason = unapplied_reason
+            await self._session.flush()
+            return PaymentWebhookResult(
+                payment_id=payment.id,
+                order_id=order.id,
+                status=payment.status,
+                applied=False,
+                unapplied_reason=unapplied_reason,
+            )
+        now = utc_now()
+        payment.status = "succeeded"
+        payment.applied_at = now
+        payment.unapplied_reason = None
+        order.status = "confirmed"
+        order.refund_policy_version_at_payment = await self._string_setting(
+            "refund_policy_version",
+        )
+        order.partial_refund_percent_at_payment = await self._decimal_setting(
+            "partial_refund_percent",
+        )
+        order.payout_status = "blocked"
+        order.payout_amount = order.performer_amount
+        order.payout_idempotency_key = f"payout:{order.id}"
+        if match is not None:
+            match.status = "confirmed"
+            match.confirmed_at = now
+        self._session.add(
+            OrderStatusHistoryModel(
+                order_id=order.id,
+                from_status="waiting_payment",
+                to_status="confirmed",
+                actor_type="system",
+                actor_id=None,
+                reason="payment_webhook",
+            ),
+        )
+        await self._add_notification(
+            recipient_type="customer",
+            customer_id=order.customer_id,
+            notification_type="payment_confirmed",
+            entity_type="order",
+            entity_id=order.id,
+            payload={"order_id": str(order.id), "payment_id": str(payment.id)},
+            deduplication_key=f"payment-confirmed:customer:{payment.id}",
+        )
+        await self._add_notification(
+            recipient_type="performer",
+            performer_id=order.selected_performer_id,
+            notification_type="payment_confirmed",
+            entity_type="order",
+            entity_id=order.id,
+            payload={"order_id": str(order.id), "payment_id": str(payment.id)},
+            deduplication_key=f"payment-confirmed:performer:{payment.id}",
+        )
+        await self._session.flush()
+        return PaymentWebhookResult(
+            payment_id=payment.id,
+            order_id=order.id,
+            status=payment.status,
+            applied=True,
+            unapplied_reason=None,
+        )
+
+    async def _get_payment_by_provider_id(
+        self,
+        provider_payment_id: str,
+    ) -> PaymentModel | None:
+        result = await self._session.execute(
+            select(PaymentModel).where(
+                PaymentModel.provider == "tbank_test",
+                PaymentModel.provider_payment_id == provider_payment_id,
+            ),
+        )
+        return result.scalar_one_or_none()
+
+    async def _lock_order(self, order_id: UUID) -> OrderModel:
+        result = await self._session.execute(
+            select(OrderModel).where(OrderModel.id == order_id).with_for_update(),
+        )
+        return result.scalar_one()
+
+    async def _lock_payment(self, payment_id: UUID) -> PaymentModel:
+        result = await self._session.execute(
+            select(PaymentModel).where(PaymentModel.id == payment_id).with_for_update(),
+        )
+        return result.scalar_one()
+
+    async def _lock_match(self, match_id: UUID) -> OrderMatchModel | None:
+        result = await self._session.execute(
+            select(OrderMatchModel)
+            .where(OrderMatchModel.id == match_id)
+            .with_for_update(),
+        )
+        return result.scalar_one_or_none()
+
+    async def _string_setting(self, key: str) -> str:
+        value = await self._setting_value(key)
+        return str(value)
+
+    async def _decimal_setting(self, key: str) -> Decimal | None:
+        value = await self._setting_value(key)
+        return Decimal(str(value)) if value is not None else None
+
+    async def _setting_value(self, key: str) -> object:
+        result = await self._session.execute(
+            select(BusinessSettingModel.value).where(BusinessSettingModel.key == key),
+        )
+        return result.scalar_one_or_none()
+
+    async def _add_notification(
+        self,
+        *,
+        recipient_type: str,
+        notification_type: str,
+        entity_type: str,
+        entity_id: UUID,
+        payload: dict[str, str],
+        deduplication_key: str,
+        customer_id: UUID | None = None,
+        performer_id: UUID | None = None,
+    ) -> None:
+        if customer_id is None and performer_id is None:
+            return
+        now = utc_now()
+        self._session.add(
+            NotificationModel(
+                recipient_type=recipient_type,
+                customer_id=customer_id,
+                performer_id=performer_id,
+                admin_id=None,
+                channel="telegram",
+                type=notification_type,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                payload=payload,
+                deduplication_key=deduplication_key,
+                status="pending",
+                attempts=0,
+                scheduled_at=now,
+                delete_after=now + timedelta(days=30),
+            ),
+        )
+
 
 def _payment_to_dto(model: PaymentModel) -> PaymentAttemptDTO:
     return PaymentAttemptDTO(
@@ -94,3 +290,28 @@ def _payment_to_dto(model: PaymentModel) -> PaymentAttemptDTO:
         confirmation_url=model.confirmation_url,
         expires_at=model.expires_at,
     )
+
+
+def _unapplied_reason(
+    *,
+    order: OrderModel,
+    payment: PaymentModel,
+    match: OrderMatchModel | None,
+    paid_amount: Decimal,
+    paid_at: datetime,
+) -> str | None:
+    if order.status != "waiting_payment":
+        return "order_status_mismatch"
+    if order.active_payment_id != payment.id:
+        return "payment_is_not_active"
+    if order.selected_performer_id != payment.performer_id:
+        return "performer_mismatch"
+    if match is None or match.id != order.selected_match_id:
+        return "match_is_not_selected"
+    if match.status != "selected":
+        return "match_status_mismatch"
+    if paid_amount != order.total_amount:
+        return "amount_mismatch"
+    if paid_at > payment.expires_at:
+        return "payment_expired"
+    return None

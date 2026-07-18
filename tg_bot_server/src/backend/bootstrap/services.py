@@ -86,7 +86,11 @@ from backend.modules.orders.infrastructure import (
     SqlAlchemyOrderRepository,
     SqlAlchemyPricingRepository,
 )
-from backend.modules.payments.application import PaymentGatewayInitCommand
+from backend.modules.payments.application import (
+    ApplyPaymentWebhookUseCase,
+    PaymentGatewayInitCommand,
+    PaymentWebhookCommand,
+)
 from backend.modules.payments.infrastructure import (
     SqlAlchemyPaymentRepository,
     TBankPaymentGateway,
@@ -497,6 +501,14 @@ class ApplicationServices:
                 expires_at=data.payment.expires_at,
             ),
         )
+
+    async def apply_payment_webhook(self, command: PaymentWebhookCommand) -> Any:
+        async with self._uow() as uow:
+            result = await ApplyPaymentWebhookUseCase(
+                SqlAlchemyPaymentRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return result
 
     async def set_performer_schedule(
         self,

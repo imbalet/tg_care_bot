@@ -2,7 +2,11 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from backend.common.domain import NotFoundError, ValidationError
-from backend.modules.payments.application.dto import PaymentGatewayInitCommand
+from backend.modules.payments.application.dto import (
+    PaymentGatewayInitCommand,
+    PaymentWebhookCommand,
+    PaymentWebhookResult,
+)
 from backend.modules.payments.application.interfaces import (
     PaymentGateway,
     PaymentRepository,
@@ -56,3 +60,17 @@ class InitializePaymentUseCase:
             provider_deal_id=result.provider_deal_id,
             confirmation_url=result.confirmation_url,
         )
+
+
+class ApplyPaymentWebhookUseCase:
+    def __init__(self, repository: PaymentRepository) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        command: PaymentWebhookCommand,
+    ) -> PaymentWebhookResult:
+        result = await self._repository.apply_successful_webhook(command)
+        if result is None:
+            raise NotFoundError("Payment not found")
+        return result

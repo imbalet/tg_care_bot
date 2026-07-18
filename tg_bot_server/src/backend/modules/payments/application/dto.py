@@ -44,3 +44,21 @@ class PaymentInitializationData:
     customer_phone: str
     customer_name: str
     service_name: str
+
+
+@dataclass(frozen=True)
+class PaymentWebhookCommand:
+    provider_payment_id: str
+    status: str
+    amount: Decimal
+    paid_at: datetime
+    raw_payload: dict[str, object]
+
+
+@dataclass(frozen=True)
+class PaymentWebhookResult:
+    payment_id: UUID
+    order_id: UUID
+    status: str
+    applied: bool
+    unapplied_reason: str | None

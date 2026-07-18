@@ -3,11 +3,18 @@ from .dto import (
     PaymentGatewayInitCommand,
     PaymentGatewayInitResult,
     PaymentInitializationData,
+    PaymentWebhookCommand,
+    PaymentWebhookResult,
 )
 from .interfaces import PaymentGateway, PaymentRepository
-from .use_cases import InitializePaymentCommand, InitializePaymentUseCase
+from .use_cases import (
+    ApplyPaymentWebhookUseCase,
+    InitializePaymentCommand,
+    InitializePaymentUseCase,
+)
 
 __all__ = [
+    "ApplyPaymentWebhookUseCase",
     "InitializePaymentCommand",
     "InitializePaymentUseCase",
     "PaymentAttemptDTO",
@@ -16,4 +23,6 @@ __all__ = [
     "PaymentGatewayInitResult",
     "PaymentInitializationData",
     "PaymentRepository",
+    "PaymentWebhookCommand",
+    "PaymentWebhookResult",
 ]
