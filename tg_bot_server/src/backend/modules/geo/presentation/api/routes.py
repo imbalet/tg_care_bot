@@ -1,9 +1,7 @@
-from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
 
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
@@ -13,23 +11,16 @@ from backend.modules.addresses.application import (
     SuggestAddressesUseCase,
 )
 from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
-from backend.modules.geo.application import AddressSuggestionDTO
 from backend.modules.geo.infrastructure import DaDataGeocoder
+
+from .mappers import suggestion_response
+from .schemas import AddressSuggestionResponse
 
 router = APIRouter(
     prefix="/api/geocoding",
     tags=["geocoding"],
     dependencies=[Depends(require_service_key)],
 )
-
-
-class AddressSuggestionResponse(BaseModel):
-    value: str
-    unrestricted_value: str
-    fias_id: str | None
-    latitude: Decimal | None
-    longitude: Decimal | None
-    quality: str | None
 
 
 @router.get("/address-suggestions")
@@ -51,15 +42,4 @@ async def address_suggestions(
             SqlAlchemyAddressRepository(session),
             geocoder,
         ).execute(SuggestAddressCommand(city_id=city_id, query=query))
-    return [_suggestion_response(suggestion) for suggestion in suggestions]
-
-
-def _suggestion_response(suggestion: AddressSuggestionDTO) -> AddressSuggestionResponse:
-    return AddressSuggestionResponse(
-        value=suggestion.value,
-        unrestricted_value=suggestion.unrestricted_value,
-        fias_id=suggestion.fias_id,
-        latitude=suggestion.latitude,
-        longitude=suggestion.longitude,
-        quality=suggestion.quality,
-    )
+    return [suggestion_response(suggestion) for suggestion in suggestions]

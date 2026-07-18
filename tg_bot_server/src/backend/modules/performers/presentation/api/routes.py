@@ -1,9 +1,7 @@
-from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, UploadFile
-from pydantic import BaseModel, Field
 
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
@@ -11,7 +9,6 @@ from backend.common.domain import NotFoundError
 from backend.common.infrastructure import S3ObjectStorage
 from backend.common.presentation import require_service_key
 from backend.modules.addresses.application import (
-    AddressDTO,
     CreateOwnerAddressCommand,
     CreatePerformerAddressUseCase,
     DeletePerformerAddressUseCase,
@@ -20,10 +17,10 @@ from backend.modules.addresses.application import (
 from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
 from backend.modules.admin.infrastructure import SqlAlchemyAdminAuditRepository
 from backend.modules.admin.presentation.api.routes import (
-    AdminResponse,
     get_current_admin,
     require_admin_csrf,
 )
+from backend.modules.admin.presentation.api.schemas import AdminResponse
 from backend.modules.files.application import (
     UploadPerformerAvatarCommand,
     UploadPerformerAvatarUseCase,
@@ -37,13 +34,9 @@ from backend.modules.performers.application import (
     CreateInvitationCommand,
     CreateInvitationUseCase,
     GetRegistrationStateUseCase,
-    InvitationDTO,
     ListPerformerServicesUseCase,
-    PerformerDTO,
-    PerformerServiceDTO,
     RegisterPerformerCommand,
     RegisterPerformerUseCase,
-    RegistrationStateDTO,
     SetPerformerAcceptingOrdersCommand,
     SetPerformerAcceptingOrdersUseCase,
     SetPerformerServiceEnabledCommand,
@@ -55,135 +48,37 @@ from backend.modules.performers.application import (
 )
 from backend.modules.performers.infrastructure import SqlAlchemyPerformerRepository
 
+from .mappers import (
+    address_response,
+    file_response,
+    invitation_response,
+    performer_response,
+    performer_service_response,
+    registration_state_response,
+)
+from .schemas import (
+    AddressResponse,
+    ApprovePerformerServiceRequest,
+    CreateAddressRequest,
+    CreateInvitationRequest,
+    FileResponse,
+    InvitationResponse,
+    PerformerResponse,
+    PerformerServiceResponse,
+    RegisterPerformerRequest,
+    RegistrationStateResponse,
+    SetAcceptingOrdersRequest,
+    SetPerformerServiceEnabledRequest,
+    SetPerformerServiceMaxObjectsRequest,
+    UpdateTelegramUsernameRequest,
+)
+
 router = APIRouter(
     prefix="/api",
     tags=["performers"],
     dependencies=[Depends(require_service_key)],
 )
 admin_router = APIRouter(prefix="/admin/performers", tags=["admin-performers"])
-
-
-class CreateInvitationRequest(BaseModel):
-    telegram_id: int
-    created_by_admin_id: UUID
-    expires_at: datetime | None = None
-
-
-class RegisterPerformerRequest(BaseModel):
-    telegram_id: int
-    full_name: str = Field(min_length=1)
-    phone: str = Field(min_length=1)
-    city_id: UUID
-    contact_method: str
-    about_text: str = Field(min_length=1)
-    telegram_username: str | None = None
-    accepted_legal_document_ids: list[UUID]
-
-
-class UpdateTelegramUsernameRequest(BaseModel):
-    telegram_username: str | None = None
-
-
-class ApprovePerformerServiceRequest(BaseModel):
-    admin_max_objects: int = Field(ge=1)
-    constraints: dict[str, Any] = Field(default_factory=dict)
-
-
-class SetPerformerServiceEnabledRequest(BaseModel):
-    is_enabled: bool
-
-
-class SetPerformerServiceMaxObjectsRequest(BaseModel):
-    performer_max_objects: int = Field(ge=1)
-
-
-class SetAcceptingOrdersRequest(BaseModel):
-    is_accepting_orders: bool
-
-
-class CreateAddressRequest(BaseModel):
-    city_id: UUID
-    unrestricted_value: str = Field(min_length=1)
-    entrance: str | None = None
-    floor: str | None = None
-    apartment: str | None = None
-    comment: str | None = None
-
-
-class AddressResponse(BaseModel):
-    id: str
-    owner_type: str
-    customer_id: str | None
-    performer_id: str | None
-    city_id: str
-    district_id: str | None
-    address_text: str
-    fias_id: str | None
-    latitude: str | None
-    longitude: str | None
-    geocoding_provider: str | None
-    geocoding_quality: str | None
-    entrance: str | None
-    floor: str | None
-    apartment: str | None
-    comment: str | None
-    deleted_at: str | None
-    created_at: str
-    updated_at: str
-
-
-class FileResponse(BaseModel):
-    id: str
-    bucket: str
-    storage_key: str | None
-    mime_type: str
-    size_bytes: int | None
-    checksum: str | None
-    status: str
-
-
-class InvitationResponse(BaseModel):
-    id: str
-    telegram_id: int
-    status: str
-    expires_at: str | None
-    accepted_performer_id: str | None
-
-
-class PerformerResponse(BaseModel):
-    id: str
-    telegram_id: int
-    full_name: str
-    phone: str
-    telegram_username: str | None
-    contact_method: str
-    city_id: str
-    about_text: str | None
-    status: str
-    is_accepting_orders: bool
-    current_address_id: str | None
-
-
-class PerformerServiceResponse(BaseModel):
-    id: str
-    performer_id: str
-    service_id: str
-    service_code: str
-    service_name: str
-    service_location_policy: str
-    is_approved: bool
-    is_enabled: bool
-    admin_max_objects: int
-    performer_max_objects: int
-    constraints: dict[str, Any]
-    approved_by_admin_id: str | None
-    approved_at: str | None
-
-
-class RegistrationStateResponse(BaseModel):
-    state: str
-    invitation: InvitationResponse | None
-    performer: PerformerResponse | None
 
 
 @router.post("/admin/performer-invitations", status_code=201)
@@ -202,7 +97,7 @@ async def create_invitation(
             ),
         )
         await session.commit()
-    return _invitation_response(invitation)
+    return invitation_response(invitation)
 
 
 @admin_router.post("/invitations", status_code=201)
@@ -230,7 +125,7 @@ async def create_invitation_as_admin(
             audit_metadata={"telegram_id": request.telegram_id},
         )
         await session.commit()
-    return _invitation_response(invitation)
+    return invitation_response(invitation)
 
 
 @router.get("/performers/by-telegram/{telegram_id}/registration-state")
@@ -243,7 +138,7 @@ async def registration_state(
             SqlAlchemyPerformerRepository(session),
         ).execute(telegram_id)
         await session.commit()
-    return _registration_state_response(state)
+    return registration_state_response(state)
 
 
 @router.post("/performers/register-by-invitation", status_code=201)
@@ -267,7 +162,7 @@ async def register_by_invitation(
             ),
         )
         await session.commit()
-    return _performer_response(performer)
+    return performer_response(performer)
 
 
 @router.post("/admin/performers/{performer_id}/activate")
@@ -280,7 +175,7 @@ async def activate(
             SqlAlchemyPerformerRepository(session),
         ).execute(performer_id)
         await session.commit()
-    return _performer_response(performer)
+    return performer_response(performer)
 
 
 @admin_router.post("/{performer_id}/activate")
@@ -301,7 +196,7 @@ async def activate_as_admin(
             entity_id=performer.id,
         )
         await session.commit()
-    return _performer_response(performer)
+    return performer_response(performer)
 
 
 @admin_router.post("/{performer_id}/services/{service_id}/approve")
@@ -337,7 +232,7 @@ async def approve_service_as_admin(
             },
         )
         await session.commit()
-    return _performer_service_response(service)
+    return performer_service_response(service)
 
 
 @admin_router.get("/{performer_id}/services")
@@ -350,7 +245,7 @@ async def list_services_as_admin(
         services = await ListPerformerServicesUseCase(
             SqlAlchemyPerformerRepository(session),
         ).execute_for_performer(performer_id)
-    return [_performer_service_response(service) for service in services]
+    return [performer_service_response(service) for service in services]
 
 
 @router.patch("/performers/by-telegram/{telegram_id}/telegram-username")
@@ -369,7 +264,7 @@ async def update_telegram_username(
             ),
         )
         await session.commit()
-    return _performer_response(performer)
+    return performer_response(performer)
 
 
 @router.get("/performers/by-telegram/{telegram_id}/services")
@@ -381,7 +276,7 @@ async def list_services_by_telegram(
         services = await ListPerformerServicesUseCase(
             SqlAlchemyPerformerRepository(session),
         ).execute_by_telegram_id(telegram_id)
-    return [_performer_service_response(service) for service in services]
+    return [performer_service_response(service) for service in services]
 
 
 @router.patch("/performers/by-telegram/{telegram_id}/services/{service_id}/enabled")
@@ -402,7 +297,7 @@ async def set_service_enabled(
             ),
         )
         await session.commit()
-    return _performer_service_response(service)
+    return performer_service_response(service)
 
 
 @router.patch("/performers/by-telegram/{telegram_id}/services/{service_id}/max-objects")
@@ -423,7 +318,7 @@ async def set_service_max_objects(
             ),
         )
         await session.commit()
-    return _performer_service_response(service)
+    return performer_service_response(service)
 
 
 @router.patch("/performers/by-telegram/{telegram_id}/accepting-orders")
@@ -442,7 +337,7 @@ async def set_accepting_orders(
             ),
         )
         await session.commit()
-    return _performer_response(performer)
+    return performer_response(performer)
 
 
 @router.get("/performers/by-telegram/{telegram_id}/addresses")
@@ -455,13 +350,11 @@ async def list_addresses(
             session,
         ).get_performer_by_telegram_id(telegram_id)
         if performer is None:
-            from backend.common.domain import NotFoundError
-
             raise NotFoundError("Performer is not registered")
         addresses = await SqlAlchemyAddressRepository(session).list_for_performer(
             performer.id,
         )
-    return [_address_response(address) for address in addresses]
+    return [address_response(address) for address in addresses]
 
 
 @router.post("/performers/by-telegram/{telegram_id}/addresses", status_code=201)
@@ -487,7 +380,7 @@ async def create_address(
             ),
         )
         await session.commit()
-    return _address_response(address)
+    return address_response(address)
 
 
 @router.patch("/performers/by-telegram/{telegram_id}/current-address/{address_id}")
@@ -502,7 +395,7 @@ async def set_current_address(
             SqlAlchemyAddressRepository(session),
         ).execute(telegram_id=telegram_id, address_id=address_id)
         await session.commit()
-    return _address_response(address)
+    return address_response(address)
 
 
 @router.delete("/performers/by-telegram/{telegram_id}/addresses/{address_id}")
@@ -542,15 +435,7 @@ async def upload_avatar(
             ),
         )
         await session.commit()
-    return FileResponse(
-        id=str(stored_file.id),
-        bucket=stored_file.bucket,
-        storage_key=stored_file.storage_key,
-        mime_type=stored_file.mime_type,
-        size_bytes=stored_file.size_bytes,
-        checksum=stored_file.checksum,
-        status=stored_file.status,
-    )
+    return file_response(stored_file)
 
 
 @router.delete("/performers/by-telegram/{telegram_id}/avatar")
@@ -580,108 +465,6 @@ async def delete_avatar(
         await file_repository.mark_deleted(avatar.id)
         await session.commit()
     return {"status": "deleted"}
-
-
-def _registration_state_response(
-    state: RegistrationStateDTO,
-) -> RegistrationStateResponse:
-    return RegistrationStateResponse(
-        state=state.state,
-        invitation=_invitation_response(state.invitation)
-        if state.invitation is not None
-        else None,
-        performer=_performer_response(state.performer)
-        if state.performer is not None
-        else None,
-    )
-
-
-def _invitation_response(invitation: InvitationDTO) -> InvitationResponse:
-    return InvitationResponse(
-        id=str(invitation.id),
-        telegram_id=invitation.telegram_id,
-        status=invitation.status,
-        expires_at=invitation.expires_at.isoformat()
-        if invitation.expires_at is not None
-        else None,
-        accepted_performer_id=str(invitation.accepted_performer_id)
-        if invitation.accepted_performer_id is not None
-        else None,
-    )
-
-
-def _performer_response(performer: PerformerDTO) -> PerformerResponse:
-    return PerformerResponse(
-        id=str(performer.id),
-        telegram_id=performer.telegram_id,
-        full_name=performer.full_name,
-        phone=performer.phone,
-        telegram_username=performer.telegram_username,
-        contact_method=performer.contact_method,
-        city_id=str(performer.city_id),
-        about_text=performer.about_text,
-        status=performer.status,
-        is_accepting_orders=performer.is_accepting_orders,
-        current_address_id=str(performer.current_address_id)
-        if performer.current_address_id is not None
-        else None,
-    )
-
-
-def _performer_service_response(
-    service: PerformerServiceDTO,
-) -> PerformerServiceResponse:
-    return PerformerServiceResponse(
-        id=str(service.id),
-        performer_id=str(service.performer_id),
-        service_id=str(service.service_id),
-        service_code=service.service_code,
-        service_name=service.service_name,
-        service_location_policy=service.service_location_policy,
-        is_approved=service.is_approved,
-        is_enabled=service.is_enabled,
-        admin_max_objects=service.admin_max_objects,
-        performer_max_objects=service.performer_max_objects,
-        constraints=service.constraints,
-        approved_by_admin_id=str(service.approved_by_admin_id)
-        if service.approved_by_admin_id is not None
-        else None,
-        approved_at=service.approved_at.isoformat()
-        if service.approved_at is not None
-        else None,
-    )
-
-
-def _address_response(address: AddressDTO) -> AddressResponse:
-    return AddressResponse(
-        id=str(address.id),
-        owner_type=address.owner_type,
-        customer_id=str(address.customer_id)
-        if address.customer_id is not None
-        else None,
-        performer_id=str(address.performer_id)
-        if address.performer_id is not None
-        else None,
-        city_id=str(address.city_id),
-        district_id=str(address.district_id)
-        if address.district_id is not None
-        else None,
-        address_text=address.address_text,
-        fias_id=address.fias_id,
-        latitude=str(address.latitude) if address.latitude is not None else None,
-        longitude=str(address.longitude) if address.longitude is not None else None,
-        geocoding_provider=address.geocoding_provider,
-        geocoding_quality=address.geocoding_quality,
-        entrance=address.entrance,
-        floor=address.floor,
-        apartment=address.apartment,
-        comment=address.comment,
-        deleted_at=address.deleted_at.isoformat()
-        if address.deleted_at is not None
-        else None,
-        created_at=address.created_at.isoformat(),
-        updated_at=address.updated_at.isoformat(),
-    )
 
 
 def _geocoder(container: Container) -> DaDataGeocoder:

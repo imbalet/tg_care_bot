@@ -2,20 +2,17 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, Field
 
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
 from backend.common.presentation import require_service_key
 from backend.modules.addresses.application import (
-    AddressDTO,
     CreateCustomerAddressUseCase,
     CreateOwnerAddressCommand,
     DeleteCustomerAddressUseCase,
 )
 from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
 from backend.modules.care_objects.application import (
-    CareObjectDTO,
     CreateCustomerCareObjectCommand,
     CreateCustomerCareObjectUseCase,
     DeleteCustomerCareObjectUseCase,
@@ -26,174 +23,35 @@ from backend.modules.care_objects.application import (
 from backend.modules.care_objects.infrastructure import SqlAlchemyCareObjectRepository
 from backend.modules.customers.application import (
     GetCustomerProfileUseCase,
-    RegisterCustomerCommand,
     RegisterCustomerUseCase,
-    UpdateCustomerUsernameCommand,
     UpdateCustomerUsernameUseCase,
 )
-from backend.modules.customers.application.dto import CustomerDTO
 from backend.modules.customers.infrastructure import SqlAlchemyCustomerRepository
 from backend.modules.geo.infrastructure import DaDataGeocoder
+
+from .mappers import (
+    address_response,
+    care_object_response,
+    customer_response,
+    register_customer_command,
+    update_customer_username_command,
+)
+from .schemas import (
+    AddressResponse,
+    CareObjectRequest,
+    CareObjectResponse,
+    CreateAddressRequest,
+    CreateCareObjectRequest,
+    CustomerResponse,
+    RegisterCustomerRequest,
+    UpdateTelegramUsernameRequest,
+)
 
 router = APIRouter(
     prefix="/api/customers",
     tags=["customers"],
     dependencies=[Depends(require_service_key)],
 )
-
-
-class RegisterCustomerRequest(BaseModel):
-    telegram_id: int
-    full_name: str = Field(min_length=1)
-    phone: str = Field(min_length=1)
-    city_id: UUID
-    contact_method: str
-    telegram_username: str | None = None
-    accepted_legal_document_ids: list[UUID]
-
-
-class UpdateTelegramUsernameRequest(BaseModel):
-    telegram_username: str | None = None
-
-
-class CustomerResponse(BaseModel):
-    id: str
-    telegram_id: int
-    full_name: str
-    phone: str
-    telegram_username: str | None
-    contact_method: str
-    city_id: str
-    status: str
-
-
-class CareObjectRequest(BaseModel):
-    display_name: str = Field(min_length=1)
-    age_group: str
-    species: str | None = None
-    breed: str | None = None
-    pet_size: str | None = None
-    mobility_assistance_required: bool | None = None
-    routine_notes: str | None = None
-    behavior_notes: str | None = None
-
-
-class CreateCareObjectRequest(CareObjectRequest):
-    object_type: str
-
-
-class CareObjectResponse(BaseModel):
-    id: str
-    customer_id: str
-    object_type: str
-    display_name: str
-    age_group: str
-    species: str | None
-    breed: str | None
-    pet_size: str | None
-    mobility_assistance_required: bool | None
-    routine_notes: str | None
-    behavior_notes: str | None
-    deleted_at: str | None
-    created_at: str
-    updated_at: str
-
-
-class CreateAddressRequest(BaseModel):
-    city_id: UUID
-    unrestricted_value: str = Field(min_length=1)
-    entrance: str | None = None
-    floor: str | None = None
-    apartment: str | None = None
-    comment: str | None = None
-
-
-class AddressResponse(BaseModel):
-    id: str
-    owner_type: str
-    customer_id: str | None
-    performer_id: str | None
-    city_id: str
-    district_id: str | None
-    address_text: str
-    fias_id: str | None
-    latitude: str | None
-    longitude: str | None
-    geocoding_provider: str | None
-    geocoding_quality: str | None
-    entrance: str | None
-    floor: str | None
-    apartment: str | None
-    comment: str | None
-    deleted_at: str | None
-    created_at: str
-    updated_at: str
-
-
-def _to_response(customer: CustomerDTO) -> CustomerResponse:
-    return CustomerResponse(
-        id=str(customer.id),
-        telegram_id=customer.telegram_id,
-        full_name=customer.full_name,
-        phone=customer.phone,
-        telegram_username=customer.telegram_username,
-        contact_method=customer.contact_method,
-        city_id=str(customer.city_id),
-        status=customer.status,
-    )
-
-
-def _care_object_to_response(care_object: CareObjectDTO) -> CareObjectResponse:
-    return CareObjectResponse(
-        id=str(care_object.id),
-        customer_id=str(care_object.customer_id),
-        object_type=care_object.object_type,
-        display_name=care_object.display_name,
-        age_group=care_object.age_group,
-        species=care_object.species,
-        breed=care_object.breed,
-        pet_size=care_object.pet_size,
-        mobility_assistance_required=care_object.mobility_assistance_required,
-        routine_notes=care_object.routine_notes,
-        behavior_notes=care_object.behavior_notes,
-        deleted_at=care_object.deleted_at.isoformat()
-        if care_object.deleted_at is not None
-        else None,
-        created_at=care_object.created_at.isoformat(),
-        updated_at=care_object.updated_at.isoformat(),
-    )
-
-
-def _address_to_response(address: AddressDTO) -> AddressResponse:
-    return AddressResponse(
-        id=str(address.id),
-        owner_type=address.owner_type,
-        customer_id=str(address.customer_id)
-        if address.customer_id is not None
-        else None,
-        performer_id=str(address.performer_id)
-        if address.performer_id is not None
-        else None,
-        city_id=str(address.city_id),
-        district_id=str(address.district_id)
-        if address.district_id is not None
-        else None,
-        address_text=address.address_text,
-        fias_id=address.fias_id,
-        latitude=str(address.latitude) if address.latitude is not None else None,
-        longitude=str(address.longitude) if address.longitude is not None else None,
-        geocoding_provider=address.geocoding_provider,
-        geocoding_quality=address.geocoding_quality,
-        entrance=address.entrance,
-        floor=address.floor,
-        apartment=address.apartment,
-        comment=address.comment,
-        deleted_at=address.deleted_at.isoformat()
-        if address.deleted_at is not None
-        else None,
-        created_at=address.created_at.isoformat(),
-        updated_at=address.updated_at.isoformat(),
-    )
 
 
 def _geocoder(container: Container) -> DaDataGeocoder:
@@ -216,7 +74,7 @@ async def get_profile(
         customer = await GetCustomerProfileUseCase(
             SqlAlchemyCustomerRepository(session),
         ).execute(telegram_id)
-    return _to_response(customer)
+    return customer_response(customer)
 
 
 @router.post("/register", status_code=201)
@@ -227,19 +85,9 @@ async def register(
     async with container.session_factory() as session:
         customer = await RegisterCustomerUseCase(
             SqlAlchemyCustomerRepository(session),
-        ).execute(
-            RegisterCustomerCommand(
-                telegram_id=request.telegram_id,
-                full_name=request.full_name,
-                phone=request.phone,
-                city_id=request.city_id,
-                contact_method=request.contact_method,
-                telegram_username=request.telegram_username,
-                accepted_legal_document_ids=tuple(request.accepted_legal_document_ids),
-            ),
-        )
+        ).execute(register_customer_command(request))
         await session.commit()
-    return _to_response(customer)
+    return customer_response(customer)
 
 
 @router.patch("/by-telegram/{telegram_id}/telegram-username")
@@ -251,14 +99,9 @@ async def update_telegram_username(
     async with container.session_factory() as session:
         customer = await UpdateCustomerUsernameUseCase(
             SqlAlchemyCustomerRepository(session),
-        ).execute(
-            UpdateCustomerUsernameCommand(
-                telegram_id=telegram_id,
-                telegram_username=request.telegram_username,
-            ),
-        )
+        ).execute(update_customer_username_command(telegram_id, request))
         await session.commit()
-    return _to_response(customer)
+    return customer_response(customer)
 
 
 @router.get("/by-telegram/{telegram_id}/care-objects")
@@ -274,7 +117,7 @@ async def list_care_objects(
             customer_repository,
             care_object_repository,
         ).execute(telegram_id=telegram_id, object_type=object_type)
-    return [_care_object_to_response(care_object) for care_object in care_objects]
+    return [care_object_response(care_object) for care_object in care_objects]
 
 
 @router.post("/by-telegram/{telegram_id}/care-objects", status_code=201)
@@ -302,7 +145,7 @@ async def create_care_object(
             ),
         )
         await session.commit()
-    return _care_object_to_response(care_object)
+    return care_object_response(care_object)
 
 
 @router.patch("/by-telegram/{telegram_id}/care-objects/{care_object_id}")
@@ -331,7 +174,7 @@ async def update_care_object(
             ),
         )
         await session.commit()
-    return _care_object_to_response(care_object)
+    return care_object_response(care_object)
 
 
 @router.delete("/by-telegram/{telegram_id}/care-objects/{care_object_id}")
@@ -361,7 +204,7 @@ async def list_addresses(
         addresses = await SqlAlchemyAddressRepository(session).list_for_customer(
             customer.id,
         )
-    return [_address_to_response(address) for address in addresses]
+    return [address_response(address) for address in addresses]
 
 
 @router.post("/by-telegram/{telegram_id}/addresses", status_code=201)
@@ -387,7 +230,7 @@ async def create_address(
             ),
         )
         await session.commit()
-    return _address_to_response(address)
+    return address_response(address)
 
 
 @router.delete("/by-telegram/{telegram_id}/addresses/{address_id}")

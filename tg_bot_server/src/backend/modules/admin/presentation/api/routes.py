@@ -2,7 +2,6 @@ import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, Header, Response
-from pydantic import BaseModel, Field
 
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
@@ -19,28 +18,13 @@ from backend.modules.admin.infrastructure import (
     SqlAlchemyAdminRepository,
 )
 
+from .mappers import admin_response
+from .schemas import AdminResponse, LoginRequest, LoginResponse
+
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 ADMIN_SESSION_COOKIE = "admin_session"
 CSRF_HEADER = "X-CSRF-Token"
-
-
-class LoginRequest(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
-    password: str = Field(min_length=1)
-
-
-class AdminResponse(BaseModel):
-    id: str
-    email: str
-    full_name: str
-    status: str
-    last_login_at: str | None
-
-
-class LoginResponse(BaseModel):
-    admin: AdminResponse
-    csrf_token: str
 
 
 def _session_store(container: Container) -> RedisAdminSessionStore:
@@ -80,17 +64,8 @@ async def login(
         samesite="lax",
         path="/admin",
     )
-    admin = result.admin
     return LoginResponse(
-        admin=AdminResponse(
-            id=str(admin.id),
-            email=admin.email,
-            full_name=admin.full_name,
-            status=admin.status,
-            last_login_at=admin.last_login_at.isoformat()
-            if admin.last_login_at is not None
-            else None,
-        ),
+        admin=admin_response(result.admin),
         csrf_token=result.csrf_token,
     )
 
@@ -108,15 +83,7 @@ async def get_current_admin(
         )
         admin, csrf_token = await use_case.execute(admin_session)
     return (
-        AdminResponse(
-            id=str(admin.id),
-            email=admin.email,
-            full_name=admin.full_name,
-            status=admin.status,
-            last_login_at=admin.last_login_at.isoformat()
-            if admin.last_login_at is not None
-            else None,
-        ),
+        admin_response(admin),
         csrf_token,
         admin_session,
     )
