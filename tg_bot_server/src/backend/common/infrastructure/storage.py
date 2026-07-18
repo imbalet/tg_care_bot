@@ -3,10 +3,10 @@ from typing import Any
 
 import boto3
 
-from backend.common.application import StoredObject
+from backend.common.application import ObjectStorage, StoredObject
 
 
-class S3ObjectStorage:
+class S3ObjectStorage(ObjectStorage):
     def __init__(
         self,
         *,

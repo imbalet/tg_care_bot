@@ -10,6 +10,7 @@ from backend.common.application import utc_now
 from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.availability.application import (
     AvailabilityCheckDTO,
+    AvailabilityRepository,
     CalendarOverrideDTO,
     PerformerScheduleDTO,
     SuitablePerformerDTO,
@@ -26,7 +27,7 @@ from backend.modules.performers.infrastructure import (
 )
 
 
-class SqlAlchemyAvailabilityRepository:
+class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 

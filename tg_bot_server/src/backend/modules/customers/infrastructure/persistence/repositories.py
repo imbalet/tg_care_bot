@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import new_uuid, utc_now
 from backend.modules.catalog.infrastructure import CityModel, LegalDocumentModel
+from backend.modules.customers.application import CustomerRepository
 from backend.modules.customers.domain import ContactMethod, Customer, CustomerStatus
 from backend.modules.customers.infrastructure.persistence.models import (
     CustomerModel,
@@ -30,7 +31,7 @@ def _to_domain(model: CustomerModel) -> Customer:
     )
 
 
-class SqlAlchemyCustomerRepository:
+class SqlAlchemyCustomerRepository(CustomerRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 

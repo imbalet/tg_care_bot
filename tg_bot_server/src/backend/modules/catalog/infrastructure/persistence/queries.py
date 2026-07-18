@@ -9,6 +9,7 @@ from backend.modules.catalog.application.dto import (
     ServiceCategoryDTO,
     ServiceDTO,
 )
+from backend.modules.catalog.application.queries import CatalogQueryService
 from backend.modules.catalog.infrastructure.persistence.models import (
     CityModel,
     LegalDocumentModel,
@@ -16,7 +17,7 @@ from backend.modules.catalog.infrastructure.persistence.models import (
 )
 
 
-class SqlAlchemyCatalogQueryService:
+class SqlAlchemyCatalogQueryService(CatalogQueryService):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 

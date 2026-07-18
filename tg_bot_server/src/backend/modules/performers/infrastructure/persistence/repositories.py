@@ -18,6 +18,7 @@ from backend.modules.performers.application.dto import (
     PerformerDTO,
     PerformerServiceDTO,
 )
+from backend.modules.performers.application.interfaces import PerformerRepository
 from backend.modules.performers.infrastructure.persistence.models import (
     PerformerInvitationModel,
     PerformerModel,
@@ -25,7 +26,7 @@ from backend.modules.performers.infrastructure.persistence.models import (
 )
 
 
-class SqlAlchemyPerformerRepository:
+class SqlAlchemyPerformerRepository(PerformerRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 

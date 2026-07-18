@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import utc_now
+from backend.modules.admin.application import AdminRepository
 from backend.modules.admin.domain import Admin, AdminStatus
 from backend.modules.admin.infrastructure.persistence.models import AdminModel
 
@@ -21,7 +22,7 @@ def _to_domain(model: AdminModel) -> Admin:
     )
 
 
-class SqlAlchemyAdminRepository:
+class SqlAlchemyAdminRepository(AdminRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 

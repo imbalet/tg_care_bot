@@ -3,12 +3,16 @@ from decimal import Decimal, InvalidOperation
 import httpx
 
 from backend.common.domain import ValidationError
-from backend.modules.geo.application import AddressSuggestionDTO, NormalizedAddressDTO
+from backend.modules.geo.application import (
+    AddressSuggestionDTO,
+    Geocoder,
+    NormalizedAddressDTO,
+)
 
 DADATA_PROVIDER = "dadata"
 
 
-class DaDataGeocoder:
+class DaDataGeocoder(Geocoder):
     def __init__(
         self,
         *,

@@ -1,12 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.modules.system_checks.application import SystemCheckRecordRepository
 from backend.modules.system_checks.domain import SystemCheckRecord
 from backend.modules.system_checks.infrastructure.persistence.models import (
     SystemCheckRecordModel,
 )
 
 
-class SqlAlchemySystemCheckRecordRepository:
+class SqlAlchemySystemCheckRecordRepository(SystemCheckRecordRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 

@@ -1,5 +1,4 @@
-__all__: list[str] = []
-from .jobs import NoopWorkerJob, WorkerJob
+from .jobs import NoopWorkerJob, WorkerJob, WorkerRunner
 from .main import Worker
 
-__all__ = ["NoopWorkerJob", "Worker", "WorkerJob"]
+__all__ = ["NoopWorkerJob", "Worker", "WorkerJob", "WorkerRunner"]

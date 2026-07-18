@@ -7,6 +7,8 @@ from backend.common.application import utc_now
 from backend.common.domain import NotFoundError
 from backend.modules.care_objects.application import (
     CareObjectDTO,
+    CareObjectQueryService,
+    CareObjectRepository,
     CreateCareObjectCommand,
     UpdateCareObjectCommand,
     validate_care_object_fields,
@@ -34,7 +36,7 @@ def _to_dto(model: CareObjectModel) -> CareObjectDTO:
     )
 
 
-class SqlAlchemyCareObjectRepository:
+class SqlAlchemyCareObjectRepository(CareObjectRepository, CareObjectQueryService):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 

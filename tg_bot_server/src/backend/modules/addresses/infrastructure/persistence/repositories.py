@@ -5,7 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import utc_now
 from backend.common.domain import NotFoundError, ValidationError
-from backend.modules.addresses.application import AddressDTO, CreateAddressCommand
+from backend.modules.addresses.application import (
+    AddressDTO,
+    AddressQueryService,
+    AddressRepository,
+    CreateAddressCommand,
+)
 from backend.modules.catalog.infrastructure import CityModel
 
 from .models import AddressModel
@@ -50,7 +55,7 @@ def _to_dto(model: AddressModel) -> AddressDTO:
     )
 
 
-class SqlAlchemyAddressRepository:
+class SqlAlchemyAddressRepository(AddressRepository, AddressQueryService):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
