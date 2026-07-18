@@ -5,11 +5,9 @@ from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from executor_bot.infrastructure.http import (
-    BackendClient,
-    BackendClientError,
-    PerformerServiceDTO,
-)
+from executor_bot.application.dto import PerformerServiceDTO
+from executor_bot.application.errors import BackendClientError
+from executor_bot.application.ports import BackendPort
 from executor_bot.presentation.callbacks import (
     AcceptingOrdersCallback,
     CalendarOpenCallback,
@@ -40,7 +38,7 @@ async def open_services(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -74,7 +72,7 @@ async def open_services(
 async def toggle_accepting_orders(
     callback: CallbackQuery,
     bot: Bot,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: AcceptingOrdersCallback,
@@ -107,7 +105,7 @@ async def toggle_service(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: ServiceToggleCallback,
@@ -144,7 +142,7 @@ async def reduce_service_limit(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: ServiceLimitCallback,
@@ -201,7 +199,7 @@ async def open_calendar(
 async def set_schedule(
     callback: CallbackQuery,
     bot: Bot,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: CalendarScheduleCallback,
@@ -236,7 +234,7 @@ async def set_schedule(
 async def add_unavailable_tomorrow(
     callback: CallbackQuery,
     bot: Bot,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:

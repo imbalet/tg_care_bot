@@ -5,7 +5,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from executor_bot.infrastructure.http import BackendClient, BackendClientError
+from executor_bot.application.errors import BackendClientError
+from executor_bot.application.ports import BackendPort
 from executor_bot.presentation.callbacks import (
     AvatarDeleteCallback,
     AvatarOpenCallback,
@@ -69,7 +70,7 @@ async def start_upload(
 async def delete_avatar(
     callback: CallbackQuery,
     bot: Bot,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -100,7 +101,7 @@ async def upload_photo(
     message: Message,
     state: FSMContext,
     bot: Bot,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -126,7 +127,7 @@ async def upload_document(
     message: Message,
     state: FSMContext,
     bot: Bot,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -151,7 +152,7 @@ async def _upload(
     message: Message,
     state: FSMContext,
     bot: Bot,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     *,

@@ -1,4 +1,3 @@
-__all__: list[str] = []
 from .addresses import router as addresses_router
 from .avatar import router as avatar_router
 from .category import router as category_router

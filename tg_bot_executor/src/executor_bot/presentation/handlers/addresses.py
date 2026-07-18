@@ -5,12 +5,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from executor_bot.infrastructure.http import (
-    AddressDTO,
-    BackendClient,
-    BackendClientError,
-    BackendValidationError,
-)
+from executor_bot.application.dto import AddressDTO
+from executor_bot.application.errors import BackendClientError, BackendValidationError
+from executor_bot.application.ports import BackendPort
 from executor_bot.presentation.callbacks import (
     WorkAddressAddCallback,
     WorkAddressCityCallback,
@@ -65,7 +62,7 @@ async def open_work_addresses(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -107,7 +104,7 @@ async def add_work_address(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -181,7 +178,7 @@ async def enter_query(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -278,7 +275,7 @@ async def enter_extra(
     message: Message,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -303,7 +300,7 @@ async def skip_extra(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -349,7 +346,7 @@ async def set_current_address(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: WorkAddressCurrentCallback,
@@ -385,7 +382,7 @@ async def delete_address(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: WorkAddressDeleteCallback,
@@ -420,7 +417,7 @@ async def _advance_or_create(
     event: Message | CallbackQuery,
     bot: Bot,
     state: FSMContext,
-    backend_client: BackendClient,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
