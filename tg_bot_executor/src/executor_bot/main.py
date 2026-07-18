@@ -24,6 +24,7 @@ from executor_bot.presentation.error_handler import handle_unexpected_error
 from executor_bot.presentation.handlers import (
     addresses_router,
     avatar_router,
+    category_router,
     fallback_router,
     registration_router,
     services_calendar_router,
@@ -60,6 +61,7 @@ async def amain() -> None:
     dispatcher.include_router(addresses_router)
     dispatcher.include_router(avatar_router)
     dispatcher.include_router(services_calendar_router)
+    dispatcher.include_router(category_router)
     dispatcher.include_router(fallback_router)
 
     bot = Bot(

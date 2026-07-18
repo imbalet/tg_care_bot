@@ -128,8 +128,25 @@ def summary_text(data: dict[str, object]) -> str:
     )
 
 
-def executor_main_menu_text() -> str:
-    return "<b>Заказы</b>\n\nВыберите действие."
+CATEGORY_EMOJIS = {
+    "child": "👶",
+    "ward": "🧓",
+    "pet": "🐾",
+}
+
+
+def category_select_text() -> str:
+    return "<b>Выберите направление</b>"
+
+
+def executor_main_menu_text(category: object | None = None) -> str:
+    if category is None:
+        return "<b>Главное меню</b>"
+    name = str(getattr(category, "name", "Главное меню"))
+    care_object_type = str(getattr(category, "care_object_type", ""))
+    emoji = CATEGORY_EMOJIS.get(care_object_type, "")
+    title = f"{emoji} {name}".strip()
+    return f"<b>{escape(title)}</b>"
 
 
 def executor_profile_text(profile: ExecutorProfileView) -> str:
@@ -316,6 +333,7 @@ __all__ = [
     "avatar_uploaded_text",
     "calendar_text",
     "calendar_updated_text",
+    "category_select_text",
     "executor_main_menu_text",
     "executor_profile_text",
     "fallback_text",

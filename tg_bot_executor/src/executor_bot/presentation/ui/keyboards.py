@@ -12,6 +12,8 @@ from executor_bot.presentation.callbacks import (
     CalendarOpenCallback,
     CalendarScheduleCallback,
     CalendarUnavailableTomorrowCallback,
+    CategoryChangeCallback,
+    CategorySelectCallback,
     ExecutorOrdersOpenCallback,
     HelpCallback,
     MainMenuCallback,
@@ -42,6 +44,13 @@ class CityButtonView(Protocol):
     @property
     def name(self) -> str:
         pass
+
+
+CATEGORY_EMOJIS = {
+    "child": "👶",
+    "ward": "🧓",
+    "pet": "🐾",
+}
 
 
 def legal_acceptance_keyboard(documents: Sequence[object] = ()) -> InlineKeyboardMarkup:
@@ -86,7 +95,21 @@ def registration_summary_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def main_menu_keyboard() -> InlineKeyboardMarkup:
+def category_select_keyboard(categories: Sequence[object]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    for category in categories:
+        code = str(getattr(category, "code", ""))
+        name = str(getattr(category, "name", code))
+        care_object_type = str(getattr(category, "care_object_type", ""))
+        emoji = CATEGORY_EMOJIS.get(care_object_type, "")
+        keyboard.button(
+            f"{emoji} {name}".strip(),
+            CategorySelectCallback(code=code),
+        )
+    return keyboard.as_markup()
+
+
+def main_menu_keyboard(category: object | None = None) -> InlineKeyboardMarkup:
     return (
         InlineKeyboardFactory()
         .button(MsgKey.AVAILABLE_ORDERS, AvailableOrdersOpenCallback())
@@ -97,6 +120,7 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
         .button(MsgKey.AVATAR, AvatarOpenCallback())
         .button(MsgKey.PROFILE, ProfileOpenCallback())
         .button(MsgKey.HELP, HelpCallback())
+        .button(MsgKey.SWITCH_CATEGORY, CategoryChangeCallback())
         .as_markup()
     )
 
@@ -223,6 +247,7 @@ def calendar_keyboard() -> InlineKeyboardMarkup:
 __all__ = [
     "avatar_keyboard",
     "calendar_keyboard",
+    "category_select_keyboard",
     "contact_methods_keyboard",
     "fallback_keyboard",
     "legal_acceptance_keyboard",

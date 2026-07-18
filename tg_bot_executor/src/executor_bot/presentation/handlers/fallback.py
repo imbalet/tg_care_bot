@@ -3,21 +3,24 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from executor_bot.application.errors import BackendClientError
-from executor_bot.application.ports import BackendPort
+from executor_bot.application.ports import ActiveCategoryStore, BackendPort
 from executor_bot.presentation.callbacks import (
     HelpCallback,
     MainMenuCallback,
     ProfileOpenCallback,
 )
 from executor_bot.presentation.middlewares import TelegramUserContext
+from executor_bot.presentation.navigation import (
+    active_category,
+    show_category_menu,
+    show_category_select,
+)
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
-    executor_main_menu_text,
     executor_profile_text,
     fallback_keyboard,
     fallback_text,
     help_text,
-    main_menu_keyboard,
     unavailable_action_text,
 )
 
@@ -29,6 +32,7 @@ async def main_menu_callback(
     callback: CallbackQuery,
     bot: Bot,
     backend_client: BackendPort,
+    active_category_store: ActiveCategoryStore,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -58,12 +62,26 @@ async def main_menu_callback(
             reply_markup=fallback_keyboard(include_main_menu=False),
         )
         return
-    await telegram_responder.update(
+    category = await active_category(
+        backend_client=backend_client,
+        active_category_store=active_category_store,
+        telegram_id=telegram_user_context.telegram_id,
+    )
+    if category is None:
+        await show_category_select(
+            bot=bot,
+            event=callback,
+            telegram_user_context=telegram_user_context,
+            backend_client=backend_client,
+            telegram_responder=telegram_responder,
+        )
+        return
+    await show_category_menu(
         bot=bot,
         event=callback,
-        telegram_id=telegram_user_context.telegram_id,
-        text=executor_main_menu_text(),
-        reply_markup=main_menu_keyboard(),
+        telegram_user_context=telegram_user_context,
+        telegram_responder=telegram_responder,
+        category=category,
     )
 
 

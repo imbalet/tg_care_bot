@@ -17,6 +17,7 @@ from executor_bot.presentation.callbacks import (
 )
 from executor_bot.presentation.handlers.responses import send_step
 from executor_bot.presentation.middlewares import TelegramUserContext
+from executor_bot.presentation.navigation import show_category_select
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.types import ContactMethod
 from executor_bot.presentation.ui import (
@@ -248,6 +249,7 @@ async def confirm_registration(
     bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await callback.answer()
@@ -277,8 +279,22 @@ async def confirm_registration(
             await message.answer(retry_later_text())
         return
     await state.clear()
-    if message is not None:
-        await message.answer(registration_complete_text())
+    if message is None:
+        return
+    await telegram_responder.send_notice(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=registration_complete_text(),
+    )
+    await show_category_select(
+        bot=bot,
+        event=callback,
+        telegram_user_context=telegram_user_context,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        force_create_new=True,
+    )
 
 
 @router.message(ExecutorRegistration.summary)

@@ -11,6 +11,14 @@ class MainMenuCallback(CallbackData, prefix="main_menu"):
     pass
 
 
+class CategorySelectCallback(CallbackData, prefix="cat_select"):
+    code: str
+
+
+class CategoryChangeCallback(CallbackData, prefix="cat_change"):
+    pass
+
+
 class ProfileOpenCallback(CallbackData, prefix="profile_open"):
     pass
 

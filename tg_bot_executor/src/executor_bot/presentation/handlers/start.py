@@ -6,16 +6,19 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from executor_bot.application.errors import BackendClientError
-from executor_bot.application.ports import BackendPort
+from executor_bot.application.ports import ActiveCategoryStore, BackendPort
 from executor_bot.presentation.handlers.registration import start_registration
 from executor_bot.presentation.handlers.responses import send_screen, send_step
 from executor_bot.presentation.middlewares import TelegramUserContext
+from executor_bot.presentation.navigation import (
+    active_category,
+    show_category_menu,
+    show_category_select,
+)
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
-    executor_main_menu_text,
     fallback_keyboard,
     help_text,
-    main_menu_keyboard,
     no_invitation_text,
     retry_later_text,
 )
@@ -31,6 +34,7 @@ async def start(
     state: FSMContext,
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
+    active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.clear()
@@ -40,6 +44,7 @@ async def start(
         state=state,
         backend_client=backend_client,
         telegram_responder=telegram_responder,
+        active_category_store=active_category_store,
         telegram_user_context=telegram_user_context,
         start_registration_if_invited=True,
     )
@@ -52,6 +57,7 @@ async def menu(
     state: FSMContext,
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
+    active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.clear()
@@ -61,6 +67,7 @@ async def menu(
         state=state,
         backend_client=backend_client,
         telegram_responder=telegram_responder,
+        active_category_store=active_category_store,
         telegram_user_context=telegram_user_context,
         start_registration_if_invited=False,
     )
@@ -99,6 +106,7 @@ async def _open_start_or_menu(
     state: FSMContext,
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
+    active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
     start_registration_if_invited: bool,
 ) -> None:
@@ -127,12 +135,26 @@ async def _open_start_or_menu(
             "Opening executor menu",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await telegram_responder.update(
+        category = await active_category(
+            backend_client=backend_client,
+            active_category_store=active_category_store,
+            telegram_id=telegram_user_context.telegram_id,
+        )
+        if category is None:
+            await show_category_select(
+                bot=bot,
+                event=message,
+                telegram_user_context=telegram_user_context,
+                backend_client=backend_client,
+                telegram_responder=telegram_responder,
+            )
+            return
+        await show_category_menu(
             bot=bot,
             event=message,
-            telegram_id=telegram_user_context.telegram_id,
-            text=executor_main_menu_text(),
-            reply_markup=main_menu_keyboard(),
+            telegram_user_context=telegram_user_context,
+            telegram_responder=telegram_responder,
+            category=category,
         )
         return
     if registration_state.state == "no_invitation":
