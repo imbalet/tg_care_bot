@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from aiogram.filters.callback_data import CallbackData
 
 from customer_bot.presentation.types import ContactMethod, YesNoValue
@@ -29,6 +31,18 @@ class ProfileOpenCallback(CallbackData, prefix="profile_open"):
 
 class OrdersListCallback(CallbackData, prefix="orders_list"):
     pass
+
+
+class OrderResponsesOpenCallback(CallbackData, prefix="order_resp_open"):
+    order_id: UUID
+
+
+class OrderResponseSelectCallback(CallbackData, prefix="order_resp_select"):
+    match_id: UUID
+
+
+class OrderResponseRejectCallback(CallbackData, prefix="order_resp_reject"):
+    match_id: UUID
 
 
 class ServicesPricesCallback(CallbackData, prefix="services_prices"):

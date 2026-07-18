@@ -23,6 +23,7 @@ from customer_bot.presentation.handlers.orders.state import (
 from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
+    order_published_keyboard,
     order_published_text,
     retry_later_text,
     use_buttons_text,
@@ -109,6 +110,7 @@ async def publish_pool(
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=order_published_text(order),
+        reply_markup=order_published_keyboard(order),
     )
 
 

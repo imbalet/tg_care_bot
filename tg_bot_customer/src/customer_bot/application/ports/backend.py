@@ -9,7 +9,9 @@ from customer_bot.application.dto import (
     CityDTO,
     CustomerProfileDTO,
     LegalDocumentDTO,
+    MatchActionDTO,
     OrderDTO,
+    OrderMatchDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
     SuitablePerformerDTO,
@@ -165,3 +167,24 @@ class BackendPort(Protocol):
         care_object_ids: tuple[UUID, ...],
         address_id: UUID | None,
     ) -> tuple[SuitablePerformerDTO, ...]: ...
+
+    async def list_order_matches(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> tuple[OrderMatchDTO, ...]: ...
+
+    async def select_pool_response(
+        self,
+        *,
+        match_id: UUID,
+        customer_id: UUID,
+    ) -> MatchActionDTO: ...
+
+    async def reject_pool_response(
+        self,
+        *,
+        match_id: UUID,
+        customer_id: UUID,
+    ) -> OrderMatchDTO: ...

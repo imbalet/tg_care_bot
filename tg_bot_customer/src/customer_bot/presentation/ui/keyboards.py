@@ -46,6 +46,9 @@ from customer_bot.presentation.callbacks import (
     OrderPhotoConsentCallback,
     OrderPublishDirectCallback,
     OrderPublishPoolCallback,
+    OrderResponseRejectCallback,
+    OrderResponseSelectCallback,
+    OrderResponsesOpenCallback,
     OrderServiceCallback,
     OrdersListCallback,
     OrderStartManualCallback,
@@ -517,6 +520,34 @@ def order_publish_keyboard(performers: Sequence[object]) -> InlineKeyboardMarkup
         keyboard.button(
             f"Предложить: {_item_label(performer, 'full_name', index)}",
             OrderPublishDirectCallback(index=index),
+        )
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+
+
+def order_published_keyboard(order: object) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    order_id = _item_value(order, "id")
+    if _item_value(order, "matching_mode") == "pool" and order_id is not None:
+        keyboard.button(
+            "Отклики",
+            OrderResponsesOpenCallback(order_id=order_id),
+        )
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+
+
+def order_matches_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory(row_width=2)
+    for index, item in enumerate(items, start=1):
+        match_id = _item_value(item, "id")
+        if match_id is None:
+            continue
+        keyboard.button(
+            f"Выбрать #{index}",
+            OrderResponseSelectCallback(match_id=match_id),
+        )
+        keyboard.button(
+            f"Отклонить #{index}",
+            OrderResponseRejectCallback(match_id=match_id),
         )
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 

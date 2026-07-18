@@ -103,6 +103,30 @@ class OrderView(Protocol):
         pass
 
 
+class OrderMatchView(Protocol):
+    @property
+    def id(self) -> object:
+        pass
+
+    @property
+    def performer_id(self) -> object:
+        pass
+
+    @property
+    def status(self) -> str:
+        pass
+
+
+class MatchActionView(Protocol):
+    @property
+    def order_status(self) -> str:
+        pass
+
+    @property
+    def payment_confirmation_url(self) -> str | None:
+        pass
+
+
 class ServiceView(Protocol):
     @property
     def name(self) -> str:
@@ -578,6 +602,44 @@ def order_published_text(order: OrderView) -> str:
             f"Подбор: {escape(mode)}",
             f"Итого: {escape(str(order.total_amount))}",
         ),
+    )
+
+
+def order_matches_text(items: Sequence[OrderMatchView]) -> str:
+    if not items:
+        return "<b>Отклики</b>\n\nПока нет активных откликов по этому заказу."
+    lines = ["<b>Отклики</b>"]
+    for index, item in enumerate(items, start=1):
+        lines.extend(
+            (
+                "",
+                f"#{index}",
+                f"Исполнитель ID: {escape(str(item.performer_id))}",
+                f"Статус: {escape(item.status)}",
+            ),
+        )
+    return "\n".join(lines)
+
+
+def order_response_selected_text(action: MatchActionView) -> str:
+    lines = [
+        "<b>Исполнитель выбран</b>",
+        "",
+        f"Статус заказа: {escape(action.order_status)}",
+    ]
+    if action.payment_confirmation_url:
+        lines.extend(("", f"Оплата: {escape(action.payment_confirmation_url)}"))
+    return "\n".join(lines)
+
+
+def order_response_rejected_text() -> str:
+    return "Отклик отклонен."
+
+
+def order_response_unavailable_text() -> str:
+    return (
+        "<b>Отклик недоступен</b>\n\n"
+        "Он уже обработан, устарел или заказ изменил состояние."
     )
 
 

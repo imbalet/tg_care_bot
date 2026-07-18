@@ -13,7 +13,9 @@ from customer_bot.application.dto import (
     CityDTO,
     CustomerProfileDTO,
     LegalDocumentDTO,
+    MatchActionDTO,
     OrderDTO,
+    OrderMatchDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
     ServiceDTO,
@@ -406,6 +408,48 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return tuple(_suitable_performer_from_json(item) for item in response.json())
 
+    async def list_order_matches(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> tuple[OrderMatchDTO, ...]:
+        response = await self._request(
+            "GET",
+            f"/api/orders/{order_id}/matches",
+            params={"customer_id": str(customer_id)},
+        )
+        self._raise_for_status(response)
+        return tuple(_order_match_from_json(item) for item in response.json())
+
+    async def select_pool_response(
+        self,
+        *,
+        match_id: UUID,
+        customer_id: UUID,
+    ) -> MatchActionDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/matches/{match_id}/pool/select",
+            json={"customer_id": str(customer_id)},
+        )
+        self._raise_for_status(response)
+        return _match_action_from_json(response.json())
+
+    async def reject_pool_response(
+        self,
+        *,
+        match_id: UUID,
+        customer_id: UUID,
+    ) -> OrderMatchDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/matches/{match_id}/pool/reject",
+            json={"customer_id": str(customer_id)},
+        )
+        self._raise_for_status(response)
+        return _order_match_from_json(response.json())
+
     async def _request(
         self,
         method: str,
@@ -630,4 +674,29 @@ def _suitable_performer_from_json(data: dict[str, object]) -> SuitablePerformerD
         distance_km=Decimal(str(data["distance_km"]))
         if data["distance_km"] is not None
         else None,
+    )
+
+
+def _order_match_from_json(data: dict[str, object]) -> OrderMatchDTO:
+    return OrderMatchDTO(
+        id=UUID(str(data["id"])),
+        order_id=UUID(str(data["order_id"])),
+        performer_id=UUID(str(data["performer_id"])),
+        match_type=str(data["match_type"]),
+        status=str(data["status"]),
+    )
+
+
+def _match_action_from_json(data: dict[str, object]) -> MatchActionDTO:
+    payment = data["payment"] if isinstance(data["payment"], dict) else None
+    confirmation_url = (
+        str(payment["confirmation_url"])
+        if payment is not None and payment["confirmation_url"] is not None
+        else None
+    )
+    return MatchActionDTO(
+        order_id=UUID(str(data["order_id"])),
+        order_status=str(data["order_status"]),
+        match_id=UUID(str(data["match_id"])),
+        payment_confirmation_url=confirmation_url,
     )
