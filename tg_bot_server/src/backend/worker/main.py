@@ -7,6 +7,7 @@ from backend.bootstrap.settings import get_settings
 from backend.common.infrastructure.logging import configure_logging
 from backend.worker.jobs import (
     NoopWorkerJob,
+    NotificationWorkerJob,
     RetryPolicy,
     WorkerJob,
     WorkerRunner,
@@ -60,7 +61,15 @@ async def amain() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
     container = create_container(settings)
-    worker = Worker(settings.worker_poll_interval_seconds)
+    worker = Worker(
+        settings.worker_poll_interval_seconds,
+        jobs=[
+            NotificationWorkerJob(
+                container.session_factory,
+                settings.worker_batch_limit,
+            ),
+        ],
+    )
     loop = asyncio.get_running_loop()
     for signal_number in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(signal_number, worker.stop)

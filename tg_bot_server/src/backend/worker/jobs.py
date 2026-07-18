@@ -3,6 +3,13 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from backend.common.application import utc_now
+from backend.common.infrastructure.database import for_update_skip_locked
+from backend.modules.notifications.infrastructure import NotificationModel
+
 
 class WorkerJob(Protocol):
     name: str
@@ -45,6 +52,43 @@ class NoopWorkerJob:
 
     async def run_once(self) -> None:
         return None
+
+
+class NotificationWorkerJob:
+    name = "notifications"
+
+    def __init__(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        batch_limit: int,
+        max_attempts: int = 3,
+    ) -> None:
+        self._session_factory = session_factory
+        self._batch_limit = batch_limit
+        self._max_attempts = max_attempts
+
+    async def run_once(self) -> None:
+        async with self._session_factory() as session:
+            now = utc_now()
+            result = await session.execute(
+                for_update_skip_locked(
+                    select(NotificationModel)
+                    .where(
+                        NotificationModel.status == "pending",
+                        NotificationModel.scheduled_at <= now,
+                        NotificationModel.attempts < self._max_attempts,
+                    )
+                    .order_by(NotificationModel.scheduled_at),
+                    self._batch_limit,
+                ),
+            )
+            notifications = tuple(result.scalars())
+            for notification in notifications:
+                notification.attempts += 1
+                notification.status = "sent"
+                notification.sent_at = now
+                notification.last_error = None
+            await session.commit()
 
 
 @dataclass(frozen=True)
