@@ -211,7 +211,7 @@ def create_admin_surface(container: Container) -> Admin:
     admin.add_view(
         CatalogModelView(ObjectCountMultiplierModel, label="Object count multipliers"),
     )
-    admin.add_view(CatalogModelView(BusinessSettingModel, label="Business settings"))
+    admin.add_view(ReadOnlyModelView(BusinessSettingModel, label="Business settings"))
     admin.add_view(LegalDocumentView(LegalDocumentModel, label="Legal documents"))
     admin.add_view(ReadOnlyModelView(CustomerModel, label="Customers"))
     admin.add_view(ReadOnlyModelView(PerformerModel, label="Performers"))

@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -17,3 +19,13 @@ class AdminResponse(BaseModel):
 class LoginResponse(BaseModel):
     admin: AdminResponse
     csrf_token: str
+
+
+class UpdateBusinessSettingRequest(BaseModel):
+    value: Any
+
+
+class BusinessSettingResponse(BaseModel):
+    key: str
+    value: Any
+    value_type: str

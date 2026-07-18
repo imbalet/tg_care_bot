@@ -21,6 +21,23 @@ from backend.modules.admin.presentation.api.routes import (
     require_admin_csrf,
 )
 from backend.modules.admin.presentation.api.schemas import AdminResponse
+from backend.modules.availability.application import (
+    AddCalendarOverrideCommand,
+    AddCalendarOverrideUseCase,
+    SetPerformerScheduleCommand,
+    SetPerformerScheduleUseCase,
+)
+from backend.modules.availability.infrastructure import SqlAlchemyAvailabilityRepository
+from backend.modules.availability.presentation.api.mappers import (
+    override_response,
+    schedule_response,
+)
+from backend.modules.availability.presentation.api.schemas import (
+    AddOverrideRequest,
+    CalendarOverrideResponse,
+    ScheduleResponse,
+    SetScheduleRequest,
+)
 from backend.modules.files.application import (
     UploadPerformerAvatarCommand,
     UploadPerformerAvatarUseCase,
@@ -46,7 +63,10 @@ from backend.modules.performers.application import (
     UpdatePerformerUsernameCommand,
     UpdatePerformerUsernameUseCase,
 )
-from backend.modules.performers.infrastructure import SqlAlchemyPerformerRepository
+from backend.modules.performers.infrastructure import (
+    PerformerModel,
+    SqlAlchemyPerformerRepository,
+)
 
 from .mappers import (
     address_response,
@@ -246,6 +266,76 @@ async def list_services_as_admin(
             SqlAlchemyPerformerRepository(session),
         ).execute_for_performer(performer_id)
     return [performer_service_response(service) for service in services]
+
+
+@admin_router.patch("/{performer_id}/schedule")
+async def set_schedule_as_admin(
+    performer_id: UUID,
+    request: SetScheduleRequest,
+    container: Annotated[Container, Depends(get_container)],
+    current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
+) -> ScheduleResponse:
+    admin_id = UUID(current[0].id)
+    async with container.session_factory() as session:
+        performer = await session.get(PerformerModel, performer_id)
+        if performer is None:
+            raise NotFoundError("Performer not found")
+        schedule = await SetPerformerScheduleUseCase(
+            SqlAlchemyAvailabilityRepository(session),
+        ).execute(
+            SetPerformerScheduleCommand(
+                telegram_id=performer.telegram_id,
+                schedule_type=request.schedule_type,
+                work_days=tuple(request.work_days)
+                if request.work_days is not None
+                else None,
+                work_start_time=request.work_start_time,
+                work_end_time=request.work_end_time,
+            ),
+        )
+        await SqlAlchemyAdminAuditRepository(session).add(
+            admin_id=admin_id,
+            action="set_performer_schedule",
+            entity_type="performer_schedule",
+            entity_id=schedule.id,
+            audit_metadata={"performer_id": str(performer_id)},
+        )
+        await session.commit()
+    return schedule_response(schedule)
+
+
+@admin_router.post("/{performer_id}/calendar-overrides", status_code=201)
+async def add_override_as_admin(
+    performer_id: UUID,
+    request: AddOverrideRequest,
+    container: Annotated[Container, Depends(get_container)],
+    current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
+) -> CalendarOverrideResponse:
+    admin_id = UUID(current[0].id)
+    async with container.session_factory() as session:
+        performer = await session.get(PerformerModel, performer_id)
+        if performer is None:
+            raise NotFoundError("Performer not found")
+        override = await AddCalendarOverrideUseCase(
+            SqlAlchemyAvailabilityRepository(session),
+        ).execute(
+            AddCalendarOverrideCommand(
+                telegram_id=performer.telegram_id,
+                override_type=request.override_type,
+                starts_at=request.starts_at,
+                ends_at=request.ends_at,
+                comment=request.comment,
+            ),
+        )
+        await SqlAlchemyAdminAuditRepository(session).add(
+            admin_id=admin_id,
+            action="add_performer_calendar_override",
+            entity_type="performer_calendar_override",
+            entity_id=override.id,
+            audit_metadata={"performer_id": str(performer_id)},
+        )
+        await session.commit()
+    return override_response(override)
 
 
 @router.patch("/performers/by-telegram/{telegram_id}/telegram-username")
