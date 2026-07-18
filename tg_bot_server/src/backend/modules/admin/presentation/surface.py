@@ -14,6 +14,7 @@ from backend.common.domain import (
     AuthenticationError,
     AuthorizationError,
     ConflictError,
+    NotFoundError,
     ValidationError,
 )
 from backend.modules.addresses.infrastructure import AddressModel
@@ -150,6 +151,41 @@ class UseCaseManagedModelView(ReadOnlyModelView):
     """Admin mutations for this model must go through application use cases."""
 
 
+class PerformerView(ReadOnlyModelView):
+    actions = ["activate_performer"]
+
+    def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
+        super().__init__(model, **kwargs)
+        self._container = container
+
+    @action(
+        name="activate_performer",
+        text="Activate performer",
+        confirmation="Activate selected performers?",
+        submit_btn_text="Activate",
+    )
+    async def activate_performer_action(self, request: Request, pks: list[Any]) -> str:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"id": "Admin session is required"})
+        activated_count = 0
+        errors: dict[str | int, Any] = {}
+        for raw_pk in pks:
+            performer_id = UUID(str(raw_pk))
+            try:
+                await self._container.services().activate_performer(
+                    performer_id,
+                    audit_admin_id=admin.id,
+                )
+            except NotFoundError as exc:
+                errors[str(raw_pk)] = str(exc)
+            else:
+                activated_count += 1
+        if errors:
+            raise FormValidationError(errors)
+        return f"Activated performers: {activated_count}"
+
+
 class PerformerInvitationView(ReadOnlyModelView):
     exclude_fields_from_create = [
         "id",
@@ -250,7 +286,7 @@ def create_admin_surface(container: Container) -> Admin:
     admin.add_view(ReadOnlyModelView(BusinessSettingModel, label="Business settings"))
     admin.add_view(LegalDocumentView(LegalDocumentModel, label="Legal documents"))
     admin.add_view(ReadOnlyModelView(CustomerModel, label="Customers"))
-    admin.add_view(ReadOnlyModelView(PerformerModel, label="Performers"))
+    admin.add_view(PerformerView(PerformerModel, container, label="Performers"))
     admin.add_view(
         PerformerInvitationView(
             PerformerInvitationModel,
