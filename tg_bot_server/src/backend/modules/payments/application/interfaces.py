@@ -1,12 +1,16 @@
+from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
 from backend.modules.payments.application.dto import (
     PaymentGatewayInitCommand,
     PaymentGatewayInitResult,
+    PaymentGatewayRefundCommand,
+    PaymentGatewayRefundResult,
     PaymentInitializationData,
     PaymentWebhookCommand,
     PaymentWebhookResult,
+    RefundDTO,
 )
 
 
@@ -15,6 +19,12 @@ class PaymentGateway(Protocol):
         self,
         command: PaymentGatewayInitCommand,
     ) -> PaymentGatewayInitResult:
+        pass
+
+    async def create_refund(
+        self,
+        command: PaymentGatewayRefundCommand,
+    ) -> PaymentGatewayRefundResult:
         pass
 
 
@@ -47,4 +57,25 @@ class PaymentRepository(Protocol):
         self,
         command: PaymentWebhookCommand,
     ) -> PaymentWebhookResult | None:
+        pass
+
+    async def create_manual_refund(
+        self,
+        *,
+        payment_id: UUID,
+        amount: Decimal,
+        reason: str,
+        admin_id: UUID,
+    ) -> RefundDTO:
+        pass
+
+    async def mark_refund_succeeded(
+        self,
+        *,
+        refund_id: UUID,
+        provider_refund_id: str,
+    ) -> None:
+        pass
+
+    async def mark_refund_failed(self, *, refund_id: UUID) -> None:
         pass

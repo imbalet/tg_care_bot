@@ -1,4 +1,5 @@
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -29,3 +30,20 @@ class BusinessSettingResponse(BaseModel):
     key: str
     value: Any
     value_type: str
+
+
+class ManualRefundRequest(BaseModel):
+    payment_id: UUID
+    amount: str
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class ManualRefundResponse(BaseModel):
+    id: str
+    order_id: str
+    payment_id: str
+    refund_type: str
+    amount: str
+    status: str
+    reason: str
+    provider_refund_id: str | None

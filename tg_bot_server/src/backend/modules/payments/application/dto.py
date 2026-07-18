@@ -62,3 +62,30 @@ class PaymentWebhookResult:
     status: str
     applied: bool
     unapplied_reason: str | None
+
+
+@dataclass(frozen=True)
+class RefundDTO:
+    id: UUID
+    order_id: UUID
+    payment_id: UUID
+    refund_type: str
+    amount: Decimal
+    status: str
+    reason: str
+    provider_refund_id: str | None
+    idempotency_key: str
+
+
+@dataclass(frozen=True)
+class PaymentGatewayRefundCommand:
+    refund_id: UUID
+    payment_id: UUID
+    provider_payment_id: str
+    idempotency_key: str
+    amount: Decimal
+
+
+@dataclass(frozen=True)
+class PaymentGatewayRefundResult:
+    provider_refund_id: str

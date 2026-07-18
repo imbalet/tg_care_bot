@@ -9,6 +9,8 @@ from backend.common.domain import ValidationError
 from backend.modules.payments.application import (
     PaymentGatewayInitCommand,
     PaymentGatewayInitResult,
+    PaymentGatewayRefundCommand,
+    PaymentGatewayRefundResult,
 )
 
 
@@ -86,6 +88,34 @@ class TBankPaymentGateway:
             provider_deal_id=str(data["DealId"]) if data.get("DealId") else None,
             confirmation_url=str(payment_url),
         )
+
+    async def create_refund(
+        self,
+        command: PaymentGatewayRefundCommand,
+    ) -> PaymentGatewayRefundResult:
+        payload: dict[str, Any] = {
+            "TerminalKey": self._terminal_key,
+            "PaymentId": command.provider_payment_id,
+            "Amount": _amount_to_kopecks(command.amount),
+            "DATA": {
+                "refund_id": str(command.refund_id),
+                "payment_id": str(command.payment_id),
+                "idempotency_key": command.idempotency_key,
+            },
+        }
+        payload["Token"] = _sign_payload(payload, self._password)
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=self._timeout_seconds,
+        ) as client:
+            response = await client.post("/Cancel", json=payload)
+            response.raise_for_status()
+        data = response.json()
+        if data.get("Success") is not True:
+            details = data.get("Details") or data.get("Message") or "unknown"
+            raise ValidationError(f"T-Bank refund failed: {details}")
+        refund_id = data.get("PaymentId") or command.provider_payment_id
+        return PaymentGatewayRefundResult(provider_refund_id=str(refund_id))
 
 
 def verify_tbank_token(payload: dict[str, Any], password: str) -> bool:

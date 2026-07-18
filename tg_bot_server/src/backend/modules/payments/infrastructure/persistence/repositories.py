@@ -5,7 +5,8 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.common.application import utc_now
+from backend.common.application import new_uuid, utc_now
+from backend.common.domain import ConflictError, ValidationError
 from backend.modules.catalog.infrastructure import BusinessSettingModel
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.notifications.infrastructure import NotificationModel
@@ -19,8 +20,12 @@ from backend.modules.payments.application import (
     PaymentInitializationData,
     PaymentWebhookCommand,
     PaymentWebhookResult,
+    RefundDTO,
 )
-from backend.modules.payments.infrastructure.persistence.models import PaymentModel
+from backend.modules.payments.infrastructure.persistence.models import (
+    PaymentModel,
+    RefundModel,
+)
 
 
 class SqlAlchemyPaymentRepository:
@@ -274,6 +279,79 @@ class SqlAlchemyPaymentRepository:
             ),
         )
 
+    async def create_manual_refund(
+        self,
+        *,
+        payment_id: UUID,
+        amount: Decimal,
+        reason: str,
+        admin_id: UUID,
+    ) -> RefundDTO:
+        payment = await self._lock_payment(payment_id)
+        order = await self._lock_order(payment.order_id)
+        if payment.status != "succeeded":
+            raise ConflictError("Payment is not succeeded")
+        if amount > payment.amount:
+            raise ValidationError("Refund amount exceeds payment amount")
+        refund_type = "full" if amount == payment.amount else "partial"
+        idempotency_key = (
+            f"manual-refund:{payment.id}:{admin_id}:{amount.quantize(Decimal('0.01'))}"
+            f":{reason}"
+        )
+        existing = await self._get_refund_by_idempotency_key(idempotency_key)
+        if existing is not None:
+            return _refund_to_dto(existing)
+        refund = RefundModel(
+            id=new_uuid(),
+            order_id=order.id,
+            payment_id=payment.id,
+            refund_type=refund_type,
+            amount=amount,
+            status="pending",
+            reason=reason,
+            created_by_admin_id=admin_id,
+            idempotency_key=idempotency_key,
+        )
+        self._session.add(refund)
+        await self._session.flush()
+        return _refund_to_dto(refund)
+
+    async def mark_refund_succeeded(
+        self,
+        *,
+        refund_id: UUID,
+        provider_refund_id: str,
+    ) -> None:
+        refund = await self._lock_refund(refund_id)
+        if refund.status != "pending":
+            return
+        refund.status = "succeeded"
+        refund.provider_refund_id = provider_refund_id
+        refund.completed_at = utc_now()
+
+    async def mark_refund_failed(self, *, refund_id: UUID) -> None:
+        refund = await self._lock_refund(refund_id)
+        if refund.status != "pending":
+            return
+        refund.status = "failed"
+
+    async def _get_refund_by_idempotency_key(
+        self,
+        idempotency_key: str,
+    ) -> RefundModel | None:
+        result = await self._session.execute(
+            select(RefundModel).where(
+                RefundModel.idempotency_key == idempotency_key,
+            ),
+        )
+        return result.scalar_one_or_none()
+
+    async def _lock_refund(self, refund_id: UUID) -> RefundModel:
+        result = await self._session.execute(
+            select(RefundModel).where(RefundModel.id == refund_id).with_for_update(),
+        )
+        return result.scalar_one()
+
 
 def _payment_to_dto(model: PaymentModel) -> PaymentAttemptDTO:
     return PaymentAttemptDTO(
@@ -289,6 +367,20 @@ def _payment_to_dto(model: PaymentModel) -> PaymentAttemptDTO:
         status=model.status,
         confirmation_url=model.confirmation_url,
         expires_at=model.expires_at,
+    )
+
+
+def _refund_to_dto(model: RefundModel) -> RefundDTO:
+    return RefundDTO(
+        id=model.id,
+        order_id=model.order_id,
+        payment_id=model.payment_id,
+        refund_type=model.refund_type,
+        amount=model.amount,
+        status=model.status,
+        reason=model.reason,
+        provider_refund_id=model.provider_refund_id,
+        idempotency_key=model.idempotency_key,
     )
 
 

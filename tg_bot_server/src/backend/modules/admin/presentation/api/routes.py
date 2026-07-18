@@ -1,4 +1,5 @@
 import secrets
+from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from backend.common.domain import (
 from backend.modules.admin.application import (
     LoginAdminCommand,
 )
+from backend.modules.payments.application import CreateManualRefundCommand
 
 from .mappers import admin_response
 from .schemas import (
@@ -20,6 +22,8 @@ from .schemas import (
     BusinessSettingResponse,
     LoginRequest,
     LoginResponse,
+    ManualRefundRequest,
+    ManualRefundResponse,
     UpdateBusinessSettingRequest,
 )
 
@@ -111,4 +115,31 @@ async def update_business_setting(
         key=key,
         value=request.value,
         admin_id=admin_id,
+    )
+
+
+@router.post("/payments/refunds")
+async def create_manual_refund(
+    request: ManualRefundRequest,
+    container: Annotated[Container, Depends(get_container)],
+    current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
+) -> ManualRefundResponse:
+    admin_id = UUID(current[0].id)
+    refund = await container.services().create_manual_refund(
+        CreateManualRefundCommand(
+            payment_id=request.payment_id,
+            amount=Decimal(request.amount),
+            reason=request.reason,
+            admin_id=admin_id,
+        ),
+    )
+    return ManualRefundResponse(
+        id=str(refund.id),
+        order_id=str(refund.order_id),
+        payment_id=str(refund.payment_id),
+        refund_type=refund.refund_type,
+        amount=str(refund.amount),
+        status=refund.status,
+        reason=refund.reason,
+        provider_refund_id=refund.provider_refund_id,
     )

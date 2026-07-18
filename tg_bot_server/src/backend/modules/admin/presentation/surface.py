@@ -43,6 +43,7 @@ from backend.modules.orders.infrastructure import (
     OrderOptionValueModel,
     OrderStatusHistoryModel,
 )
+from backend.modules.payments.infrastructure import PaymentModel, RefundModel
 from backend.modules.performers.infrastructure import (
     PerformerCalendarOverrideModel,
     PerformerInvitationModel,
@@ -217,6 +218,8 @@ def create_admin_surface(container: Container) -> Admin:
     admin.add_view(
         ReadOnlyModelView(OrderStatusHistoryModel, label="Order status history"),
     )
+    admin.add_view(ReadOnlyModelView(PaymentModel, label="Payments"))
+    admin.add_view(ReadOnlyModelView(RefundModel, label="Refunds"))
     admin.add_view(ReadOnlyModelView(CareObjectModel, label="Care objects"))
     admin.add_view(ReadOnlyModelView(AddressModel, label="Addresses"))
     admin.add_view(FileReviewView(FileModel, label="Files"))

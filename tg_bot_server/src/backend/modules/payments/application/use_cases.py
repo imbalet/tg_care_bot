@@ -1,11 +1,14 @@
 from dataclasses import dataclass
+from decimal import Decimal
 from uuid import UUID
 
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.payments.application.dto import (
     PaymentGatewayInitCommand,
+    PaymentGatewayRefundCommand,
     PaymentWebhookCommand,
     PaymentWebhookResult,
+    RefundDTO,
 )
 from backend.modules.payments.application.interfaces import (
     PaymentGateway,
@@ -74,3 +77,57 @@ class ApplyPaymentWebhookUseCase:
         if result is None:
             raise NotFoundError("Payment not found")
         return result
+
+
+@dataclass(frozen=True)
+class CreateManualRefundCommand:
+    payment_id: UUID
+    amount: Decimal
+    reason: str
+    admin_id: UUID
+
+
+class CreateManualRefundUseCase:
+    def __init__(self, repository: PaymentRepository) -> None:
+        self._repository = repository
+
+    async def execute(self, command: CreateManualRefundCommand) -> RefundDTO:
+        if command.amount <= 0:
+            raise ValidationError("Refund amount must be positive")
+        return await self._repository.create_manual_refund(
+            payment_id=command.payment_id,
+            amount=command.amount,
+            reason=command.reason,
+            admin_id=command.admin_id,
+        )
+
+
+class CompleteManualRefundUseCase:
+    def __init__(
+        self,
+        repository: PaymentRepository,
+        gateway: PaymentGateway,
+    ) -> None:
+        self._repository = repository
+        self._gateway = gateway
+
+    async def execute(self, refund: RefundDTO, provider_payment_id: str) -> None:
+        if refund.status != "pending":
+            return
+        try:
+            result = await self._gateway.create_refund(
+                PaymentGatewayRefundCommand(
+                    refund_id=refund.id,
+                    payment_id=refund.payment_id,
+                    provider_payment_id=provider_payment_id,
+                    idempotency_key=refund.idempotency_key,
+                    amount=refund.amount,
+                ),
+            )
+        except Exception:
+            await self._repository.mark_refund_failed(refund_id=refund.id)
+            raise
+        await self._repository.mark_refund_succeeded(
+            refund_id=refund.id,
+            provider_refund_id=result.provider_refund_id,
+        )

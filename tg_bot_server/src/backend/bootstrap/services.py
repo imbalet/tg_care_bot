@@ -28,6 +28,7 @@ from backend.modules.admin.application import (
     LogoutAdminUseCase,
 )
 from backend.modules.admin.infrastructure import (
+    AdminAuditLogModel,
     Argon2PasswordHasher,
     RedisAdminSessionStore,
     SqlAlchemyAdminAuditRepository,
@@ -88,7 +89,10 @@ from backend.modules.orders.infrastructure import (
 )
 from backend.modules.payments.application import (
     ApplyPaymentWebhookUseCase,
+    CreateManualRefundCommand,
+    CreateManualRefundUseCase,
     PaymentGatewayInitCommand,
+    PaymentGatewayRefundCommand,
     PaymentWebhookCommand,
 )
 from backend.modules.payments.infrastructure import (
@@ -509,6 +513,59 @@ class ApplicationServices:
             ).execute(command)
             await uow.commit()
             return result
+
+    async def create_manual_refund(
+        self,
+        command: CreateManualRefundCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            repository = SqlAlchemyPaymentRepository(uow.session)
+            refund = await CreateManualRefundUseCase(repository).execute(command)
+            data = await repository.get_initialization_data(refund.payment_id)
+            if data is None or data.payment.provider_payment_id is None:
+                raise ValidationError("Provider payment id is not available")
+            uow.session.add(
+                AdminAuditLogModel(
+                    admin_id=command.admin_id,
+                    action="manual_refund_created",
+                    entity_type="refund",
+                    entity_id=refund.id,
+                    reason=command.reason,
+                    audit_metadata={
+                        "payment_id": str(command.payment_id),
+                        "amount": str(command.amount),
+                    },
+                ),
+            )
+            await uow.commit()
+            provider_payment_id = data.payment.provider_payment_id
+        if refund.status != "pending":
+            return refund
+        gateway = self._payment_gateway()
+        try:
+            result = await gateway.create_refund(
+                PaymentGatewayRefundCommand(
+                    refund_id=refund.id,
+                    payment_id=refund.payment_id,
+                    provider_payment_id=provider_payment_id,
+                    idempotency_key=refund.idempotency_key,
+                    amount=refund.amount,
+                ),
+            )
+        except Exception:
+            async with self._uow() as uow:
+                await SqlAlchemyPaymentRepository(uow.session).mark_refund_failed(
+                    refund_id=refund.id,
+                )
+                await uow.commit()
+            raise
+        async with self._uow() as uow:
+            await SqlAlchemyPaymentRepository(uow.session).mark_refund_succeeded(
+                refund_id=refund.id,
+                provider_refund_id=result.provider_refund_id,
+            )
+            await uow.commit()
+        return refund
 
     async def set_performer_schedule(
         self,

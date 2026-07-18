@@ -42,3 +42,24 @@ class PaymentModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     )
     unapplied_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     failure_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class RefundModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "refunds"
+
+    order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), nullable=False)
+    payment_id: Mapped[UUID] = mapped_column(ForeignKey("payments.id"), nullable=False)
+    refund_type: Mapped[str] = mapped_column(Text, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by_admin_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("admins.id"),
+        nullable=True,
+    )
+    provider_refund_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
