@@ -32,12 +32,14 @@ class TBankPaymentGateway:
         base_url: str,
         terminal_key: str,
         password: str,
+        notification_url: str | None,
         receipt: TBankReceiptSettings,
         timeout_seconds: float,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._terminal_key = terminal_key
         self._password = password
+        self._notification_url = notification_url
         self._receipt = receipt
         self._timeout_seconds = timeout_seconds
 
@@ -71,6 +73,8 @@ class TBankPaymentGateway:
                 ],
             },
         }
+        if self._notification_url is not None:
+            payload["NotificationURL"] = self._notification_url
         payload["Token"] = _sign_payload(payload, self._password)
         async with httpx.AsyncClient(
             base_url=self._base_url,

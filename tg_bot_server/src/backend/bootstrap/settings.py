@@ -86,6 +86,10 @@ class Settings(BaseSettings):
         default=5.0,
         validation_alias="TBANK_TIMEOUT_SECONDS",
     )
+    tbank_notification_url: str = Field(
+        default="",
+        validation_alias="TBANK_NOTIFICATION_URL",
+    )
     payment_receipt_taxation: str = Field(
         default="osn",
         validation_alias="PAYMENT_RECEIPT_TAXATION",

@@ -185,6 +185,7 @@ class ApplicationServices:
             base_url=settings.tbank_base_url,
             terminal_key=settings.tbank_terminal_key,
             password=settings.tbank_password,
+            notification_url=settings.tbank_notification_url or None,
             receipt=TBankReceiptSettings(
                 taxation=settings.payment_receipt_taxation,
                 tax=settings.payment_receipt_tax,
