@@ -15,7 +15,6 @@ from customer_bot.presentation.handlers.care_objects.state import (
     care_object_by_index,
     care_object_state,
 )
-from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.navigation import (
     active_category,
     category_by_code,
@@ -70,22 +69,23 @@ async def open_care_objects(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
+
         return
     await state.update_data(care_objects=[care_object_state(item) for item in items])
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_objects_list_text(len(items), category),
         reply_markup=care_objects_keyboard(items, object_type=object_type),
+        create_new=True,
     )
 
 
@@ -107,12 +107,12 @@ async def select_care_object(
                 "index": callback_data.index,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=use_buttons_text(),
+            create_new=True,
         )
         return
     index = item["index"]
@@ -123,11 +123,11 @@ async def select_care_object(
         )
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_card_text(item),
         reply_markup=care_object_card_keyboard(index),
+        create_new=True,
     )

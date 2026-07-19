@@ -17,7 +17,6 @@ from customer_bot.presentation.handlers.care_objects.state import (
     CareObjectManagement,
     care_object_by_index,
 )
-from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     care_object_delete_confirm_keyboard,
@@ -69,12 +68,12 @@ async def edit_care_object(
         }
     )
     await state.set_state(CareObjectManagement.name)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_name_step_text(object_type),
+        create_new=True,
     )
 
 
@@ -98,13 +97,13 @@ async def delete_care_object(
         )
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_delete_confirm_text(),
         reply_markup=care_object_delete_confirm_keyboard(callback_data.index),
+        create_new=True,
     )
 
 
@@ -142,12 +141,12 @@ async def confirm_delete_care_object(
                 "care_object_id": str(item["id"]),
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=delete_blocked_text(str(exc)),
+            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -159,12 +158,12 @@ async def confirm_delete_care_object(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     logger.info(
@@ -174,10 +173,10 @@ async def confirm_delete_care_object(
             "care_object_id": str(item["id"]),
         },
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_deleted_text(),
+        create_new=True,
     )

@@ -22,7 +22,6 @@ from customer_bot.presentation.handlers.care_objects.state import (
     optional_str,
 )
 from customer_bot.presentation.handlers.orders.state import OrderCreation
-from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.types import YesNoValue
 from customer_bot.presentation.ui import (
@@ -75,12 +74,12 @@ async def add_care_object(
         return
     await state.set_state(CareObjectManagement.name)
     await state.update_data(draft={"object_type": object_type})
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_name_step_text(CARE_OBJECT_TYPE_LABELS[object_type]),
+        create_new=True,
     )
 
 
@@ -93,12 +92,12 @@ async def enter_name(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text="Введите имя текстом.",
+            create_new=True,
         )
         return
     data = await state.get_data()
@@ -106,13 +105,13 @@ async def enter_name(
     draft["display_name"] = message.text.strip()
     await state.update_data(draft=draft)
     await state.set_state(CareObjectManagement.age)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_age_step_text(),
         reply_markup=care_object_age_keyboard(str(draft["object_type"])),
+        create_new=True,
     )
 
 
@@ -136,33 +135,33 @@ async def enter_age(
     object_type = str(draft["object_type"])
     if object_type == "pet":
         await state.set_state(CareObjectManagement.species)
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=care_object_species_step_text(),
+            create_new=True,
         )
         return
     if object_type == "ward":
         await state.set_state(CareObjectManagement.mobility)
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=care_object_mobility_step_text(),
             reply_markup=care_object_mobility_keyboard(),
+            create_new=True,
         )
         return
     await state.set_state(CareObjectManagement.notes)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_notes_step_text(),
         reply_markup=care_object_skip_keyboard(),
+        create_new=True,
     )
 
 
@@ -175,12 +174,12 @@ async def enter_species(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text="Введите вид питомца текстом.",
+            create_new=True,
         )
         return
     data = await state.get_data()
@@ -188,13 +187,13 @@ async def enter_species(
     draft["species"] = message.text.strip()
     await state.update_data(draft=draft)
     await state.set_state(CareObjectManagement.breed)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_breed_step_text(),
         reply_markup=care_object_skip_keyboard(),
+        create_new=True,
     )
 
 
@@ -212,13 +211,13 @@ async def enter_breed(
         draft["breed"] = message.text.strip()
     await state.update_data(draft=draft)
     await state.set_state(CareObjectManagement.size)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_size_step_text(),
         reply_markup=care_object_size_keyboard(),
+        create_new=True,
     )
 
 
@@ -231,13 +230,13 @@ async def skip_breed(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.set_state(CareObjectManagement.size)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_size_step_text(),
         reply_markup=care_object_size_keyboard(),
+        create_new=True,
     )
 
 
@@ -259,13 +258,13 @@ async def enter_size(
     draft["pet_size"] = size
     await state.update_data(draft=draft)
     await state.set_state(CareObjectManagement.notes)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_notes_step_text(),
         reply_markup=care_object_skip_keyboard(),
+        create_new=True,
     )
 
 
@@ -287,13 +286,13 @@ async def enter_mobility(
     draft["mobility_assistance_required"] = value == YesNoValue.YES
     await state.update_data(draft=draft)
     await state.set_state(CareObjectManagement.notes)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_notes_step_text(),
         reply_markup=care_object_skip_keyboard(),
+        create_new=True,
     )
 
 
@@ -391,12 +390,12 @@ async def _create_from_draft(
                 "object_type": str(draft.get("object_type")),
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=validation_error_text(str(exc)),
+            create_new=True,
         )
         await state.clear()
         return
@@ -409,12 +408,12 @@ async def _create_from_draft(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     data = await state.get_data()
@@ -437,15 +436,15 @@ async def _create_from_draft(
             "is_edit": optional_str(draft.get("edit_id")) is not None,
         },
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=event,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=care_object_updated_text()
         if optional_str(draft.get("edit_id")) is not None
         else care_object_created_text(),
         reply_markup=care_object_saved_keyboard(str(draft["object_type"])),
+        create_new=True,
     )
 
 
@@ -461,13 +460,13 @@ async def _return_to_order_objects(
     order_draft = data.get("order_draft")
     if not isinstance(order_draft, dict):
         await state.clear()
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=care_object_created_text(),
             reply_markup=fallback_keyboard(),
+            create_new=True,
         )
         return
     try:
@@ -483,12 +482,12 @@ async def _return_to_order_objects(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     await state.set_state(OrderCreation.object)
@@ -500,14 +499,14 @@ async def _return_to_order_objects(
             {"id": str(item.id), "display_name": item.display_name} for item in objects
         ],
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=event,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_objects_step_text(
             selected_count=0,
             max_count=int(str(order_draft.get("max_objects_per_order", 1))),
         ),
         reply_markup=order_objects_keyboard(objects),
+        create_new=True,
     )

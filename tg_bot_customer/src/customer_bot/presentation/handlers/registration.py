@@ -17,7 +17,6 @@ from customer_bot.presentation.callbacks import (
     RegistrationLegalAcceptCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
-from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.navigation import show_category_select
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.types import ContactMethod
@@ -87,12 +86,12 @@ async def start_registration(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     await state.set_state(CustomerRegistration.legal_acceptance)
@@ -101,13 +100,13 @@ async def start_registration(
         city_names=[city.name for city in cities],
         legal_document_ids=[str(document.id) for document in documents],
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=legal_documents_text(documents),
         reply_markup=legal_acceptance_keyboard(documents),
+        create_new=True,
     )
 
 
@@ -123,12 +122,12 @@ async def accept_legal(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.set_state(CustomerRegistration.full_name)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=full_name_step_text(),
+        create_new=True,
     )
 
 
@@ -139,13 +138,13 @@ async def reject_legal(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=use_buttons_text(),
         reply_markup=legal_acceptance_keyboard(),
+        create_new=True,
     )
 
 
@@ -158,23 +157,23 @@ async def enter_full_name(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=invalid_text_input_text("Введите ФИО текстом."),
+            create_new=True,
         )
         return
     await state.update_data(full_name=message.text.strip())
     await state.set_state(CustomerRegistration.phone)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=phone_step_text(),
         reply_markup=phone_contact_keyboard(),
+        create_new=True,
     )
 
 
@@ -187,46 +186,46 @@ async def enter_phone(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if message.contact is None:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=invalid_phone_contact_text(),
             reply_markup=phone_contact_keyboard(),
+            create_new=True,
         )
         return
     if (
         message.contact.user_id is not None
         and message.contact.user_id != telegram_user_context.telegram_id
     ):
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=wrong_phone_contact_text(),
             reply_markup=phone_contact_keyboard(),
+            create_new=True,
         )
         return
     data = await state.get_data()
     await state.update_data(phone=message.contact.phone_number)
     await state.set_state(CustomerRegistration.city)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=phone_contact_received_text(),
         reply_markup=ReplyKeyboardRemove(),
+        create_new=True,
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=select_city_text(),
         reply_markup=select_city_keyboard(_cities_from_state(data)),
+        create_new=True,
     )
 
 
@@ -253,13 +252,13 @@ async def enter_city(
                 "index": city_index,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=registration_unavailable_text(),
             reply_markup=select_city_keyboard(_cities_from_state(data)),
+            create_new=True,
         )
         return
     city_id = city_ids[city_index]
@@ -268,13 +267,13 @@ async def enter_city(
         city_name=_string_list(data["city_names"])[city_index],
     )
     await state.set_state(CustomerRegistration.contact_method)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=select_contact_method_text(),
         reply_markup=contact_methods_keyboard(),
+        create_new=True,
     )
 
 
@@ -287,13 +286,13 @@ async def unknown_city_action(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=use_buttons_text(),
         reply_markup=select_city_keyboard(_cities_from_state(data)),
+        create_new=True,
     )
 
 
@@ -316,25 +315,25 @@ async def enter_contact_method(
             "Invalid registration contact method callback",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=use_buttons_text(),
             reply_markup=contact_methods_keyboard(),
+            create_new=True,
         )
         return
     await state.update_data(contact_method=contact_method, contact_method_label=label)
     data = await state.get_data()
     await state.set_state(CustomerRegistration.summary)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=summary_text(data),
         reply_markup=registration_summary_keyboard(),
+        create_new=True,
     )
 
 
@@ -345,13 +344,13 @@ async def unknown_contact_method_action(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=use_buttons_text(),
         reply_markup=contact_methods_keyboard(),
+        create_new=True,
     )
 
 
@@ -364,12 +363,12 @@ async def edit_registration(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.set_state(CustomerRegistration.full_name)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=full_name_step_text(),
+        create_new=True,
     )
 
 
@@ -404,12 +403,12 @@ async def confirm_registration(
             "Backend rejected customer registration",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=backend_rejected_registration_text(),
+            create_new=True,
         )
         await state.clear()
         return
@@ -421,12 +420,12 @@ async def confirm_registration(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     await state.clear()
@@ -457,13 +456,13 @@ async def unknown_summary_action(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=use_buttons_text(),
         reply_markup=registration_summary_keyboard(),
+        create_new=True,
     )
 
 

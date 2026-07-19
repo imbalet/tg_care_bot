@@ -9,7 +9,6 @@ from customer_bot.application.errors import BackendClientError
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.registration import start_registration
-from customer_bot.presentation.handlers.responses import send_screen, send_step
 from customer_bot.presentation.navigation import (
     active_category,
     show_category_menu,
@@ -142,12 +141,12 @@ async def _open_start_or_menu(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     if profile is not None:
@@ -191,11 +190,11 @@ async def _open_start_or_menu(
             telegram_user_context,
         )
         return
-    await send_screen(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=False),
+        create_new=True,
     )

@@ -13,7 +13,6 @@ from customer_bot.presentation.callbacks import (
     PaymentRefreshCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
-from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     order_matches_keyboard,
@@ -53,13 +52,14 @@ async def open_order_matches(
             "Backend rejected order matches request",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=order_response_unavailable_text(),
+            create_new=True,
         )
+
         return
     except BackendClientError as exc:
         logger.warning(
@@ -69,22 +69,22 @@ async def open_order_matches(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
 
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_matches_text(matches),
         reply_markup=order_matches_keyboard(matches),
+        create_new=True,
     )
 
 
@@ -111,12 +111,12 @@ async def select_order_match(
             "Backend rejected order match selection",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=order_response_unavailable_text(),
+            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -127,22 +127,22 @@ async def select_order_match(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
 
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_response_selected_text(action),
         reply_markup=payment_status_keyboard(action.order_id),
+        create_new=True,
     )
 
 
@@ -172,22 +172,22 @@ async def refresh_payment_status(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
 
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=payment_status_text(status),
         reply_markup=payment_status_keyboard(status.order_id),
+        create_new=True,
     )
 
 
@@ -214,12 +214,12 @@ async def reject_order_match(
             "Backend rejected order match rejection",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=order_response_unavailable_text(),
+            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -230,21 +230,21 @@ async def reject_order_match(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
 
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_response_rejected_text(),
+        create_new=True,
     )
 
 

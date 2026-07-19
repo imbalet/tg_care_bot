@@ -15,7 +15,6 @@ from customer_bot.presentation.callbacks import (
     AddressSelectCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
-from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     address_card_keyboard,
@@ -53,13 +52,14 @@ async def open_addresses(
             "Backend rejected address list request",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=address_validation_error_text(str(exc)),
+            create_new=True,
         )
+
         return
     except BackendClientError as exc:
         logger.warning(
@@ -69,22 +69,22 @@ async def open_addresses(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     await state.update_data(addresses=[_address_state(item) for item in items])
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=addresses_list_text(len(items)),
         reply_markup=addresses_keyboard(items),
+        create_new=True,
     )
 
 
@@ -116,13 +116,13 @@ async def select_address(
         )
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=address_card_text(item),
         reply_markup=address_card_keyboard(index),
+        create_new=True,
     )
 
 
@@ -146,13 +146,13 @@ async def delete_address(
         )
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=address_delete_confirm_text(),
         reply_markup=address_delete_confirm_keyboard(callback_data.index),
+        create_new=True,
     )
 
 
@@ -190,12 +190,12 @@ async def confirm_delete_address(
                 "address_id": str(item["id"]),
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=delete_blocked_text(str(exc)),
+            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -207,12 +207,12 @@ async def confirm_delete_address(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     logger.info(
@@ -222,12 +222,12 @@ async def confirm_delete_address(
             "address_id": str(item["id"]),
         },
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=address_deleted_text(),
+        create_new=True,
     )
 
 

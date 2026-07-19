@@ -20,7 +20,6 @@ from customer_bot.presentation.handlers.orders.state import (
     item_by_index,
     string_list,
 )
-from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     order_published_keyboard,
@@ -72,12 +71,12 @@ async def publish_pool(
             "Backend rejected pool order publish",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=validation_error_text(str(exc)),
+            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -88,12 +87,12 @@ async def publish_pool(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     await state.clear()
@@ -104,13 +103,13 @@ async def publish_pool(
             "order_id": str(order.id),
         },
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_published_text(order),
         reply_markup=order_published_keyboard(order),
+        create_new=True,
     )
 
 
@@ -168,12 +167,12 @@ async def publish_direct(
             "Backend rejected direct order publish",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=validation_error_text(str(exc)),
+            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -184,12 +183,12 @@ async def publish_direct(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     await state.clear()
@@ -200,12 +199,12 @@ async def publish_direct(
             "order_id": str(order.id),
         },
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_published_text(order),
+        create_new=True,
     )
 
 

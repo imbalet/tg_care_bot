@@ -23,7 +23,6 @@ from customer_bot.presentation.handlers.addresses.state import (
     string_list,
 )
 from customer_bot.presentation.handlers.orders.state import OrderCreation
-from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui import (
     address_city_keyboard,
@@ -62,12 +61,12 @@ async def add_address(
             "Backend rejected address creation start",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=address_validation_error_text(str(exc)),
+            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -78,12 +77,12 @@ async def add_address(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     await state.set_state(AddressManagement.city)
@@ -92,13 +91,13 @@ async def add_address(
         city_names=[city.name for city in cities],
         address_draft={},
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=address_city_step_text(),
         reply_markup=address_city_keyboard(cities),
+        create_new=True,
     )
 
 
@@ -128,12 +127,12 @@ async def select_city(
     draft["city_id"] = city_ids[index]
     await state.update_data(address_draft=draft)
     await state.set_state(AddressManagement.query)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=address_query_step_text(),
+        create_new=True,
     )
 
 
@@ -147,12 +146,12 @@ async def enter_query(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text="Введите адрес текстом.",
+            create_new=True,
         )
         return
     data = await state.get_data()
@@ -170,21 +169,21 @@ async def enter_query(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     if not suggestions:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text="Адрес не найден. Уточните строку.",
+            create_new=True,
         )
         return
     await state.update_data(
@@ -194,13 +193,13 @@ async def enter_query(
         ],
     )
     await state.set_state(AddressManagement.suggestion)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=address_suggestion_step_text(),
         reply_markup=address_suggestions_keyboard(suggestions),
+        create_new=True,
     )
 
 
@@ -249,13 +248,13 @@ async def select_suggestion(
     draft["extra_index"] = 0
     await state.update_data(address_draft=draft)
     await state.set_state(AddressManagement.extra)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=address_extra_step_text(EXTRA_FIELDS[0][1]),
         reply_markup=address_skip_keyboard(),
+        create_new=True,
     )
 
 
@@ -318,13 +317,13 @@ async def _advance_or_create(
     if index < len(EXTRA_FIELDS):
         draft["extra_index"] = index
         await state.update_data(address_draft=draft)
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=address_extra_step_text(EXTRA_FIELDS[index][1]),
             reply_markup=address_skip_keyboard(),
+            create_new=True,
         )
         return
     try:
@@ -342,12 +341,12 @@ async def _advance_or_create(
             "Backend rejected address creation",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=validation_error_text(str(exc)),
+            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -358,12 +357,12 @@ async def _advance_or_create(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     data = await state.get_data()
@@ -382,12 +381,12 @@ async def _advance_or_create(
         "Address created",
         extra={"telegram_id": telegram_user_context.telegram_id},
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=event,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=address_created_text(),
+        create_new=True,
     )
 
 
@@ -411,12 +410,12 @@ async def _return_to_order_addresses(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     await state.set_state(OrderCreation.address)
@@ -428,11 +427,11 @@ async def _return_to_order_addresses(
             for address in addresses
         ],
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=event,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_address_step_text(),
         reply_markup=order_addresses_keyboard(addresses),
+        create_new=True,
     )

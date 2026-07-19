@@ -41,7 +41,6 @@ from customer_bot.presentation.handlers.orders.state import (
     string_list,
     uses_days,
 )
-from customer_bot.presentation.handlers.responses import send_step
 from customer_bot.presentation.navigation import active_category
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.types import YesNoValue
@@ -119,25 +118,26 @@ async def start_order_creation(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
+
         return
     if category is None:
         logger.warning(
             "Order creation requested without active category",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=use_buttons_text(),
+            create_new=True,
         )
         return
     services = service_states((category,))
@@ -149,12 +149,12 @@ async def start_order_creation(
                 "category_code": category.code,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=order_no_services_text(),
+            create_new=True,
         )
         return
     await state.set_state(OrderCreation.service)
@@ -166,13 +166,13 @@ async def start_order_creation(
             "care_object_type": category.care_object_type,
         },
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_services_step_text(),
         reply_markup=order_services_keyboard(services),
+        create_new=True,
     )
 
 
@@ -227,12 +227,12 @@ async def select_service(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     if not objects:
@@ -243,13 +243,13 @@ async def select_service(
                 "care_object_type": str(service["care_object_type"]),
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=order_no_objects_text(str(service["care_object_type"])),
             reply_markup=order_no_objects_keyboard(),
+            create_new=True,
         )
         return
     await state.set_state(OrderCreation.object)
@@ -259,11 +259,10 @@ async def select_service(
         order_draft=order_draft,
         order_objects=[care_object_state(item) for item in objects],
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_objects_step_text(
             selected_count=0,
             max_count=int(str(service["max_objects_per_order"])),
@@ -273,6 +272,7 @@ async def select_service(
             selected_ids=(),
             can_finish=False,
         ),
+        create_new=True,
     )
 
 
@@ -321,11 +321,10 @@ async def select_object(
         )
         return
     objects = data.get("order_objects")
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_objects_step_text(
             selected_count=len(selected),
             max_count=max_objects,
@@ -335,6 +334,7 @@ async def select_object(
             selected_ids=selected,
             can_finish=bool(selected),
         ),
+        create_new=True,
     )
 
 
@@ -374,13 +374,13 @@ async def _ask_options_or_start(
     if isinstance(options, list) and options:
         await state.set_state(OrderCreation.options)
         await state.update_data(order_options=options)
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=order_options_step_text(selected_count=0),
             reply_markup=order_options_keyboard(options, selected_ids=()),
+            create_new=True,
         )
         return
     order_draft["option_values"] = {}
@@ -417,16 +417,16 @@ async def toggle_option(
     order_draft["selected_option_ids"] = selected
     options = order_draft.get("options")
     await state.update_data(order_draft=order_draft)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_options_step_text(selected_count=len(selected)),
         reply_markup=order_options_keyboard(
             options if isinstance(options, list) else (),
             selected_ids=selected,
         ),
+        create_new=True,
     )
 
 
@@ -466,13 +466,13 @@ async def _ask_start_at(
         order_start_date=None,
         order_start_manual_time=False,
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_start_step_text(),
         reply_markup=await order_start_calendar_keyboard(),
+        create_new=True,
     )
 
 
@@ -514,13 +514,13 @@ async def _process_start_calendar_selection(
         return
     start_date = selected_date.date()
     await state.update_data(order_start_date=start_date.isoformat())
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_start_time_step_text(_format_date(start_date)),
         reply_markup=order_start_time_keyboard(),
+        create_new=True,
     )
 
 
@@ -545,34 +545,34 @@ async def request_manual_start(
     if callback_data.mode == "time":
         start_date = _start_date_from_state(data)
         if start_date is None:
-            await send_step(
+            await telegram_responder.update(
                 bot=bot,
                 event=callback,
-                telegram_responder=telegram_responder,
-                telegram_user_context=telegram_user_context,
+                telegram_id=telegram_user_context.telegram_id,
                 text=order_start_step_text(),
                 reply_markup=await order_start_calendar_keyboard(),
+                create_new=True,
             )
             return
         await state.update_data(order_start_manual_time=True)
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=order_time_manual_step_text(_format_date(start_date)),
+            create_new=True,
         )
         return
     if callback_data.mode != "datetime":
         await telegram_responder.acknowledge(callback, use_buttons_text())
         return
     await state.update_data(order_start_manual_time=False)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_datetime_manual_step_text(),
+        create_new=True,
     )
 
 
@@ -639,12 +639,12 @@ async def enter_start(
     data = await state.get_data()
     manual_time = data.get("order_start_manual_time") is True
     if not message.text:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=invalid_time_text() if manual_time else invalid_datetime_text(),
+            create_new=True,
         )
         return
     start_date = _start_date_from_state(data)
@@ -658,12 +658,12 @@ async def enter_start(
     else:
         start_at = parse_local_datetime(message.text)
     if start_at is None:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=invalid_time_text() if manual_time else invalid_datetime_text(),
+            create_new=True,
         )
         return
     await _set_start_at_and_ask_duration(
@@ -693,12 +693,12 @@ async def _set_start_at_and_ask_duration(
         order_start_date=None,
         order_start_manual_time=False,
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=event,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_duration_step_text(uses_days=uses_days(order_draft)),
+        create_new=True,
     )
 
 
@@ -729,12 +729,12 @@ async def enter_duration(
     order_draft = draft(data)
     duration = parse_duration_interval(message.text, order_draft)
     if duration is None:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=invalid_duration_text(uses_days=uses_days(order_draft)),
+            create_new=True,
         )
         return
     start_at = datetime.fromisoformat(str(order_draft["start_at"]))
@@ -762,12 +762,12 @@ async def enter_duration(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     if not addresses:
@@ -775,13 +775,13 @@ async def enter_duration(
             "Order creation has no customer addresses",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=order_no_addresses_text(),
             reply_markup=order_no_addresses_keyboard(),
+            create_new=True,
         )
         return
     await state.set_state(OrderCreation.address)
@@ -794,13 +794,13 @@ async def enter_duration(
             for address in addresses
         ],
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_address_step_text(),
         reply_markup=order_addresses_keyboard(addresses),
+        create_new=True,
     )
 
 
@@ -855,13 +855,13 @@ async def select_photo_consent(
     order_draft["report_photo_consent"] = value == YesNoValue.YES
     await state.set_state(OrderCreation.comment)
     await state.update_data(order_draft=order_draft)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_comment_step_text(),
         reply_markup=order_comment_skip_keyboard(),
+        create_new=True,
     )
 
 
@@ -921,25 +921,25 @@ async def _ask_photo_or_comment(
     order_draft = draft(data)
     if order_draft.get("photo_policy") == "requires_customer_consent":
         await state.set_state(OrderCreation.photo_consent)
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=order_photo_consent_step_text(),
             reply_markup=order_photo_consent_keyboard(),
+            create_new=True,
         )
         return
     order_draft["report_photo_consent"] = None
     await state.set_state(OrderCreation.comment)
     await state.update_data(order_draft=order_draft)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=event,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_comment_step_text(),
         reply_markup=order_comment_skip_keyboard(),
+        create_new=True,
     )
 
 
@@ -961,12 +961,12 @@ async def _create_draft_and_show_summary(
                 "Order summary requested without customer profile",
                 extra={"telegram_id": telegram_user_context.telegram_id},
             )
-            await send_step(
+            await telegram_responder.update(
                 bot=bot,
                 event=event,
-                telegram_responder=telegram_responder,
-                telegram_user_context=telegram_user_context,
+                telegram_id=telegram_user_context.telegram_id,
                 text=use_buttons_text(),
+                create_new=True,
             )
             return
         start_at = datetime.fromisoformat(str(order_draft["start_at"]))
@@ -1001,12 +1001,12 @@ async def _create_draft_and_show_summary(
             "Backend rejected order order_draft preview",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=validation_error_text(str(exc)),
+            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -1017,12 +1017,12 @@ async def _create_draft_and_show_summary(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     await state.set_state(OrderCreation.publish)
@@ -1037,13 +1037,13 @@ async def _create_draft_and_show_summary(
         order_draft=order_draft,
         order_performers=[performer_state(item) for item in performers],
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=event,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=order_draft_summary_text(price=price, performers_count=len(performers)),
         reply_markup=order_publish_keyboard(performers),
+        create_new=True,
     )
 
 
@@ -1063,12 +1063,12 @@ async def add_order_object(
         order_draft=order_draft,
     )
     await state.set_state(CareObjectManagement.name)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text="Введите имя или короткое название.",
+        create_new=True,
     )
 
 
@@ -1091,12 +1091,12 @@ async def add_order_address(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            create_new=True,
         )
         return
     await state.update_data(
@@ -1106,11 +1106,11 @@ async def add_order_address(
         address_draft={},
     )
     await state.set_state(AddressManagement.city)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=address_city_step_text(),
         reply_markup=address_city_keyboard(cities),
+        create_new=True,
     )
