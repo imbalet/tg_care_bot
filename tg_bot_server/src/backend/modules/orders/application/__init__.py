@@ -1,5 +1,8 @@
 from .dto import (
     MatchActionDTO,
+    MyOrderCardDTO,
+    MyOrdersPageDTO,
+    MyOrderSummaryDTO,
     OrderCareObjectSnapshot,
     OrderData,
     OrderDTO,
@@ -8,7 +11,7 @@ from .dto import (
     PricePreviewDTO,
     ServicePricingDTO,
 )
-from .interfaces import OrderRepository, PricingRepository
+from .interfaces import MyOrdersQueryService, OrderRepository, PricingRepository
 from .pricing import CalculatePricePreviewCommand, CalculatePricePreviewUseCase
 from .use_cases import (
     CreateDirectOrderCommand,
@@ -25,6 +28,10 @@ __all__ = [
     "CreatePoolOrderCommand",
     "CreatePoolOrderUseCase",
     "MatchActionDTO",
+    "MyOrderCardDTO",
+    "MyOrderSummaryDTO",
+    "MyOrdersPageDTO",
+    "MyOrdersQueryService",
     "OrderCareObjectSnapshot",
     "OrderData",
     "OrderDTO",

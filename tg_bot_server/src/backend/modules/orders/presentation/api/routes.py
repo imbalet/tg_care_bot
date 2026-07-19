@@ -1,10 +1,11 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
+from backend.common.domain import NotFoundError
 from backend.common.presentation import require_service_key
 from backend.modules.orders.application import (
     CalculatePricePreviewCommand,
@@ -15,6 +16,8 @@ from .mappers import (
     create_pool_command,
     match_action_response,
     match_response,
+    my_order_card_response,
+    my_orders_page_response,
     order_response,
     price_preview_response,
 )
@@ -22,6 +25,8 @@ from .schemas import (
     CustomerMatchActionRequest,
     DirectOrderRequest,
     MatchActionResponse,
+    MyOrderCardResponse,
+    MyOrdersPageResponse,
     OrderMatchResponse,
     OrderRequest,
     OrderResponse,
@@ -85,6 +90,70 @@ async def list_available_pool_orders(
         limit=limit,
     )
     return [order_response(order) for order in orders]
+
+
+@router.get("/customer/{customer_id}/my")
+async def list_customer_my_orders(
+    customer_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+    group: Annotated[str, Query(pattern="^(active|archive)$")] = "active",
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=10)] = 5,
+) -> MyOrdersPageResponse:
+    orders = await container.services().list_customer_my_orders(
+        customer_id=customer_id,
+        group=group,
+        page=page,
+        page_size=page_size,
+    )
+    return my_orders_page_response(orders)
+
+
+@router.get("/customer/{customer_id}/my/{order_id}")
+async def get_customer_my_order(
+    customer_id: UUID,
+    order_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> MyOrderCardResponse:
+    order = await container.services().get_customer_my_order(
+        customer_id=customer_id,
+        order_id=order_id,
+    )
+    if order is None:
+        raise NotFoundError("Order not found")
+    return my_order_card_response(order)
+
+
+@router.get("/performer/{performer_id}/my")
+async def list_performer_my_orders(
+    performer_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+    group: Annotated[str, Query(pattern="^(active|archive)$")] = "active",
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=10)] = 5,
+) -> MyOrdersPageResponse:
+    orders = await container.services().list_performer_my_orders(
+        performer_id=performer_id,
+        group=group,
+        page=page,
+        page_size=page_size,
+    )
+    return my_orders_page_response(orders)
+
+
+@router.get("/performer/{performer_id}/my/{order_id}")
+async def get_performer_my_order(
+    performer_id: UUID,
+    order_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> MyOrderCardResponse:
+    order = await container.services().get_performer_my_order(
+        performer_id=performer_id,
+        order_id=order_id,
+    )
+    if order is None:
+        raise NotFoundError("Order not found")
+    return my_order_card_response(order)
 
 
 @router.post("/{order_id}/pool-responses", status_code=201)

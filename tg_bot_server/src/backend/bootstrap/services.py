@@ -86,6 +86,7 @@ from backend.modules.orders.application import (
 )
 from backend.modules.orders.infrastructure import (
     SqlAlchemyMatchingRepository,
+    SqlAlchemyMyOrdersQueryService,
     SqlAlchemyOrderRepository,
     SqlAlchemyPricingRepository,
 )
@@ -208,6 +209,12 @@ class ApplicationServices:
             return await SqlAlchemyCatalogQueryService(uow.session).get_catalog(
                 active_only=active_only,
             )
+
+    async def get_support_contact(self) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyCatalogQueryService(
+                uow.session
+            ).get_support_contact()
 
     async def list_legal_documents(self, *, active_only: bool) -> Any:
         async with self._uow() as uow:
@@ -382,6 +389,70 @@ class ApplicationServices:
             return await SqlAlchemyMatchingRepository(
                 uow.session,
             ).list_available_pool_orders(performer_id=performer_id, limit=limit)
+
+    async def list_customer_my_orders(
+        self,
+        *,
+        customer_id: UUID,
+        group: str,
+        page: int,
+        page_size: int,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyMyOrdersQueryService(
+                uow.session
+            ).list_customer_orders(
+                customer_id=customer_id,
+                group=group,
+                page=page,
+                page_size=page_size,
+            )
+
+    async def get_customer_my_order(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyMyOrdersQueryService(
+                uow.session,
+            ).get_customer_order_card(
+                customer_id=customer_id,
+                order_id=order_id,
+            )
+
+    async def list_performer_my_orders(
+        self,
+        *,
+        performer_id: UUID,
+        group: str,
+        page: int,
+        page_size: int,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyMyOrdersQueryService(
+                uow.session,
+            ).list_performer_orders(
+                performer_id=performer_id,
+                group=group,
+                page=page,
+                page_size=page_size,
+            )
+
+    async def get_performer_my_order(
+        self,
+        *,
+        performer_id: UUID,
+        order_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyMyOrdersQueryService(
+                uow.session,
+            ).get_performer_order_card(
+                performer_id=performer_id,
+                order_id=order_id,
+            )
 
     async def create_pool_response(
         self,

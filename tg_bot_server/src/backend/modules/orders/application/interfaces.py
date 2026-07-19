@@ -3,6 +3,8 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from backend.modules.orders.application.dto import (
+    MyOrderCardDTO,
+    MyOrdersPageDTO,
     OrderCareObjectSnapshot,
     OrderData,
     OrderDTO,
@@ -86,4 +88,42 @@ class OrderRepository(Protocol):
         service_id: UUID,
         option_values: dict[UUID, Any],
     ) -> bool:
+        pass
+
+
+class MyOrdersQueryService(Protocol):
+    async def list_customer_orders(
+        self,
+        *,
+        customer_id: UUID,
+        group: str,
+        page: int,
+        page_size: int,
+    ) -> MyOrdersPageDTO:
+        pass
+
+    async def get_customer_order_card(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> MyOrderCardDTO | None:
+        pass
+
+    async def list_performer_orders(
+        self,
+        *,
+        performer_id: UUID,
+        group: str,
+        page: int,
+        page_size: int,
+    ) -> MyOrdersPageDTO:
+        pass
+
+    async def get_performer_order_card(
+        self,
+        *,
+        performer_id: UUID,
+        order_id: UUID,
+    ) -> MyOrderCardDTO | None:
         pass

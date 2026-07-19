@@ -105,3 +105,31 @@ class MatchActionResponse(BaseModel):
     order: OrderResponse
     match: OrderMatchResponse
     payment: PaymentPromptResponse | None
+
+
+class MyOrderSummaryResponse(BaseModel):
+    id: str
+    service_name: str
+    matching_mode: str | None
+    status: str
+    start_at: str
+    end_at: str
+    objects_count: int
+    total_amount: Decimal
+    payment_deadline_at: str | None
+    matching_deadline_at: str
+    timezone: str
+
+
+class MyOrderCardResponse(MyOrderSummaryResponse):
+    payment_status: str | None
+    payment_confirmation_url: str | None
+    payment_expires_at: str | None
+
+
+class MyOrdersPageResponse(BaseModel):
+    items: list[MyOrderSummaryResponse]
+    page: int
+    page_size: int
+    total_items: int
+    total_pages: int

@@ -3,6 +3,9 @@ from backend.modules.orders.application import (
     CreateDirectOrderCommand,
     CreatePoolOrderCommand,
     MatchActionDTO,
+    MyOrderCardDTO,
+    MyOrdersPageDTO,
+    MyOrderSummaryDTO,
     OrderDTO,
     OrderMatchDTO,
     PaymentPromptDTO,
@@ -12,6 +15,9 @@ from backend.modules.orders.application import (
 from .schemas import (
     DirectOrderRequest,
     MatchActionResponse,
+    MyOrderCardResponse,
+    MyOrdersPageResponse,
+    MyOrderSummaryResponse,
     OrderMatchResponse,
     OrderRequest,
     OrderResponse,
@@ -144,4 +150,57 @@ def match_action_response(result: MatchActionDTO) -> MatchActionResponse:
         payment=payment_prompt_response(result.payment)
         if result.payment is not None
         else None,
+    )
+
+
+def my_order_summary_response(order: MyOrderSummaryDTO) -> MyOrderSummaryResponse:
+    start_at = to_timezone(order.start_at, order.timezone)
+    end_at = to_timezone(order.end_at, order.timezone)
+    payment_deadline_at = (
+        to_timezone(order.payment_deadline_at, order.timezone)
+        if order.payment_deadline_at is not None
+        else None
+    )
+    matching_deadline_at = to_timezone(order.matching_deadline_at, order.timezone)
+    return MyOrderSummaryResponse(
+        id=str(order.id),
+        service_name=order.service_name,
+        matching_mode=order.matching_mode,
+        status=order.status,
+        start_at=start_at.isoformat(),
+        end_at=end_at.isoformat(),
+        objects_count=order.objects_count,
+        total_amount=order.total_amount,
+        payment_deadline_at=payment_deadline_at.isoformat()
+        if payment_deadline_at is not None
+        else None,
+        matching_deadline_at=matching_deadline_at.isoformat(),
+        timezone=order.timezone,
+    )
+
+
+def my_order_card_response(order: MyOrderCardDTO) -> MyOrderCardResponse:
+    summary = my_order_summary_response(order)
+    payment_expires_at = (
+        to_timezone(order.payment_expires_at, order.timezone)
+        if order.payment_expires_at is not None
+        else None
+    )
+    return MyOrderCardResponse(
+        **summary.model_dump(),
+        payment_status=order.payment_status,
+        payment_confirmation_url=order.payment_confirmation_url,
+        payment_expires_at=payment_expires_at.isoformat()
+        if payment_expires_at is not None
+        else None,
+    )
+
+
+def my_orders_page_response(page: MyOrdersPageDTO) -> MyOrdersPageResponse:
+    return MyOrdersPageResponse(
+        items=[my_order_summary_response(order) for order in page.items],
+        page=page.page,
+        page_size=page.page_size,
+        total_items=page.total_items,
+        total_pages=page.total_pages,
     )
