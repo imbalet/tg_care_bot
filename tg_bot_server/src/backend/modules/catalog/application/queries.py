@@ -5,6 +5,7 @@ from backend.modules.catalog.application.dto import (
     CatalogDTO,
     CityDTO,
     LegalDocumentDTO,
+    SupportContactDTO,
 )
 
 
@@ -23,4 +24,7 @@ class CatalogQueryService(Protocol):
         pass
 
     async def get_catalog(self, *, active_only: bool) -> CatalogDTO:
+        pass
+
+    async def get_support_contact(self) -> SupportContactDTO:
         pass

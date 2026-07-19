@@ -5,6 +5,7 @@ from .dto import (
     ServiceCategoryDTO,
     ServiceDTO,
     ServiceOptionDTO,
+    SupportContactDTO,
 )
 from .queries import CatalogQueryService
 
@@ -16,4 +17,5 @@ __all__ = [
     "ServiceCategoryDTO",
     "ServiceDTO",
     "ServiceOptionDTO",
+    "SupportContactDTO",
 ]

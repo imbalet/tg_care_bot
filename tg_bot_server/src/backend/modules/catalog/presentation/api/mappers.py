@@ -5,6 +5,7 @@ from backend.modules.catalog.application import (
     ServiceCategoryDTO,
     ServiceDTO,
     ServiceOptionDTO,
+    SupportContactDTO,
 )
 
 from .schemas import (
@@ -14,6 +15,7 @@ from .schemas import (
     ServiceCategoryResponse,
     ServiceOptionResponse,
     ServiceResponse,
+    SupportContactResponse,
 )
 
 
@@ -90,4 +92,11 @@ def legal_document_response(document: LegalDocumentDTO) -> LegalDocumentResponse
         content_url=document.content_url,
         is_active=document.is_active,
         published_at=document.published_at.isoformat(),
+    )
+
+
+def support_contact_response(contact: SupportContactDTO) -> SupportContactResponse:
+    return SupportContactResponse(
+        label=contact.label,
+        telegram_url=contact.telegram_url,
     )

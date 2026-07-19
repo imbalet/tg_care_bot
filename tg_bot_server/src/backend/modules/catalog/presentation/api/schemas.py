@@ -61,3 +61,8 @@ class ServiceCategoryResponse(BaseModel):
 
 class CatalogResponse(BaseModel):
     categories: list[ServiceCategoryResponse]
+
+
+class SupportContactResponse(BaseModel):
+    label: str
+    telegram_url: str | None

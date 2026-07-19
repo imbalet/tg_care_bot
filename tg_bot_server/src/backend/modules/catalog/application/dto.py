@@ -68,3 +68,9 @@ class ServiceCategoryDTO:
 @dataclass(frozen=True)
 class CatalogDTO:
     categories: tuple[ServiceCategoryDTO, ...]
+
+
+@dataclass(frozen=True)
+class SupportContactDTO:
+    label: str
+    telegram_url: str | None

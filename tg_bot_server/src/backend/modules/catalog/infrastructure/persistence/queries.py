@@ -11,9 +11,11 @@ from backend.modules.catalog.application.dto import (
     ServiceCategoryDTO,
     ServiceDTO,
     ServiceOptionDTO,
+    SupportContactDTO,
 )
 from backend.modules.catalog.application.queries import CatalogQueryService
 from backend.modules.catalog.infrastructure.persistence.models import (
+    BusinessSettingModel,
     CityModel,
     LegalDocumentModel,
     ServiceCategoryModel,
@@ -150,3 +152,19 @@ class SqlAlchemyCatalogQueryService(CatalogQueryService):
                 ),
             )
         return CatalogDTO(categories=tuple(categories))
+
+    async def get_support_contact(self) -> SupportContactDTO:
+        result = await self._session.execute(
+            select(BusinessSettingModel).where(
+                BusinessSettingModel.key.in_(
+                    ("support_telegram_url", "support_label"),
+                ),
+            ),
+        )
+        values = {model.key: model.value for model in result.scalars()}
+        label = values.get("support_label")
+        telegram_url = values.get("support_telegram_url")
+        return SupportContactDTO(
+            label=str(label) if label else "Поддержка",
+            telegram_url=str(telegram_url) if telegram_url else None,
+        )

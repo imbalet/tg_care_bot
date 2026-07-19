@@ -5,8 +5,18 @@ from fastapi import APIRouter, Depends, Query
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
 
-from .mappers import catalog_response, city_response, legal_document_response
-from .schemas import CatalogResponse, CityResponse, LegalDocumentResponse
+from .mappers import (
+    catalog_response,
+    city_response,
+    legal_document_response,
+    support_contact_response,
+)
+from .schemas import (
+    CatalogResponse,
+    CityResponse,
+    LegalDocumentResponse,
+    SupportContactResponse,
+)
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 legal_router = APIRouter(prefix="/api/legal-documents", tags=["legal-documents"])
@@ -28,6 +38,14 @@ async def get_catalog(
 ) -> CatalogResponse:
     catalog = await container.services().get_catalog(active_only=active_only)
     return catalog_response(catalog)
+
+
+@router.get("/support-contact")
+async def get_support_contact(
+    container: Annotated[Container, Depends(get_container)],
+) -> SupportContactResponse:
+    contact = await container.services().get_support_contact()
+    return support_contact_response(contact)
 
 
 @legal_router.get("")
