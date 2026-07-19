@@ -10,12 +10,15 @@ from customer_bot.application.dto import (
     CustomerProfileDTO,
     LegalDocumentDTO,
     MatchActionDTO,
+    MyOrderCardDTO,
+    MyOrdersPageDTO,
     OrderDTO,
     OrderMatchDTO,
     PaymentStatusDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
     SuitablePerformerDTO,
+    SupportContactDTO,
 )
 
 
@@ -32,6 +35,8 @@ class BackendPort(Protocol):
     async def list_active_legal_documents(self) -> tuple[LegalDocumentDTO, ...]: ...
 
     async def list_catalog_categories(self) -> tuple[ServiceCategoryDTO, ...]: ...
+
+    async def get_support_contact(self) -> SupportContactDTO: ...
 
     async def register_customer(
         self,
@@ -197,3 +202,19 @@ class BackendPort(Protocol):
         order_id: UUID,
         customer_id: UUID,
     ) -> PaymentStatusDTO: ...
+
+    async def list_customer_orders(
+        self,
+        *,
+        customer_id: UUID,
+        group: str,
+        page: int,
+        page_size: int = 5,
+    ) -> MyOrdersPageDTO: ...
+
+    async def get_customer_order_card(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> MyOrderCardDTO: ...

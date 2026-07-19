@@ -37,6 +37,7 @@ from customer_bot.presentation.callbacks import (
     OrderAddAddressCallback,
     OrderAddObjectCallback,
     OrderAddressCallback,
+    OrderCardOpenCallback,
     OrderCommentSkipCallback,
     OrderCreateCallback,
     OrderObjectCallback,
@@ -51,6 +52,7 @@ from customer_bot.presentation.callbacks import (
     OrderResponsesOpenCallback,
     OrderServiceCallback,
     OrdersListCallback,
+    OrdersPageCallback,
     OrderStartManualCallback,
     OrderStartTimeCallback,
     PaymentRefreshCallback,
@@ -61,6 +63,7 @@ from customer_bot.presentation.callbacks import (
     RegistrationEditCallback,
     RegistrationLegalAcceptCallback,
     ServicesPricesCallback,
+    SupportOpenCallback,
 )
 from customer_bot.presentation.types import ContactMethod, YesNoValue
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
@@ -241,6 +244,29 @@ def fallback_keyboard(*, include_main_menu: bool = True) -> InlineKeyboardMarkup
     if include_main_menu:
         keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
     return keyboard.button(MsgKey.HELP, HelpCallback()).as_markup()
+
+
+def stale_action_keyboard() -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .button("Поддержка", SupportOpenCallback())
+        .as_markup()
+    )
+
+
+def support_keyboard(
+    *,
+    label: str,
+    telegram_url: str | None,
+    include_main_menu: bool = True,
+) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    if isinstance(telegram_url, str) and _valid_telegram_url(telegram_url):
+        keyboard.url_button(label, telegram_url)
+    if include_main_menu:
+        keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
+    return keyboard.as_markup()
 
 
 def notice_keyboard(*, include_main_menu: bool = True) -> InlineKeyboardMarkup:
@@ -544,6 +570,68 @@ def order_published_keyboard(order: object) -> InlineKeyboardMarkup:
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
+def my_orders_page_keyboard(page: object, group: str) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    items = cast(Sequence[object], _item_value(page, "items", ()))
+    page_number = int(cast(str | int, _item_value(page, "page", 1)))
+    total_pages = int(cast(str | int, _item_value(page, "total_pages", 0)))
+    for index, item in enumerate(items, start=1):
+        order_id = _item_value(item, "id")
+        if order_id is not None:
+            keyboard.button(
+                f"{index}. {_item_label(item, 'service_name', index - 1)}",
+                OrderCardOpenCallback(
+                    order_id=order_id,
+                    group=group,
+                    page=page_number,
+                ),
+            )
+    if group != "active":
+        keyboard.button("Активные", OrdersPageCallback(group="active", page=1))
+    if group != "archive":
+        keyboard.button("Архив", OrdersPageCallback(group="archive", page=1))
+    if page_number > 1:
+        keyboard.button(
+            "Назад",
+            OrdersPageCallback(group=group, page=page_number - 1),
+        )
+    if total_pages > page_number:
+        keyboard.button(
+            "Дальше",
+            OrdersPageCallback(group=group, page=page_number + 1),
+        )
+    return (
+        keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .button("Поддержка", SupportOpenCallback())
+        .as_markup()
+    )
+
+
+def my_order_card_keyboard(
+    order: object,
+    *,
+    group: str,
+    page: int,
+) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    payment_url = _item_value(order, "payment_confirmation_url")
+    order_id = _item_value(order, "id")
+    status = _item_value(order, "status")
+    matching_mode = _item_value(order, "matching_mode")
+    if isinstance(payment_url, str) and payment_url.startswith("https://"):
+        keyboard.url_button("Оплатить", payment_url)
+    if order_id is not None and status == "waiting_payment":
+        keyboard.button("Обновить оплату", PaymentRefreshCallback(order_id=order_id))
+    if order_id is not None and status == "searching" and matching_mode == "pool":
+        keyboard.button("Отклики", OrderResponsesOpenCallback(order_id=order_id))
+    return (
+        keyboard.button("К списку", OrdersPageCallback(group=group, page=page))
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .button("Поддержка", SupportOpenCallback())
+        .as_markup()
+    )
+
+
 def order_matches_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory(row_width=2)
     for index, item in enumerate(items, start=1):
@@ -581,6 +669,10 @@ def _item_value(item: object, key: str, default: object = None) -> object:
     if isinstance(item, dict):
         return item.get(key, default)
     return getattr(item, key, default)
+
+
+def _valid_telegram_url(url: str | None) -> bool:
+    return isinstance(url, str) and url.startswith("https://t.me/")
 
 
 def order_start_calendar() -> SimpleCalendar:

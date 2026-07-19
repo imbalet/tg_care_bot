@@ -14,6 +14,9 @@ from customer_bot.application.dto import (
     CustomerProfileDTO,
     LegalDocumentDTO,
     MatchActionDTO,
+    MyOrderCardDTO,
+    MyOrdersPageDTO,
+    MyOrderSummaryDTO,
     OrderDTO,
     OrderMatchDTO,
     PaymentStatusDTO,
@@ -22,6 +25,7 @@ from customer_bot.application.dto import (
     ServiceDTO,
     ServiceOptionDTO,
     SuitablePerformerDTO,
+    SupportContactDTO,
 )
 from customer_bot.application.ports import BackendPort
 
@@ -97,6 +101,11 @@ class BackendClient(BackendPort):
         payload = response.json()
         categories = payload["categories"] if isinstance(payload, dict) else []
         return tuple(_service_category_from_json(item) for item in categories)
+
+    async def get_support_contact(self) -> SupportContactDTO:
+        response = await self._request("GET", "/api/catalog/support-contact")
+        self._raise_for_status(response)
+        return _support_contact_from_json(response.json())
 
     async def register_customer(
         self,
@@ -467,6 +476,35 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return _payment_status_from_json(response.json())
 
+    async def list_customer_orders(
+        self,
+        *,
+        customer_id: UUID,
+        group: str,
+        page: int,
+        page_size: int = 5,
+    ) -> MyOrdersPageDTO:
+        response = await self._request(
+            "GET",
+            f"/api/orders/customer/{customer_id}/my",
+            params={"group": group, "page": page, "page_size": page_size},
+        )
+        self._raise_for_status(response)
+        return _my_orders_page_from_json(response.json())
+
+    async def get_customer_order_card(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> MyOrderCardDTO:
+        response = await self._request(
+            "GET",
+            f"/api/orders/customer/{customer_id}/my/{order_id}",
+        )
+        self._raise_for_status(response)
+        return _my_order_card_from_json(response.json())
+
     async def _request(
         self,
         method: str,
@@ -588,6 +626,15 @@ def _service_option_from_json(data: dict[str, object]) -> ServiceOptionDTO:
         name=str(data["name"]),
         value_type=str(data["value_type"]),
         is_required=bool(data["is_required"]),
+    )
+
+
+def _support_contact_from_json(data: dict[str, object]) -> SupportContactDTO:
+    return SupportContactDTO(
+        label=str(data["label"]),
+        telegram_url=data["telegram_url"]
+        if isinstance(data["telegram_url"], str)
+        else None,
     )
 
 
@@ -736,4 +783,57 @@ def _payment_status_from_json(data: dict[str, object]) -> PaymentStatusDTO:
         expires_at=datetime.fromisoformat(expires_at)
         if expires_at is not None
         else None,
+    )
+
+
+def _my_orders_page_from_json(data: dict[str, object]) -> MyOrdersPageDTO:
+    raw_items = data["items"] if isinstance(data["items"], list) else []
+    return MyOrdersPageDTO(
+        items=tuple(_my_order_summary_from_json(item) for item in raw_items),
+        page=int(cast(str | int, data["page"])),
+        page_size=int(cast(str | int, data["page_size"])),
+        total_items=int(cast(str | int, data["total_items"])),
+        total_pages=int(cast(str | int, data["total_pages"])),
+    )
+
+
+def _my_order_summary_from_json(data: dict[str, object]) -> MyOrderSummaryDTO:
+    payment_deadline_at = (
+        datetime.fromisoformat(str(data["payment_deadline_at"]))
+        if data["payment_deadline_at"] is not None
+        else None
+    )
+    return MyOrderSummaryDTO(
+        id=UUID(str(data["id"])),
+        service_name=str(data["service_name"]),
+        matching_mode=data["matching_mode"]
+        if isinstance(data["matching_mode"], str)
+        else None,
+        status=str(data["status"]),
+        start_at=datetime.fromisoformat(str(data["start_at"])),
+        end_at=datetime.fromisoformat(str(data["end_at"])),
+        objects_count=int(cast(str | int, data["objects_count"])),
+        total_amount=Decimal(str(data["total_amount"])),
+        payment_deadline_at=payment_deadline_at,
+        matching_deadline_at=datetime.fromisoformat(str(data["matching_deadline_at"])),
+        timezone=str(data["timezone"]),
+    )
+
+
+def _my_order_card_from_json(data: dict[str, object]) -> MyOrderCardDTO:
+    summary = _my_order_summary_from_json(data)
+    payment_expires_at = (
+        datetime.fromisoformat(str(data["payment_expires_at"]))
+        if data["payment_expires_at"] is not None
+        else None
+    )
+    return MyOrderCardDTO(
+        **summary.__dict__,
+        payment_status=data["payment_status"]
+        if isinstance(data["payment_status"], str)
+        else None,
+        payment_confirmation_url=data["payment_confirmation_url"]
+        if isinstance(data["payment_confirmation_url"], str)
+        else None,
+        payment_expires_at=payment_expires_at,
     )

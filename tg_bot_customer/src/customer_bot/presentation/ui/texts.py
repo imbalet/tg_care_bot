@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import datetime
 from html import escape
 from typing import Protocol
 
@@ -100,6 +101,56 @@ class OrderView(Protocol):
 
     @property
     def total_amount(self) -> object:
+        pass
+
+
+class MyOrderSummaryView(OrderView, Protocol):
+    @property
+    def start_at(self) -> datetime:
+        pass
+
+    @property
+    def end_at(self) -> datetime:
+        pass
+
+    @property
+    def objects_count(self) -> int:
+        pass
+
+    @property
+    def payment_deadline_at(self) -> datetime | None:
+        pass
+
+    @property
+    def matching_deadline_at(self) -> datetime:
+        pass
+
+
+class MyOrdersPageView(Protocol):
+    @property
+    def items(self) -> Sequence[MyOrderSummaryView]:
+        pass
+
+    @property
+    def page(self) -> int:
+        pass
+
+    @property
+    def total_pages(self) -> int:
+        pass
+
+    @property
+    def total_items(self) -> int:
+        pass
+
+
+class MyOrderCardView(MyOrderSummaryView, Protocol):
+    @property
+    def payment_status(self) -> str | None:
+        pass
+
+    @property
+    def payment_expires_at(self) -> datetime | None:
         pass
 
 
@@ -651,6 +702,74 @@ def payment_status_text(status: object) -> str:
     return "\n".join(lines)
 
 
+def my_orders_page_text(page: MyOrdersPageView, group: str) -> str:
+    title = "Активные заказы" if group == "active" else "Архив заказов"
+    if not page.items:
+        return f"<b>{title}</b>\n\nЗдесь пока нет заказов."
+    total_pages = page.total_pages or 1
+    lines = [
+        f"<b>{title}</b>",
+        f"Страница {page.page} из {total_pages}. Всего: {page.total_items}.",
+    ]
+    for index, item in enumerate(page.items, start=1):
+        lines.extend(
+            (
+                "",
+                f"{index}. {escape(item.service_name)}",
+                f"Статус: {_order_status_label(item.status)}",
+                f"Время: {_datetime_label(item.start_at)}",
+                f"Итого: {escape(str(item.total_amount))} ₽",
+            ),
+        )
+    return "\n".join(lines)
+
+
+def my_order_card_text(order: MyOrderCardView) -> str:
+    lines = [
+        "<b>Заказ</b>",
+        "",
+        f"Услуга: {escape(order.service_name)}",
+        f"Статус: {_order_status_label(order.status)}",
+        f"Начало: {_datetime_label(order.start_at)}",
+        f"Окончание: {_datetime_label(order.end_at)}",
+        f"Объектов: {order.objects_count}",
+        f"Итого: {escape(str(order.total_amount))} ₽",
+    ]
+    if order.matching_mode is not None:
+        lines.append(f"Подбор: {escape(order.matching_mode)}")
+    if order.status == "searching":
+        lines.append(f"Подбор до: {_datetime_label(order.matching_deadline_at)}")
+    if order.payment_deadline_at is not None:
+        lines.append(f"Оплатить до: {_datetime_label(order.payment_deadline_at)}")
+    if order.payment_status is not None:
+        lines.append(f"Платеж: {escape(order.payment_status)}")
+    if order.status in {"confirmed", "in_progress", "waiting_report"}:
+        lines.extend(
+            (
+                "",
+                "Контакты и точный адрес откроются в следующем срезе contact bridge.",
+            ),
+        )
+    return "\n".join(lines)
+
+
+def stale_action_text() -> str:
+    return (
+        "<b>Действие устарело или уже недоступно</b>\n\n"
+        "Откройте главное меню или обратитесь в поддержку."
+    )
+
+
+def support_text(*, label: str, telegram_url: str | None) -> str:
+    if isinstance(telegram_url, str) and telegram_url.startswith("https://t.me/"):
+        return f"<b>{escape(label)}</b>\n\nОткройте поддержку кнопкой ниже."
+    return (
+        "<b>Поддержка</b>\n\n"
+        "Контакт поддержки еще не настроен. Вернитесь в главное меню или "
+        "попробуйте позже."
+    )
+
+
 def order_response_rejected_text() -> str:
     return "Отклик отклонен."
 
@@ -716,6 +835,24 @@ def unavailable_action_text() -> str:
         "Это действие появится в следующих сценариях. Сейчас можно вернуться "
         "в главное меню."
     )
+
+
+def _order_status_label(status: str) -> str:
+    return {
+        "searching": "идет поиск",
+        "waiting_payment": "ожидает оплаты",
+        "confirmed": "подтвержден",
+        "in_progress": "выполняется",
+        "waiting_report": "ожидает отчет",
+        "report_submitted": "отчет отправлен",
+        "completed": "завершен",
+        "cancelled": "отменен",
+        "expired": "истек",
+    }.get(status, escape(status))
+
+
+def _datetime_label(value: datetime) -> str:
+    return escape(value.strftime("%d.%m.%Y %H:%M"))
 
 
 def _price_type_label(price_type: str) -> str:

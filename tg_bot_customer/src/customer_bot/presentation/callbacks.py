@@ -9,6 +9,10 @@ class HelpCallback(CallbackData, prefix="help"):
     pass
 
 
+class SupportOpenCallback(CallbackData, prefix="support_open"):
+    pass
+
+
 class CategorySelectCallback(CallbackData, prefix="cat_select"):
     code: str
 
@@ -31,6 +35,17 @@ class ProfileOpenCallback(CallbackData, prefix="profile_open"):
 
 class OrdersListCallback(CallbackData, prefix="orders_list"):
     pass
+
+
+class OrdersPageCallback(CallbackData, prefix="orders_page"):
+    group: str = "active"
+    page: int = 1
+
+
+class OrderCardOpenCallback(CallbackData, prefix="order_card"):
+    order_id: UUID
+    group: str = "active"
+    page: int = 1
 
 
 class OrderResponsesOpenCallback(CallbackData, prefix="order_resp_open"):
