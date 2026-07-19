@@ -2,7 +2,7 @@ from datetime import datetime, time
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, SmallInteger, Text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, SmallInteger, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,7 +16,7 @@ from backend.common.infrastructure.database import (
 class PerformerModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "performers"
 
-    telegram_id: Mapped[int] = mapped_column(nullable=False, unique=True)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True)
     full_name: Mapped[str] = mapped_column(Text, nullable=False)
     phone: Mapped[str] = mapped_column(Text, nullable=False)
     telegram_username: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -52,7 +52,7 @@ class PerformerModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
 class PerformerInvitationModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "performer_invitations"
 
-    telegram_id: Mapped[int] = mapped_column(nullable=False)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     created_by_admin_id: Mapped[UUID] = mapped_column(
         ForeignKey("admins.id"),
         nullable=False,

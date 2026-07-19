@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.common.application import utc_now
@@ -16,7 +16,7 @@ from backend.common.infrastructure.database import (
 class CustomerModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "customers"
 
-    telegram_id: Mapped[int] = mapped_column(nullable=False, unique=True)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True)
     full_name: Mapped[str] = mapped_column(Text, nullable=False)
     phone: Mapped[str] = mapped_column(Text, nullable=False)
     telegram_username: Mapped[str | None] = mapped_column(Text, nullable=True)
