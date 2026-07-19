@@ -16,7 +16,9 @@ from executor_bot.presentation.callbacks import (
     CategorySelectCallback,
     DirectAcceptCallback,
     DirectRejectCallback,
+    ExecutorOrderCardCallback,
     ExecutorOrdersOpenCallback,
+    ExecutorOrdersPageCallback,
     HelpCallback,
     MainMenuCallback,
     PoolRespondCallback,
@@ -29,6 +31,7 @@ from executor_bot.presentation.callbacks import (
     ServiceLimitCallback,
     ServicesOpenCallback,
     ServiceToggleCallback,
+    SupportOpenCallback,
     WorkAddressAddCallback,
     WorkAddressCityCallback,
     WorkAddressCurrentCallback,
@@ -146,6 +149,29 @@ def fallback_keyboard(*, include_main_menu: bool = True) -> InlineKeyboardMarkup
     return keyboard.button(MsgKey.HELP, HelpCallback()).as_markup()
 
 
+def stale_action_keyboard() -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .button("Поддержка", SupportOpenCallback())
+        .as_markup()
+    )
+
+
+def support_keyboard(
+    *,
+    label: str,
+    telegram_url: str | None,
+    include_main_menu: bool = True,
+) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    if isinstance(telegram_url, str) and _valid_telegram_url(telegram_url):
+        keyboard.url_button(label, telegram_url)
+    if include_main_menu:
+        keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
+    return keyboard.as_markup()
+
+
 def orders_filter_keyboard(*, is_available_orders: bool) -> InlineKeyboardMarkup:
     current_callback = (
         AvailableOrdersOpenCallback(scope=OrderFilterScope.CURRENT_CATEGORY)
@@ -183,6 +209,54 @@ def direct_offer_keyboard(match_id: str) -> InlineKeyboardMarkup:
         InlineKeyboardFactory()
         .button("Принять", DirectAcceptCallback(match_id=match_id))
         .button("Отклонить", DirectRejectCallback(match_id=match_id))
+        .as_markup()
+    )
+
+
+def my_orders_page_keyboard(page: object, group: str) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    items = getattr(page, "items", ())
+    page_number = int(getattr(page, "page", 1))
+    total_pages = int(getattr(page, "total_pages", 0))
+    for index, item in enumerate(items, start=1):
+        order_id = getattr(item, "id", None)
+        service_name = str(getattr(item, "service_name", f"Заказ {index}"))
+        if order_id is not None:
+            keyboard.button(
+                f"{index}. {service_name}",
+                ExecutorOrderCardCallback(
+                    order_id=str(order_id),
+                    group=group,
+                    page=page_number,
+                ),
+            )
+    if group != "active":
+        keyboard.button("Активные", ExecutorOrdersPageCallback(group="active", page=1))
+    if group != "archive":
+        keyboard.button("Архив", ExecutorOrdersPageCallback(group="archive", page=1))
+    if page_number > 1:
+        keyboard.button(
+            "Назад",
+            ExecutorOrdersPageCallback(group=group, page=page_number - 1),
+        )
+    if total_pages > page_number:
+        keyboard.button(
+            "Дальше",
+            ExecutorOrdersPageCallback(group=group, page=page_number + 1),
+        )
+    return (
+        keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .button("Поддержка", SupportOpenCallback())
+        .as_markup()
+    )
+
+
+def my_order_card_keyboard(*, group: str, page: int) -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button("К списку", ExecutorOrdersPageCallback(group=group, page=page))
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .button("Поддержка", SupportOpenCallback())
         .as_markup()
     )
 
@@ -289,14 +363,22 @@ __all__ = [
     "fallback_keyboard",
     "legal_acceptance_keyboard",
     "main_menu_keyboard",
+    "my_order_card_keyboard",
+    "my_orders_page_keyboard",
     "orders_filter_keyboard",
     "phone_contact_keyboard",
     "registration_summary_keyboard",
     "select_city_keyboard",
     "services_keyboard",
+    "stale_action_keyboard",
+    "support_keyboard",
     "work_address_card_keyboard",
     "work_address_city_keyboard",
     "work_address_skip_keyboard",
     "work_address_suggestions_keyboard",
     "work_addresses_keyboard",
 ]
+
+
+def _valid_telegram_url(url: str | None) -> bool:
+    return isinstance(url, str) and url.startswith("https://t.me/")

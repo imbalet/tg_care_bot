@@ -8,6 +8,7 @@ from executor_bot.presentation.callbacks import (
     HelpCallback,
     MainMenuCallback,
     ProfileOpenCallback,
+    SupportOpenCallback,
 )
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.navigation import (
@@ -21,6 +22,10 @@ from executor_bot.presentation.ui import (
     fallback_keyboard,
     fallback_text,
     help_text,
+    stale_action_keyboard,
+    stale_action_text,
+    support_keyboard,
+    support_text,
     unavailable_action_text,
 )
 
@@ -118,6 +123,37 @@ async def help_callback(
     await callback.answer("Сообщение недоступно", show_alert=True)
 
 
+@router.callback_query(SupportOpenCallback.filter())
+async def support_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    try:
+        contact = await backend_client.get_support_contact()
+    except BackendClientError:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=stale_action_text(),
+            reply_markup=stale_action_keyboard(),
+        )
+        return
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=support_text(label=contact.label, telegram_url=contact.telegram_url),
+        reply_markup=support_keyboard(
+            label=contact.label,
+            telegram_url=contact.telegram_url,
+        ),
+    )
+
+
 @router.callback_query(ProfileOpenCallback.filter())
 async def profile_callback(
     callback: CallbackQuery,
@@ -172,8 +208,8 @@ async def unknown_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=unavailable_action_text(),
-        reply_markup=fallback_keyboard(),
+        text=stale_action_text(),
+        reply_markup=stale_action_keyboard(),
     )
 
 
@@ -198,5 +234,6 @@ __all__ = [
     "main_menu_callback",
     "profile_callback",
     "router",
+    "support_callback",
     "unknown_message",
 ]

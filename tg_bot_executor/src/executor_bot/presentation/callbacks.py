@@ -7,6 +7,10 @@ class HelpCallback(CallbackData, prefix="help"):
     pass
 
 
+class SupportOpenCallback(CallbackData, prefix="support_open"):
+    pass
+
+
 class MainMenuCallback(CallbackData, prefix="main_menu"):
     pass
 
@@ -29,6 +33,17 @@ class AvailableOrdersOpenCallback(CallbackData, prefix="orders_feed"):
 
 class ExecutorOrdersOpenCallback(CallbackData, prefix="orders_list"):
     scope: OrderFilterScope = OrderFilterScope.CURRENT_CATEGORY
+
+
+class ExecutorOrdersPageCallback(CallbackData, prefix="my_orders_page"):
+    group: str = "active"
+    page: int = 1
+
+
+class ExecutorOrderCardCallback(CallbackData, prefix="my_order_card"):
+    order_id: str
+    group: str = "active"
+    page: int = 1
 
 
 class PoolRespondCallback(CallbackData, prefix="pool_resp"):

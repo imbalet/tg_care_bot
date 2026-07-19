@@ -141,6 +141,42 @@ class MatchActionDTO:
     confirmation_url: str | None
 
 
+@dataclass(frozen=True)
+class SupportContactDTO:
+    label: str
+    telegram_url: str | None
+
+
+@dataclass(frozen=True)
+class MyOrderSummaryDTO:
+    id: UUID
+    service_name: str
+    matching_mode: str | None
+    status: str
+    start_at: datetime
+    end_at: datetime
+    objects_count: int
+    total_amount: Decimal
+    payment_deadline_at: datetime | None
+    matching_deadline_at: datetime
+    timezone: str
+
+
+@dataclass(frozen=True)
+class MyOrderCardDTO(MyOrderSummaryDTO):
+    payment_status: str | None
+    payment_expires_at: datetime | None
+
+
+@dataclass(frozen=True)
+class MyOrdersPageDTO:
+    items: tuple[MyOrderSummaryDTO, ...]
+    page: int
+    page_size: int
+    total_items: int
+    total_pages: int
+
+
 __all__ = [
     "AddressDTO",
     "AddressSuggestionDTO",
@@ -149,6 +185,9 @@ __all__ = [
     "FileDTO",
     "LegalDocumentDTO",
     "MatchActionDTO",
+    "MyOrderCardDTO",
+    "MyOrderSummaryDTO",
+    "MyOrdersPageDTO",
     "OrderMatchDTO",
     "PerformerProfileDTO",
     "PerformerScheduleDTO",
@@ -156,4 +195,5 @@ __all__ = [
     "RegistrationStateDTO",
     "ServiceCategoryDTO",
     "ServiceDTO",
+    "SupportContactDTO",
 ]

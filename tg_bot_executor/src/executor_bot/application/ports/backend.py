@@ -10,12 +10,15 @@ from executor_bot.application.dto import (
     FileDTO,
     LegalDocumentDTO,
     MatchActionDTO,
+    MyOrderCardDTO,
+    MyOrdersPageDTO,
     OrderMatchDTO,
     PerformerProfileDTO,
     PerformerScheduleDTO,
     PerformerServiceDTO,
     RegistrationStateDTO,
     ServiceCategoryDTO,
+    SupportContactDTO,
 )
 
 
@@ -31,6 +34,8 @@ class BackendPort(Protocol):
     async def list_active_legal_documents(self) -> tuple[LegalDocumentDTO, ...]: ...
 
     async def list_catalog_categories(self) -> tuple[ServiceCategoryDTO, ...]: ...
+
+    async def get_support_contact(self) -> SupportContactDTO: ...
 
     async def register_performer(
         self,
@@ -167,3 +172,19 @@ class BackendPort(Protocol):
         match_id: UUID,
         performer_id: UUID,
     ) -> OrderMatchDTO: ...
+
+    async def list_performer_orders(
+        self,
+        *,
+        performer_id: UUID,
+        group: str,
+        page: int,
+        page_size: int = 5,
+    ) -> MyOrdersPageDTO: ...
+
+    async def get_performer_order_card(
+        self,
+        *,
+        performer_id: UUID,
+        order_id: UUID,
+    ) -> MyOrderCardDTO: ...

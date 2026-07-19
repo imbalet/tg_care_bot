@@ -9,7 +9,9 @@ from executor_bot.presentation.callbacks import (
     AvailableOrdersOpenCallback,
     DirectAcceptCallback,
     DirectRejectCallback,
+    ExecutorOrderCardCallback,
     ExecutorOrdersOpenCallback,
+    ExecutorOrdersPageCallback,
     PoolRespondCallback,
 )
 from executor_bot.presentation.contexts import TelegramUserContext
@@ -19,9 +21,14 @@ from executor_bot.presentation.ui import (
     available_orders_text,
     direct_accept_created_text,
     direct_rejected_text,
-    executor_orders_placeholder_text,
+    my_order_card_keyboard,
+    my_order_card_text,
+    my_orders_page_keyboard,
+    my_orders_page_text,
     orders_filter_keyboard,
     pool_response_created_text,
+    stale_action_keyboard,
+    stale_action_text,
 )
 
 router = Router(name="orders")
@@ -74,16 +81,78 @@ async def available_orders_callback(
 async def executor_orders_callback(
     callback: CallbackQuery,
     bot: Bot,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
-    callback_data: ExecutorOrdersOpenCallback,
 ) -> None:
+    await _show_orders_page(
+        bot=bot,
+        event=callback,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        telegram_id=telegram_user_context.telegram_id,
+        group="active",
+        page=1,
+    )
+
+
+@router.callback_query(ExecutorOrdersPageCallback.filter())
+async def executor_orders_page_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrdersPageCallback,
+) -> None:
+    await _show_orders_page(
+        bot=bot,
+        event=callback,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        telegram_id=telegram_user_context.telegram_id,
+        group=callback_data.group,
+        page=callback_data.page,
+    )
+
+
+@router.callback_query(ExecutorOrderCardCallback.filter())
+async def executor_order_card_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderCardCallback,
+) -> None:
+    try:
+        state = await backend_client.get_registration_state(
+            telegram_user_context.telegram_id,
+        )
+        if state.performer is None:
+            raise ValueError("Performer is not registered")
+        order = await backend_client.get_performer_order_card(
+            performer_id=state.performer.id,
+            order_id=UUID(callback_data.order_id),
+        )
+    except BackendClientError, ValueError:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=stale_action_text(),
+            reply_markup=stale_action_keyboard(),
+        )
+        return
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=executor_orders_placeholder_text(callback_data.scope),
-        reply_markup=orders_filter_keyboard(is_available_orders=False),
+        text=my_order_card_text(order),
+        reply_markup=my_order_card_keyboard(
+            group=callback_data.group,
+            page=callback_data.page,
+        ),
     )
 
 
@@ -177,6 +246,43 @@ async def direct_reject_callback(
         telegram_id=telegram_user_context.telegram_id,
         text=text,
         reply_markup=orders_filter_keyboard(is_available_orders=False),
+    )
+
+
+async def _show_orders_page(
+    *,
+    bot: Bot,
+    event: CallbackQuery,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_id: int,
+    group: str,
+    page: int,
+) -> None:
+    try:
+        state = await backend_client.get_registration_state(telegram_id)
+        if state.performer is None:
+            raise ValueError("Performer is not registered")
+        orders = await backend_client.list_performer_orders(
+            performer_id=state.performer.id,
+            group=group,
+            page=page,
+        )
+    except BackendClientError, ValueError:
+        await telegram_responder.update(
+            bot=bot,
+            event=event,
+            telegram_id=telegram_id,
+            text=stale_action_text(),
+            reply_markup=stale_action_keyboard(),
+        )
+        return
+    await telegram_responder.update(
+        bot=bot,
+        event=event,
+        telegram_id=telegram_id,
+        text=my_orders_page_text(orders, group),
+        reply_markup=my_orders_page_keyboard(orders, group),
     )
 
 
