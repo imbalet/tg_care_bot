@@ -36,6 +36,7 @@ from customer_bot.presentation.handlers.orders.creation_navigation import (
 from customer_bot.presentation.handlers.orders.creation_views import service_view
 from customer_bot.presentation.handlers.orders.state import (
     OrderCreation,
+    OrderSummarySnapshot,
     care_object_state,
     draft,
     duration_unit,
@@ -1114,18 +1115,19 @@ async def _create_draft_and_show_summary(
             "performers_count": len(performers),
         },
     )
+    summary = OrderSummarySnapshot(
+        service_name=price.service_name,
+        duration_minutes=price.duration_minutes,
+        objects_count=price.objects_count,
+        service_amount=price.service_amount,
+        platform_fee_amount=price.platform_fee_amount,
+        total_amount=price.total_amount,
+        performers_count=len(performers),
+    )
     await state.update_data(
         order_draft=order_draft,
         order_performers=[performer_state(item) for item in performers],
-        order_summary={
-            "service_name": price.service_name,
-            "duration_minutes": price.duration_minutes,
-            "objects_count": price.objects_count,
-            "service_amount": str(price.service_amount),
-            "platform_fee_amount": str(price.platform_fee_amount),
-            "total_amount": str(price.total_amount),
-            "performers_count": len(performers),
-        },
+        order_summary=summary.to_data(),
     )
     await telegram_responder.update(
         bot=bot,
@@ -1134,13 +1136,13 @@ async def _create_draft_and_show_summary(
         text=(
             screen := OrderDraftSummaryScreen(
                 OrderSummaryView(
-                    service_name=price.service_name,
-                    duration_minutes=price.duration_minutes,
-                    objects_count=price.objects_count,
-                    service_amount=price.service_amount,
-                    platform_fee_amount=price.platform_fee_amount,
-                    total_amount=price.total_amount,
-                    performers_count=len(performers),
+                    service_name=summary.service_name,
+                    duration_minutes=summary.duration_minutes,
+                    objects_count=summary.objects_count,
+                    service_amount=summary.service_amount,
+                    platform_fee_amount=summary.platform_fee_amount,
+                    total_amount=summary.total_amount,
+                    performers_count=summary.performers_count,
                 )
             ).build()
         ).text,

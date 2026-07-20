@@ -48,6 +48,40 @@ class OrderDraftSnapshot:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class OrderSummarySnapshot:
+    service_name: str
+    duration_minutes: int
+    objects_count: int
+    service_amount: Decimal
+    platform_fee_amount: Decimal
+    total_amount: Decimal
+    performers_count: int
+
+    @classmethod
+    def from_data(cls, data: dict[str, object]) -> OrderSummarySnapshot:
+        return cls(
+            service_name=str(data["service_name"]),
+            duration_minutes=int(str(data["duration_minutes"])),
+            objects_count=int(str(data["objects_count"])),
+            service_amount=Decimal(str(data["service_amount"])),
+            platform_fee_amount=Decimal(str(data["platform_fee_amount"])),
+            total_amount=Decimal(str(data["total_amount"])),
+            performers_count=int(str(data["performers_count"])),
+        )
+
+    def to_data(self) -> dict[str, object]:
+        return {
+            "service_name": self.service_name,
+            "duration_minutes": self.duration_minutes,
+            "objects_count": self.objects_count,
+            "service_amount": str(self.service_amount),
+            "platform_fee_amount": str(self.platform_fee_amount),
+            "total_amount": str(self.total_amount),
+            "performers_count": self.performers_count,
+        }
+
+
 class OrderCreation(StatesGroup):
     service = State()
     object = State()

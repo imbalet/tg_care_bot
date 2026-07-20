@@ -21,6 +21,7 @@ from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.orders.state import (
     OrderCreation,
     OrderDraftSnapshot,
+    OrderSummarySnapshot,
     draft,
     item_by_id,
     performer_view,
@@ -158,12 +159,34 @@ async def back_from_direct_selection(
             create_new=False,
         )
         return
+    try:
+        summary_view = OrderSummarySnapshot.from_data(summary)
+    except KeyError, TypeError, ValueError:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
+            create_new=False,
+        )
+        return
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=(
-            screen := OrderDraftSummaryScreen(OrderSummaryView(**summary)).build()
+            screen := OrderDraftSummaryScreen(
+                OrderSummaryView(
+                    service_name=summary_view.service_name,
+                    duration_minutes=summary_view.duration_minutes,
+                    objects_count=summary_view.objects_count,
+                    service_amount=summary_view.service_amount,
+                    platform_fee_amount=summary_view.platform_fee_amount,
+                    total_amount=summary_view.total_amount,
+                    performers_count=summary_view.performers_count,
+                )
+            ).build()
         ).text,
         reply_markup=screen.reply_markup,
         create_new=False,
