@@ -1,6 +1,6 @@
 import logging
 
-from aiogram import Bot, Router
+from aiogram import Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -24,7 +24,6 @@ from customer_bot.presentation.view_models import (
     SelectableObjectView,
 )
 
-router = Router(name="care_objects_completion")
 logger = logging.getLogger(__name__)
 
 
