@@ -529,6 +529,20 @@ class ApplicationServices:
                 order_id=order_id,
             )
 
+    async def get_customer_order_location(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyMyOrdersQueryService(
+                uow.session,
+            ).get_order_location(
+                order_id=order_id,
+                customer_id=customer_id,
+            )
+
     async def list_performer_my_orders(
         self,
         *,
@@ -559,6 +573,20 @@ class ApplicationServices:
             ).get_performer_order_card(
                 performer_id=performer_id,
                 order_id=order_id,
+            )
+
+    async def get_performer_order_location(
+        self,
+        *,
+        performer_id: UUID,
+        order_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyMyOrdersQueryService(
+                uow.session,
+            ).get_order_location(
+                order_id=order_id,
+                performer_id=performer_id,
             )
 
     async def create_pool_response(

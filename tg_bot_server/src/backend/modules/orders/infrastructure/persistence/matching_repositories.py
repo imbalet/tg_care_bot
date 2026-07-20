@@ -6,8 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import utc_now
 from backend.common.domain import ConflictError, NotFoundError, ValidationError
+from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.availability.infrastructure import SqlAlchemyAvailabilityRepository
-from backend.modules.catalog.infrastructure import BusinessSettingModel, CityModel
+from backend.modules.catalog.infrastructure import (
+    BusinessSettingModel,
+    CityModel,
+    DistrictModel,
+)
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.application import (
@@ -17,6 +22,7 @@ from backend.modules.orders.application import (
     PaymentPromptDTO,
 )
 from backend.modules.orders.infrastructure.persistence.models import (
+    OrderAddressSnapshotModel,
     OrderMatchModel,
     OrderModel,
     OrderStatusHistoryModel,
@@ -373,6 +379,7 @@ class SqlAlchemyMatchingRepository:
             if performer.current_address_id is None:
                 raise ValidationError("Performer work address is required")
             order.address_id = performer.current_address_id
+            await self._save_address_snapshot(order.id, order.address_id)
         payment = await self._create_payment_attempt(order, match.performer_id)
         match.status = "selected"
         match.responded_at = match.responded_at or now
@@ -423,6 +430,62 @@ class SqlAlchemyMatchingRepository:
             match=_match_to_dto(match, timezone),
             payment=_payment_to_dto(payment, timezone),
         )
+
+    async def _save_address_snapshot(
+        self,
+        order_id: UUID,
+        address_id: UUID,
+    ) -> None:
+        result = await self._session.execute(
+            select(AddressModel, CityModel.name, DistrictModel.name)
+            .join(CityModel, CityModel.id == AddressModel.city_id)
+            .outerjoin(DistrictModel, DistrictModel.id == AddressModel.district_id)
+            .where(
+                AddressModel.id == address_id,
+                AddressModel.deleted_at.is_(None),
+            ),
+        )
+        row = result.one_or_none()
+        if row is None:
+            raise ValidationError("Performer work address is unavailable")
+        address, city_name, district_name = row
+        snapshot = await self._session.scalar(
+            select(OrderAddressSnapshotModel).where(
+                OrderAddressSnapshotModel.order_id == order_id,
+            ),
+        )
+        if snapshot is None:
+            snapshot = OrderAddressSnapshotModel(
+                order_id=order_id,
+                source_address_id=address.id,
+                city_name=city_name,
+                district_name=district_name,
+                address_text=address.address_text,
+                fias_id=address.fias_id,
+                latitude=address.latitude,
+                longitude=address.longitude,
+                geocoding_provider=address.geocoding_provider,
+                geocoding_quality=address.geocoding_quality,
+                entrance=address.entrance,
+                floor=address.floor,
+                apartment=address.apartment,
+                comment=address.comment,
+            )
+            self._session.add(snapshot)
+            return
+        snapshot.source_address_id = address.id
+        snapshot.city_name = city_name
+        snapshot.district_name = district_name
+        snapshot.address_text = address.address_text
+        snapshot.fias_id = address.fias_id
+        snapshot.latitude = address.latitude
+        snapshot.longitude = address.longitude
+        snapshot.geocoding_provider = address.geocoding_provider
+        snapshot.geocoding_quality = address.geocoding_quality
+        snapshot.entrance = address.entrance
+        snapshot.floor = address.floor
+        snapshot.apartment = address.apartment
+        snapshot.comment = address.comment
 
     async def _create_payment_attempt(
         self,

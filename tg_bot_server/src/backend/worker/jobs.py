@@ -7,7 +7,7 @@ from typing import Protocol
 from uuid import UUID
 
 import httpx
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.common.application import utc_now
@@ -17,6 +17,7 @@ from backend.modules.catalog.infrastructure import BusinessSettingModel
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.infrastructure import (
+    OrderAddressSnapshotModel,
     OrderMatchModel,
     OrderModel,
     OrderStatusHistoryModel,
@@ -532,6 +533,11 @@ class DeadlinesWorkerJob:
                 continue
             if payment is not None and payment.status in {"created", "pending"}:
                 payment.status = "expired"
+            await session.execute(
+                delete(OrderAddressSnapshotModel).where(
+                    OrderAddressSnapshotModel.order_id == order.id,
+                ),
+            )
             if match is not None and match.status == "selected":
                 match.status = "expired"
                 match.closed_at = now

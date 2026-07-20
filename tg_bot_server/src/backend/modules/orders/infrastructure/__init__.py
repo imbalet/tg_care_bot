@@ -1,4 +1,5 @@
 from .persistence import (
+    OrderAddressSnapshotModel,
     OrderCareObjectModel,
     OrderMatchModel,
     OrderModel,
@@ -13,6 +14,7 @@ from .persistence import (
 
 __all__ = [
     "OrderCareObjectModel",
+    "OrderAddressSnapshotModel",
     "OrderMatchModel",
     "OrderModel",
     "OrderOptionValueModel",

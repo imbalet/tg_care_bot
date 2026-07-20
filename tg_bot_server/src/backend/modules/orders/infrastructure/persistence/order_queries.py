@@ -8,11 +8,16 @@ from backend.common.domain import ValidationError
 from backend.modules.catalog.infrastructure import CityModel
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.orders.application import (
+    FullAddressSnapshotDTO,
     MyOrderCardDTO,
     MyOrdersPageDTO,
     MyOrderSummaryDTO,
+    OrderLocationDTO,
 )
-from backend.modules.orders.infrastructure.persistence.models import OrderModel
+from backend.modules.orders.infrastructure.persistence.models import (
+    OrderAddressSnapshotModel,
+    OrderModel,
+)
 from backend.modules.payments.infrastructure import PaymentModel
 
 ACTIVE_ORDER_STATUSES = frozenset(
@@ -89,6 +94,60 @@ class SqlAlchemyMyOrdersQueryService:
             OrderModel.selected_performer_id == performer_id,
         )
         return await self._get_order_card(statement, include_payment_url=False)
+
+    async def get_order_location(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID | None = None,
+        performer_id: UUID | None = None,
+    ) -> OrderLocationDTO | None:
+        statement = (
+            select(OrderModel, OrderAddressSnapshotModel, PaymentModel.status)
+            .outerjoin(
+                OrderAddressSnapshotModel,
+                OrderAddressSnapshotModel.order_id == OrderModel.id,
+            )
+            .outerjoin(PaymentModel, PaymentModel.id == OrderModel.active_payment_id)
+            .where(OrderModel.id == order_id)
+        )
+        if customer_id is not None:
+            statement = statement.where(OrderModel.customer_id == customer_id)
+        elif performer_id is not None:
+            statement = statement.where(
+                OrderModel.selected_performer_id == performer_id,
+            )
+        else:
+            raise ValidationError("Location actor is required")
+        result = await self._session.execute(statement)
+        row = result.one_or_none()
+        if row is None:
+            return None
+        _, snapshot, payment_status = row
+        if snapshot is None:
+            return None
+        address = None
+        if payment_status == "succeeded":
+            address = FullAddressSnapshotDTO(
+                city_name=snapshot.city_name,
+                district_name=snapshot.district_name,
+                address_text=snapshot.address_text,
+                fias_id=snapshot.fias_id,
+                latitude=snapshot.latitude,
+                longitude=snapshot.longitude,
+                geocoding_provider=snapshot.geocoding_provider,
+                geocoding_quality=snapshot.geocoding_quality,
+                entrance=snapshot.entrance,
+                floor=snapshot.floor,
+                apartment=snapshot.apartment,
+                comment=snapshot.comment,
+            )
+        return OrderLocationDTO(
+            order_id=order_id,
+            city_name=snapshot.city_name,
+            district_name=snapshot.district_name,
+            address=address,
+        )
 
     def _base_statement(self, group: str | None = None) -> Select[Any]:
         statement = (

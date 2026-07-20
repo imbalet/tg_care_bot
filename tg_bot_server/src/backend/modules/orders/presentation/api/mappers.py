@@ -7,6 +7,7 @@ from backend.modules.orders.application import (
     MyOrdersPageDTO,
     MyOrderSummaryDTO,
     OrderDTO,
+    OrderLocationDTO,
     OrderMatchDTO,
     OrderReportDTO,
     PaymentPromptDTO,
@@ -15,10 +16,12 @@ from backend.modules.orders.application import (
 
 from .schemas import (
     DirectOrderRequest,
+    FullAddressSnapshotResponse,
     MatchActionResponse,
     MyOrderCardResponse,
     MyOrdersPageResponse,
     MyOrderSummaryResponse,
+    OrderLocationResponse,
     OrderMatchResponse,
     OrderReportResponse,
     OrderRequest,
@@ -81,6 +84,33 @@ def order_response(order: OrderDTO) -> OrderResponse:
         platform_fee_amount=order.platform_fee_amount,
         matching_deadline_at=matching_deadline_at.isoformat(),
         timezone=order.timezone,
+    )
+
+
+def order_location_response(location: OrderLocationDTO) -> OrderLocationResponse:
+    address = location.address
+    return OrderLocationResponse(
+        order_id=str(location.order_id),
+        city_name=location.city_name,
+        district_name=location.district_name,
+        address=(
+            FullAddressSnapshotResponse(
+                city_name=address.city_name,
+                district_name=address.district_name,
+                address_text=address.address_text,
+                fias_id=address.fias_id,
+                latitude=address.latitude,
+                longitude=address.longitude,
+                geocoding_provider=address.geocoding_provider,
+                geocoding_quality=address.geocoding_quality,
+                entrance=address.entrance,
+                floor=address.floor,
+                apartment=address.apartment,
+                comment=address.comment,
+            )
+            if address is not None
+            else None
+        ),
     )
 
 

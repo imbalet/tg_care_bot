@@ -195,6 +195,32 @@ class OrderStatusHistoryModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class OrderAddressSnapshotModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "order_address_snapshots"
+
+    order_id: Mapped[UUID] = mapped_column(
+        ForeignKey(OrderModel.id),
+        nullable=False,
+        unique=True,
+    )
+    source_address_id: Mapped[UUID] = mapped_column(
+        ForeignKey("addresses.id"),
+        nullable=False,
+    )
+    city_name: Mapped[str] = mapped_column(Text, nullable=False)
+    district_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    address_text: Mapped[str] = mapped_column(Text, nullable=False)
+    fias_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(10, 7), nullable=True)
+    geocoding_provider: Mapped[str | None] = mapped_column(Text, nullable=True)
+    geocoding_quality: Mapped[str | None] = mapped_column(Text, nullable=True)
+    entrance: Mapped[str | None] = mapped_column(Text, nullable=True)
+    floor: Mapped[str | None] = mapped_column(Text, nullable=True)
+    apartment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class OrderReportModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "order_reports"
 

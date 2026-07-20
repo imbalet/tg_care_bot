@@ -9,6 +9,7 @@ from backend.modules.orders.application.dto import (
     OrderCareObjectSnapshot,
     OrderData,
     OrderDTO,
+    OrderLocationDTO,
     OrderReportDTO,
     PricePreviewDTO,
     ServicePricingDTO,
@@ -163,4 +164,13 @@ class MyOrdersQueryService(Protocol):
         performer_id: UUID,
         order_id: UUID,
     ) -> MyOrderCardDTO | None:
+        pass
+
+    async def get_order_location(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID | None = None,
+        performer_id: UUID | None = None,
+    ) -> OrderLocationDTO | None:
         pass

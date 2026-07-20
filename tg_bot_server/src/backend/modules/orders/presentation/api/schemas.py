@@ -52,6 +52,28 @@ class OrderResponse(BaseModel):
     timezone: str
 
 
+class FullAddressSnapshotResponse(BaseModel):
+    city_name: str
+    district_name: str | None
+    address_text: str
+    fias_id: str | None
+    latitude: Decimal | None
+    longitude: Decimal | None
+    geocoding_provider: str | None
+    geocoding_quality: str | None
+    entrance: str | None
+    floor: str | None
+    apartment: str | None
+    comment: str | None
+
+
+class OrderLocationResponse(BaseModel):
+    order_id: str
+    city_name: str
+    district_name: str | None
+    address: FullAddressSnapshotResponse | None
+
+
 class PricePreviewResponse(BaseModel):
     service_id: str
     service_code: str

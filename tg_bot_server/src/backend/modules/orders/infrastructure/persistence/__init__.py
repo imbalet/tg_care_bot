@@ -1,5 +1,6 @@
 from .matching_repositories import SqlAlchemyMatchingRepository
 from .models import (
+    OrderAddressSnapshotModel,
     OrderCareObjectModel,
     OrderMatchModel,
     OrderModel,
@@ -13,6 +14,7 @@ from .pricing_repositories import SqlAlchemyPricingRepository
 
 __all__ = [
     "OrderCareObjectModel",
+    "OrderAddressSnapshotModel",
     "OrderMatchModel",
     "OrderModel",
     "OrderOptionValueModel",

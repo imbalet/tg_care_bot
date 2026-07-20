@@ -90,6 +90,30 @@ class OrderDTO:
 
 
 @dataclass(frozen=True)
+class FullAddressSnapshotDTO:
+    city_name: str
+    district_name: str | None
+    address_text: str
+    fias_id: str | None
+    latitude: Decimal | None
+    longitude: Decimal | None
+    geocoding_provider: str | None
+    geocoding_quality: str | None
+    entrance: str | None
+    floor: str | None
+    apartment: str | None
+    comment: str | None
+
+
+@dataclass(frozen=True)
+class OrderLocationDTO:
+    order_id: UUID
+    city_name: str
+    district_name: str | None
+    address: FullAddressSnapshotDTO | None
+
+
+@dataclass(frozen=True)
 class PaymentPromptDTO:
     payment_id: UUID
     confirmation_url: str | None

@@ -18,6 +18,7 @@ from .mappers import (
     match_response,
     my_order_card_response,
     my_orders_page_response,
+    order_location_response,
     order_response,
     price_preview_response,
     report_response,
@@ -30,6 +31,7 @@ from .schemas import (
     MatchActionResponse,
     MyOrderCardResponse,
     MyOrdersPageResponse,
+    OrderLocationResponse,
     OrderMatchResponse,
     OrderReportRequest,
     OrderReportResponse,
@@ -130,6 +132,21 @@ async def get_customer_my_order(
     return my_order_card_response(order)
 
 
+@router.get("/customer/{customer_id}/my/{order_id}/location")
+async def get_customer_order_location(
+    customer_id: UUID,
+    order_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> OrderLocationResponse:
+    location = await container.services().get_customer_order_location(
+        customer_id=customer_id,
+        order_id=order_id,
+    )
+    if location is None:
+        raise NotFoundError("Order location not found")
+    return order_location_response(location)
+
+
 @router.get("/performer/{performer_id}/my")
 async def list_performer_my_orders(
     performer_id: UUID,
@@ -160,6 +177,21 @@ async def get_performer_my_order(
     if order is None:
         raise NotFoundError("Order not found")
     return my_order_card_response(order)
+
+
+@router.get("/performer/{performer_id}/my/{order_id}/location")
+async def get_performer_order_location(
+    performer_id: UUID,
+    order_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> OrderLocationResponse:
+    location = await container.services().get_performer_order_location(
+        performer_id=performer_id,
+        order_id=order_id,
+    )
+    if location is None:
+        raise NotFoundError("Order location not found")
+    return order_location_response(location)
 
 
 @router.post("/{order_id}/pool-responses", status_code=201)
