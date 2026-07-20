@@ -7,7 +7,7 @@ from typing import Protocol
 from uuid import UUID
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.common.application import utc_now
@@ -466,6 +466,20 @@ class DeadlinesWorkerJob:
             ),
         )
         for order in result.scalars():
+            active_pool_responses = await session.scalar(
+                select(func.count())
+                .select_from(OrderMatchModel)
+                .where(
+                    OrderMatchModel.order_id == order.id,
+                    OrderMatchModel.source == "pool",
+                    OrderMatchModel.status == "active",
+                ),
+            )
+            notification_type = (
+                "pool_no_responses"
+                if order.matching_mode == "pool" and not active_pool_responses
+                else "order_matching_expired"
+            )
             order.status = "expired"
             order.expired_reason = "matching_deadline"
             order.expired_at = now
@@ -478,11 +492,11 @@ class DeadlinesWorkerJob:
                 session=session,
                 recipient_type="customer",
                 customer_id=order.customer_id,
-                notification_type="order_matching_expired",
+                notification_type=notification_type,
                 entity_type="order",
                 entity_id=order.id,
                 payload={"order_id": str(order.id)},
-                deduplication_key=f"order-matching-expired:{order.id}",
+                deduplication_key=f"{notification_type}:{order.id}",
             )
 
     async def _expire_waiting_payments(
@@ -691,6 +705,7 @@ def _notification_body(notification: NotificationModel) -> str:
         "pool_response_selected": "Отклик выбран. Заказ ожидает оплаты.",
         "pool_match_expired": "Отклик истек.",
         "order_matching_expired": "Срок подбора истек. Заказ закрыт.",
+        "pool_no_responses": "Подбор завершен: откликов исполнителей нет.",
         "payment_confirmed": "Оплата подтверждена. Заказ закреплен.",
         "payment_expired_order_searching": (
             "Оплата не поступила вовремя. Заказ вернулся в подбор."

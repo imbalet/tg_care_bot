@@ -224,6 +224,45 @@ class SqlAlchemyOrderRepository(OrderRepository):
             raise NotFoundError("Order not found")
         return order
 
+    async def _lock_performer(self, performer_id: UUID) -> PerformerModel:
+        result = await self._session.execute(
+            select(PerformerModel)
+            .where(PerformerModel.id == performer_id)
+            .with_for_update(),
+        )
+        performer = result.scalar_one_or_none()
+        if performer is None:
+            raise NotFoundError("Performer not found")
+        return performer
+
+    async def _lock_overlapping_resources(
+        self,
+        *,
+        performer_id: UUID,
+        starts_at: datetime,
+        ends_at: datetime,
+    ) -> None:
+        await self._session.execute(
+            select(OrderMatchModel)
+            .where(
+                OrderMatchModel.performer_id == performer_id,
+                OrderMatchModel.status.in_(("active", "selected")),
+                OrderMatchModel.starts_at < ends_at,
+                OrderMatchModel.ends_at > starts_at,
+            )
+            .with_for_update(),
+        )
+        await self._session.execute(
+            select(OrderModel)
+            .where(
+                OrderModel.selected_performer_id == performer_id,
+                OrderModel.status == "confirmed",
+                OrderModel.start_at < ends_at,
+                OrderModel.end_at > starts_at,
+            )
+            .with_for_update(),
+        )
+
     def _stale(self, order: OrderModel, message: str) -> ConflictError:
         return ConflictError(
             message,
@@ -311,6 +350,12 @@ class SqlAlchemyOrderRepository(OrderRepository):
         model.matching_mode = "direct"
         self._session.add(model)
         await self._session.flush()
+        await self._lock_performer(performer_id)
+        await self._lock_overlapping_resources(
+            performer_id=performer_id,
+            starts_at=model.start_at,
+            ends_at=model.end_at,
+        )
         if not await self._performer_can_receive_direct(model, performer_id):
             raise ValidationError("Performer is not suitable for direct order")
         now = utc_now()

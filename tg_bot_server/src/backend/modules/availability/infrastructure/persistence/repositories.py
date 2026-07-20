@@ -322,7 +322,7 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
             .select_from(OrderModel)
             .where(
                 OrderModel.selected_performer_id == performer_id,
-                OrderModel.status.in_(("confirmed", "in_progress")),
+                OrderModel.status == "confirmed",
                 OrderModel.start_at < ends_at,
                 OrderModel.end_at > starts_at,
             )

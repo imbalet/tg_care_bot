@@ -365,6 +365,33 @@ class ApplicationServices:
             await uow.commit()
             return order
 
+    async def invite_direct_performer(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+        performer_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            match = await SqlAlchemyMatchingRepository(
+                uow.session,
+            ).invite_direct_performer(
+                order_id=order_id,
+                customer_id=customer_id,
+                performer_id=performer_id,
+            )
+            await uow.commit()
+            return match
+
+    async def publish_pool_order(self, *, order_id: UUID, customer_id: UUID) -> Any:
+        async with self._uow() as uow:
+            order = await SqlAlchemyMatchingRepository(uow.session).publish_pool(
+                order_id=order_id,
+                customer_id=customer_id,
+            )
+            await uow.commit()
+            return order
+
     async def start_order(self, *, order_id: UUID, performer_id: UUID) -> Any:
         async with self._uow() as uow:
             order = await StartOrderUseCase(

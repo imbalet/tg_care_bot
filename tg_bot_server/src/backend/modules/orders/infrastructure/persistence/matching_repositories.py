@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import utc_now
@@ -22,7 +22,10 @@ from backend.modules.orders.infrastructure.persistence.models import (
     OrderStatusHistoryModel,
 )
 from backend.modules.payments.infrastructure import PaymentModel
-from backend.modules.performers.infrastructure import PerformerModel
+from backend.modules.performers.infrastructure import (
+    PerformerModel,
+    PerformerServiceModel,
+)
 
 
 class SqlAlchemyMatchingRepository:
@@ -45,6 +48,12 @@ class SqlAlchemyMatchingRepository:
                 OrderModel.matching_mode == "pool",
                 OrderModel.status == "searching",
                 OrderModel.matching_deadline_at > now,
+                ~exists(
+                    select(OrderMatchModel.id).where(
+                        OrderMatchModel.order_id == OrderModel.id,
+                        OrderMatchModel.performer_id == performer_id,
+                    ),
+                ),
             )
             .order_by(OrderModel.start_at)
             .limit(limit),
@@ -77,6 +86,12 @@ class SqlAlchemyMatchingRepository:
             raise ConflictError("Order matching deadline has passed")
         if performer.status != "active" or not performer.is_accepting_orders:
             raise ValidationError("Performer cannot respond to orders")
+        await self._ensure_no_historical_match(order.id, performer.id)
+        await self._lock_overlapping_resources(
+            performer_id=performer.id,
+            starts_at=order.start_at,
+            ends_at=order.end_at,
+        )
         await self._ensure_pool_response_limit(order.id)
         check = await SqlAlchemyAvailabilityRepository(self._session).check(
             performer_id=performer.id,
@@ -120,6 +135,76 @@ class SqlAlchemyMatchingRepository:
         await self._session.flush()
         return _match_to_dto(match, await self._order_timezone(order))
 
+    async def invite_direct_performer(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+        performer_id: UUID,
+    ) -> OrderMatchDTO:
+        order = await self._get_customer_order(order_id, customer_id, for_update=True)
+        performer = await self._lock_performer(performer_id)
+        now = utc_now()
+        if order.matching_mode != "direct" or order.status != "searching":
+            raise ConflictError("Order is not ready for direct invitation")
+        if await self._active_direct_match(order.id) is not None:
+            raise ConflictError("Direct invitation is already pending")
+        await self._ensure_no_historical_match(order.id, performer_id)
+        if performer.status != "active" or not performer.is_accepting_orders:
+            raise ValidationError("Performer cannot receive direct order")
+        if not await self._performer_can_receive_order(order, performer_id):
+            raise ConflictError("Performer is not suitable for direct order")
+        await self._lock_overlapping_resources(
+            performer_id=performer_id,
+            starts_at=order.start_at,
+            ends_at=order.end_at,
+        )
+        check = await SqlAlchemyAvailabilityRepository(self._session).check(
+            performer_id=performer_id,
+            service_id=order.service_id,
+            starts_at=order.start_at,
+            ends_at=order.end_at,
+        )
+        if not check.is_available:
+            raise ConflictError("Performer is not available")
+        response_window = await self._integer_setting("direct_response_window_minutes")
+        match = OrderMatchModel(
+            order_id=order.id,
+            performer_id=performer_id,
+            source="direct",
+            status="pending",
+            starts_at=order.start_at,
+            ends_at=order.end_at,
+            response_expires_at=now + timedelta(minutes=response_window),
+        )
+        self._session.add(match)
+        await self._add_notification(
+            recipient_type="performer",
+            performer_id=performer_id,
+            notification_type="direct_invitation_created",
+            entity_type="order_match",
+            entity_id=match.id,
+            payload={"order_id": str(order.id), "match_id": str(match.id)},
+            deduplication_key=f"direct-invitation-created:{match.id}",
+        )
+        await self._session.flush()
+        return _match_to_dto(match, await self._order_timezone(order))
+
+    async def publish_pool(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> OrderDTO:
+        order = await self._get_customer_order(order_id, customer_id, for_update=True)
+        if order.status != "searching":
+            raise ConflictError("Order is not ready for pool publication")
+        if await self._active_direct_match(order.id) is not None:
+            raise ConflictError("Direct invitation is still pending")
+        order.matching_mode = "pool"
+        await self._session.flush()
+        return await self._order_to_dto(order)
+
     async def list_order_matches(
         self,
         *,
@@ -141,9 +226,18 @@ class SqlAlchemyMatchingRepository:
         match_id: UUID,
         customer_id: UUID,
     ) -> OrderMatchDTO:
+        match_probe = await self._get_match(match_id)
+        order = await self._get_customer_order(
+            match_probe.order_id,
+            customer_id,
+            for_update=True,
+        )
         match = await self._lock_match(match_id)
-        await self._get_customer_order(match.order_id, customer_id, for_update=True)
-        if match.source != "pool" or match.status != "active":
+        if (
+            match.source != "pool"
+            or match.status != "active"
+            or order.status != "searching"
+        ):
             raise ConflictError("Pool response is not active")
         now = utc_now()
         match.status = "rejected"
@@ -188,10 +282,19 @@ class SqlAlchemyMatchingRepository:
         match_id: UUID,
         performer_id: UUID,
     ) -> OrderMatchDTO:
+        match_probe = await self._get_match(match_id)
+        if match_probe.performer_id != performer_id:
+            raise NotFoundError("Direct match not found")
+        order = await self._lock_order(match_probe.order_id)
+        await self._lock_performer(performer_id)
         match = await self._lock_match(match_id)
         if match.performer_id != performer_id:
             raise NotFoundError("Direct match not found")
-        if match.source != "direct" or match.status != "pending":
+        if (
+            match.source != "direct"
+            or match.status != "pending"
+            or order.status != "searching"
+        ):
             raise ConflictError("Direct invitation is not pending")
         now = utc_now()
         match.status = "rejected"
@@ -248,6 +351,13 @@ class SqlAlchemyMatchingRepository:
             raise ConflictError("Order matching deadline has passed")
         if match.response_expires_at <= now:
             raise ConflictError("Match response deadline has passed")
+        await self._lock_overlapping_resources(
+            performer_id=match.performer_id,
+            starts_at=order.start_at,
+            ends_at=order.end_at,
+            exclude_order_id=order.id,
+            exclude_match_id=match.id,
+        )
         check = await SqlAlchemyAvailabilityRepository(self._session).check(
             performer_id=match.performer_id,
             service_id=order.service_id,
@@ -388,6 +498,89 @@ class SqlAlchemyMatchingRepository:
         )
         if int(result.scalar_one()) >= max_responses:
             raise ConflictError("Pool response limit reached")
+
+    async def _ensure_no_historical_match(
+        self,
+        order_id: UUID,
+        performer_id: UUID,
+    ) -> None:
+        result = await self._session.execute(
+            select(OrderMatchModel.id).where(
+                OrderMatchModel.order_id == order_id,
+                OrderMatchModel.performer_id == performer_id,
+            ),
+        )
+        if result.scalar_one_or_none() is not None:
+            raise ConflictError("Performer already responded to order")
+
+    async def _active_direct_match(
+        self,
+        order_id: UUID,
+    ) -> OrderMatchModel | None:
+        result = await self._session.execute(
+            select(OrderMatchModel)
+            .where(
+                OrderMatchModel.order_id == order_id,
+                OrderMatchModel.source == "direct",
+                OrderMatchModel.status == "pending",
+            )
+            .with_for_update(),
+        )
+        return result.scalar_one_or_none()
+
+    async def _performer_can_receive_order(
+        self,
+        order: OrderModel,
+        performer_id: UUID,
+    ) -> bool:
+        result = await self._session.execute(
+            select(PerformerServiceModel).where(
+                PerformerServiceModel.performer_id == performer_id,
+                PerformerServiceModel.service_id == order.service_id,
+                PerformerServiceModel.is_approved.is_(True),
+                PerformerServiceModel.is_enabled.is_(True),
+                PerformerServiceModel.performer_max_objects >= order.objects_count,
+            ),
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def _lock_overlapping_resources(
+        self,
+        *,
+        performer_id: UUID,
+        starts_at: datetime,
+        ends_at: datetime,
+        exclude_order_id: UUID | None = None,
+        exclude_match_id: UUID | None = None,
+    ) -> None:
+        match_statement = (
+            select(OrderMatchModel)
+            .where(
+                OrderMatchModel.performer_id == performer_id,
+                OrderMatchModel.status.in_(("active", "selected")),
+                OrderMatchModel.starts_at < ends_at,
+                OrderMatchModel.ends_at > starts_at,
+            )
+            .with_for_update()
+        )
+        if exclude_match_id is not None:
+            match_statement = match_statement.where(
+                OrderMatchModel.id != exclude_match_id,
+            )
+        await self._session.execute(match_statement)
+        order_statement = (
+            select(OrderModel)
+            .where(
+                OrderModel.selected_performer_id == performer_id,
+                OrderModel.status == "confirmed",
+                OrderModel.start_at < ends_at,
+                OrderModel.end_at > starts_at,
+            )
+            .with_for_update()
+        )
+        if exclude_order_id is not None:
+            order_statement = order_statement.where(OrderModel.id != exclude_order_id)
+        await self._session.execute(order_statement)
 
     async def _integer_setting(self, key: str) -> int:
         result = await self._session.execute(

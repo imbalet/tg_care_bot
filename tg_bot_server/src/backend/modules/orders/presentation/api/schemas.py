@@ -79,6 +79,11 @@ class CustomerMatchActionRequest(BaseModel):
     customer_id: UUID
 
 
+class CustomerDirectPerformerRequest(BaseModel):
+    customer_id: UUID
+    performer_id: UUID
+
+
 class PerformerOrderActionRequest(BaseModel):
     performer_id: UUID
 

@@ -24,6 +24,7 @@ from .mappers import (
 )
 from .schemas import (
     CancelOrderRequest,
+    CustomerDirectPerformerRequest,
     CustomerMatchActionRequest,
     DirectOrderRequest,
     MatchActionResponse,
@@ -172,6 +173,33 @@ async def create_pool_response(
         performer_id=request.performer_id,
     )
     return match_response(match)
+
+
+@router.post("/{order_id}/direct/performer", status_code=201)
+async def invite_direct_performer(
+    order_id: UUID,
+    request: CustomerDirectPerformerRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> OrderMatchResponse:
+    match = await container.services().invite_direct_performer(
+        order_id=order_id,
+        customer_id=request.customer_id,
+        performer_id=request.performer_id,
+    )
+    return match_response(match)
+
+
+@router.post("/{order_id}/publish-pool")
+async def publish_pool_order(
+    order_id: UUID,
+    request: CustomerMatchActionRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> OrderResponse:
+    order = await container.services().publish_pool_order(
+        order_id=order_id,
+        customer_id=request.customer_id,
+    )
+    return order_response(order)
 
 
 @router.get("/{order_id}/matches")
