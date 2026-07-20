@@ -12,6 +12,7 @@ from executor_bot.presentation.callbacks import (
     ExecutorOrderCardCallback,
     ExecutorOrdersOpenCallback,
     ExecutorOrdersPageCallback,
+    NotificationOrderOpenCallback,
     PoolRespondCallback,
 )
 from executor_bot.presentation.contexts import TelegramUserContext
@@ -125,6 +126,50 @@ async def executor_order_card_callback(
     telegram_user_context: TelegramUserContext,
     callback_data: ExecutorOrderCardCallback,
 ) -> None:
+    await _show_executor_order_card(
+        callback=callback,
+        bot=bot,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        order_id=callback_data.order_id,
+        group=callback_data.group,
+        page=callback_data.page,
+    )
+
+
+@router.callback_query(NotificationOrderOpenCallback.filter())
+async def notification_order_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: NotificationOrderOpenCallback,
+) -> None:
+    await _show_executor_order_card(
+        callback=callback,
+        bot=bot,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        order_id=callback_data.order_id,
+        group="active",
+        page=1,
+    )
+
+
+async def _show_executor_order_card(
+    *,
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    order_id: str,
+    group: str,
+    page: int,
+) -> None:
     try:
         state = await backend_client.get_registration_state(
             telegram_user_context.telegram_id,
@@ -133,7 +178,7 @@ async def executor_order_card_callback(
             raise ValueError("Performer is not registered")
         order = await backend_client.get_performer_order_card(
             performer_id=state.performer.id,
-            order_id=UUID(callback_data.order_id),
+            order_id=UUID(order_id),
         )
     except BackendClientError, ValueError:
         await telegram_responder.update(
@@ -150,8 +195,8 @@ async def executor_order_card_callback(
         telegram_id=telegram_user_context.telegram_id,
         text=my_order_card_text(order),
         reply_markup=my_order_card_keyboard(
-            group=callback_data.group,
-            page=callback_data.page,
+            group=group,
+            page=page,
         ),
     )
 

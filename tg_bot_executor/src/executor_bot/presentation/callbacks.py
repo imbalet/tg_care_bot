@@ -46,6 +46,10 @@ class ExecutorOrderCardCallback(CallbackData, prefix="my_order_card"):
     page: int = 1
 
 
+class NotificationOrderOpenCallback(CallbackData, prefix="notification_order"):
+    order_id: str
+
+
 class PoolRespondCallback(CallbackData, prefix="pool_resp"):
     order_id: str
 
