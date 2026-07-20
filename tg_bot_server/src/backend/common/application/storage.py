@@ -11,6 +11,9 @@ class StoredObject:
 
 
 class ObjectStorage(Protocol):
+    async def get(self, storage_key: str) -> bytes:
+        pass
+
     async def put(
         self,
         storage_key: str,

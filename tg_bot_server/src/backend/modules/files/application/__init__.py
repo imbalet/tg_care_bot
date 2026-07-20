@@ -4,6 +4,7 @@ from .avatar import (
     validate_avatar_file,
 )
 from .dto import CreateFileCommand, CreateFileLinkCommand, FileDTO, FileLinkDTO
+from .image_validation import validate_image_content
 from .interfaces import FileQueryService, FileRepository
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "UploadPerformerAvatarCommand",
     "UploadPerformerAvatarUseCase",
     "validate_avatar_file",
+    "validate_image_content",
 ]

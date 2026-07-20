@@ -1,5 +1,5 @@
 from asyncio import to_thread
-from typing import Any
+from typing import Any, cast
 
 import boto3
 
@@ -50,6 +50,13 @@ class S3ObjectStorage(ObjectStorage):
             content_type=content_type,
             size_bytes=len(content),
         )
+
+    async def get(self, storage_key: str) -> bytes:
+        return await to_thread(self._get_bytes, storage_key)
+
+    def _get_bytes(self, storage_key: str) -> bytes:
+        response = self._client.get_object(Bucket=self._bucket, Key=storage_key)
+        return cast(bytes, response["Body"].read())
 
     async def delete(self, storage_key: str) -> None:
         await to_thread(

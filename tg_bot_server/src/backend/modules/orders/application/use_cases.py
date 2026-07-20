@@ -3,10 +3,14 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from backend.common.application import to_utc, utc_now
+from backend.common.application import ObjectStorage, to_utc, utc_now
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.availability.application import AvailabilityRepository
-from backend.modules.files.application import CreateFileLinkCommand
+from backend.modules.files.application import (
+    CreateFileLinkCommand,
+    FileRepository,
+    validate_image_content,
+)
 from backend.modules.orders.application.dto import (
     OrderCareObjectSnapshot,
     OrderData,
@@ -200,10 +204,12 @@ class SubmitOrderReportUseCase:
     def __init__(
         self,
         repository: OrderRepository,
-        file_repository: Any,
+        file_repository: FileRepository,
+        storage: ObjectStorage,
     ) -> None:
         self._repository = repository
         self._file_repository = file_repository
+        self._storage = storage
 
     async def execute(self, command: SubmitOrderReportCommand) -> OrderReportDTO:
         if not command.completed_work.strip():
@@ -217,10 +223,14 @@ class SubmitOrderReportUseCase:
             file = await self._file_repository.get(file_id)
             if file is None or file.status != "uploaded":
                 raise ValidationError("Report file is unavailable")
-            if not file.mime_type.startswith("image/"):
-                raise ValidationError("Report files must be images")
-            if file.size_bytes is not None and file.size_bytes > 10 * 1024 * 1024:
-                raise ValidationError("Report file is too large")
+            if file.storage_key is None:
+                raise ValidationError("Report file content is unavailable")
+            content = await self._storage.get(file.storage_key)
+            validate_image_content(
+                content=content,
+                content_type=file.mime_type,
+                max_bytes=10 * 1024 * 1024,
+            )
             files.append(file)
         order = await self._repository.get_order(command.order_id)
         if order is None:

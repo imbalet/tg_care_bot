@@ -428,6 +428,7 @@ class ApplicationServices:
             report = await SubmitOrderReportUseCase(
                 SqlAlchemyOrderRepository(uow.session),
                 SqlAlchemyFileRepository(uow.session),
+                self._storage(),
             ).execute(
                 SubmitOrderReportCommand(
                     order_id=order_id,
