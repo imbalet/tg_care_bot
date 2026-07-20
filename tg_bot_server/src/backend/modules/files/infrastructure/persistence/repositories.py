@@ -19,7 +19,14 @@ from .models import FileLinkModel, FileModel
 
 FILE_STATUSES = frozenset(("uploaded", "deleted", "failed"))
 FILE_ENTITY_TYPES = frozenset(
-    ("customer", "performer", "order_report", "dispute", "complaint"),
+    (
+        "customer",
+        "performer",
+        "order_report",
+        "dispute",
+        "complaint",
+        "support_request",
+    ),
 )
 FILE_PURPOSES = frozenset(
     (
@@ -27,6 +34,7 @@ FILE_PURPOSES = frozenset(
         "report_photo",
         "dispute_attachment",
         "complaint_attachment",
+        "support_attachment",
         "admin_attachment",
         "other",
     ),

@@ -54,6 +54,9 @@ _BODIES = {
     "report_submitted": "Исполнитель отправил отчет по заказу.",
     "report_required": "Нужно отправить отчет по заказу.",
     "report_overdue": "Отчет по заказу просрочен.",
+    "support_request_created": "Поступило новое обращение в поддержку.",
+    "complaint_created": "Поступила новая жалоба.",
+    "account_deletion_requested": "Поступил запрос на удаление аккаунта.",
 }
 
 

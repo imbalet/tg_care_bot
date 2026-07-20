@@ -28,6 +28,15 @@ from backend.modules.performers.presentation.api import (
     admin_router as admin_performers_router,
 )
 from backend.modules.performers.presentation.api import router as performers_router
+from backend.modules.support.presentation.api import (
+    admin_router as admin_support_router,
+)
+from backend.modules.support.presentation.api import (
+    customer_router as customer_support_router,
+)
+from backend.modules.support.presentation.api import (
+    performer_router as performer_support_router,
+)
 from backend.modules.system_checks.presentation.api import (
     router as system_checks_router,
 )
@@ -62,6 +71,9 @@ def create_app() -> FastAPI:
     app.include_router(performers_router)
     app.include_router(admin_performers_router)
     app.include_router(system_checks_router)
+    app.include_router(customer_support_router)
+    app.include_router(performer_support_router)
+    app.include_router(admin_support_router)
     app.include_router(bootstrap_router)
 
     register_middlewares(app)

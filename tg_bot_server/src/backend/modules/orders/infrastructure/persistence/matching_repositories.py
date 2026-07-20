@@ -711,6 +711,11 @@ class SqlAlchemyMatchingRepository:
         statement = select(OrderModel).where(
             OrderModel.id == order_id,
             OrderModel.customer_id == customer_id,
+            CustomerModel.status == "active",
+            CustomerModel.deleted_at.is_(None),
+        )
+        statement = statement.join(
+            CustomerModel, CustomerModel.id == OrderModel.customer_id
         )
         if for_update:
             statement = statement.with_for_update()

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import utc_now
@@ -28,7 +28,10 @@ class SqlAlchemyNotificationRepository:
     ) -> tuple[list[NotificationModel], int]:
         conditions = [
             NotificationModel.recipient_type == "admin",
-            NotificationModel.admin_id == admin_id,
+            or_(
+                NotificationModel.admin_id == admin_id,
+                NotificationModel.admin_id.is_(None),
+            ),
         ]
         if status is not None:
             conditions.append(NotificationModel.status == status)
@@ -56,7 +59,10 @@ class SqlAlchemyNotificationRepository:
     ) -> int:
         conditions = (
             NotificationModel.id.in_(notification_ids),
-            NotificationModel.admin_id == admin_id,
+            or_(
+                NotificationModel.admin_id == admin_id,
+                NotificationModel.admin_id.is_(None),
+            ),
             NotificationModel.recipient_type == "admin",
             NotificationModel.read_at.is_(None),
         )
