@@ -1,5 +1,4 @@
 import logging
-from types import SimpleNamespace
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
@@ -26,6 +25,10 @@ from customer_bot.presentation.ui.screens import (
     CareObjectCardScreen,
     CareObjectListScreen,
     RetryLaterScreen,
+)
+from customer_bot.presentation.view_models import (
+    CareObjectCardView,
+    CareObjectListView,
 )
 
 router = Router(name="care_objects_list")
@@ -84,7 +87,7 @@ async def open_care_objects(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := CareObjectListScreen(
-                SimpleNamespace(
+                CareObjectListView(
                     category=category.name if category is not None else "Объекты ухода",
                     object_type=object_type or "",
                     count=len(items),
@@ -130,7 +133,7 @@ async def select_care_object(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := CareObjectCardScreen(
-                SimpleNamespace(
+                CareObjectCardView(
                     id=str(item["id"]),
                     object_type=str(item["object_type"]),
                     display_name=str(item["display_name"]),

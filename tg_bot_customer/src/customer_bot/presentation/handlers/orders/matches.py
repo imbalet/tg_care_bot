@@ -1,5 +1,4 @@
 import logging
-from types import SimpleNamespace
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -22,6 +21,10 @@ from customer_bot.presentation.ui.screens import (
     OrderResponseUnavailableScreen,
     PaymentStatusScreen,
     RetryLaterScreen,
+)
+from customer_bot.presentation.view_models import (
+    PaymentStatusView,
+    SelectedOrderResponseView,
 )
 
 router = Router(name="orders_matches")
@@ -145,7 +148,7 @@ async def select_order_match(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := OrderResponseSelectedScreen(
-                SimpleNamespace(
+                SelectedOrderResponseView(
                     order_status=action.order_status,
                     id=action.order_id,
                     payment_confirmation_url=action.payment_confirmation_url,
@@ -199,7 +202,7 @@ async def refresh_payment_status(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := PaymentStatusScreen(
-                SimpleNamespace(
+                PaymentStatusView(
                     id=status.order_id,
                     order_status=status.order_status,
                     payment_status=status.payment_status,

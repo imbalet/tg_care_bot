@@ -1,5 +1,4 @@
 import logging
-from types import SimpleNamespace
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -25,6 +24,11 @@ from customer_bot.presentation.ui.screens import (
     CareObjectDeletedScreen,
     CareObjectNameStepScreen,
     RetryLaterScreen,
+)
+from customer_bot.presentation.view_models import (
+    CareObjectBlockedView,
+    CareObjectDeleteView,
+    ObjectNameView,
 )
 
 router = Router(name="care_objects_edit")
@@ -79,7 +83,7 @@ async def edit_care_object(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := CareObjectNameStepScreen(
-                SimpleNamespace(
+                ObjectNameView(
                     object_type_label=CARE_OBJECT_TYPE_LABELS.get(
                         object_type, object_type
                     )
@@ -117,7 +121,7 @@ async def delete_care_object(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := CareObjectDeleteConfirmScreen(
-                SimpleNamespace(id=str(callback_data.care_object_id))
+                CareObjectDeleteView(id=str(callback_data.care_object_id))
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
@@ -165,7 +169,7 @@ async def confirm_delete_care_object(
             telegram_id=telegram_user_context.telegram_id,
             text=(
                 screen := CareObjectDeleteBlockedScreen(
-                    SimpleNamespace(id=str(callback_data.care_object_id))
+                    CareObjectBlockedView(index=0)
                 ).build()
             ).text,
             reply_markup=screen.reply_markup,

@@ -1,6 +1,5 @@
 import logging
 from datetime import date, datetime
-from types import SimpleNamespace
 from typing import cast
 from uuid import UUID
 
@@ -29,9 +28,9 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.addresses.state import AddressManagement
 from customer_bot.presentation.handlers.care_objects.state import CareObjectManagement
+from customer_bot.presentation.handlers.orders.creation_views import service_view
 from customer_bot.presentation.handlers.orders.state import (
     OrderCreation,
-    OrderSummaryView,
     care_object_state,
     draft,
     duration_unit,
@@ -70,6 +69,18 @@ from customer_bot.presentation.ui.screens import (
     OrderTimeManualStepScreen,
     RetryLaterScreen,
     StaleActionScreen,
+)
+from customer_bot.presentation.view_models import (
+    DateLabelView,
+    DurationView,
+    ObjectNameView,
+    ObjectsStepView,
+    ObjectTypeView,
+    OptionsStepView,
+    OrderSummaryView,
+    SelectableObjectView,
+    SelectableOptionView,
+    ServicesView,
 )
 
 router = Router(name="orders_create")
@@ -179,9 +190,7 @@ async def start_order_creation(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := OrderServicesStepScreen(
-                SimpleNamespace(
-                    services=tuple(SimpleNamespace(**item) for item in services)
-                )
+                ServicesView(services=tuple(service_view(item) for item in services))
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
@@ -263,7 +272,7 @@ async def select_service(
             telegram_id=telegram_user_context.telegram_id,
             text=(
                 screen := OrderNoObjectsScreen(
-                    SimpleNamespace(object_type=str(service["care_object_type"]))
+                    ObjectTypeView(object_type=str(service["care_object_type"]))
                 ).build()
             ).text,
             reply_markup=screen.reply_markup,
@@ -283,12 +292,14 @@ async def select_service(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := OrderObjectsStepScreen(
-                SimpleNamespace(
+                ObjectsStepView(
                     max_count=int(str(service["max_objects_per_order"])),
                     selected_count=0,
                     selected_ids=(),
                     items=tuple(
-                        SimpleNamespace(id=str(item.id), display_name=item.display_name)
+                        SelectableObjectView(
+                            id=str(item.id), display_name=item.display_name
+                        )
                         for item in objects
                     ),
                     can_finish=False,
@@ -351,12 +362,12 @@ async def select_object(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := OrderObjectsStepScreen(
-                SimpleNamespace(
+                ObjectsStepView(
                     max_count=max_objects,
                     selected_count=len(selected),
-                    selected_ids=selected,
+                    selected_ids=tuple(selected),
                     items=tuple(
-                        SimpleNamespace(
+                        SelectableObjectView(
                             id=str(item.get("id", "")),
                             display_name=str(item.get("display_name", "")),
                         )
@@ -412,17 +423,18 @@ async def _ask_options_or_start(
             telegram_id=telegram_user_context.telegram_id,
             text=(
                 screen := OrderOptionsStepScreen(
-                    SimpleNamespace(
+                    OptionsStepView(
                         selected_count=0,
                         selected_ids=(),
                         items=tuple(
-                            SimpleNamespace(
+                            SelectableOptionView(
                                 id=str(item.get("id", "")),
                                 name=str(item.get("name", "")),
                             )
                             for item in options
                             if isinstance(item, dict)
                         ),
+                        can_finish=True,
                     )
                 ).build()
             ).text,
@@ -465,17 +477,18 @@ async def toggle_option(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := OrderOptionsStepScreen(
-                SimpleNamespace(
+                OptionsStepView(
                     selected_count=len(selected),
-                    selected_ids=selected,
+                    selected_ids=tuple(selected),
                     items=tuple(
-                        SimpleNamespace(
+                        SelectableOptionView(
                             id=str(item.get("id", "")),
                             name=str(item.get("name", "")),
                         )
                         for item in (options if isinstance(options, list) else ())
                         if isinstance(item, dict)
                     ),
+                    can_finish=True,
                 )
             ).build()
         ).text,
@@ -574,7 +587,7 @@ async def _process_start_calendar_selection(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := OrderStartTimeStepScreen(
-                SimpleNamespace(date_label=_format_date(start_date))
+                DateLabelView(date_label=_format_date(start_date))
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
@@ -619,7 +632,7 @@ async def request_manual_start(
             telegram_id=telegram_user_context.telegram_id,
             text=(
                 screen := OrderTimeManualStepScreen(
-                    SimpleNamespace(date_label=_format_date(start_date))
+                    DateLabelView(date_label=_format_date(start_date))
                 ).build()
             ).text,
             reply_markup=screen.reply_markup,
@@ -770,7 +783,7 @@ async def _set_start_at_and_ask_duration(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := OrderDurationStepScreen(
-                SimpleNamespace(unit=duration_unit(order_draft))
+                DurationView(unit=duration_unit(order_draft))
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
@@ -1173,7 +1186,7 @@ async def add_order_object(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := CareObjectNameStepScreen(
-                SimpleNamespace(
+                ObjectNameView(
                     object_type_label=CARE_OBJECT_TYPE_LABELS.get(
                         str(order_draft["care_object_type"]),
                         "Объект ухода",

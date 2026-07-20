@@ -20,8 +20,6 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.orders.state import (
     OrderCreation,
-    OrderSummaryView,
-    PerformerView,
     draft,
     item_by_id,
     performer_view,
@@ -35,6 +33,7 @@ from customer_bot.presentation.ui.screens import (
     OrderPublishedScreen,
     RetryLaterScreen,
 )
+from customer_bot.presentation.view_models import OrderSummaryView, PerformerView
 
 router = Router(name="orders_publish")
 logger = logging.getLogger(__name__)

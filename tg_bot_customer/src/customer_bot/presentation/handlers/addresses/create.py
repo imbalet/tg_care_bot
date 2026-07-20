@@ -1,5 +1,4 @@
 import logging
-from types import SimpleNamespace
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -35,6 +34,7 @@ from customer_bot.presentation.ui.screens import (
     OrderAddressStepScreen,
     RetryLaterScreen,
 )
+from customer_bot.presentation.view_models import AddressExtraView
 
 router = Router(name="addresses_create")
 logger = logging.getLogger(__name__)
@@ -255,7 +255,7 @@ async def select_suggestion(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := AddressExtraStepScreen(
-                SimpleNamespace(field_name=EXTRA_FIELDS[0][1])
+                AddressExtraView(field_name=EXTRA_FIELDS[0][1])
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
@@ -328,7 +328,7 @@ async def _advance_or_create(
             telegram_id=telegram_user_context.telegram_id,
             text=(
                 screen := AddressExtraStepScreen(
-                    SimpleNamespace(field_name=EXTRA_FIELDS[index][1])
+                    AddressExtraView(field_name=EXTRA_FIELDS[index][1])
                 ).build()
             ).text,
             reply_markup=screen.reply_markup,

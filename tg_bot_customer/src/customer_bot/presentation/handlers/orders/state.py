@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from uuid import UUID
 
@@ -10,6 +9,7 @@ from customer_bot.application.dto import (
     ServiceCategoryDTO,
     SuitablePerformerDTO,
 )
+from customer_bot.presentation.view_models import PerformerView
 
 
 class OrderCreation(StatesGroup):
@@ -22,25 +22,6 @@ class OrderCreation(StatesGroup):
     photo_consent = State()
     comment = State()
     publish = State()
-
-
-@dataclass(frozen=True, slots=True)
-class PerformerView:
-    performer_id: UUID
-    full_name: str
-    service_name: str
-    distance_km: object
-
-
-@dataclass(frozen=True, slots=True)
-class OrderSummaryView:
-    service_name: str
-    duration_minutes: int
-    objects_count: int
-    service_amount: object
-    platform_fee_amount: object
-    total_amount: object
-    performers_count: int
 
 
 def service_states(

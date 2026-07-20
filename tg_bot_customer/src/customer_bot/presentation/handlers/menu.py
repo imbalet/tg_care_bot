@@ -1,5 +1,4 @@
 import logging
-from types import SimpleNamespace
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
@@ -35,6 +34,11 @@ from customer_bot.presentation.ui.screens import (
     StaleActionScreen,
     SupportScreen,
 )
+from customer_bot.presentation.view_models import (
+    HelpView,
+    MyOrderCardView,
+    MyOrdersPageView,
+)
 
 router = Router(name="fallback")
 logger = logging.getLogger(__name__)
@@ -67,9 +71,7 @@ async def main_menu_callback(
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
                 text=(
-                    screen := HelpScreen(
-                        SimpleNamespace(include_main_menu=False)
-                    ).build()
+                    screen := HelpScreen(HelpView(include_main_menu=False)).build()
                 ).text,
                 reply_markup=screen.reply_markup,
             )
@@ -143,9 +145,7 @@ async def help_callback(
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=(
-            screen := HelpScreen(
-                SimpleNamespace(include_main_menu=include_main_menu)
-            ).build()
+            screen := HelpScreen(HelpView(include_main_menu=include_main_menu)).build()
         ).text,
         reply_markup=screen.reply_markup,
     )
@@ -310,14 +310,22 @@ async def order_card_callback(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := MyOrderCardScreen(
-                SimpleNamespace(
-                    **{
-                        **vars(order),
-                        "group": callback_data.group,
-                        "page": callback_data.page,
-                        "payment_confirmation_url": order.payment_confirmation_url
-                        or "",
-                    }
+                MyOrderCardView(
+                    id=order.id,
+                    service_name=order.service_name,
+                    matching_mode=order.matching_mode,
+                    status=order.status,
+                    start_at=order.start_at,
+                    end_at=order.end_at,
+                    objects_count=order.objects_count,
+                    total_amount=order.total_amount,
+                    payment_deadline_at=order.payment_deadline_at,
+                    matching_deadline_at=order.matching_deadline_at,
+                    payment_status=order.payment_status,
+                    payment_confirmation_url=order.payment_confirmation_url,
+                    payment_expires_at=order.payment_expires_at,
+                    group=callback_data.group,
+                    page=callback_data.page,
                 )
             ).build()
         ).text,
@@ -468,7 +476,7 @@ async def _show_orders_page(
         telegram_id=telegram_id,
         text=(
             screen := MyOrdersPageScreen(
-                SimpleNamespace(
+                MyOrdersPageView(
                     items=orders.items,
                     page=orders.page,
                     total_pages=orders.total_pages,

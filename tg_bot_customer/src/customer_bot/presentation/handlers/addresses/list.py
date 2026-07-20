@@ -1,5 +1,4 @@
 import logging
-from types import SimpleNamespace
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -24,6 +23,11 @@ from customer_bot.presentation.ui.screens import (
     AddressListScreen,
     AddressValidationScreen,
     RetryLaterScreen,
+)
+from customer_bot.presentation.view_models import (
+    AddressCardView,
+    AddressDeleteView,
+    AddressListView,
 )
 
 router = Router(name="addresses_list")
@@ -82,7 +86,7 @@ async def open_addresses(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := AddressListScreen(
-                SimpleNamespace(count=len(items), items=items)
+                AddressListView(count=len(items), items=items)
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
@@ -116,7 +120,7 @@ async def select_address(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := AddressCardScreen(
-                SimpleNamespace(
+                AddressCardView(
                     id=str(item["id"]),
                     address_text=str(item["address_text"]),
                     entrance=str(item.get("entrance") or ""),
@@ -157,7 +161,7 @@ async def delete_address(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := AddressDeleteConfirmScreen(
-                SimpleNamespace(id=str(callback_data.address_id))
+                AddressDeleteView(id=str(callback_data.address_id))
             ).build()
         ).text,
         reply_markup=screen.reply_markup,

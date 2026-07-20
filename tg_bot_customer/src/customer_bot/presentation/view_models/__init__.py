@@ -1,0 +1,236 @@
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+from uuid import UUID
+
+
+@dataclass(frozen=True, slots=True)
+class HelpView:
+    include_main_menu: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceOptionView:
+    id: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceView:
+    id: str
+    name: str
+    category_code: str
+    category_name: str
+    care_object_type: str
+    max_objects_per_order: int
+    price_type: str
+    allows_multiday: bool
+    min_duration_minutes: int | None
+    max_duration_minutes: int | None
+    duration_step_minutes: int | None
+    location_policy: str
+    photo_policy: str
+    options: tuple[ServiceOptionView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ServicesView:
+    services: tuple[ServiceView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectTypeView:
+    object_type: str
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectNameView:
+    object_type_label: str
+
+
+@dataclass(frozen=True, slots=True)
+class SelectableObjectView:
+    id: str
+    display_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class ObjectsStepView:
+    max_count: int
+    selected_count: int
+    selected_ids: tuple[str, ...]
+    items: tuple[SelectableObjectView, ...]
+    can_finish: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SelectableOptionView:
+    id: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class OptionsStepView:
+    selected_count: int
+    selected_ids: tuple[str, ...]
+    items: tuple[SelectableOptionView, ...]
+    can_finish: bool
+
+
+@dataclass(frozen=True, slots=True)
+class DateLabelView:
+    date_label: str
+
+
+@dataclass(frozen=True, slots=True)
+class DurationView:
+    unit: str
+
+
+@dataclass(frozen=True, slots=True)
+class OrderSummaryView:
+    service_name: str
+    duration_minutes: int
+    objects_count: int
+    service_amount: Any
+    platform_fee_amount: Any
+    total_amount: Any
+    performers_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class PerformerView:
+    performer_id: UUID
+    full_name: str
+    service_name: str
+    distance_km: object
+
+
+@dataclass(frozen=True, slots=True)
+class SelectedOrderResponseView:
+    order_status: str
+    id: UUID
+    payment_confirmation_url: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class PaymentStatusView:
+    id: UUID
+    order_status: str
+    payment_status: str | None
+    confirmation_url: str | None
+    expires_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class AddressCardView:
+    id: str
+    address_text: str
+    entrance: str
+    floor: str
+    apartment: str
+    comment: str
+
+
+@dataclass(frozen=True, slots=True)
+class AddressDeleteView:
+    id: str
+
+
+@dataclass(frozen=True, slots=True)
+class AddressListView:
+    count: int
+    items: Any
+
+
+@dataclass(frozen=True, slots=True)
+class AddressExtraView:
+    field_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class CareObjectCardView:
+    id: str
+    object_type: str
+    display_name: str
+    age_group: str
+    species: str
+    breed: str
+    pet_size: str
+    mobility_assistance_required: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CareObjectListView:
+    category: str
+    object_type: str
+    count: int
+    items: Any
+
+
+@dataclass(frozen=True, slots=True)
+class CareObjectDeleteView:
+    id: str
+
+
+@dataclass(frozen=True, slots=True)
+class CareObjectBlockedView:
+    index: int
+
+
+@dataclass(frozen=True, slots=True)
+class MyOrderCardView:
+    id: UUID
+    service_name: str
+    matching_mode: str | None
+    status: str
+    start_at: datetime
+    end_at: datetime
+    objects_count: int
+    total_amount: Any
+    payment_deadline_at: datetime | None
+    matching_deadline_at: datetime
+    payment_status: str | None
+    payment_confirmation_url: str | None
+    payment_expires_at: datetime | None
+    group: str
+    page: int
+
+
+@dataclass(frozen=True, slots=True)
+class MyOrdersPageView:
+    items: Any
+    page: int
+    total_pages: int
+    total_items: int
+    group: str
+
+
+__all__ = [
+    "DateLabelView",
+    "DurationView",
+    "AddressCardView",
+    "AddressDeleteView",
+    "AddressExtraView",
+    "AddressListView",
+    "CareObjectCardView",
+    "CareObjectBlockedView",
+    "CareObjectDeleteView",
+    "CareObjectListView",
+    "HelpView",
+    "ObjectNameView",
+    "ObjectTypeView",
+    "ObjectsStepView",
+    "OptionsStepView",
+    "OrderSummaryView",
+    "PaymentStatusView",
+    "PerformerView",
+    "MyOrderCardView",
+    "MyOrdersPageView",
+    "SelectableObjectView",
+    "SelectableOptionView",
+    "SelectedOrderResponseView",
+    "ServiceOptionView",
+    "ServiceView",
+    "ServicesView",
+]

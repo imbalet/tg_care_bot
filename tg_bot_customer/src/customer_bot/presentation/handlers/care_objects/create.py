@@ -1,5 +1,4 @@
 import logging
-from types import SimpleNamespace
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -37,6 +36,12 @@ from customer_bot.presentation.ui.screens import (
     CareObjectUpdatedScreen,
     OrderObjectsStepScreen,
     RetryLaterScreen,
+)
+from customer_bot.presentation.view_models import (
+    ObjectNameView,
+    ObjectsStepView,
+    ObjectTypeView,
+    SelectableObjectView,
 )
 
 CARE_OBJECT_TYPE_LABELS = {
@@ -77,7 +82,7 @@ async def add_care_object(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := CareObjectNameStepScreen(
-                SimpleNamespace(object_type_label=CARE_OBJECT_TYPE_LABELS[object_type])
+                ObjectNameView(object_type_label=CARE_OBJECT_TYPE_LABELS[object_type])
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
@@ -100,7 +105,7 @@ async def enter_name(
             telegram_id=telegram_user_context.telegram_id,
             text=(
                 screen := CareObjectNameStepScreen(
-                    SimpleNamespace(
+                    ObjectNameView(
                         object_type_label=CARE_OBJECT_TYPE_LABELS.get(
                             str(
                                 care_object_draft(await state.get_data()).get(
@@ -127,7 +132,7 @@ async def enter_name(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := CareObjectAgeStepScreen(
-                SimpleNamespace(object_type=str(draft["object_type"]))
+                ObjectTypeView(object_type=str(draft["object_type"]))
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
@@ -467,11 +472,11 @@ async def _create_from_draft(
         text=(
             screen := (
                 CareObjectUpdatedScreen(
-                    SimpleNamespace(object_type=str(draft["object_type"]))
+                    ObjectTypeView(object_type=str(draft["object_type"]))
                 )
                 if optional_str(draft.get("edit_id")) is not None
                 else CareObjectCreatedScreen(
-                    SimpleNamespace(object_type=str(draft["object_type"]))
+                    ObjectTypeView(object_type=str(draft["object_type"]))
                 )
             ).build()
         ).text,
@@ -538,12 +543,14 @@ async def _return_to_order_objects(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := OrderObjectsStepScreen(
-                SimpleNamespace(
+                ObjectsStepView(
                     max_count=int(str(order_draft.get("max_objects_per_order", 1))),
                     selected_count=0,
                     selected_ids=(),
                     items=tuple(
-                        SimpleNamespace(id=str(item.id), display_name=item.display_name)
+                        SelectableObjectView(
+                            id=str(item.id), display_name=item.display_name
+                        )
                         for item in objects
                     ),
                     can_finish=False,

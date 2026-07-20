@@ -1,5 +1,4 @@
 import logging
-from types import SimpleNamespace
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
@@ -20,6 +19,7 @@ from customer_bot.presentation.navigation import (
 )
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import HelpScreen, StaleActionScreen
+from customer_bot.presentation.view_models import HelpView
 
 router = Router(name="category")
 logger = logging.getLogger(__name__)
@@ -45,9 +45,7 @@ async def select_category(
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
                 text=(
-                    screen := HelpScreen(
-                        SimpleNamespace(include_main_menu=False)
-                    ).build()
+                    screen := HelpScreen(HelpView(include_main_menu=False)).build()
                 ).text,
                 reply_markup=screen.reply_markup,
             )
