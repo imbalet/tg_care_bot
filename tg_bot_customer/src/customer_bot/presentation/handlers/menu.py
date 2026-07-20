@@ -10,7 +10,6 @@ from customer_bot.presentation.callbacks import (
     CloseMessageCallback,
     HelpCallback,
     MainMenuCallback,
-    ProfileOpenCallback,
     ServicesPricesCallback,
     SupportOpenCallback,
 )
@@ -24,7 +23,6 @@ from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
     FallbackScreen,
     HelpScreen,
-    ProfileScreen,
     ServicesPricesScreen,
     StaleActionScreen,
     SupportScreen,
@@ -174,51 +172,6 @@ async def support_callback(
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := SupportScreen(contact).build()).text,
-        reply_markup=screen.reply_markup,
-    )
-
-
-@router.callback_query(ProfileOpenCallback.filter())
-async def profile_callback(
-    callback: CallbackQuery,
-    bot: Bot,
-    backend_client: BackendPort,
-    telegram_responder: TelegramResponder,
-    telegram_user_context: TelegramUserContext,
-) -> None:
-    try:
-        profile = await backend_client.get_customer_profile(
-            telegram_user_context.telegram_id,
-        )
-    except BackendClientError as exc:
-        logger.warning(
-            "Failed to open customer profile",
-            extra={
-                "telegram_id": telegram_user_context.telegram_id,
-                "exception_type": type(exc).__name__,
-            },
-        )
-        await _show_unavailable(
-            bot=bot,
-            event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
-        )
-        return
-    if profile is None:
-        await telegram_responder.update(
-            bot=bot,
-            event=callback,
-            telegram_id=telegram_user_context.telegram_id,
-            text=(screen := FallbackScreen().build()).text,
-            reply_markup=screen.reply_markup,
-        )
-        return
-    await telegram_responder.update(
-        bot=bot,
-        event=callback,
-        telegram_id=telegram_user_context.telegram_id,
-        text=(screen := ProfileScreen(profile).build()).text,
         reply_markup=screen.reply_markup,
     )
 

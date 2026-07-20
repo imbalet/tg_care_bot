@@ -28,6 +28,7 @@ from customer_bot.presentation.handlers import (
     customer_orders_router,
     fallback_router,
     orders_router,
+    profile_router,
     registration_router,
     start_router,
 )
@@ -65,6 +66,7 @@ async def main() -> None:
     dispatcher.include_router(care_objects_router)
     dispatcher.include_router(addresses_router)
     dispatcher.include_router(orders_router)
+    dispatcher.include_router(profile_router)
     dispatcher.include_router(category_router)
     dispatcher.include_router(customer_orders_router)
     dispatcher.include_router(fallback_router)
