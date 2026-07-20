@@ -16,10 +16,10 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.addresses.state import (
     EXTRA_FIELDS,
+    AddressDraftSnapshot,
     AddressManagement,
     address_draft,
     extra_index,
-    optional_str,
     string_list,
 )
 from customer_bot.presentation.handlers.orders.state import OrderCreation
@@ -318,6 +318,7 @@ async def _advance_or_create(
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
 ) -> None:
+    snapshot = AddressDraftSnapshot.from_data(draft)
     index = extra_index(draft) + 1
     if index < len(EXTRA_FIELDS):
         draft["extra_index"] = index
@@ -338,12 +339,12 @@ async def _advance_or_create(
     try:
         await backend_client.create_address(
             telegram_id=telegram_user_context.telegram_id,
-            city_id=UUID(str(draft["city_id"])),
-            unrestricted_value=str(draft["unrestricted_value"]),
-            entrance=optional_str(draft.get("entrance")),
-            floor=optional_str(draft.get("floor")),
-            apartment=optional_str(draft.get("apartment")),
-            comment=optional_str(draft.get("comment")),
+            city_id=snapshot.city_id,
+            unrestricted_value=snapshot.unrestricted_value,
+            entrance=snapshot.entrance,
+            floor=snapshot.floor,
+            apartment=snapshot.apartment,
+            comment=snapshot.comment,
         )
     except BackendValidationError:
         logger.warning(

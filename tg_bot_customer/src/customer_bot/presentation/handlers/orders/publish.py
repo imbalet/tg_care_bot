@@ -20,10 +20,10 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.orders.state import (
     OrderCreation,
+    OrderDraftSnapshot,
     draft,
     item_by_id,
     performer_view,
-    string_list,
 )
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
@@ -98,7 +98,6 @@ async def open_direct_selection(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await telegram_responder.acknowledge(callback)
     await state.update_data(order_performer_index=0)
     await _show_direct_performer(
         callback, bot, state, telegram_responder, telegram_user_context, 0
@@ -117,7 +116,6 @@ async def next_direct_performer(
     index = data.get("order_performer_index", 0)
     current = int(index) if isinstance(index, int) else 0
     await state.update_data(order_performer_index=current + 1)
-    await telegram_responder.acknowledge(callback)
     await _show_direct_performer(
         callback, bot, state, telegram_responder, telegram_user_context, current + 1
     )
@@ -135,7 +133,6 @@ async def previous_direct_performer(
     index = data.get("order_performer_index", 0)
     current = int(index) if isinstance(index, int) else 0
     await state.update_data(order_performer_index=max(0, current - 1))
-    await telegram_responder.acknowledge(callback)
     await _show_direct_performer(
         callback, bot, state, telegram_responder, telegram_user_context, current - 1
     )
@@ -152,7 +149,6 @@ async def back_from_direct_selection(
     data = await state.get_data()
     summary = data.get("order_summary")
     if not isinstance(summary, dict):
-        await telegram_responder.acknowledge(callback)
         await telegram_responder.update(
             bot=bot,
             event=callback,
@@ -162,7 +158,6 @@ async def back_from_direct_selection(
             create_new=False,
         )
         return
-    await telegram_responder.acknowledge(callback)
     await telegram_responder.update(
         bot=bot,
         event=callback,
@@ -203,7 +198,7 @@ async def publish_pool(
                 extra={"telegram_id": telegram_user_context.telegram_id},
             )
             raise BackendClientError("Customer profile is missing")
-        order_request = _order_request(order_draft)
+        order_request = _order_request(OrderDraftSnapshot.from_data(order_draft))
         order = await backend_client.create_order_pool(
             customer_id=profile.id,
             service_id=order_request.service_id,
@@ -305,7 +300,7 @@ async def publish_direct(
                 extra={"telegram_id": telegram_user_context.telegram_id},
             )
             raise BackendClientError("Customer profile is missing")
-        order_request = _order_request(order_draft)
+        order_request = _order_request(OrderDraftSnapshot.from_data(order_draft))
         order = await backend_client.create_order_direct(
             customer_id=profile.id,
             service_id=order_request.service_id,
@@ -379,30 +374,14 @@ class _OrderRequest:
     option_values: dict[UUID, object]
 
 
-def _order_request(order_draft: dict[str, object]) -> _OrderRequest:
-    consent_value = order_draft.get("report_photo_consent")
+def _order_request(snapshot: OrderDraftSnapshot) -> _OrderRequest:
     return _OrderRequest(
-        service_id=UUID(str(order_draft["service_id"])),
-        start_at=datetime.fromisoformat(str(order_draft["start_at"])),
-        end_at=datetime.fromisoformat(str(order_draft["end_at"])),
-        care_object_ids=tuple(
-            UUID(str(item)) for item in string_list(order_draft["care_object_ids"])
-        ),
-        address_id=UUID(str(order_draft["address_id"]))
-        if order_draft.get("address_id")
-        else None,
-        customer_comment=str(order_draft["customer_comment"])
-        if order_draft.get("customer_comment")
-        else None,
-        report_photo_consent=consent_value if isinstance(consent_value, bool) else None,
-        option_values={
-            UUID(str(key)): value
-            for key, value in _dict(order_draft.get("option_values")).items()
-        },
+        service_id=snapshot.service_id,
+        start_at=snapshot.start_at,
+        end_at=snapshot.end_at,
+        care_object_ids=snapshot.care_object_ids,
+        address_id=snapshot.address_id,
+        customer_comment=snapshot.customer_comment,
+        report_photo_consent=snapshot.report_photo_consent,
+        option_values=snapshot.option_values,
     )
-
-
-def _dict(value: object) -> dict[str, object]:
-    if not isinstance(value, dict):
-        return {}
-    return {str(key): item for key, item in value.items()}

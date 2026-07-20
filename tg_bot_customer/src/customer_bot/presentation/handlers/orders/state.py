@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from uuid import UUID
 
@@ -10,6 +11,40 @@ from customer_bot.application.dto import (
     SuitablePerformerDTO,
 )
 from customer_bot.presentation.view_models import PerformerView
+
+
+@dataclass(frozen=True, slots=True)
+class OrderDraftSnapshot:
+    service_id: UUID
+    start_at: datetime
+    end_at: datetime
+    care_object_ids: tuple[UUID, ...]
+    address_id: UUID | None
+    customer_comment: str | None
+    report_photo_consent: bool | None
+    option_values: dict[UUID, object]
+
+    @classmethod
+    def from_data(cls, data: dict[str, object]) -> OrderDraftSnapshot:
+        consent = data.get("report_photo_consent")
+        raw_options = data.get("option_values")
+        options = raw_options if isinstance(raw_options, dict) else {}
+        raw_object_ids = data.get("care_object_ids")
+        object_ids = raw_object_ids if isinstance(raw_object_ids, list) else []
+        return cls(
+            service_id=UUID(str(data["service_id"])),
+            start_at=datetime.fromisoformat(str(data["start_at"])),
+            end_at=datetime.fromisoformat(str(data["end_at"])),
+            care_object_ids=tuple(UUID(str(item)) for item in object_ids),
+            address_id=(
+                UUID(str(data["address_id"])) if data.get("address_id") else None
+            ),
+            customer_comment=(
+                str(data["customer_comment"]) if data.get("customer_comment") else None
+            ),
+            report_photo_consent=consent if isinstance(consent, bool) else None,
+            option_values={UUID(str(key)): value for key, value in options.items()},
+        )
 
 
 class OrderCreation(StatesGroup):

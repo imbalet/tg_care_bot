@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from uuid import UUID
 
 from aiogram.fsm.context import FSMContext
@@ -15,6 +16,38 @@ class CareObjectManagement(StatesGroup):
     mobility = State()
     notes = State()
     edit_name = State()
+
+
+@dataclass(frozen=True, slots=True)
+class CareObjectDraftSnapshot:
+    object_type: str
+    display_name: str
+    age_group: str
+    species: str | None
+    breed: str | None
+    pet_size: str | None
+    mobility_assistance_required: bool | None
+    routine_notes: str | None
+    behavior_notes: str | None
+    edit_id: UUID | None
+
+    @classmethod
+    def from_data(cls, data: dict[str, object]) -> CareObjectDraftSnapshot:
+        edit_id = data.get("edit_id")
+        return cls(
+            object_type=str(data["object_type"]),
+            display_name=str(data["display_name"]),
+            age_group=str(data["age_group"]),
+            species=optional_str(data.get("species")),
+            breed=optional_str(data.get("breed")),
+            pet_size=optional_str(data.get("pet_size")),
+            mobility_assistance_required=optional_bool(
+                data.get("mobility_assistance_required")
+            ),
+            routine_notes=optional_str(data.get("routine_notes")),
+            behavior_notes=optional_str(data.get("behavior_notes")),
+            edit_id=UUID(edit_id) if isinstance(edit_id, str) else None,
+        )
 
 
 def care_object_state(item: CareObjectDTO) -> dict[str, object]:

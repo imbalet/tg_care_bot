@@ -1,5 +1,4 @@
 import logging
-from uuid import UUID
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
@@ -16,10 +15,9 @@ from customer_bot.presentation.callbacks import (
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.care_objects.state import (
+    CareObjectDraftSnapshot,
     CareObjectManagement,
     care_object_draft,
-    optional_bool,
-    optional_str,
 )
 from customer_bot.presentation.handlers.orders.state import OrderCreation
 from customer_bot.presentation.services import TelegramResponder
@@ -377,44 +375,40 @@ async def _create_from_draft(
     telegram_user_context: TelegramUserContext,
     draft: dict[str, object],
 ) -> None:
+    snapshot = CareObjectDraftSnapshot.from_data(draft)
     try:
-        edit_id = optional_str(draft.get("edit_id"))
-        if edit_id is None:
+        if snapshot.edit_id is None:
             await backend_client.create_care_object(
                 telegram_id=telegram_user_context.telegram_id,
-                object_type=str(draft["object_type"]),
-                display_name=str(draft["display_name"]),
-                age_group=str(draft["age_group"]),
-                species=optional_str(draft.get("species")),
-                breed=optional_str(draft.get("breed")),
-                pet_size=optional_str(draft.get("pet_size")),
-                mobility_assistance_required=optional_bool(
-                    draft.get("mobility_assistance_required"),
-                ),
-                routine_notes=optional_str(draft.get("routine_notes")),
-                behavior_notes=optional_str(draft.get("behavior_notes")),
+                object_type=snapshot.object_type,
+                display_name=snapshot.display_name,
+                age_group=snapshot.age_group,
+                species=snapshot.species,
+                breed=snapshot.breed,
+                pet_size=snapshot.pet_size,
+                mobility_assistance_required=snapshot.mobility_assistance_required,
+                routine_notes=snapshot.routine_notes,
+                behavior_notes=snapshot.behavior_notes,
             )
         else:
             await backend_client.update_care_object(
                 telegram_id=telegram_user_context.telegram_id,
-                care_object_id=UUID(edit_id),
-                display_name=str(draft["display_name"]),
-                age_group=str(draft["age_group"]),
-                species=optional_str(draft.get("species")),
-                breed=optional_str(draft.get("breed")),
-                pet_size=optional_str(draft.get("pet_size")),
-                mobility_assistance_required=optional_bool(
-                    draft.get("mobility_assistance_required"),
-                ),
-                routine_notes=optional_str(draft.get("routine_notes")),
-                behavior_notes=optional_str(draft.get("behavior_notes")),
+                care_object_id=snapshot.edit_id,
+                display_name=snapshot.display_name,
+                age_group=snapshot.age_group,
+                species=snapshot.species,
+                breed=snapshot.breed,
+                pet_size=snapshot.pet_size,
+                mobility_assistance_required=snapshot.mobility_assistance_required,
+                routine_notes=snapshot.routine_notes,
+                behavior_notes=snapshot.behavior_notes,
             )
     except BackendValidationError:
         logger.warning(
             "Backend rejected care object creation",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "object_type": str(draft.get("object_type")),
+                "object_type": snapshot.object_type,
             },
         )
         await telegram_responder.update(
@@ -432,7 +426,7 @@ async def _create_from_draft(
             "Failed to create care object",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "object_type": str(draft.get("object_type")),
+                "object_type": snapshot.object_type,
                 "exception_type": type(exc).__name__,
             },
         )
@@ -461,8 +455,8 @@ async def _create_from_draft(
         "Care object saved",
         extra={
             "telegram_id": telegram_user_context.telegram_id,
-            "object_type": str(draft.get("object_type")),
-            "is_edit": optional_str(draft.get("edit_id")) is not None,
+            "object_type": snapshot.object_type,
+            "is_edit": snapshot.edit_id is not None,
         },
     )
     await telegram_responder.update(
@@ -472,11 +466,11 @@ async def _create_from_draft(
         text=(
             screen := (
                 CareObjectUpdatedScreen(
-                    ObjectTypeView(object_type=str(draft["object_type"]))
+                    ObjectTypeView(object_type=snapshot.object_type)
                 )
-                if optional_str(draft.get("edit_id")) is not None
+                if snapshot.edit_id is not None
                 else CareObjectCreatedScreen(
-                    ObjectTypeView(object_type=str(draft["object_type"]))
+                    ObjectTypeView(object_type=snapshot.object_type)
                 )
             ).build()
         ).text,
