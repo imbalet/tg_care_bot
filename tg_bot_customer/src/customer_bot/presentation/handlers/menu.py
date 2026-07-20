@@ -1,4 +1,5 @@
 import logging
+from types import SimpleNamespace
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
@@ -24,20 +25,15 @@ from customer_bot.presentation.navigation import (
     show_category_select,
 )
 from customer_bot.presentation.services import TelegramResponder
-from customer_bot.presentation.ui import (
-    customer_profile_text,
-    fallback_keyboard,
-    fallback_text,
-    help_text,
-    my_order_card_keyboard,
-    my_order_card_text,
-    my_orders_page_keyboard,
-    my_orders_page_text,
-    services_prices_text,
-    stale_action_keyboard,
-    stale_action_text,
-    support_keyboard,
-    support_text,
+from customer_bot.presentation.ui.screens import (
+    FallbackScreen,
+    HelpScreen,
+    MyOrderCardScreen,
+    MyOrdersPageScreen,
+    ProfileScreen,
+    ServicesPricesScreen,
+    StaleActionScreen,
+    SupportScreen,
 )
 
 router = Router(name="fallback")
@@ -70,8 +66,10 @@ async def main_menu_callback(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
-                text=help_text(),
-                reply_markup=fallback_keyboard(include_main_menu=False),
+                text=(screen := HelpScreen(
+                    SimpleNamespace(include_main_menu=False)
+                ).build()).text,
+                reply_markup=screen.reply_markup,
             )
             return
         category = await active_category(
@@ -142,8 +140,10 @@ async def help_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=help_text(),
-        reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
+        text=(screen := HelpScreen(
+            SimpleNamespace(include_main_menu=include_main_menu)
+        ).build()).text,
+        reply_markup=screen.reply_markup,
     )
 
 
@@ -176,11 +176,8 @@ async def support_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=support_text(label=contact.label, telegram_url=contact.telegram_url),
-        reply_markup=support_keyboard(
-            label=contact.label,
-            telegram_url=contact.telegram_url,
-        ),
+        text=(screen := SupportScreen(contact).build()).text,
+        reply_markup=screen.reply_markup,
     )
 
 
@@ -216,16 +213,16 @@ async def profile_callback(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=fallback_text(),
-            reply_markup=fallback_keyboard(),
+            text=(screen := FallbackScreen().build()).text,
+            reply_markup=screen.reply_markup,
         )
         return
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=customer_profile_text(profile),
-        reply_markup=fallback_keyboard(),
+        text=(screen := ProfileScreen(profile).build()).text,
+        reply_markup=screen.reply_markup,
     )
 
 
@@ -307,12 +304,17 @@ async def order_card_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=my_order_card_text(order),
-        reply_markup=my_order_card_keyboard(
-            order,
-            group=callback_data.group,
-            page=callback_data.page,
-        ),
+        text=(screen := MyOrderCardScreen(
+            SimpleNamespace(
+                **{
+                    **vars(order),
+                    "group": callback_data.group,
+                    "page": callback_data.page,
+                    "payment_confirmation_url": order.payment_confirmation_url or "",
+                }
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
     )
 
 
@@ -360,8 +362,8 @@ async def services_prices_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=services_prices_text(category),
-        reply_markup=fallback_keyboard(),
+        text=(screen := ServicesPricesScreen(category).build()).text,
+        reply_markup=screen.reply_markup,
     )
 
 
@@ -395,8 +397,8 @@ async def unknown_message(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=fallback_text(),
-        reply_markup=fallback_keyboard(),
+        text=(screen := FallbackScreen().build()).text,
+        reply_markup=screen.reply_markup,
     )
 
 
@@ -411,8 +413,8 @@ async def _show_unavailable(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=stale_action_text(),
-        reply_markup=stale_action_keyboard(),
+        text=(screen := StaleActionScreen().build()).text,
+        reply_markup=screen.reply_markup,
     )
 
 
@@ -449,14 +451,22 @@ async def _show_orders_page(
             bot=bot,
             event=event,
             telegram_id=telegram_id,
-            text=stale_action_text(),
-            reply_markup=stale_action_keyboard(),
+            text=(screen := StaleActionScreen().build()).text,
+            reply_markup=screen.reply_markup,
         )
         return
     await telegram_responder.update(
         bot=bot,
         event=event,
         telegram_id=telegram_id,
-        text=my_orders_page_text(orders, group),
-        reply_markup=my_orders_page_keyboard(orders, group),
+        text=(screen := MyOrdersPageScreen(
+            SimpleNamespace(
+                items=orders.items,
+                page=orders.page,
+                total_pages=orders.total_pages,
+                total_items=orders.total_items,
+                group=group,
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
     )

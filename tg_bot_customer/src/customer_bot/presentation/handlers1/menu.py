@@ -1,0 +1,462 @@
+import logging
+
+from aiogram import Bot, Router
+from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, Message
+
+from customer_bot.application.errors import BackendClientError
+from customer_bot.application.ports import ActiveCategoryStore, BackendPort
+from customer_bot.presentation.callbacks import (
+    CloseMessageCallback,
+    HelpCallback,
+    MainMenuCallback,
+    OrderCardOpenCallback,
+    OrdersListCallback,
+    OrdersPageCallback,
+    ProfileOpenCallback,
+    ServicesPricesCallback,
+    SupportOpenCallback,
+)
+from customer_bot.presentation.contexts import TelegramUserContext
+from customer_bot.presentation.navigation import (
+    active_category,
+    show_category_menu,
+    show_category_select,
+)
+from customer_bot.presentation.services import TelegramResponder
+from customer_bot.presentation.ui import (
+    customer_profile_text,
+    fallback_keyboard,
+    fallback_text,
+    help_text,
+    my_order_card_keyboard,
+    my_order_card_text,
+    my_orders_page_keyboard,
+    my_orders_page_text,
+    services_prices_text,
+    stale_action_keyboard,
+    stale_action_text,
+    support_keyboard,
+    support_text,
+)
+
+router = Router(name="fallback")
+logger = logging.getLogger(__name__)
+
+
+@router.callback_query(CloseMessageCallback.filter())
+async def close_message_callback(
+    callback: CallbackQuery,
+    telegram_responder: TelegramResponder,
+) -> None:
+    await telegram_responder.delete_clicked_message(callback)
+
+
+@router.callback_query(MainMenuCallback.filter())
+async def main_menu_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    active_category_store: ActiveCategoryStore,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    try:
+        profile = await backend_client.get_customer_profile(
+            telegram_user_context.telegram_id,
+        )
+        if profile is None:
+            await telegram_responder.update(
+                bot=bot,
+                event=callback,
+                telegram_id=telegram_user_context.telegram_id,
+                text=help_text(),
+                reply_markup=fallback_keyboard(include_main_menu=False),
+            )
+            return
+        category = await active_category(
+            backend_client=backend_client,
+            active_category_store=active_category_store,
+            telegram_id=telegram_user_context.telegram_id,
+        )
+        if category is None:
+            await show_category_select(
+                bot=bot,
+                event=callback,
+                telegram_user_context=telegram_user_context,
+                backend_client=backend_client,
+                telegram_responder=telegram_responder,
+            )
+            return
+        await show_category_menu(
+            bot=bot,
+            event=callback,
+            telegram_user_context=telegram_user_context,
+            telegram_responder=telegram_responder,
+            category=category,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to open main menu callback",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await _show_unavailable(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+        )
+
+
+@router.callback_query(HelpCallback.filter())
+async def help_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    include_main_menu = await state.get_state() is None
+    if include_main_menu:
+        try:
+            include_main_menu = (
+                await backend_client.get_customer_profile(
+                    telegram_user_context.telegram_id,
+                )
+                is not None
+            )
+        except BackendClientError as exc:
+            logger.warning(
+                "Failed to check profile for help callback",
+                extra={
+                    "telegram_id": telegram_user_context.telegram_id,
+                    "exception_type": type(exc).__name__,
+                },
+            )
+            include_main_menu = False
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=help_text(),
+        reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
+    )
+
+
+@router.callback_query(SupportOpenCallback.filter())
+async def support_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    try:
+        contact = await backend_client.get_support_contact()
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load support contact",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await _show_unavailable(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+        )
+        return
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=support_text(label=contact.label, telegram_url=contact.telegram_url),
+        reply_markup=support_keyboard(
+            label=contact.label,
+            telegram_url=contact.telegram_url,
+        ),
+    )
+
+
+@router.callback_query(ProfileOpenCallback.filter())
+async def profile_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    try:
+        profile = await backend_client.get_customer_profile(
+            telegram_user_context.telegram_id,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to open customer profile",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await _show_unavailable(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+        )
+        return
+    if profile is None:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=fallback_text(),
+            reply_markup=fallback_keyboard(),
+        )
+        return
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=customer_profile_text(profile),
+        reply_markup=fallback_keyboard(),
+    )
+
+
+@router.callback_query(OrdersListCallback.filter())
+async def orders_list_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await _show_orders_page(
+        bot=bot,
+        event=callback,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        telegram_id=telegram_user_context.telegram_id,
+        group="active",
+        page=1,
+    )
+
+
+@router.callback_query(OrdersPageCallback.filter())
+async def orders_page_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrdersPageCallback,
+) -> None:
+    await _show_orders_page(
+        bot=bot,
+        event=callback,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        telegram_id=telegram_user_context.telegram_id,
+        group=callback_data.group,
+        page=callback_data.page,
+    )
+
+
+@router.callback_query(OrderCardOpenCallback.filter())
+async def order_card_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderCardOpenCallback,
+) -> None:
+    try:
+        profile = await backend_client.get_customer_profile(
+            telegram_user_context.telegram_id,
+        )
+        if profile is None:
+            raise BackendClientError("Customer profile is missing")
+        order = await backend_client.get_customer_order_card(
+            customer_id=profile.id,
+            order_id=callback_data.order_id,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to open customer order card",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "order_id": str(callback_data.order_id),
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await _show_unavailable(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+        )
+        return
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=my_order_card_text(order),
+        reply_markup=my_order_card_keyboard(
+            order,
+            group=callback_data.group,
+            page=callback_data.page,
+        ),
+    )
+
+
+@router.callback_query(ServicesPricesCallback.filter())
+async def services_prices_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    active_category_store: ActiveCategoryStore,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    try:
+        category = await active_category(
+            backend_client=backend_client,
+            active_category_store=active_category_store,
+            telegram_id=telegram_user_context.telegram_id,
+        )
+        if category is None:
+            await show_category_select(
+                bot=bot,
+                event=callback,
+                telegram_user_context=telegram_user_context,
+                backend_client=backend_client,
+                telegram_responder=telegram_responder,
+            )
+            return
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to open services prices",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await _show_unavailable(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+        )
+        return
+
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=services_prices_text(category),
+        reply_markup=fallback_keyboard(),
+    )
+
+
+@router.callback_query()
+async def unknown_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    logger.warning(
+        "Unknown callback received",
+        extra={"telegram_id": telegram_user_context.telegram_id},
+    )
+    await _show_unavailable(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+    )
+
+
+@router.message()
+async def unknown_message(
+    message: Message,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await telegram_responder.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text=fallback_text(),
+        reply_markup=fallback_keyboard(),
+    )
+
+
+async def _show_unavailable(
+    *,
+    bot: Bot,
+    event: CallbackQuery,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await telegram_responder.update(
+        bot=bot,
+        event=event,
+        telegram_id=telegram_user_context.telegram_id,
+        text=stale_action_text(),
+        reply_markup=stale_action_keyboard(),
+    )
+
+
+async def _show_orders_page(
+    *,
+    bot: Bot,
+    event: CallbackQuery,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_id: int,
+    group: str,
+    page: int,
+) -> None:
+    try:
+        profile = await backend_client.get_customer_profile(telegram_id)
+        if profile is None:
+            raise BackendClientError("Customer profile is missing")
+        orders = await backend_client.list_customer_orders(
+            customer_id=profile.id,
+            group=group,
+            page=page,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load customer orders page",
+            extra={
+                "telegram_id": telegram_id,
+                "group": group,
+                "page": page,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await telegram_responder.update(
+            bot=bot,
+            event=event,
+            telegram_id=telegram_id,
+            text=stale_action_text(),
+            reply_markup=stale_action_keyboard(),
+        )
+        return
+    await telegram_responder.update(
+        bot=bot,
+        event=event,
+        telegram_id=telegram_id,
+        text=my_orders_page_text(orders, group),
+        reply_markup=my_orders_page_keyboard(orders, group),
+    )

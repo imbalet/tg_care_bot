@@ -1,11 +1,12 @@
 import logging
 from datetime import date, datetime
+from types import SimpleNamespace
 from uuid import UUID
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from aiogram_calendar import SimpleCalendarCallback
+from aiogram_calendar import SimpleCalendar, SimpleCalendarCallback
 
 from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
@@ -44,46 +45,48 @@ from customer_bot.presentation.handlers.orders.state import (
 from customer_bot.presentation.navigation import active_category
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.types import YesNoValue
-from customer_bot.presentation.ui import (
-    address_city_keyboard,
-    address_city_step_text,
-    invalid_datetime_text,
-    invalid_duration_text,
-    invalid_time_text,
-    order_address_step_text,
-    order_addresses_keyboard,
-    order_comment_skip_keyboard,
-    order_comment_step_text,
-    order_datetime_manual_step_text,
-    order_draft_summary_text,
-    order_duration_step_text,
-    order_no_addresses_keyboard,
-    order_no_addresses_text,
-    order_no_objects_keyboard,
-    order_no_objects_text,
-    order_no_services_text,
-    order_objects_keyboard,
-    order_objects_step_text,
-    order_options_keyboard,
-    order_options_step_text,
-    order_photo_consent_keyboard,
-    order_photo_consent_step_text,
-    order_publish_keyboard,
-    order_services_keyboard,
-    order_services_step_text,
-    order_start_calendar,
-    order_start_calendar_keyboard,
-    order_start_step_text,
-    order_start_time_keyboard,
-    order_start_time_step_text,
-    order_time_manual_step_text,
-    retry_later_text,
-    use_buttons_text,
-    validation_error_text,
+from customer_bot.presentation.ui.screens import (
+    AddressCityStepScreen,
+    CareObjectNameStepScreen,
+    InvalidDatetimeScreen,
+    InvalidDurationScreen,
+    InvalidTimeScreen,
+    OrderAddressStepScreen,
+    OrderCommentStepScreen,
+    OrderDatetimeManualStepScreen,
+    OrderDraftSummaryScreen,
+    OrderDurationStepScreen,
+    OrderNoAddressesScreen,
+    OrderNoObjectsScreen,
+    OrderNoServicesScreen,
+    OrderObjectsStepScreen,
+    OrderOptionsStepScreen,
+    OrderPhotoConsentStepScreen,
+    OrderServicesStepScreen,
+    OrderStartStepScreen,
+    OrderStartTimeStepScreen,
+    OrderTimeManualStepScreen,
+    RetryLaterScreen,
+    StaleActionScreen,
 )
 
 router = Router(name="orders_create")
 logger = logging.getLogger(__name__)
+
+CARE_OBJECT_TYPE_LABELS = {
+    "child": "Ребенок",
+    "ward": "Подопечный",
+    "pet": "Питомец",
+}
+
+
+def _order_start_calendar() -> SimpleCalendar:
+    return SimpleCalendar()
+
+
+async def _order_start_calendar_keyboard():
+    return await _order_start_calendar().start_calendar()
+
 
 
 def _order_start_time_value(value: str) -> str:
@@ -122,7 +125,8 @@ async def start_order_creation(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
 
@@ -136,7 +140,8 @@ async def start_order_creation(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=use_buttons_text(),
+            text=(screen := StaleActionScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -153,7 +158,8 @@ async def start_order_creation(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=order_no_services_text(),
+            text=(screen := OrderNoServicesScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -170,8 +176,12 @@ async def start_order_creation(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_services_step_text(),
-        reply_markup=order_services_keyboard(services),
+        text=(screen := OrderServicesStepScreen(
+            SimpleNamespace(
+                services=tuple(SimpleNamespace(**item) for item in services)
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -195,7 +205,7 @@ async def select_service(
                 "index": callback_data.index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     order_draft = draft(await state.get_data())
     order_draft.update(
@@ -231,7 +241,8 @@ async def select_service(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -247,8 +258,10 @@ async def select_service(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=order_no_objects_text(str(service["care_object_type"])),
-            reply_markup=order_no_objects_keyboard(),
+            text=(screen := OrderNoObjectsScreen(
+                SimpleNamespace(object_type=str(service["care_object_type"]))
+            ).build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -263,15 +276,19 @@ async def select_service(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_objects_step_text(
-            selected_count=0,
-            max_count=int(str(service["max_objects_per_order"])),
-        ),
-        reply_markup=order_objects_keyboard(
-            objects,
-            selected_ids=(),
-            can_finish=False,
-        ),
+        text=(screen := OrderObjectsStepScreen(
+            SimpleNamespace(
+                max_count=int(str(service["max_objects_per_order"])),
+                selected_count=0,
+                selected_ids=(),
+                items=tuple(
+                    SimpleNamespace(id=str(item.id), display_name=item.display_name)
+                    for item in objects
+                ),
+                can_finish=False,
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -294,7 +311,7 @@ async def select_object(
                 "index": callback_data.index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     data = await state.get_data()
     order_draft = draft(data)
@@ -325,15 +342,23 @@ async def select_object(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_objects_step_text(
-            selected_count=len(selected),
-            max_count=max_objects,
-        ),
-        reply_markup=order_objects_keyboard(
-            objects if isinstance(objects, list) else (),
-            selected_ids=selected,
-            can_finish=bool(selected),
-        ),
+        text=(screen := OrderObjectsStepScreen(
+            SimpleNamespace(
+                max_count=max_objects,
+                selected_count=len(selected),
+                selected_ids=selected,
+                items=tuple(
+                    SimpleNamespace(
+                        id=str(item.get("id", "")),
+                        display_name=str(item.get("display_name", "")),
+                    )
+                    for item in (objects if isinstance(objects, list) else ())
+                    if isinstance(item, dict)
+                ),
+                can_finish=bool(selected),
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -348,9 +373,7 @@ async def finish_object_selection(
 ) -> None:
     data = await state.get_data()
     if not selected_ids(data):
-        await telegram_responder.acknowledge(
-            callback, "Выберите хотя бы одну карточку."
-        )
+        await telegram_responder.acknowledge(callback)
         return
     await _ask_options_or_start(
         callback,
@@ -378,8 +401,21 @@ async def _ask_options_or_start(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=order_options_step_text(selected_count=0),
-            reply_markup=order_options_keyboard(options, selected_ids=()),
+            text=(screen := OrderOptionsStepScreen(
+                SimpleNamespace(
+                    selected_count=0,
+                    selected_ids=(),
+                    items=tuple(
+                        SimpleNamespace(
+                            id=str(item.get("id", "")),
+                            name=str(item.get("name", "")),
+                        )
+                        for item in options
+                        if isinstance(item, dict)
+                    ),
+                )
+            ).build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -404,7 +440,7 @@ async def toggle_option(
         if isinstance(options, list) and 0 <= callback_data.index < len(options):
             item = options[callback_data.index]
         if not isinstance(item, dict):
-            await telegram_responder.acknowledge(callback, use_buttons_text())
+            await telegram_responder.acknowledge(callback)
             return
     data = await state.get_data()
     order_draft = draft(data)
@@ -421,11 +457,21 @@ async def toggle_option(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_options_step_text(selected_count=len(selected)),
-        reply_markup=order_options_keyboard(
-            options if isinstance(options, list) else (),
-            selected_ids=selected,
-        ),
+        text=(screen := OrderOptionsStepScreen(
+            SimpleNamespace(
+                selected_count=len(selected),
+                selected_ids=selected,
+                items=tuple(
+                    SimpleNamespace(
+                        id=str(item.get("id", "")),
+                        name=str(item.get("name", "")),
+                    )
+                    for item in (options if isinstance(options, list) else ())
+                    if isinstance(item, dict)
+                ),
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -470,8 +516,8 @@ async def _ask_start_at(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_start_step_text(),
-        reply_markup=await order_start_calendar_keyboard(),
+        text=(screen := OrderStartStepScreen().build()).text,
+        reply_markup=await _order_start_calendar_keyboard(),
         create_new=True,
     )
 
@@ -503,14 +549,14 @@ async def _process_start_calendar_selection(
     telegram_user_context: TelegramUserContext,
     callback_data: SimpleCalendarCallback,
 ) -> None:
-    selected, selected_date = await order_start_calendar().process_selection(
+    selected, selected_date = await _order_start_calendar().process_selection(
         callback,
         callback_data,
     )
     if not selected:
         return
     if not isinstance(selected_date, datetime):
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     start_date = selected_date.date()
     await state.update_data(order_start_date=start_date.isoformat())
@@ -518,8 +564,10 @@ async def _process_start_calendar_selection(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_start_time_step_text(_format_date(start_date)),
-        reply_markup=order_start_time_keyboard(),
+        text=(screen := OrderStartTimeStepScreen(
+            SimpleNamespace(date_label=_format_date(start_date))
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -549,8 +597,8 @@ async def request_manual_start(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
-                text=order_start_step_text(),
-                reply_markup=await order_start_calendar_keyboard(),
+                text=(screen := OrderStartStepScreen().build()).text,
+                reply_markup=await _order_start_calendar_keyboard(),
                 create_new=True,
             )
             return
@@ -559,19 +607,23 @@ async def request_manual_start(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=order_time_manual_step_text(_format_date(start_date)),
+            text=(screen := OrderTimeManualStepScreen(
+                SimpleNamespace(date_label=_format_date(start_date))
+            ).build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
     if callback_data.mode != "datetime":
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     await state.update_data(order_start_manual_time=False)
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_datetime_manual_step_text(),
+        text=(screen := OrderDatetimeManualStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -589,7 +641,7 @@ async def select_start_time(
     start_date = _start_date_from_state(data)
     start_time = parse_local_time(_order_start_time_value(callback_data.value))
     if start_date is None or start_time is None:
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     await _set_start_at_and_ask_duration(
         callback,
@@ -612,10 +664,7 @@ async def stale_start_calendar(
 ) -> None:
     data = await state.get_data()
     if not draft(data):
-        await telegram_responder.acknowledge(
-            callback,
-            "Начните создание заказа заново.",
-        )
+        await telegram_responder.acknowledge(callback)
         return
     await state.set_state(OrderCreation.start)
     await _process_start_calendar_selection(
@@ -643,7 +692,10 @@ async def enter_start(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=invalid_time_text() if manual_time else invalid_datetime_text(),
+            text=(screen := (
+                InvalidTimeScreen() if manual_time else InvalidDatetimeScreen()
+            ).build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -662,7 +714,10 @@ async def enter_start(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=invalid_time_text() if manual_time else invalid_datetime_text(),
+            text=(screen := (
+                InvalidTimeScreen() if manual_time else InvalidDatetimeScreen()
+            ).build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -697,7 +752,10 @@ async def _set_start_at_and_ask_duration(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_duration_step_text(uses_days=uses_days(order_draft)),
+        text=(screen := OrderDurationStepScreen(
+            SimpleNamespace(uses_days=uses_days(order_draft))
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -733,7 +791,10 @@ async def enter_duration(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=invalid_duration_text(uses_days=uses_days(order_draft)),
+            text=(screen := InvalidDurationScreen(
+                SimpleNamespace(uses_days=uses_days(order_draft))
+            ).build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -766,7 +827,8 @@ async def enter_duration(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -779,8 +841,8 @@ async def enter_duration(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=order_no_addresses_text(),
-            reply_markup=order_no_addresses_keyboard(),
+            text=(screen := OrderNoAddressesScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -798,8 +860,8 @@ async def enter_duration(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_address_step_text(),
-        reply_markup=order_addresses_keyboard(addresses),
+        text=(screen := OrderAddressStepScreen(addresses).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -822,7 +884,7 @@ async def select_address(
                 "index": callback_data.index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     data = await state.get_data()
     order_draft = draft(data)
@@ -859,8 +921,8 @@ async def select_photo_consent(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_comment_step_text(),
-        reply_markup=order_comment_skip_keyboard(),
+        text=(screen := OrderCommentStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -925,8 +987,8 @@ async def _ask_photo_or_comment(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=order_photo_consent_step_text(),
-            reply_markup=order_photo_consent_keyboard(),
+            text=(screen := OrderPhotoConsentStepScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -937,8 +999,8 @@ async def _ask_photo_or_comment(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_comment_step_text(),
-        reply_markup=order_comment_skip_keyboard(),
+        text=(screen := OrderCommentStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -965,7 +1027,8 @@ async def _create_draft_and_show_summary(
                 bot=bot,
                 event=event,
                 telegram_id=telegram_user_context.telegram_id,
-                text=use_buttons_text(),
+                text=(screen := StaleActionScreen().build()).text,
+                reply_markup=screen.reply_markup,
                 create_new=True,
             )
             return
@@ -1005,7 +1068,8 @@ async def _create_draft_and_show_summary(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=validation_error_text(str(exc)),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -1021,7 +1085,8 @@ async def _create_draft_and_show_summary(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -1041,8 +1106,18 @@ async def _create_draft_and_show_summary(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_draft_summary_text(price=price, performers_count=len(performers)),
-        reply_markup=order_publish_keyboard(performers),
+        text=(screen := OrderDraftSummaryScreen(
+            SimpleNamespace(
+                service_name=price.service_name,
+                duration_minutes=price.duration_minutes,
+                objects_count=price.objects_count,
+                service_amount=price.service_amount,
+                platform_fee_amount=price.platform_fee_amount,
+                total_amount=price.total_amount,
+                performers_count=len(performers),
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -1067,7 +1142,15 @@ async def add_order_object(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text="Введите имя или короткое название.",
+        text=(screen := CareObjectNameStepScreen(
+            SimpleNamespace(
+                object_type_label=CARE_OBJECT_TYPE_LABELS.get(
+                    str(order_draft["care_object_type"]),
+                    "Объект ухода",
+                )
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -1095,7 +1178,8 @@ async def add_order_address(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -1110,7 +1194,7 @@ async def add_order_address(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=address_city_step_text(),
-        reply_markup=address_city_keyboard(cities),
+        text=(screen := AddressCityStepScreen(cities).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )

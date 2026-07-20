@@ -1,4 +1,5 @@
 import logging
+from types import SimpleNamespace
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -16,18 +17,13 @@ from customer_bot.presentation.callbacks import (
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import TelegramResponder
-from customer_bot.presentation.ui import (
-    address_card_keyboard,
-    address_card_text,
-    address_delete_confirm_keyboard,
-    address_delete_confirm_text,
-    address_deleted_text,
-    address_validation_error_text,
-    addresses_keyboard,
-    addresses_list_text,
-    delete_blocked_text,
-    retry_later_text,
-    use_buttons_text,
+from customer_bot.presentation.ui.screens import (
+    AddressCardScreen,
+    AddressDeleteConfirmScreen,
+    AddressDeletedScreen,
+    AddressListScreen,
+    AddressValidationScreen,
+    RetryLaterScreen,
 )
 
 router = Router(name="addresses_list")
@@ -56,7 +52,8 @@ async def open_addresses(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=address_validation_error_text(str(exc)),
+            text=(screen := AddressValidationScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
 
@@ -73,7 +70,8 @@ async def open_addresses(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -82,8 +80,10 @@ async def open_addresses(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=addresses_list_text(len(items)),
-        reply_markup=addresses_keyboard(items),
+        text=(screen := AddressListScreen(
+            SimpleNamespace(count=len(items), items=items)
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -106,7 +106,7 @@ async def select_address(
                 "index": callback_data.index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     index = item["index"]
     if not isinstance(index, int):
@@ -114,14 +114,23 @@ async def select_address(
             "Invalid address index in state",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=address_card_text(item),
-        reply_markup=address_card_keyboard(index),
+        text=(screen := AddressCardScreen(
+            SimpleNamespace(
+                index=index,
+                address_text=str(item["address_text"]),
+                entrance=str(item.get("entrance") or ""),
+                floor=str(item.get("floor") or ""),
+                apartment=str(item.get("apartment") or ""),
+                comment=str(item.get("comment") or ""),
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -144,14 +153,16 @@ async def delete_address(
                 "index": callback_data.index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=address_delete_confirm_text(),
-        reply_markup=address_delete_confirm_keyboard(callback_data.index),
+        text=(screen := AddressDeleteConfirmScreen(
+            SimpleNamespace(index=callback_data.index)
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -175,7 +186,7 @@ async def confirm_delete_address(
                 "index": callback_data.index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     try:
         await backend_client.delete_address(
@@ -194,7 +205,8 @@ async def confirm_delete_address(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=delete_blocked_text(str(exc)),
+            text=(screen := AddressValidationScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -211,7 +223,8 @@ async def confirm_delete_address(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -226,7 +239,8 @@ async def confirm_delete_address(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=address_deleted_text(),
+        text=(screen := AddressDeletedScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 

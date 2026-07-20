@@ -1,4 +1,5 @@
 import logging
+from types import SimpleNamespace
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
@@ -21,13 +22,10 @@ from customer_bot.presentation.navigation import (
     list_categories,
 )
 from customer_bot.presentation.services import TelegramResponder
-from customer_bot.presentation.ui import (
-    care_object_card_keyboard,
-    care_object_card_text,
-    care_objects_keyboard,
-    care_objects_list_text,
-    retry_later_text,
-    use_buttons_text,
+from customer_bot.presentation.ui.screens import (
+    CareObjectCardScreen,
+    CareObjectListScreen,
+    RetryLaterScreen,
 )
 
 router = Router(name="care_objects_list")
@@ -73,7 +71,8 @@ async def open_care_objects(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
 
@@ -83,8 +82,15 @@ async def open_care_objects(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_objects_list_text(len(items), category),
-        reply_markup=care_objects_keyboard(items, object_type=object_type),
+        text=(screen := CareObjectListScreen(
+            SimpleNamespace(
+                category=category.name if category is not None else "Объекты ухода",
+                object_type=object_type or "",
+                count=len(items),
+                items=items,
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -111,7 +117,8 @@ async def select_care_object(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=use_buttons_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -121,13 +128,26 @@ async def select_care_object(
             "Invalid care object index in state",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_card_text(item),
-        reply_markup=care_object_card_keyboard(index),
+        text=(screen := CareObjectCardScreen(
+            SimpleNamespace(
+                index=index,
+                object_type=str(item["object_type"]),
+                display_name=str(item["display_name"]),
+                age_group=str(item["age_group"]),
+                species=str(item.get("species") or ""),
+                breed=str(item.get("breed") or ""),
+                pet_size=str(item.get("pet_size") or ""),
+                mobility_assistance_required=item.get(
+                    "mobility_assistance_required"
+                ) is True,
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )

@@ -1,4 +1,5 @@
 import logging
+from types import SimpleNamespace
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -18,18 +19,22 @@ from customer_bot.presentation.handlers.care_objects.state import (
     care_object_by_index,
 )
 from customer_bot.presentation.services import TelegramResponder
-from customer_bot.presentation.ui import (
-    care_object_delete_confirm_keyboard,
-    care_object_delete_confirm_text,
-    care_object_deleted_text,
-    care_object_name_step_text,
-    delete_blocked_text,
-    retry_later_text,
-    use_buttons_text,
+from customer_bot.presentation.ui.screens import (
+    CareObjectDeleteBlockedScreen,
+    CareObjectDeleteConfirmScreen,
+    CareObjectDeletedScreen,
+    CareObjectNameStepScreen,
+    RetryLaterScreen,
 )
 
 router = Router(name="care_objects_edit")
 logger = logging.getLogger(__name__)
+
+CARE_OBJECT_TYPE_LABELS = {
+    "child": "Ребенок",
+    "ward": "Подопечный",
+    "pet": "Питомец",
+}
 
 
 @router.callback_query(CareObjectEditCallback.filter())
@@ -50,7 +55,7 @@ async def edit_care_object(
                 "index": callback_data.index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     object_type = str(item["object_type"])
     await state.update_data(
@@ -72,7 +77,12 @@ async def edit_care_object(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_name_step_text(object_type),
+        text=(screen := CareObjectNameStepScreen(
+            SimpleNamespace(
+                object_type_label=CARE_OBJECT_TYPE_LABELS.get(object_type, object_type)
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -95,14 +105,16 @@ async def delete_care_object(
                 "index": callback_data.index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_delete_confirm_text(),
-        reply_markup=care_object_delete_confirm_keyboard(callback_data.index),
+        text=(screen := CareObjectDeleteConfirmScreen(
+            SimpleNamespace(index=callback_data.index)
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -126,7 +138,7 @@ async def confirm_delete_care_object(
                 "index": callback_data.index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     try:
         await backend_client.delete_care_object(
@@ -145,7 +157,10 @@ async def confirm_delete_care_object(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=delete_blocked_text(str(exc)),
+            text=(screen := CareObjectDeleteBlockedScreen(
+                SimpleNamespace(index=callback_data.index)
+            ).build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -162,7 +177,8 @@ async def confirm_delete_care_object(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -177,6 +193,7 @@ async def confirm_delete_care_object(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_deleted_text(),
+        text=(screen := CareObjectDeletedScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )

@@ -1,4 +1,5 @@
 import logging
+from types import SimpleNamespace
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -14,15 +15,13 @@ from customer_bot.presentation.callbacks import (
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import TelegramResponder
-from customer_bot.presentation.ui import (
-    order_matches_keyboard,
-    order_matches_text,
-    order_response_rejected_text,
-    order_response_selected_text,
-    order_response_unavailable_text,
-    payment_status_keyboard,
-    payment_status_text,
-    retry_later_text,
+from customer_bot.presentation.ui.screens import (
+    OrderMatchesScreen,
+    OrderResponseRejectedScreen,
+    OrderResponseSelectedScreen,
+    OrderResponseUnavailableScreen,
+    PaymentStatusScreen,
+    RetryLaterScreen,
 )
 
 router = Router(name="orders_matches")
@@ -56,7 +55,8 @@ async def open_order_matches(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=order_response_unavailable_text(),
+            text=(screen := OrderResponseUnavailableScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
 
@@ -73,7 +73,8 @@ async def open_order_matches(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -82,8 +83,8 @@ async def open_order_matches(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_matches_text(matches),
-        reply_markup=order_matches_keyboard(matches),
+        text=(screen := OrderMatchesScreen(matches).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -115,7 +116,8 @@ async def select_order_match(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=order_response_unavailable_text(),
+            text=(screen := OrderResponseUnavailableScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -131,7 +133,8 @@ async def select_order_match(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -140,8 +143,14 @@ async def select_order_match(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_response_selected_text(action),
-        reply_markup=payment_status_keyboard(action.order_id),
+        text=(screen := OrderResponseSelectedScreen(
+            SimpleNamespace(
+                order_status=action.order_status,
+                id=action.order_id,
+                payment_confirmation_url=action.payment_confirmation_url,
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -176,7 +185,8 @@ async def refresh_payment_status(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -185,8 +195,16 @@ async def refresh_payment_status(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=payment_status_text(status),
-        reply_markup=payment_status_keyboard(status.order_id),
+        text=(screen := PaymentStatusScreen(
+            SimpleNamespace(
+                id=status.order_id,
+                order_status=status.order_status,
+                payment_status=status.payment_status,
+                confirmation_url=status.confirmation_url,
+                expires_at=status.expires_at,
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -218,7 +236,8 @@ async def reject_order_match(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=order_response_unavailable_text(),
+            text=(screen := OrderResponseUnavailableScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -234,7 +253,8 @@ async def reject_order_match(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -243,7 +263,8 @@ async def reject_order_match(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_response_rejected_text(),
+        text=(screen := OrderResponseRejectedScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 

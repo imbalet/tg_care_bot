@@ -1,9 +1,19 @@
 import logging
+from types import SimpleNamespace
 from uuid import UUID
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from customer_bot.presentation.handlers.addresses.state import (
+    EXTRA_FIELDS,
+    AddressManagement,
+    address_draft,
+    extra_index,
+    optional_str,
+    string_list,
+)
+from customer_bot.presentation.handlers.orders.state import OrderCreation
 
 from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import BackendPort
@@ -14,31 +24,16 @@ from customer_bot.presentation.callbacks import (
     AddressSuggestionCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
-from customer_bot.presentation.handlers.addresses.state import (
-    EXTRA_FIELDS,
-    AddressManagement,
-    address_draft,
-    extra_index,
-    optional_str,
-    string_list,
-)
-from customer_bot.presentation.handlers.orders.state import OrderCreation
 from customer_bot.presentation.services import TelegramResponder
-from customer_bot.presentation.ui import (
-    address_city_keyboard,
-    address_city_step_text,
-    address_created_text,
-    address_extra_step_text,
-    address_query_step_text,
-    address_skip_keyboard,
-    address_suggestion_step_text,
-    address_suggestions_keyboard,
-    address_validation_error_text,
-    order_address_step_text,
-    order_addresses_keyboard,
-    retry_later_text,
-    use_buttons_text,
-    validation_error_text,
+from customer_bot.presentation.ui.screens import (
+    AddressCityStepScreen,
+    AddressCreatedScreen,
+    AddressExtraStepScreen,
+    AddressQueryStepScreen,
+    AddressSuggestionScreen,
+    AddressValidationScreen,
+    OrderAddressStepScreen,
+    RetryLaterScreen,
 )
 
 router = Router(name="addresses_create")
@@ -65,7 +60,8 @@ async def add_address(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=address_validation_error_text(str(exc)),
+            text=(screen := AddressValidationScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -81,7 +77,8 @@ async def add_address(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -95,8 +92,8 @@ async def add_address(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=address_city_step_text(),
-        reply_markup=address_city_keyboard(cities),
+        text=(screen := AddressCityStepScreen(cities).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -121,7 +118,7 @@ async def select_city(
                 "index": index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     draft = address_draft(data)
     draft["city_id"] = city_ids[index]
@@ -131,7 +128,8 @@ async def select_city(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=address_query_step_text(),
+        text=(screen := AddressQueryStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -150,7 +148,8 @@ async def enter_query(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text="Введите адрес текстом.",
+            text=(screen := AddressQueryStepScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -173,7 +172,8 @@ async def enter_query(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -182,7 +182,8 @@ async def enter_query(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text="Адрес не найден. Уточните строку.",
+            text=(screen := AddressQueryStepScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -197,8 +198,8 @@ async def enter_query(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=address_suggestion_step_text(),
-        reply_markup=address_suggestions_keyboard(suggestions),
+        text=(screen := AddressSuggestionScreen(suggestions).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -223,7 +224,7 @@ async def select_suggestion(
             "Address suggestions missing in FSM state",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     if index < 0 or index >= len(suggestions):
         logger.warning(
@@ -233,7 +234,7 @@ async def select_suggestion(
                 "index": index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     suggestion = suggestions[index]
     if not isinstance(suggestion, dict):
@@ -241,7 +242,7 @@ async def select_suggestion(
             "Invalid address suggestion item in FSM state",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     draft = address_draft(data)
     draft["unrestricted_value"] = str(suggestion["unrestricted_value"])
@@ -252,8 +253,12 @@ async def select_suggestion(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=address_extra_step_text(EXTRA_FIELDS[0][1]),
-        reply_markup=address_skip_keyboard(),
+        text=(
+            screen := AddressExtraStepScreen(
+                SimpleNamespace(field_name=EXTRA_FIELDS[0][1])
+            ).build()
+        ).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -321,8 +326,12 @@ async def _advance_or_create(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=address_extra_step_text(EXTRA_FIELDS[index][1]),
-            reply_markup=address_skip_keyboard(),
+            text=(
+                screen := AddressExtraStepScreen(
+                    SimpleNamespace(field_name=EXTRA_FIELDS[index][1])
+                ).build()
+            ).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -345,7 +354,8 @@ async def _advance_or_create(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=validation_error_text(str(exc)),
+            text=(screen := AddressValidationScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -361,7 +371,8 @@ async def _advance_or_create(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -385,7 +396,8 @@ async def _advance_or_create(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=address_created_text(),
+        text=(screen := AddressCreatedScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -414,7 +426,8 @@ async def _return_to_order_addresses(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -431,7 +444,7 @@ async def _return_to_order_addresses(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_address_step_text(),
-        reply_markup=order_addresses_keyboard(addresses),
+        text=(screen := OrderAddressStepScreen(addresses).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )

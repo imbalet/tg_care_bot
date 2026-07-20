@@ -5,11 +5,11 @@ from customer_bot.application.dto import ServiceCategoryDTO
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import TelegramResponder
-from customer_bot.presentation.ui import (
-    category_select_keyboard,
-    category_select_text,
-    customer_main_menu_text,
-    main_menu_keyboard,
+from customer_bot.presentation.ui.screens.common.category_select import (
+    Screen as CategorySelectScreen,
+)
+from customer_bot.presentation.ui.screens.common.menu import (
+    Screen as MenuScreen,
 )
 
 
@@ -52,12 +52,13 @@ async def show_category_select(
     force_create_new: bool = False,
 ) -> None:
     categories = await list_categories(backend_client)
+    screen = CategorySelectScreen(categories).build()
     await telegram_responder.update(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=category_select_text(),
-        reply_markup=category_select_keyboard(categories),
+        text=screen.text,
+        reply_markup=screen.reply_markup,
         create_new=force_create_new,
     )
 
@@ -70,10 +71,11 @@ async def show_category_menu(
     telegram_responder: TelegramResponder,
     category: ServiceCategoryDTO,
 ) -> None:
+    screen = MenuScreen(category).build()
     await telegram_responder.update(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=customer_main_menu_text(category),
-        reply_markup=main_menu_keyboard(category),
+        text=screen.text,
+        reply_markup=screen.reply_markup,
     )

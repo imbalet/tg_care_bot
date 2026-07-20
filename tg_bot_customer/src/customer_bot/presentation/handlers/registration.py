@@ -1,11 +1,13 @@
 import logging
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, dataclass, replace
+from typing import Self
 from uuid import UUID
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.types import CallbackQuery, Message
 
 from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import BackendPort
@@ -20,42 +22,121 @@ from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.navigation import show_category_select
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.types import ContactMethod
-from customer_bot.presentation.ui import (
-    backend_rejected_registration_text,
-    contact_methods_keyboard,
-    full_name_step_text,
-    invalid_phone_contact_text,
-    invalid_text_input_text,
-    legal_acceptance_keyboard,
-    legal_documents_text,
-    phone_contact_keyboard,
-    phone_contact_received_text,
-    phone_step_text,
-    registration_complete_text,
-    registration_summary_keyboard,
-    registration_unavailable_text,
-    retry_later_text,
-    select_city_keyboard,
-    select_city_text,
-    select_contact_method_text,
-    summary_text,
-    use_buttons_text,
-    wrong_phone_contact_text,
+from customer_bot.presentation.ui.screens import (
+    BackendRejectedRegistrationScreen,
+    DocumentsScreen,
+    FullNameStepScreen,
+    InvalidTextInputScreen,
+    PhoneStepScreen,
+    RegistrationCompleteScreen,
+    RegistrationUnavailableScreen,
+    RetryLaterScreen,
+    SelectCityScreen,
+    SelectContactMethodScreen,
+    SummaryScreen,
+    WrongPhoneContactScreen,
 )
 
 router = Router(name="registration")
 logger = logging.getLogger(__name__)
 
-CONTACT_METHOD_LABELS: dict[ContactMethod, str] = {
-    ContactMethod.TELEGRAM: "Telegram",
-    ContactMethod.PHONE: "Телефон",
-    ContactMethod.BOTH: "Telegram и телефон",
-}
 
-
-@dataclass(frozen=True)
-class _CityView:
+@dataclass(frozen=True, slots=True)
+class _RegistrationCity:
+    id: str
     name: str
+
+    @classmethod
+    def from_state(cls, value: object) -> Self:
+        data = _mapping(value, "registration city")
+        return cls(
+            id=_required_str(data, "id"),
+            name=_required_str(data, "name"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _RegistrationLegalDocument:
+    id: str
+    document_type: str
+    version: str
+    content_url: str
+
+    @classmethod
+    def from_state(cls, value: object) -> Self:
+        data = _mapping(value, "registration legal document")
+        return cls(
+            id=_required_str(data, "id"),
+            document_type=_required_str(data, "document_type"),
+            version=_required_str(data, "version"),
+            content_url=_required_str(data, "content_url"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class _SummaryView:
+    full_name: str
+    phone: str
+    city_name: str
+    contact_method_label: str
+
+
+@dataclass(frozen=True, slots=True)
+class _RegistrationData:
+    cities: tuple[_RegistrationCity, ...]
+    legal_documents: tuple[_RegistrationLegalDocument, ...]
+    full_name: str | None = None
+    phone: str | None = None
+    city_id: str | None = None
+    city_name: str | None = None
+    contact_method: ContactMethod | None = None
+
+    @classmethod
+    def from_state(cls, data: Mapping[str, object]) -> Self:
+        contact_method_value = data.get("contact_method")
+
+        return cls(
+            cities=tuple(
+                _RegistrationCity.from_state(item)
+                for item in _sequence(data.get("cities"), "cities")
+            ),
+            legal_documents=tuple(
+                _RegistrationLegalDocument.from_state(item)
+                for item in _sequence(
+                    data.get("legal_documents"),
+                    "legal_documents",
+                )
+            ),
+            full_name=_optional_str(data.get("full_name"), "full_name"),
+            phone=_optional_str(data.get("phone"), "phone"),
+            city_id=_optional_str(data.get("city_id"), "city_id"),
+            city_name=_optional_str(data.get("city_name"), "city_name"),
+            contact_method=(
+                ContactMethod(contact_method_value)
+                if isinstance(contact_method_value, str)
+                else None
+            ),
+        )
+
+    def to_state_data(self) -> dict[str, object]:
+        data: dict[str, object] = asdict(self)
+        if self.contact_method is not None:
+            data["contact_method"] = self.contact_method.value
+        return data
+
+    def city_at(self, index: int) -> _RegistrationCity | None:
+        if 0 <= index < len(self.cities):
+            return self.cities[index]
+        return None
+
+    def summary_view(self) -> _SummaryView:
+        contact_method = _required(self.contact_method, "contact_method")
+        return _SummaryView(
+            full_name=_required(self.full_name, "full_name"),
+            phone=_required(self.phone, "phone"),
+            city_name=_required(self.city_name, "city_name"),
+            contact_method_label=_contact_method_label(contact_method),
+        )
 
 
 class CustomerRegistration(StatesGroup):
@@ -86,26 +167,46 @@ async def start_registration(
                 "exception_type": type(exc).__name__,
             },
         )
+        screen = RetryLaterScreen().build()
         await telegram_responder.update(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=screen.text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
-    await state.set_state(CustomerRegistration.legal_acceptance)
-    await state.update_data(
-        city_ids=[str(city.id) for city in cities],
-        city_names=[city.name for city in cities],
-        legal_document_ids=[str(document.id) for document in documents],
+
+    registration = _RegistrationData(
+        cities=tuple(
+            _RegistrationCity(
+                id=str(city.id),
+                name=city.name,
+            )
+            for city in cities
+        ),
+        legal_documents=tuple(
+            _RegistrationLegalDocument(
+                id=str(document.id),
+                document_type=document.document_type,
+                version=document.version,
+                content_url=document.content_url,
+            )
+            for document in documents
+        ),
     )
+
+    await state.set_state(CustomerRegistration.legal_acceptance)
+    await state.set_data(registration.to_state_data())
+
+    screen = DocumentsScreen(registration.legal_documents).build()
     await telegram_responder.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=legal_documents_text(documents),
-        reply_markup=legal_acceptance_keyboard(documents),
+        text=screen.text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -122,11 +223,14 @@ async def accept_legal(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.set_state(CustomerRegistration.full_name)
+
+    screen = FullNameStepScreen().build()
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=full_name_step_text(),
+        text=screen.text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -135,15 +239,19 @@ async def accept_legal(
 async def reject_legal(
     message: Message,
     bot: Bot,
+    state: FSMContext,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
+    registration = await _get_registration_data(state)
+
+    screen = DocumentsScreen(registration.legal_documents).build()
     await telegram_responder.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=use_buttons_text(),
-        reply_markup=legal_acceptance_keyboard(),
+        text=screen.text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -156,23 +264,33 @@ async def enter_full_name(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    if not message.text or not message.text.strip():
+    full_name = message.text.strip() if message.text else ""
+    if not full_name:
+        screen = InvalidTextInputScreen("Введите ФИО текстом.").build()
         await telegram_responder.update(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=invalid_text_input_text("Введите ФИО текстом."),
+            text=screen.text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
-    await state.update_data(full_name=message.text.strip())
+
+    registration = replace(
+        await _get_registration_data(state),
+        full_name=full_name,
+    )
+    await _set_registration_data(state, registration)
     await state.set_state(CustomerRegistration.phone)
+
+    screen = PhoneStepScreen().build()
     await telegram_responder.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=phone_step_text(),
-        reply_markup=phone_contact_keyboard(),
+        text=screen.text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -185,46 +303,48 @@ async def enter_phone(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    if message.contact is None:
+    contact = message.contact
+    if contact is None:
+        screen = PhoneStepScreen().build()
         await telegram_responder.update(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=invalid_phone_contact_text(),
-            reply_markup=phone_contact_keyboard(),
+            text=screen.text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
+
     if (
-        message.contact.user_id is not None
-        and message.contact.user_id != telegram_user_context.telegram_id
+        contact.user_id is not None
+        and contact.user_id != telegram_user_context.telegram_id
     ):
+        screen = WrongPhoneContactScreen().build()
         await telegram_responder.update(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=wrong_phone_contact_text(),
-            reply_markup=phone_contact_keyboard(),
+            text=screen.text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
-    data = await state.get_data()
-    await state.update_data(phone=message.contact.phone_number)
-    await state.set_state(CustomerRegistration.city)
-    await telegram_responder.update(
-        bot=bot,
-        event=message,
-        telegram_id=telegram_user_context.telegram_id,
-        text=phone_contact_received_text(),
-        reply_markup=ReplyKeyboardRemove(),
-        create_new=True,
+
+    registration = replace(
+        await _get_registration_data(state),
+        phone=contact.phone_number,
     )
+    await _set_registration_data(state, registration)
+    await state.set_state(CustomerRegistration.city)
+
+    screen = SelectCityScreen(registration.cities).build()
     await telegram_responder.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=select_city_text(),
-        reply_markup=select_city_keyboard(_cities_from_state(data)),
+        text=screen.text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -241,39 +361,43 @@ async def enter_city(
     telegram_user_context: TelegramUserContext,
     callback_data: RegistrationCityCallback,
 ) -> None:
-    data = await state.get_data()
-    city_ids = _string_list(data["city_ids"])
-    city_index = callback_data.index
-    if city_index < 0 or city_index >= len(city_ids):
+    registration = await _get_registration_data(state)
+    city = registration.city_at(callback_data.index)
+
+    if city is None:
         logger.warning(
             "Invalid registration city callback index",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "index": city_index,
+                "index": callback_data.index,
             },
         )
+        screen = RegistrationUnavailableScreen().build()
         await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=registration_unavailable_text(),
-            reply_markup=select_city_keyboard(_cities_from_state(data)),
+            text=screen.text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
-    city_id = city_ids[city_index]
-    await state.update_data(
-        city_id=city_id,
-        city_name=_string_list(data["city_names"])[city_index],
+
+    registration = replace(
+        registration,
+        city_id=city.id,
+        city_name=city.name,
     )
+    await _set_registration_data(state, registration)
     await state.set_state(CustomerRegistration.contact_method)
+
+    screen = SelectContactMethodScreen().build()
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=select_contact_method_text(),
-        reply_markup=contact_methods_keyboard(),
-        create_new=True,
+        text=screen.text,
+        reply_markup=screen.reply_markup,
     )
 
 
@@ -285,13 +409,15 @@ async def unknown_city_action(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    data = await state.get_data()
+    registration = await _get_registration_data(state)
+
+    screen = SelectCityScreen(registration.cities).build()
     await telegram_responder.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=use_buttons_text(),
-        reply_markup=select_city_keyboard(_cities_from_state(data)),
+        text=screen.text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -309,31 +435,39 @@ async def enter_contact_method(
     callback_data: RegistrationContactCallback,
 ) -> None:
     contact_method = callback_data.method
-    label = CONTACT_METHOD_LABELS.get(contact_method)
-    if label is None:
+
+    try:
+        _contact_method_label(contact_method)
+    except ValueError:
         logger.warning(
             "Invalid registration contact method callback",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
+        screen = SelectContactMethodScreen().build()
         await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=use_buttons_text(),
-            reply_markup=contact_methods_keyboard(),
+            text=screen.text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
-    await state.update_data(contact_method=contact_method, contact_method_label=label)
-    data = await state.get_data()
+
+    registration = replace(
+        await _get_registration_data(state),
+        contact_method=contact_method,
+    )
+    await _set_registration_data(state, registration)
     await state.set_state(CustomerRegistration.summary)
+
+    screen = SummaryScreen(registration.summary_view()).build()
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=summary_text(data),
-        reply_markup=registration_summary_keyboard(),
-        create_new=True,
+        text=screen.text,
+        reply_markup=screen.reply_markup,
     )
 
 
@@ -344,12 +478,13 @@ async def unknown_contact_method_action(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
+    screen = SelectContactMethodScreen().build()
     await telegram_responder.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=use_buttons_text(),
-        reply_markup=contact_methods_keyboard(),
+        text=screen.text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -363,12 +498,14 @@ async def edit_registration(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.set_state(CustomerRegistration.full_name)
+
+    screen = FullNameStepScreen().build()
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=full_name_step_text(),
-        create_new=True,
+        text=screen.text,
+        reply_markup=screen.reply_markup,
     )
 
 
@@ -384,18 +521,21 @@ async def confirm_registration(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    data = await state.get_data()
+    registration = await _get_registration_data(state)
+
     try:
         await backend_client.register_customer(
             telegram_id=telegram_user_context.telegram_id,
-            full_name=str(data["full_name"]),
-            phone=str(data["phone"]),
-            city_id=UUID(str(data["city_id"])),
-            contact_method=str(data["contact_method"]),
+            full_name=_required(registration.full_name, "full_name"),
+            phone=_required(registration.phone, "phone"),
+            city_id=UUID(_required(registration.city_id, "city_id")),
+            contact_method=_required(
+                registration.contact_method,
+                "contact_method",
+            ).value,
             telegram_username=telegram_user_context.username,
             accepted_legal_document_ids=tuple(
-                UUID(document_id)
-                for document_id in _string_list(data["legal_document_ids"])
+                UUID(document.id) for document in registration.legal_documents
             ),
         )
     except BackendValidationError:
@@ -403,11 +543,13 @@ async def confirm_registration(
             "Backend rejected customer registration",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
+        screen = BackendRejectedRegistrationScreen().build()
         await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=backend_rejected_registration_text(),
+            text=screen.text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         await state.clear()
@@ -420,24 +562,30 @@ async def confirm_registration(
                 "exception_type": type(exc).__name__,
             },
         )
+        screen = RetryLaterScreen().build()
         await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=screen.text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
+
     await state.clear()
     logger.info(
         "Customer registration completed",
         extra={"telegram_id": telegram_user_context.telegram_id},
     )
+
+    screen = RegistrationCompleteScreen().build()
     await telegram_responder.send_notice(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=registration_complete_text(),
+        text=screen.text,
+        reply_markup=screen.reply_markup,
     )
     await show_category_select(
         bot=bot,
@@ -453,24 +601,74 @@ async def confirm_registration(
 async def unknown_summary_action(
     message: Message,
     bot: Bot,
+    state: FSMContext,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
+    registration = await _get_registration_data(state)
+
+    screen = SummaryScreen(registration.summary_view()).build()
     await telegram_responder.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=use_buttons_text(),
-        reply_markup=registration_summary_keyboard(),
+        text=screen.text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
 
-def _cities_from_state(data: dict[str, object]) -> tuple[_CityView, ...]:
-    return tuple(_CityView(name) for name in _string_list(data["city_names"]))
+async def _get_registration_data(state: FSMContext) -> _RegistrationData:
+    return _RegistrationData.from_state(await state.get_data())
 
 
-def _string_list(value: object) -> list[str]:
-    if isinstance(value, list) and all(isinstance(item, str) for item in value):
-        return value
-    raise TypeError("Expected string list in FSM state")
+async def _set_registration_data(
+    state: FSMContext,
+    registration: _RegistrationData,
+) -> None:
+    await state.set_data(registration.to_state_data())
+
+
+def _contact_method_label(contact_method: ContactMethod) -> str:
+    match contact_method:
+        case ContactMethod.TELEGRAM:
+            return "Telegram"
+        case ContactMethod.PHONE:
+            return "Телефон"
+        case ContactMethod.BOTH:
+            return "Telegram и телефон"
+        case _:
+            raise ValueError(f"Unsupported contact method: {contact_method!r}")
+
+
+def _mapping(value: object, name: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        raise TypeError(f"Expected {name} mapping in FSM state")
+    return value
+
+
+def _sequence(value: object, name: str) -> Sequence[object]:
+    if not isinstance(value, (list, tuple)):
+        raise TypeError(f"Expected {name} sequence in FSM state")
+    return value
+
+
+def _required_str(data: Mapping[str, object], key: str) -> str:
+    value = data.get(key)
+    if not isinstance(value, str):
+        raise TypeError(f"Expected {key} string in FSM state")
+    return value
+
+
+def _optional_str(value: object, name: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError(f"Expected {name} string in FSM state")
+    return value
+
+
+def _required[T](value: T | None, name: str) -> T:
+    if value is None:
+        raise TypeError(f"Missing required registration field: {name}")
+    return value

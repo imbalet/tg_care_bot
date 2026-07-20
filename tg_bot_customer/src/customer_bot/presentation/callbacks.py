@@ -109,6 +109,7 @@ class CareObjectDeleteCallback(CallbackData, prefix="care_delete"):
 
 
 class CareObjectDeleteConfirmCallback(CallbackData, prefix="care_delete_ok"):
+    # TODO: тут и связанное переделать на UUID
     index: int
 
 

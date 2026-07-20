@@ -1,4 +1,5 @@
 import logging
+from types import SimpleNamespace
 from uuid import UUID
 
 from aiogram import Bot, Router
@@ -24,29 +25,25 @@ from customer_bot.presentation.handlers.care_objects.state import (
 from customer_bot.presentation.handlers.orders.state import OrderCreation
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.types import YesNoValue
-from customer_bot.presentation.ui import (
-    care_object_age_keyboard,
-    care_object_age_step_text,
-    care_object_breed_step_text,
-    care_object_created_text,
-    care_object_mobility_keyboard,
-    care_object_mobility_step_text,
-    care_object_name_step_text,
-    care_object_notes_step_text,
-    care_object_saved_keyboard,
-    care_object_size_keyboard,
-    care_object_size_step_text,
-    care_object_skip_keyboard,
-    care_object_species_step_text,
-    care_object_updated_text,
-    fallback_keyboard,
-    order_objects_keyboard,
-    order_objects_step_text,
-    retry_later_text,
-    use_buttons_text,
-    validation_error_text,
+from customer_bot.presentation.ui.screens import (
+    CareObjectAgeStepScreen,
+    CareObjectBreedStepScreen,
+    CareObjectCreatedScreen,
+    CareObjectMobilityStepScreen,
+    CareObjectNameStepScreen,
+    CareObjectNotesStepScreen,
+    CareObjectSizeStepScreen,
+    CareObjectSpeciesStepScreen,
+    CareObjectUpdatedScreen,
+    OrderObjectsStepScreen,
+    RetryLaterScreen,
 )
-from customer_bot.presentation.ui.keyboards import CARE_OBJECT_TYPE_LABELS
+
+CARE_OBJECT_TYPE_LABELS = {
+    "child": "Ребенок",
+    "ward": "Подопечный",
+    "pet": "Питомец",
+}
 
 router = Router(name="care_objects_create")
 logger = logging.getLogger(__name__)
@@ -70,7 +67,7 @@ async def add_care_object(
                 "object_type": object_type,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     await state.set_state(CareObjectManagement.name)
     await state.update_data(draft={"object_type": object_type})
@@ -78,7 +75,10 @@ async def add_care_object(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_name_step_text(CARE_OBJECT_TYPE_LABELS[object_type]),
+        text=(screen := CareObjectNameStepScreen(
+            SimpleNamespace(object_type_label=CARE_OBJECT_TYPE_LABELS[object_type])
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -96,7 +96,15 @@ async def enter_name(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text="Введите имя текстом.",
+            text=(screen := CareObjectNameStepScreen(
+                SimpleNamespace(
+                    object_type_label=CARE_OBJECT_TYPE_LABELS.get(
+                        str(care_object_draft(await state.get_data()).get("object_type")),
+                        "Объект ухода",
+                    )
+                )
+            ).build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -109,8 +117,10 @@ async def enter_name(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_age_step_text(),
-        reply_markup=care_object_age_keyboard(str(draft["object_type"])),
+        text=(screen := CareObjectAgeStepScreen(
+            SimpleNamespace(object_type=str(draft["object_type"]))
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -139,7 +149,8 @@ async def enter_age(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=care_object_species_step_text(),
+            text=(screen := CareObjectSpeciesStepScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -149,8 +160,8 @@ async def enter_age(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=care_object_mobility_step_text(),
-            reply_markup=care_object_mobility_keyboard(),
+            text=(screen := CareObjectMobilityStepScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -159,8 +170,8 @@ async def enter_age(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_notes_step_text(),
-        reply_markup=care_object_skip_keyboard(),
+        text=(screen := CareObjectNotesStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -178,7 +189,8 @@ async def enter_species(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text="Введите вид питомца текстом.",
+            text=(screen := CareObjectSpeciesStepScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -191,8 +203,8 @@ async def enter_species(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_breed_step_text(),
-        reply_markup=care_object_skip_keyboard(),
+        text=(screen := CareObjectBreedStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -215,8 +227,8 @@ async def enter_breed(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_size_step_text(),
-        reply_markup=care_object_size_keyboard(),
+        text=(screen := CareObjectSizeStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -234,8 +246,8 @@ async def skip_breed(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_size_step_text(),
-        reply_markup=care_object_size_keyboard(),
+        text=(screen := CareObjectSizeStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -262,8 +274,8 @@ async def enter_size(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_notes_step_text(),
-        reply_markup=care_object_skip_keyboard(),
+        text=(screen := CareObjectNotesStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -290,8 +302,8 @@ async def enter_mobility(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_notes_step_text(),
-        reply_markup=care_object_skip_keyboard(),
+        text=(screen := CareObjectNotesStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -394,7 +406,8 @@ async def _create_from_draft(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=validation_error_text(str(exc)),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         await state.clear()
@@ -412,7 +425,8 @@ async def _create_from_draft(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -440,10 +454,16 @@ async def _create_from_draft(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=care_object_updated_text()
-        if optional_str(draft.get("edit_id")) is not None
-        else care_object_created_text(),
-        reply_markup=care_object_saved_keyboard(str(draft["object_type"])),
+        text=(screen := (
+            CareObjectUpdatedScreen(
+                SimpleNamespace(object_type=str(draft["object_type"]))
+            )
+            if optional_str(draft.get("edit_id")) is not None
+            else CareObjectCreatedScreen(
+                SimpleNamespace(object_type=str(draft["object_type"]))
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -464,8 +484,10 @@ async def _return_to_order_objects(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=care_object_created_text(),
-            reply_markup=fallback_keyboard(),
+            text=(screen := CareObjectCreatedScreen(
+                SimpleNamespace(object_type=str(draft.get("object_type", "")))
+            ).build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -486,7 +508,8 @@ async def _return_to_order_objects(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -503,10 +526,18 @@ async def _return_to_order_objects(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_objects_step_text(
-            selected_count=0,
-            max_count=int(str(order_draft.get("max_objects_per_order", 1))),
-        ),
-        reply_markup=order_objects_keyboard(objects),
+        text=(screen := OrderObjectsStepScreen(
+            SimpleNamespace(
+                max_count=int(str(order_draft.get("max_objects_per_order", 1))),
+                selected_count=0,
+                selected_ids=(),
+                items=tuple(
+                    SimpleNamespace(id=str(item.id), display_name=item.display_name)
+                    for item in objects
+                ),
+                can_finish=False,
+            )
+        ).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )

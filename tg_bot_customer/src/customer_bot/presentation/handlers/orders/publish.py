@@ -21,12 +21,9 @@ from customer_bot.presentation.handlers.orders.state import (
     string_list,
 )
 from customer_bot.presentation.services import TelegramResponder
-from customer_bot.presentation.ui import (
-    order_published_keyboard,
-    order_published_text,
-    retry_later_text,
-    use_buttons_text,
-    validation_error_text,
+from customer_bot.presentation.ui.screens import (
+    OrderPublishedScreen,
+    RetryLaterScreen,
 )
 
 router = Router(name="orders_publish")
@@ -75,7 +72,8 @@ async def publish_pool(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=validation_error_text(str(exc)),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -91,7 +89,8 @@ async def publish_pool(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -107,8 +106,8 @@ async def publish_pool(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_published_text(order),
-        reply_markup=order_published_keyboard(order),
+        text=(screen := OrderPublishedScreen(order).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 
@@ -135,7 +134,7 @@ async def publish_direct(
                 "index": callback_data.index,
             },
         )
-        await telegram_responder.acknowledge(callback, use_buttons_text())
+        await telegram_responder.acknowledge(callback)
         return
     data = await state.get_data()
     order_draft = draft(data)
@@ -171,7 +170,8 @@ async def publish_direct(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=validation_error_text(str(exc)),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -187,7 +187,8 @@ async def publish_direct(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
@@ -203,7 +204,8 @@ async def publish_direct(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=order_published_text(order),
+        text=(screen := OrderPublishedScreen(order).build()).text,
+        reply_markup=screen.reply_markup,
         create_new=True,
     )
 

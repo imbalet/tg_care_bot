@@ -1,4 +1,5 @@
 import logging
+from types import SimpleNamespace
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
@@ -18,11 +19,7 @@ from customer_bot.presentation.navigation import (
     show_category_select,
 )
 from customer_bot.presentation.services import TelegramResponder
-from customer_bot.presentation.ui import (
-    fallback_keyboard,
-    help_text,
-    unavailable_action_text,
-)
+from customer_bot.presentation.ui.screens import HelpScreen, StaleActionScreen
 
 router = Router(name="category")
 logger = logging.getLogger(__name__)
@@ -47,8 +44,10 @@ async def select_category(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
-                text=help_text(),
-                reply_markup=fallback_keyboard(include_main_menu=False),
+                text=(screen := HelpScreen(
+                    SimpleNamespace(include_main_menu=False)
+                ).build()).text,
+                reply_markup=screen.reply_markup,
             )
             return
         categories = await list_categories(backend_client)
@@ -150,6 +149,6 @@ async def _show_unavailable(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=unavailable_action_text(),
-        reply_markup=fallback_keyboard(),
+        text=(screen := StaleActionScreen().build()).text,
+        reply_markup=screen.reply_markup,
     )
