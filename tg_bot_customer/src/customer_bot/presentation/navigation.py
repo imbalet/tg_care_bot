@@ -70,6 +70,7 @@ async def show_category_menu(
     telegram_user_context: TelegramUserContext,
     telegram_responder: TelegramResponder,
     category: ServiceCategoryDTO,
+    force_create_new: bool = False,
 ) -> None:
     screen = MenuScreen(category).build()
     await telegram_responder.update(
@@ -78,4 +79,5 @@ async def show_category_menu(
         telegram_id=telegram_user_context.telegram_id,
         text=screen.text,
         reply_markup=screen.reply_markup,
+        create_new=force_create_new,
     )
