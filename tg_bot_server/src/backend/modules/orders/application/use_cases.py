@@ -80,6 +80,8 @@ class CancelOrderCommand:
     order_id: UUID
     actor_type: str
     actor_id: UUID
+    reason: str | None = None
+    comment: str | None = None
 
 
 class CreatePoolOrderUseCase:
@@ -294,6 +296,8 @@ class CancelOrderUseCase:
             actor_id=command.actor_id,
             customer_deadline_minutes=customer_minutes,
             performer_deadline_minutes=performer_minutes,
+            reason=command.reason,
+            comment=command.comment,
         )
 
 

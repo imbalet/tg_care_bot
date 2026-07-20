@@ -1,13 +1,17 @@
+import json
 from collections.abc import Awaitable, Callable
 from typing import Any, cast
 from uuid import UUID
 
 from fastapi import Request
+from sqlalchemy import select
 from starlette.responses import Response
 from starlette_admin import action
+from starlette_admin._types import RequestAction
 from starlette_admin.auth import AdminUser, AuthProvider
 from starlette_admin.contrib.sqla import Admin, ModelView
 from starlette_admin.exceptions import FormValidationError, LoginFailed
+from starlette_admin.fields import JSONField
 
 from backend.bootstrap.container import Container
 from backend.common.domain import (
@@ -47,8 +51,10 @@ from backend.modules.orders.infrastructure import (
     OrderMatchModel,
     OrderModel,
     OrderOptionValueModel,
+    OrderReportModel,
     OrderStatusHistoryModel,
 )
+from backend.modules.payments.application import CreateManualRefundCommand
 from backend.modules.payments.infrastructure import PaymentModel, RefundModel
 from backend.modules.performers.application import CreateInvitationCommand
 from backend.modules.performers.infrastructure import (
@@ -57,6 +63,11 @@ from backend.modules.performers.infrastructure import (
     PerformerModel,
     PerformerScheduleModel,
     PerformerServiceModel,
+)
+from backend.modules.support.infrastructure import (
+    AccountDeletionRequestModel,
+    ComplaintModel,
+    SupportRequestModel,
 )
 
 
@@ -134,6 +145,8 @@ class LegalDocumentView(CatalogModelView):
 
 
 class ReadOnlyModelView(ModelView):
+    page_size = 25
+
     def can_create(self, request: Request) -> bool:
         return False
 
@@ -151,8 +164,111 @@ class UseCaseManagedModelView(ReadOnlyModelView):
     """Admin mutations for this model must go through application use cases."""
 
 
+class OperationalModelView(ReadOnlyModelView):
+    search_builder = True
+
+
+class PaymentView(OperationalModelView):
+    exclude_fields_from_detail = ["confirmation_url"]
+    searchable_fields = ["id", "order_id", "provider", "status", "provider_payment_id"]
+    sortable_fields = ["created_at", "expires_at", "paid_at", "amount", "status"]
+
+
+class AuditLogView(OperationalModelView):
+    searchable_fields = ["admin_id", "action", "entity_type", "entity_id"]
+    sortable_fields = ["created_at", "action", "entity_type"]
+
+
+class ReportView(OperationalModelView):
+    def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
+        super().__init__(model, **kwargs)
+        self._container = container
+        self.fields = [*self.fields, JSONField("report_photo_urls", read_only=True)]
+
+    async def serialize(
+        self,
+        obj: Any,
+        request: Request,
+        action: RequestAction,
+        include_relationships: bool = True,
+        include_select2: bool = False,
+    ) -> dict[str, Any]:
+        if action == RequestAction.DETAIL:
+            result = await request.state.session.execute(
+                select(FileModel)
+                .join(FileLinkModel, FileLinkModel.file_id == FileModel.id)
+                .where(
+                    FileLinkModel.entity_type == "order_report",
+                    FileLinkModel.entity_id == obj.id,
+                    FileLinkModel.purpose == "report_photo",
+                    FileModel.status == "uploaded",
+                    FileModel.storage_key.is_not(None),
+                )
+                .order_by(FileLinkModel.sort_order),
+            )
+            obj.report_photo_urls = [
+                await self._container.services()
+                ._storage()
+                .create_download_url(
+                    file.storage_key,
+                )
+                for file in result.scalars()
+                if file.storage_key is not None
+            ]
+        return await super().serialize(
+            obj,
+            request,
+            action,
+            include_relationships=include_relationships,
+            include_select2=include_select2,
+        )
+
+
+class BusinessSettingView(OperationalModelView):
+    actions = ["update_business_setting"]
+
+    @action(
+        name="update_business_setting",
+        text="Update setting",
+        confirmation="Update selected business settings?",
+        submit_btn_text="Save",
+        form='<textarea name="value" required></textarea>',
+    )
+    async def update_business_setting_action(
+        self, request: Request, pks: list[Any]
+    ) -> str:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"id": "Admin session is required"})
+        data = await request.form()
+        raw_value = str(data.get("value", ""))
+        try:
+            value = json.loads(raw_value)
+        except json.JSONDecodeError as exc:
+            raise FormValidationError({"value": "Value must be valid JSON"}) from exc
+        for raw_pk in pks:
+            setting = await request.state.session.get(
+                BusinessSettingModel, UUID(str(raw_pk))
+            )
+            if setting is None:
+                raise FormValidationError({str(raw_pk): "Setting not found"})
+            try:
+                await self._container.services().update_business_setting(
+                    key=setting.key, value=value, admin_id=admin.id
+                )
+            except (NotFoundError, ValidationError) as exc:
+                raise FormValidationError({"value": str(exc)}) from exc
+        return f"Updated settings: {len(pks)}"
+
+    def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
+        super().__init__(model, **kwargs)
+        self._container = container
+
+
 class PerformerView(ReadOnlyModelView):
-    actions = ["activate_performer"]
+    actions = ["activate_performer", "reject_performer"]
+    searchable_fields = ["id", "telegram_id", "full_name", "status", "city_id"]
+    sortable_fields = ["created_at", "updated_at", "status"]
 
     def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
         super().__init__(model, **kwargs)
@@ -184,6 +300,37 @@ class PerformerView(ReadOnlyModelView):
         if errors:
             raise FormValidationError(errors)
         return f"Activated performers: {activated_count}"
+
+    @action(
+        name="reject_performer",
+        text="Reject performer",
+        confirmation="Reject selected performers?",
+        submit_btn_text="Reject",
+        form=(
+            '<input name="reason" required maxlength="200">'
+            '<textarea name="comment" required></textarea>'
+        ),
+    )
+    async def reject_performer_action(self, request: Request, pks: list[Any]) -> str:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"id": "Admin session is required"})
+        data = await request.form()
+        reason = str(data.get("reason", "")).strip()
+        comment = str(data.get("comment", "")).strip()
+        if not reason or not comment:
+            raise FormValidationError({"reason": "Reason and comment are required"})
+        for raw_pk in pks:
+            try:
+                await self._container.services().reject_performer(
+                    performer_id=UUID(str(raw_pk)),
+                    reason=reason,
+                    comment=comment,
+                    admin_id=admin.id,
+                )
+            except (ConflictError, NotFoundError) as exc:
+                raise FormValidationError({str(raw_pk): str(exc)}) from exc
+        return f"Rejected performers: {len(pks)}"
 
 
 class PerformerInvitationView(ReadOnlyModelView):
@@ -267,6 +414,127 @@ class FileReviewView(ReadOnlyModelView):
         return f"Hidden files: {hidden_count}"
 
 
+class OrderView(OperationalModelView):
+    actions = ["cancel_order", "force_close_order"]
+    searchable_fields = [
+        "id",
+        "customer_id",
+        "selected_performer_id",
+        "status",
+        "service_code",
+    ]
+    sortable_fields = ["created_at", "start_at", "end_at", "status", "total_amount"]
+
+    def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
+        super().__init__(model, **kwargs)
+        self._container = container
+
+    @action(
+        name="cancel_order",
+        text="Cancel order",
+        confirmation="Cancel selected orders?",
+        submit_btn_text="Cancel",
+        form='<textarea name="comment" required></textarea>',
+    )
+    async def cancel_order_action(self, request: Request, pks: list[Any]) -> str:
+        return await self._close_orders(request, pks, force=False)
+
+    @action(
+        name="force_close_order",
+        text="Force close order",
+        confirmation="Force close selected non-terminal orders?",
+        submit_btn_text="Force close",
+        form='<textarea name="comment" required></textarea>',
+    )
+    async def force_close_order_action(self, request: Request, pks: list[Any]) -> str:
+        return await self._close_orders(request, pks, force=True)
+
+    async def _close_orders(
+        self, request: Request, pks: list[Any], *, force: bool
+    ) -> str:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"id": "Admin session is required"})
+        comment = str((await request.form()).get("comment", "")).strip()
+        if not comment:
+            raise FormValidationError({"comment": "Comment is required"})
+        closed = 0
+        for raw_pk in pks:
+            order = await request.state.session.get(OrderModel, UUID(str(raw_pk)))
+            if order is None:
+                raise FormValidationError({str(raw_pk): "Order not found"})
+            if force and order.status in {"completed", "cancelled", "expired"}:
+                raise FormValidationError({str(raw_pk): "Order is terminal"})
+            payment = None
+            if order.active_payment_id is not None:
+                payment = await request.state.session.get(
+                    PaymentModel,
+                    order.active_payment_id,
+                )
+            try:
+                await self._container.services().cancel_order(
+                    order_id=order.id,
+                    actor_type="admin",
+                    actor_id=admin.id,
+                    comment=comment,
+                )
+                if force and payment is not None and payment.status == "succeeded":
+                    await self._container.services().create_manual_refund(
+                        CreateManualRefundCommand(
+                            payment_id=payment.id,
+                            amount=payment.amount,
+                            reason=f"admin_force_close: {comment}",
+                            admin_id=admin.id,
+                        )
+                    )
+            except (ConflictError, NotFoundError, ValidationError) as exc:
+                raise FormValidationError({str(raw_pk): str(exc)}) from exc
+            closed += 1
+        return f"Closed orders: {closed}"
+
+
+class SupportRecordView(OperationalModelView):
+    actions = ["update_record"]
+    searchable_fields = ["id", "order_id", "status", "created_at"]
+    sortable_fields = ["created_at", "updated_at", "status"]
+
+    def __init__(
+        self, model: type[Any], container: Container, record_kind: str, **kwargs: Any
+    ) -> None:
+        super().__init__(model, **kwargs)
+        self._container = container
+        self._record_kind = record_kind
+
+    @action(
+        name="update_record",
+        text="Update status",
+        confirmation="Update selected records?",
+        submit_btn_text="Save",
+        form='<input name="status" required><textarea name="comment"></textarea>',
+    )
+    async def update_record_action(self, request: Request, pks: list[Any]) -> str:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"id": "Admin session is required"})
+        data = await request.form()
+        status = str(data.get("status", "")).strip()
+        comment = str(data.get("comment", "")).strip() or None
+        if not status:
+            raise FormValidationError({"status": "Status is required"})
+        for raw_pk in pks:
+            try:
+                await self._container.services().update_support_record(
+                    record_kind=self._record_kind,
+                    record_id=UUID(str(raw_pk)),
+                    status=status,
+                    admin_comment=comment,
+                    admin_id=admin.id,
+                )
+            except (ConflictError, NotFoundError, ValidationError) as exc:
+                raise FormValidationError({str(raw_pk): str(exc)}) from exc
+        return f"Updated records: {len(pks)}"
+
+
 def create_admin_surface(container: Container) -> Admin:
     admin = Admin(
         engine=container.engine,
@@ -283,7 +551,13 @@ def create_admin_surface(container: Container) -> Admin:
     admin.add_view(
         CatalogModelView(ObjectCountMultiplierModel, label="Object count multipliers"),
     )
-    admin.add_view(ReadOnlyModelView(BusinessSettingModel, label="Business settings"))
+    admin.add_view(
+        BusinessSettingView(
+            BusinessSettingModel,
+            container,
+            label="Business settings",
+        ),
+    )
     admin.add_view(LegalDocumentView(LegalDocumentModel, label="Legal documents"))
     admin.add_view(ReadOnlyModelView(CustomerModel, label="Customers"))
     admin.add_view(PerformerView(PerformerModel, container, label="Performers"))
@@ -306,8 +580,8 @@ def create_admin_surface(container: Container) -> Admin:
             label="Performer calendar overrides",
         ),
     )
-    admin.add_view(ReadOnlyModelView(OrderModel, label="Orders"))
-    admin.add_view(ReadOnlyModelView(OrderMatchModel, label="Order matches"))
+    admin.add_view(OrderView(OrderModel, container, label="Orders"))
+    admin.add_view(OperationalModelView(OrderMatchModel, label="Order matches"))
     admin.add_view(ReadOnlyModelView(OrderCareObjectModel, label="Order care objects"))
     admin.add_view(
         ReadOnlyModelView(OrderOptionValueModel, label="Order option values")
@@ -315,13 +589,38 @@ def create_admin_surface(container: Container) -> Admin:
     admin.add_view(
         ReadOnlyModelView(OrderStatusHistoryModel, label="Order status history"),
     )
-    admin.add_view(ReadOnlyModelView(PaymentModel, label="Payments"))
-    admin.add_view(ReadOnlyModelView(RefundModel, label="Refunds"))
+    admin.add_view(PaymentView(PaymentModel, label="Payments"))
+    admin.add_view(OperationalModelView(RefundModel, label="Refunds"))
+    admin.add_view(ReportView(OrderReportModel, container, label="Order reports"))
+    admin.add_view(
+        SupportRecordView(
+            SupportRequestModel,
+            container,
+            "support",
+            label="Support requests",
+        ),
+    )
+    admin.add_view(
+        SupportRecordView(
+            ComplaintModel,
+            container,
+            "complaint",
+            label="Complaints",
+        ),
+    )
+    admin.add_view(
+        SupportRecordView(
+            AccountDeletionRequestModel,
+            container,
+            "deletion",
+            label="Deletion requests",
+        ),
+    )
     admin.add_view(ReadOnlyModelView(CareObjectModel, label="Care objects"))
     admin.add_view(ReadOnlyModelView(AddressModel, label="Addresses"))
     admin.add_view(FileReviewView(FileModel, label="Files"))
     admin.add_view(ReadOnlyModelView(FileLinkModel, label="File links"))
-    admin.add_view(ReadOnlyModelView(AdminAuditLogModel, label="Admin audit"))
+    admin.add_view(AuditLogView(AdminAuditLogModel, label="Admin audit"))
     return admin
 
 

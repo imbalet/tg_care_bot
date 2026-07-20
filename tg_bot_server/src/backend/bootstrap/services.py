@@ -813,6 +813,7 @@ class ApplicationServices:
         order_id: UUID,
         actor_type: str,
         actor_id: UUID,
+        comment: str | None = None,
     ) -> Any:
         async with self._uow() as uow:
             order = await CancelOrderUseCase(
@@ -823,6 +824,8 @@ class ApplicationServices:
                     order_id=order_id,
                     actor_type=actor_type,
                     actor_id=actor_id,
+                    reason="admin_decision" if actor_type == "admin" else None,
+                    comment=comment,
                 ),
             )
             await uow.commit()
@@ -1365,6 +1368,35 @@ class ApplicationServices:
                     entity_type="performer",
                     entity_id=performer.id,
                 )
+            await uow.commit()
+            return performer
+
+    async def reject_performer(
+        self,
+        *,
+        performer_id: UUID,
+        reason: str,
+        comment: str,
+        admin_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            performer = await uow.session.get(PerformerModel, performer_id)
+            if performer is None:
+                raise NotFoundError("Performer not found")
+            if performer.status not in {"invited", "profile_pending"}:
+                raise ConflictError("Performer cannot be rejected in current status")
+            performer.status = "blocked"
+            performer.is_accepting_orders = False
+            performer.blocked_reason = reason
+            performer.updated_at = utc_now()
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="reject_performer",
+                entity_type="performer",
+                entity_id=performer_id,
+                reason=comment,
+                audit_metadata={"blocked_reason": reason},
+            )
             await uow.commit()
             return performer
 

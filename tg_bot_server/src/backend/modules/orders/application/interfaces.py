@@ -71,6 +71,8 @@ class OrderRepository(Protocol):
         actor_id: UUID,
         customer_deadline_minutes: int,
         performer_deadline_minutes: int,
+        reason: str | None = None,
+        comment: str | None = None,
     ) -> OrderDTO:
         pass
 

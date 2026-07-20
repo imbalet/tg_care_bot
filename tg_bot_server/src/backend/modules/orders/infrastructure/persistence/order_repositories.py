@@ -174,6 +174,8 @@ class SqlAlchemyOrderRepository(OrderRepository):
         actor_id: UUID,
         customer_deadline_minutes: int,
         performer_deadline_minutes: int,
+        reason: str | None = None,
+        comment: str | None = None,
     ) -> OrderDTO:
         order = await self._lock_order(order_id)
         now = utc_now()
@@ -198,12 +200,23 @@ class SqlAlchemyOrderRepository(OrderRepository):
         previous_status = order.status
         order.status = "cancelled"
         order.cancelled_by = actor_type
-        order.cancellation_reason = f"{actor_type}_cancelled"
+        order.cancellation_reason = reason or (
+            "admin_decision" if actor_type == "admin" else f"{actor_type}_cancelled"
+        )
+        order.cancellation_comment = comment
         order.cancelled_at = now
         if order.active_payment_id is not None:
             payment = await self._session.get(PaymentModel, order.active_payment_id)
             if payment is not None and payment.status in {"created", "pending"}:
                 payment.status = "cancelled"
+        matches = await self._session.execute(
+            select(OrderMatchModel).where(
+                OrderMatchModel.order_id == order.id,
+                OrderMatchModel.status.in_({"pending", "active"}),
+            ),
+        )
+        for match in matches.scalars():
+            match.status = "cancelled"
         self._add_status_history(
             order.id,
             previous_status,
