@@ -18,7 +18,6 @@ class Screen(BaseScreenNoView):
         )
 
     def _build_keyboard(self) -> Markup:
-        # TODO: unify keyboard
         return (
             InlineKeyboardFactory()
             .button(MsgKey.MAIN_MENU, MainMenuCallback())

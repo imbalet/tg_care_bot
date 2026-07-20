@@ -5,15 +5,6 @@ from uuid import UUID
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from customer_bot.presentation.handlers.addresses.state import (
-    EXTRA_FIELDS,
-    AddressManagement,
-    address_draft,
-    extra_index,
-    optional_str,
-    string_list,
-)
-from customer_bot.presentation.handlers.orders.state import OrderCreation
 
 from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import BackendPort
@@ -24,6 +15,15 @@ from customer_bot.presentation.callbacks import (
     AddressSuggestionCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
+from customer_bot.presentation.handlers.addresses.state import (
+    EXTRA_FIELDS,
+    AddressManagement,
+    address_draft,
+    extra_index,
+    optional_str,
+    string_list,
+)
+from customer_bot.presentation.handlers.orders.state import OrderCreation
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
     AddressCityStepScreen,
@@ -51,7 +51,7 @@ async def add_address(
 ) -> None:
     try:
         cities = await backend_client.list_active_cities()
-    except BackendValidationError as exc:
+    except BackendValidationError:
         logger.warning(
             "Backend rejected address creation start",
             extra={"telegram_id": telegram_user_context.telegram_id},
@@ -108,20 +108,20 @@ async def select_city(
     callback_data: AddressCityCallback,
 ) -> None:
     data = await state.get_data()
-    index = callback_data.index
+    city_id = callback_data.city_id
     city_ids = string_list(data["city_ids"])
-    if index < 0 or index >= len(city_ids):
+    if str(city_id) not in city_ids:
         logger.warning(
             "Invalid address city callback index",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "index": index,
+                "city_id": str(city_id),
             },
         )
         await telegram_responder.acknowledge(callback)
         return
     draft = address_draft(data)
-    draft["city_id"] = city_ids[index]
+    draft["city_id"] = str(city_id)
     await state.update_data(address_draft=draft)
     await state.set_state(AddressManagement.query)
     await telegram_responder.update(
@@ -345,7 +345,7 @@ async def _advance_or_create(
             apartment=optional_str(draft.get("apartment")),
             comment=optional_str(draft.get("comment")),
         )
-    except BackendValidationError as exc:
+    except BackendValidationError:
         logger.warning(
             "Backend rejected address creation",
             extra={"telegram_id": telegram_user_context.telegram_id},

@@ -80,7 +80,7 @@ class _View(Protocol):
     def matching_deadline_at(self) -> datetime: ...
 
     @property
-    def payment_confirmation_url(self) -> str: ...
+    def payment_confirmation_url(self) -> str | None: ...
 
 
 class Screen(BaseScreen[_View]):
@@ -111,7 +111,10 @@ class Screen(BaseScreen[_View]):
             lines.extend(
                 (
                     "",
-                    "Контакты и точный адрес откроются в следующем срезе contact bridge.",  # noqa: E501
+                    (
+                        "Контакты и точный адрес будут доступны после "
+                        "подтверждения заказа."
+                    ),
                 ),
             )
         return "\n".join(lines)
@@ -122,8 +125,7 @@ class Screen(BaseScreen[_View]):
         order_id = self.data.id
         status = self.data.status
         matching_mode = self.data.matching_mode
-        # TODO: сомнительно
-        if payment_url.startswith("https://"):
+        if payment_url and payment_url.startswith("https://"):
             keyboard.url_button("Оплатить", payment_url)
         if status == "waiting_payment":
             keyboard.button(

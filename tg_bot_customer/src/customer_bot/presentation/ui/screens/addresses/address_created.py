@@ -1,3 +1,4 @@
+from customer_bot.presentation.ui.screens.common._keyboard import fallback_keyboard
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreenNoView,
     Markup,
@@ -9,5 +10,4 @@ class Screen(BaseScreenNoView):
         return "Адрес сохранен."
 
     def _build_keyboard(self) -> Markup:
-        # TODO: клавиатура
-        return super()._build_keyboard()
+        return fallback_keyboard()

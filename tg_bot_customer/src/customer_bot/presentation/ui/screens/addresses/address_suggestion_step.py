@@ -21,8 +21,12 @@ type _View = Sequence[_Adress]
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
-        # TODO: писать адреса тут а не в кнопках
-        return "<b>Подсказки адреса</b>\n\nВыберите подходящий вариант."
+        lines = ["<b>Подсказки адреса</b>", "", "Выберите подходящий вариант:"]
+        lines.extend(
+            f"{index}. {suggestion.value}"
+            for index, suggestion in enumerate(self.data, start=1)
+        )
+        return "\n".join(lines)
 
     def _build_keyboard(self) -> Markup:
         keyboard = InlineKeyboardFactory()

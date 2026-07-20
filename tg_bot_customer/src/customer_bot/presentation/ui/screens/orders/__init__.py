@@ -3,6 +3,8 @@ from .my_orders_page import Screen as MyOrdersPageScreen
 from .order_address_step import Screen as OrderAddressStepScreen
 from .order_comment_step import Screen as OrderCommentStepScreen
 from .order_datetime_manual_step import Screen as OrderDatetimeManualStepScreen
+from .order_direct_selection import Screen as OrderDirectSelectionScreen
+from .order_direct_unavailable import Screen as OrderDirectUnavailableScreen
 from .order_draft_summary import Screen as OrderDraftSummaryScreen
 from .order_duration_step import Screen as OrderDurationStepScreen
 from .order_matches import Screen as OrderMatchesScreen
@@ -29,6 +31,8 @@ __all__ = [
     "OrderCommentStepScreen",
     "OrderDatetimeManualStepScreen",
     "OrderDraftSummaryScreen",
+    "OrderDirectSelectionScreen",
+    "OrderDirectUnavailableScreen",
     "OrderDurationStepScreen",
     "OrderMatchesScreen",
     "OrderNoAddressesScreen",

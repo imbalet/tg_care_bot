@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from typing import Protocol
+from uuid import UUID
 
 from customer_bot.presentation.callbacks import (
     MainMenuCallback,
@@ -43,12 +44,12 @@ class Screen(BaseScreen[_View]):
     def _build_keyboard(self) -> Markup:
         keyboard = InlineKeyboardFactory()
         selected = set(self.data.selected_ids)
-        for index, item in enumerate(self.data.items):
+        for item in self.data.items:
             item_id = item.id
             marker = "✓ " if item_id in selected else ""
             keyboard.button(
                 f"{marker}{item.name}",
-                OrderOptionToggleCallback(index=index),
+                OrderOptionToggleCallback(option_id=UUID(str(item.id))),
             )
         return (
             keyboard.button("Готово", OrderOptionsDoneCallback())

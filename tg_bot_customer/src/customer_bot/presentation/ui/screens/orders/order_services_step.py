@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from typing import Protocol
+from uuid import UUID
 
 from customer_bot.presentation.callbacks import (
     MainMenuCallback,
@@ -15,6 +16,9 @@ from customer_bot.presentation.ui.texts.labels import MsgKey
 
 class _Item(Protocol):
     @property
+    def id(self) -> object: ...
+
+    @property
     def name(self) -> str: ...
 
 
@@ -29,6 +33,9 @@ class Screen(BaseScreen[_View]):
 
     def _build_keyboard(self) -> Markup:
         keyboard = InlineKeyboardFactory()
-        for index, item in enumerate(self.data.services):
-            keyboard.button(item.name, OrderServiceCallback(index=index))
+        for item in self.data.services:
+            keyboard.button(
+                item.name,
+                OrderServiceCallback(service_id=UUID(str(item.id))),
+            )
         return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()

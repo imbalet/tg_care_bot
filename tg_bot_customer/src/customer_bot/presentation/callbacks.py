@@ -73,7 +73,7 @@ class RegistrationLegalAcceptCallback(CallbackData, prefix="reg_legal"):
 
 
 class RegistrationCityCallback(CallbackData, prefix="reg_city"):
-    index: int
+    city_id: UUID
 
 
 class RegistrationContactCallback(CallbackData, prefix="reg_contact"):
@@ -97,20 +97,19 @@ class CareObjectAddCallback(CallbackData, prefix="care_add"):
 
 
 class CareObjectSelectCallback(CallbackData, prefix="care_select"):
-    index: int
+    care_object_id: UUID
 
 
 class CareObjectEditCallback(CallbackData, prefix="care_edit"):
-    index: int
+    care_object_id: UUID
 
 
 class CareObjectDeleteCallback(CallbackData, prefix="care_delete"):
-    index: int
+    care_object_id: UUID
 
 
 class CareObjectDeleteConfirmCallback(CallbackData, prefix="care_delete_ok"):
-    # TODO: тут и связанное переделать на UUID
-    index: int
+    care_object_id: UUID
 
 
 class CareObjectAgeCallback(CallbackData, prefix="care_age"):
@@ -138,19 +137,19 @@ class AddressAddCallback(CallbackData, prefix="addr_add"):
 
 
 class AddressSelectCallback(CallbackData, prefix="addr_select"):
-    index: int
+    address_id: UUID
 
 
 class AddressDeleteCallback(CallbackData, prefix="addr_delete"):
-    index: int
+    address_id: UUID
 
 
 class AddressDeleteConfirmCallback(CallbackData, prefix="addr_delete_ok"):
-    index: int
+    address_id: UUID
 
 
 class AddressCityCallback(CallbackData, prefix="addr_city"):
-    index: int
+    city_id: UUID
 
 
 class AddressSuggestionCallback(CallbackData, prefix="addr_suggestion"):
@@ -174,11 +173,11 @@ class OrderAddAddressCallback(CallbackData, prefix="order_add_address"):
 
 
 class OrderServiceCallback(CallbackData, prefix="order_service"):
-    index: int
+    service_id: UUID
 
 
 class OrderObjectCallback(CallbackData, prefix="order_object"):
-    index: int
+    care_object_id: UUID
 
 
 class OrderObjectsDoneCallback(CallbackData, prefix="order_objects_done"):
@@ -186,7 +185,7 @@ class OrderObjectsDoneCallback(CallbackData, prefix="order_objects_done"):
 
 
 class OrderOptionToggleCallback(CallbackData, prefix="order_option"):
-    index: int
+    option_id: UUID
 
 
 class OrderOptionsDoneCallback(CallbackData, prefix="order_options_done"):
@@ -202,7 +201,7 @@ class OrderStartTimeCallback(CallbackData, prefix="order_start_time"):
 
 
 class OrderAddressCallback(CallbackData, prefix="order_address"):
-    index: int
+    address_id: UUID
 
 
 class OrderPhotoConsentCallback(CallbackData, prefix="order_photo"):
@@ -217,5 +216,21 @@ class OrderPublishPoolCallback(CallbackData, prefix="order_publish_pool"):
     pass
 
 
+class OrderDirectOpenCallback(CallbackData, prefix="order_direct_open"):
+    pass
+
+
+class OrderDirectNextCallback(CallbackData, prefix="order_direct_next"):
+    pass
+
+
+class OrderDirectPreviousCallback(CallbackData, prefix="order_direct_prev"):
+    pass
+
+
+class OrderDirectBackCallback(CallbackData, prefix="order_direct_back"):
+    pass
+
+
 class OrderPublishDirectCallback(CallbackData, prefix="order_publish_direct"):
-    index: int
+    performer_id: UUID

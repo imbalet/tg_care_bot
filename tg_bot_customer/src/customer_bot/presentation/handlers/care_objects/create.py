@@ -75,9 +75,11 @@ async def add_care_object(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := CareObjectNameStepScreen(
-            SimpleNamespace(object_type_label=CARE_OBJECT_TYPE_LABELS[object_type])
-        ).build()).text,
+        text=(
+            screen := CareObjectNameStepScreen(
+                SimpleNamespace(object_type_label=CARE_OBJECT_TYPE_LABELS[object_type])
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )
@@ -96,14 +98,20 @@ async def enter_name(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=(screen := CareObjectNameStepScreen(
-                SimpleNamespace(
-                    object_type_label=CARE_OBJECT_TYPE_LABELS.get(
-                        str(care_object_draft(await state.get_data()).get("object_type")),
-                        "Объект ухода",
+            text=(
+                screen := CareObjectNameStepScreen(
+                    SimpleNamespace(
+                        object_type_label=CARE_OBJECT_TYPE_LABELS.get(
+                            str(
+                                care_object_draft(await state.get_data()).get(
+                                    "object_type"
+                                )
+                            ),
+                            "Объект ухода",
+                        )
                     )
-                )
-            ).build()).text,
+                ).build()
+            ).text,
             reply_markup=screen.reply_markup,
             create_new=True,
         )
@@ -117,9 +125,11 @@ async def enter_name(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := CareObjectAgeStepScreen(
-            SimpleNamespace(object_type=str(draft["object_type"]))
-        ).build()).text,
+        text=(
+            screen := CareObjectAgeStepScreen(
+                SimpleNamespace(object_type=str(draft["object_type"]))
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )
@@ -394,7 +404,7 @@ async def _create_from_draft(
                 routine_notes=optional_str(draft.get("routine_notes")),
                 behavior_notes=optional_str(draft.get("behavior_notes")),
             )
-    except BackendValidationError as exc:
+    except BackendValidationError:
         logger.warning(
             "Backend rejected care object creation",
             extra={
@@ -454,15 +464,17 @@ async def _create_from_draft(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := (
-            CareObjectUpdatedScreen(
-                SimpleNamespace(object_type=str(draft["object_type"]))
-            )
-            if optional_str(draft.get("edit_id")) is not None
-            else CareObjectCreatedScreen(
-                SimpleNamespace(object_type=str(draft["object_type"]))
-            )
-        ).build()).text,
+        text=(
+            screen := (
+                CareObjectUpdatedScreen(
+                    SimpleNamespace(object_type=str(draft["object_type"]))
+                )
+                if optional_str(draft.get("edit_id")) is not None
+                else CareObjectCreatedScreen(
+                    SimpleNamespace(object_type=str(draft["object_type"]))
+                )
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )
@@ -484,9 +496,7 @@ async def _return_to_order_objects(
             bot=bot,
             event=event,
             telegram_id=telegram_user_context.telegram_id,
-            text=(screen := CareObjectCreatedScreen(
-                SimpleNamespace(object_type=str(draft.get("object_type", "")))
-            ).build()).text,
+            text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
             create_new=True,
         )
@@ -526,18 +536,20 @@ async def _return_to_order_objects(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := OrderObjectsStepScreen(
-            SimpleNamespace(
-                max_count=int(str(order_draft.get("max_objects_per_order", 1))),
-                selected_count=0,
-                selected_ids=(),
-                items=tuple(
-                    SimpleNamespace(id=str(item.id), display_name=item.display_name)
-                    for item in objects
-                ),
-                can_finish=False,
-            )
-        ).build()).text,
+        text=(
+            screen := OrderObjectsStepScreen(
+                SimpleNamespace(
+                    max_count=int(str(order_draft.get("max_objects_per_order", 1))),
+                    selected_count=0,
+                    selected_ids=(),
+                    items=tuple(
+                        SimpleNamespace(id=str(item.id), display_name=item.display_name)
+                        for item in objects
+                    ),
+                    can_finish=False,
+                )
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )

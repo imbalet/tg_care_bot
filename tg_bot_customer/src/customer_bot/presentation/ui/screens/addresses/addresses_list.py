@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from typing import Protocol
+from uuid import UUID
 
 from customer_bot.presentation.callbacks import (
     AddressAddCallback,
@@ -15,6 +16,9 @@ from customer_bot.presentation.ui.texts.labels import MsgKey
 
 
 class _AddressItem(Protocol):
+    @property
+    def id(self) -> object: ...
+
     @property
     def address_text(self) -> str: ...
 
@@ -39,5 +43,8 @@ class Screen(BaseScreen[_View]):
         )
         for index, item in enumerate(self.data.items):
             address_text = getattr(item, "address_text", f"#{index + 1}")
-            keyboard.button(str(address_text), AddressSelectCallback(index=index))
+            keyboard.button(
+                str(address_text),
+                AddressSelectCallback(address_id=UUID(str(item.id))),
+            )
         return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()

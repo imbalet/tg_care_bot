@@ -13,7 +13,7 @@ from customer_bot.presentation.callbacks import (
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.care_objects.state import (
-    care_object_by_index,
+    care_object_by_id,
     care_object_state,
 )
 from customer_bot.presentation.navigation import (
@@ -82,14 +82,16 @@ async def open_care_objects(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := CareObjectListScreen(
-            SimpleNamespace(
-                category=category.name if category is not None else "Объекты ухода",
-                object_type=object_type or "",
-                count=len(items),
-                items=items,
-            )
-        ).build()).text,
+        text=(
+            screen := CareObjectListScreen(
+                SimpleNamespace(
+                    category=category.name if category is not None else "Объекты ухода",
+                    object_type=object_type or "",
+                    count=len(items),
+                    items=items,
+                )
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )
@@ -104,13 +106,13 @@ async def select_care_object(
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectSelectCallback,
 ) -> None:
-    item = await care_object_by_index(state, callback_data.index)
+    item = await care_object_by_id(state, callback_data.care_object_id)
     if item is None:
         logger.warning(
             "Stale care object select callback",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "index": callback_data.index,
+                "care_object_id": str(callback_data.care_object_id),
             },
         )
         await telegram_responder.update(
@@ -122,32 +124,27 @@ async def select_care_object(
             create_new=True,
         )
         return
-    index = item["index"]
-    if not isinstance(index, int):
-        logger.warning(
-            "Invalid care object index in state",
-            extra={"telegram_id": telegram_user_context.telegram_id},
-        )
-        await telegram_responder.acknowledge(callback)
-        return
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := CareObjectCardScreen(
-            SimpleNamespace(
-                index=index,
-                object_type=str(item["object_type"]),
-                display_name=str(item["display_name"]),
-                age_group=str(item["age_group"]),
-                species=str(item.get("species") or ""),
-                breed=str(item.get("breed") or ""),
-                pet_size=str(item.get("pet_size") or ""),
-                mobility_assistance_required=item.get(
-                    "mobility_assistance_required"
-                ) is True,
-            )
-        ).build()).text,
+        text=(
+            screen := CareObjectCardScreen(
+                SimpleNamespace(
+                    id=str(item["id"]),
+                    object_type=str(item["object_type"]),
+                    display_name=str(item["display_name"]),
+                    age_group=str(item["age_group"]),
+                    species=str(item.get("species") or ""),
+                    breed=str(item.get("breed") or ""),
+                    pet_size=str(item.get("pet_size") or ""),
+                    mobility_assistance_required=item.get(
+                        "mobility_assistance_required"
+                    )
+                    is True,
+                )
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )

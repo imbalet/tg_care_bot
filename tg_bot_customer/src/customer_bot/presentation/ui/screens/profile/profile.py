@@ -48,5 +48,4 @@ class Screen(BaseScreen[_View]):
         )
 
     def _build_keyboard(self) -> Markup:
-        # TODO: добавить редактирование профиля
         return fallback_keyboard(include_main_menu=True)

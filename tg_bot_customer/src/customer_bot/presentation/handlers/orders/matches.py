@@ -143,13 +143,15 @@ async def select_order_match(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := OrderResponseSelectedScreen(
-            SimpleNamespace(
-                order_status=action.order_status,
-                id=action.order_id,
-                payment_confirmation_url=action.payment_confirmation_url,
-            )
-        ).build()).text,
+        text=(
+            screen := OrderResponseSelectedScreen(
+                SimpleNamespace(
+                    order_status=action.order_status,
+                    id=action.order_id,
+                    payment_confirmation_url=action.payment_confirmation_url,
+                )
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )
@@ -195,15 +197,17 @@ async def refresh_payment_status(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := PaymentStatusScreen(
-            SimpleNamespace(
-                id=status.order_id,
-                order_status=status.order_status,
-                payment_status=status.payment_status,
-                confirmation_url=status.confirmation_url,
-                expires_at=status.expires_at,
-            )
-        ).build()).text,
+        text=(
+            screen := PaymentStatusScreen(
+                SimpleNamespace(
+                    id=status.order_id,
+                    order_status=status.order_status,
+                    payment_status=status.payment_status,
+                    confirmation_url=status.confirmation_url,
+                    expires_at=status.expires_at,
+                )
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )

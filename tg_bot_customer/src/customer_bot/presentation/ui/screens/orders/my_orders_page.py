@@ -123,7 +123,6 @@ class Screen(BaseScreen[_View]):
                         page=page_number,
                     ),
                 )
-        # TODO: ENUM
         if self.data.group != "active":
             keyboard.button("Активные", OrdersPageCallback(group="active", page=1))
         if self.data.group != "archive":

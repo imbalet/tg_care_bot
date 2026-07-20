@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from html import escape
 from typing import Protocol
+from uuid import UUID
 
 from customer_bot.presentation.callbacks import (
     CareObjectAddCallback,
@@ -27,6 +28,9 @@ class _Category(Protocol):
 
 
 class _Items(Protocol):
+    @property
+    def id(self) -> object: ...
+
     @property
     def display_name(self) -> str: ...
 
@@ -66,7 +70,10 @@ class Screen(BaseScreen[_View]):
             )
             keyboard.button(MsgKey.ADD_WARD, CareObjectAddCallback(object_type="ward"))
             keyboard.button(MsgKey.ADD_PET, CareObjectAddCallback(object_type="pet"))
-        for index, item in enumerate(self.data.items):
+        for item in self.data.items:
             display_name = item.display_name
-            keyboard.button(str(display_name), CareObjectSelectCallback(index=index))
+            keyboard.button(
+                str(display_name),
+                CareObjectSelectCallback(care_object_id=UUID(str(item.id))),
+            )
         return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()

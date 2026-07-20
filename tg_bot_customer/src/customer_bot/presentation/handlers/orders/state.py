@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+from uuid import UUID
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -20,6 +22,25 @@ class OrderCreation(StatesGroup):
     photo_consent = State()
     comment = State()
     publish = State()
+
+
+@dataclass(frozen=True, slots=True)
+class PerformerView:
+    performer_id: UUID
+    full_name: str
+    service_name: str
+    distance_km: object
+
+
+@dataclass(frozen=True, slots=True)
+class OrderSummaryView:
+    service_name: str
+    duration_minutes: int
+    objects_count: int
+    service_amount: object
+    platform_fee_amount: object
+    total_amount: object
+    performers_count: int
 
 
 def service_states(
@@ -67,7 +88,22 @@ def selected_ids(data: dict[str, object]) -> list[str]:
 
 
 def performer_state(item: SuitablePerformerDTO) -> dict[str, object]:
-    return {"performer_id": str(item.performer_id), "full_name": item.full_name}
+    return {
+        "performer_id": str(item.performer_id),
+        "full_name": item.full_name,
+        "service_name": item.service_name,
+        "distance_km": str(item.distance_km) if item.distance_km is not None else None,
+    }
+
+
+def performer_view(value: dict[str, object]) -> PerformerView:
+    distance = value.get("distance_km")
+    return PerformerView(
+        performer_id=UUID(str(value["performer_id"])),
+        full_name=str(value["full_name"]),
+        service_name=str(value.get("service_name") or "Услуга"),
+        distance_km=distance,
+    )
 
 
 async def item_by_index(
@@ -81,6 +117,25 @@ async def item_by_index(
         return None
     item = items[index]
     return item if isinstance(item, dict) else None
+
+
+async def item_by_id(
+    state: FSMContext,
+    key: str,
+    item_id: UUID,
+    *,
+    id_key: str = "id",
+) -> dict[str, object] | None:
+    data = await state.get_data()
+    items = data.get(key)
+    if not isinstance(items, list):
+        return None
+    for value in items:
+        if not isinstance(value, dict):
+            continue
+        if str(value.get(id_key)) == str(item_id):
+            return dict(value)
+    return None
 
 
 def parse_local_datetime(value: str) -> datetime | None:
@@ -109,13 +164,36 @@ def parse_duration_interval(
         return None
     if amount < 1:
         return None
-    if _uses_days(draft_data):
-        return timedelta(days=amount)
-    return timedelta(hours=amount)
+    unit = duration_unit(draft_data)
+    multiplier = {"days": 1440, "hours": 60, "minutes": 1}[unit]
+    duration_minutes = amount * multiplier
+    minimum = draft_data.get("min_duration_minutes")
+    maximum = draft_data.get("max_duration_minutes")
+    step = draft_data.get("duration_step_minutes")
+    if isinstance(minimum, int) and duration_minutes < minimum:
+        return None
+    if isinstance(maximum, int) and duration_minutes > maximum:
+        return None
+    if isinstance(step, int) and step > 0 and duration_minutes % step != 0:
+        return None
+    return timedelta(minutes=duration_minutes)
 
 
-def uses_days(draft_data: dict[str, object]) -> bool:
-    return _uses_days(draft_data)
+def duration_unit(draft_data: dict[str, object]) -> str:
+    multiday = (
+        draft_data.get("allows_multiday") is True
+        or draft_data.get("price_type") == "started_24h"
+    )
+    divisor = 1440 if multiday else 60
+    for key in (
+        "min_duration_minutes",
+        "max_duration_minutes",
+        "duration_step_minutes",
+    ):
+        value = draft_data.get(key)
+        if isinstance(value, int) and value % divisor != 0:
+            return "minutes"
+    return "days" if multiday else "hours"
 
 
 def _uses_days(draft_data: dict[str, object]) -> bool:

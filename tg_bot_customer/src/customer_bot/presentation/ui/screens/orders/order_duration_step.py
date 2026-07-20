@@ -7,10 +7,13 @@ from customer_bot.presentation.ui.screens.screen import (
 
 class _View(Protocol):
     @property
-    def uses_days(self) -> bool: ...
+    def unit(self) -> str: ...
 
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
-        unit = "суток" if self.data.uses_days else "часов"
+        unit = {"days": "суток", "hours": "часов", "minutes": "минут"}.get(
+            self.data.unit,
+            "минут",
+        )
         return f"<b>Длительность</b>\n\nВведите количество {unit} целым числом."

@@ -44,9 +44,11 @@ async def select_category(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
-                text=(screen := HelpScreen(
-                    SimpleNamespace(include_main_menu=False)
-                ).build()).text,
+                text=(
+                    screen := HelpScreen(
+                        SimpleNamespace(include_main_menu=False)
+                    ).build()
+                ).text,
                 reply_markup=screen.reply_markup,
             )
             return

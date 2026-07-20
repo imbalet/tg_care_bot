@@ -16,7 +16,7 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.care_objects.state import (
     CareObjectManagement,
-    care_object_by_index,
+    care_object_by_id,
 )
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
@@ -46,13 +46,13 @@ async def edit_care_object(
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectEditCallback,
 ) -> None:
-    item = await care_object_by_index(state, callback_data.index)
+    item = await care_object_by_id(state, callback_data.care_object_id)
     if item is None:
         logger.warning(
             "Stale care object edit callback",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "index": callback_data.index,
+                "care_object_id": str(callback_data.care_object_id),
             },
         )
         await telegram_responder.acknowledge(callback)
@@ -77,11 +77,15 @@ async def edit_care_object(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := CareObjectNameStepScreen(
-            SimpleNamespace(
-                object_type_label=CARE_OBJECT_TYPE_LABELS.get(object_type, object_type)
-            )
-        ).build()).text,
+        text=(
+            screen := CareObjectNameStepScreen(
+                SimpleNamespace(
+                    object_type_label=CARE_OBJECT_TYPE_LABELS.get(
+                        object_type, object_type
+                    )
+                )
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )
@@ -96,13 +100,13 @@ async def delete_care_object(
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectDeleteCallback,
 ) -> None:
-    item = await care_object_by_index(state, callback_data.index)
+    item = await care_object_by_id(state, callback_data.care_object_id)
     if item is None:
         logger.warning(
             "Stale care object delete callback",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "index": callback_data.index,
+                "care_object_id": str(callback_data.care_object_id),
             },
         )
         await telegram_responder.acknowledge(callback)
@@ -111,9 +115,11 @@ async def delete_care_object(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := CareObjectDeleteConfirmScreen(
-            SimpleNamespace(index=callback_data.index)
-        ).build()).text,
+        text=(
+            screen := CareObjectDeleteConfirmScreen(
+                SimpleNamespace(id=str(callback_data.care_object_id))
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )
@@ -129,13 +135,13 @@ async def confirm_delete_care_object(
     telegram_user_context: TelegramUserContext,
     callback_data: CareObjectDeleteConfirmCallback,
 ) -> None:
-    item = await care_object_by_index(state, callback_data.index)
+    item = await care_object_by_id(state, callback_data.care_object_id)
     if item is None:
         logger.warning(
             "Stale care object delete confirm callback",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "index": callback_data.index,
+                "care_object_id": str(callback_data.care_object_id),
             },
         )
         await telegram_responder.acknowledge(callback)
@@ -145,7 +151,7 @@ async def confirm_delete_care_object(
             telegram_id=telegram_user_context.telegram_id,
             care_object_id=UUID(str(item["id"])),
         )
-    except BackendValidationError as exc:
+    except BackendValidationError:
         logger.warning(
             "Backend rejected care object delete",
             extra={
@@ -157,9 +163,11 @@ async def confirm_delete_care_object(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=(screen := CareObjectDeleteBlockedScreen(
-                SimpleNamespace(index=callback_data.index)
-            ).build()).text,
+            text=(
+                screen := CareObjectDeleteBlockedScreen(
+                    SimpleNamespace(id=str(callback_data.care_object_id))
+                ).build()
+            ).text,
             reply_markup=screen.reply_markup,
             create_new=True,
         )

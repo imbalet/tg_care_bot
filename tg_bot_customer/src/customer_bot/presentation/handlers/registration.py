@@ -129,6 +129,12 @@ class _RegistrationData:
             return self.cities[index]
         return None
 
+    def city_by_id(self, city_id: UUID) -> _RegistrationCity | None:
+        for city in self.cities:
+            if city.id == str(city_id):
+                return city
+        return None
+
     def summary_view(self) -> _SummaryView:
         contact_method = _required(self.contact_method, "contact_method")
         return _SummaryView(
@@ -362,14 +368,14 @@ async def enter_city(
     callback_data: RegistrationCityCallback,
 ) -> None:
     registration = await _get_registration_data(state)
-    city = registration.city_at(callback_data.index)
+    city = registration.city_by_id(callback_data.city_id)
 
     if city is None:
         logger.warning(
-            "Invalid registration city callback index",
+            "Invalid registration city callback",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "index": callback_data.index,
+                "city_id": str(callback_data.city_id),
             },
         )
         screen = RegistrationUnavailableScreen().build()

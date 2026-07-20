@@ -1,3 +1,4 @@
+from customer_bot.presentation.ui.screens.common._keyboard import fallback_keyboard
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreenNoView,
     Markup,
@@ -15,5 +16,4 @@ class Screen(BaseScreenNoView):
         return "Карточка удалена из активного списка."
 
     def _build_keyboard(self) -> Markup:
-        # TODO: список объектов ухода
-        return None
+        return fallback_keyboard()

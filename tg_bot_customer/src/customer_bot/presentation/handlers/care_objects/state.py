@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
@@ -43,6 +45,21 @@ async def care_object_by_index(
     item = state_item(items[index])
     item["index"] = index
     return item
+
+
+async def care_object_by_id(
+    state: FSMContext,
+    care_object_id: UUID,
+) -> dict[str, object] | None:
+    data = await state.get_data()
+    items = data.get("care_objects")
+    if not isinstance(items, list):
+        return None
+    for value in items:
+        item = state_item(value)
+        if str(item.get("id")) == str(care_object_id):
+            return item
+    return None
 
 
 def care_object_draft(data: dict[str, object]) -> dict[str, object]:

@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from typing import Protocol
+from uuid import UUID
 
 from customer_bot.presentation.callbacks import (
     MainMenuCallback,
@@ -53,12 +54,12 @@ class Screen(BaseScreen[_View]):
     def _build_keyboard(self) -> Markup:
         selected = set(self.data.selected_ids)
         keyboard = InlineKeyboardFactory()
-        for index, item in enumerate(self.data.items):
+        for item in self.data.items:
             item_id = item.id
             marker = "✓ " if item_id in selected else ""
             keyboard.button(
                 f"{marker}{item.display_name}",
-                OrderObjectCallback(index=index),
+                OrderObjectCallback(care_object_id=UUID(str(item.id))),
             )
         if self.data.can_finish:
             keyboard.button("Готово", OrderObjectsDoneCallback())

@@ -3,6 +3,7 @@ from typing import Protocol
 
 from customer_bot.presentation.callbacks import (
     MainMenuCallback,
+    OrderDirectOpenCallback,
     OrderPublishPoolCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
@@ -56,8 +57,8 @@ class Screen(BaseScreen[_View]):
         )
 
     def _build_keyboard(self) -> Markup:
-        # TODO: кнопка для direct
-        keyboard = InlineKeyboardFactory().button(
-            MsgKey.PUBLISH_POOL, OrderPublishPoolCallback()
-        )
+        keyboard = InlineKeyboardFactory()
+        if self.data.performers_count:
+            keyboard.button(MsgKey.PUBLISH_DIRECT, OrderDirectOpenCallback())
+        keyboard.button(MsgKey.PUBLISH_POOL, OrderPublishPoolCallback())
         return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()

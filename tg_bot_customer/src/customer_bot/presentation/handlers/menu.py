@@ -66,9 +66,11 @@ async def main_menu_callback(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
-                text=(screen := HelpScreen(
-                    SimpleNamespace(include_main_menu=False)
-                ).build()).text,
+                text=(
+                    screen := HelpScreen(
+                        SimpleNamespace(include_main_menu=False)
+                    ).build()
+                ).text,
                 reply_markup=screen.reply_markup,
             )
             return
@@ -140,9 +142,11 @@ async def help_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := HelpScreen(
-            SimpleNamespace(include_main_menu=include_main_menu)
-        ).build()).text,
+        text=(
+            screen := HelpScreen(
+                SimpleNamespace(include_main_menu=include_main_menu)
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
     )
 
@@ -304,16 +308,19 @@ async def order_card_callback(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := MyOrderCardScreen(
-            SimpleNamespace(
-                **{
-                    **vars(order),
-                    "group": callback_data.group,
-                    "page": callback_data.page,
-                    "payment_confirmation_url": order.payment_confirmation_url or "",
-                }
-            )
-        ).build()).text,
+        text=(
+            screen := MyOrderCardScreen(
+                SimpleNamespace(
+                    **{
+                        **vars(order),
+                        "group": callback_data.group,
+                        "page": callback_data.page,
+                        "payment_confirmation_url": order.payment_confirmation_url
+                        or "",
+                    }
+                )
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
     )
 
@@ -459,14 +466,16 @@ async def _show_orders_page(
         bot=bot,
         event=event,
         telegram_id=telegram_id,
-        text=(screen := MyOrdersPageScreen(
-            SimpleNamespace(
-                items=orders.items,
-                page=orders.page,
-                total_pages=orders.total_pages,
-                total_items=orders.total_items,
-                group=group,
-            )
-        ).build()).text,
+        text=(
+            screen := MyOrdersPageScreen(
+                SimpleNamespace(
+                    items=orders.items,
+                    page=orders.page,
+                    total_pages=orders.total_pages,
+                    total_items=orders.total_items,
+                    group=group,
+                )
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
     )

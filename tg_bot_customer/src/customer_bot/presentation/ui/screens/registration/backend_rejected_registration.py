@@ -1,5 +1,7 @@
+from customer_bot.presentation.ui.screens.common._keyboard import fallback_keyboard
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreenNoView,
+    Markup,
 )
 
 
@@ -10,4 +12,5 @@ class Screen(BaseScreenNoView):
             "Проверьте регистрацию и начните заново командой /start."
         )
 
-    # TODO: клавиатура
+    def _build_keyboard(self) -> Markup:
+        return fallback_keyboard()

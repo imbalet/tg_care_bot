@@ -1,5 +1,6 @@
 from html import escape
 from typing import Protocol
+from uuid import UUID
 
 from customer_bot.presentation.callbacks import (
     CareObjectDeleteCallback,
@@ -16,7 +17,7 @@ from customer_bot.presentation.ui.texts.labels import MsgKey
 
 class _View(Protocol):
     @property
-    def index(self) -> int: ...
+    def id(self) -> str: ...
 
     @property
     def object_type(self) -> str: ...
@@ -69,8 +70,14 @@ class Screen(BaseScreen[_View]):
     def _build_keyboard(self) -> Markup:
         return (
             InlineKeyboardFactory()
-            .button(MsgKey.EDIT_NAME, CareObjectEditCallback(index=self.data.index))
-            .button(MsgKey.DELETE, CareObjectDeleteCallback(index=self.data.index))
+            .button(
+                MsgKey.EDIT_NAME,
+                CareObjectEditCallback(care_object_id=UUID(str(self.data.id))),
+            )
+            .button(
+                MsgKey.DELETE,
+                CareObjectDeleteCallback(care_object_id=UUID(str(self.data.id))),
+            )
             .button(MsgKey.BACK_TO_LIST, CareObjectsOpenCallback())
             .as_markup()
         )

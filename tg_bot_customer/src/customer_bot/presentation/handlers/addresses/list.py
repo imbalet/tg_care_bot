@@ -43,7 +43,7 @@ async def open_addresses(
         items = await backend_client.list_addresses(
             telegram_id=telegram_user_context.telegram_id,
         )
-    except BackendValidationError as exc:
+    except BackendValidationError:
         logger.warning(
             "Backend rejected address list request",
             extra={"telegram_id": telegram_user_context.telegram_id},
@@ -80,9 +80,11 @@ async def open_addresses(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := AddressListScreen(
-            SimpleNamespace(count=len(items), items=items)
-        ).build()).text,
+        text=(
+            screen := AddressListScreen(
+                SimpleNamespace(count=len(items), items=items)
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )
@@ -97,22 +99,14 @@ async def select_address(
     telegram_user_context: TelegramUserContext,
     callback_data: AddressSelectCallback,
 ) -> None:
-    item = await _address_by_index(state, callback_data.index)
+    item = await _address_by_id(state, callback_data.address_id)
     if item is None:
         logger.warning(
             "Stale address select callback",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "index": callback_data.index,
+                "address_id": str(callback_data.address_id),
             },
-        )
-        await telegram_responder.acknowledge(callback)
-        return
-    index = item["index"]
-    if not isinstance(index, int):
-        logger.warning(
-            "Invalid address index in state",
-            extra={"telegram_id": telegram_user_context.telegram_id},
         )
         await telegram_responder.acknowledge(callback)
         return
@@ -120,16 +114,18 @@ async def select_address(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := AddressCardScreen(
-            SimpleNamespace(
-                index=index,
-                address_text=str(item["address_text"]),
-                entrance=str(item.get("entrance") or ""),
-                floor=str(item.get("floor") or ""),
-                apartment=str(item.get("apartment") or ""),
-                comment=str(item.get("comment") or ""),
-            )
-        ).build()).text,
+        text=(
+            screen := AddressCardScreen(
+                SimpleNamespace(
+                    id=str(item["id"]),
+                    address_text=str(item["address_text"]),
+                    entrance=str(item.get("entrance") or ""),
+                    floor=str(item.get("floor") or ""),
+                    apartment=str(item.get("apartment") or ""),
+                    comment=str(item.get("comment") or ""),
+                )
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )
@@ -144,13 +140,13 @@ async def delete_address(
     telegram_user_context: TelegramUserContext,
     callback_data: AddressDeleteCallback,
 ) -> None:
-    item = await _address_by_index(state, callback_data.index)
+    item = await _address_by_id(state, callback_data.address_id)
     if item is None:
         logger.warning(
             "Stale address delete callback",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "index": callback_data.index,
+                "address_id": str(callback_data.address_id),
             },
         )
         await telegram_responder.acknowledge(callback)
@@ -159,9 +155,11 @@ async def delete_address(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := AddressDeleteConfirmScreen(
-            SimpleNamespace(index=callback_data.index)
-        ).build()).text,
+        text=(
+            screen := AddressDeleteConfirmScreen(
+                SimpleNamespace(id=str(callback_data.address_id))
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )
@@ -177,13 +175,13 @@ async def confirm_delete_address(
     telegram_user_context: TelegramUserContext,
     callback_data: AddressDeleteConfirmCallback,
 ) -> None:
-    item = await _address_by_index(state, callback_data.index)
+    item = await _address_by_id(state, callback_data.address_id)
     if item is None:
         logger.warning(
             "Stale address delete confirm callback",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "index": callback_data.index,
+                "address_id": str(callback_data.address_id),
             },
         )
         await telegram_responder.acknowledge(callback)
@@ -193,7 +191,7 @@ async def confirm_delete_address(
             telegram_id=telegram_user_context.telegram_id,
             address_id=UUID(str(item["id"])),
         )
-    except BackendValidationError as exc:
+    except BackendValidationError:
         logger.warning(
             "Backend rejected address delete",
             extra={
@@ -257,17 +255,15 @@ def _address_state(item: AddressDTO) -> dict[str, object]:
     }
 
 
-async def _address_by_index(
+async def _address_by_id(
     state: FSMContext,
-    index: int,
+    address_id: UUID,
 ) -> dict[str, object] | None:
     data = await state.get_data()
     items = data.get("addresses")
-    if not isinstance(items, list) or index < 0 or index >= len(items):
+    if not isinstance(items, list):
         return None
-    item = items[index]
-    if not isinstance(item, dict):
-        return None
-    result = dict(item)
-    result["index"] = index
-    return result
+    for item in items:
+        if isinstance(item, dict) and str(item.get("id")) == str(address_id):
+            return dict(item)
+    return None
