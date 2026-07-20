@@ -230,36 +230,3 @@ class OrderListItemView:
     total_amount: Decimal
     payment_deadline_at: datetime | None
     matching_deadline_at: datetime
-
-
-__all__ = [
-    "DateLabelView",
-    "DurationView",
-    "AddressCardView",
-    "AddressDeleteView",
-    "AddressExtraView",
-    "AddressListView",
-    "AddressListItemView",
-    "CareObjectCardView",
-    "CareObjectBlockedView",
-    "CareObjectDeleteView",
-    "CareObjectListView",
-    "CareObjectListItemView",
-    "HelpView",
-    "ObjectNameView",
-    "ObjectTypeView",
-    "ObjectsStepView",
-    "OptionsStepView",
-    "OrderSummaryView",
-    "PaymentStatusView",
-    "PerformerView",
-    "MyOrderCardView",
-    "MyOrdersPageView",
-    "OrderListItemView",
-    "SelectableObjectView",
-    "SelectableOptionView",
-    "SelectedOrderResponseView",
-    "ServiceOptionView",
-    "ServiceView",
-    "ServicesView",
-]
