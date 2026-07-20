@@ -53,3 +53,31 @@ class PaymentRetryResponse(BaseModel):
     status: str
     applied: bool
     unapplied_reason: str | None
+
+
+class AdminNotificationResponse(BaseModel):
+    id: UUID
+    type: str
+    entity_type: str | None
+    entity_id: UUID | None
+    payload: dict[str, Any]
+    status: str
+    read_at: str | None
+    created_at: str
+    sent_at: str | None
+    last_error: str | None
+
+
+class AdminNotificationPageResponse(BaseModel):
+    items: list[AdminNotificationResponse]
+    page: int
+    page_size: int
+    total: int
+
+
+class MarkAdminNotificationsReadRequest(BaseModel):
+    ids: list[UUID] = Field(min_length=1)
+
+
+class MarkAdminNotificationsReadResponse(BaseModel):
+    marked: int

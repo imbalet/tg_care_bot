@@ -198,20 +198,20 @@ class SqlAlchemyPaymentRepository:
         await self._add_notification(
             recipient_type="customer",
             customer_id=order.customer_id,
-            notification_type="payment_confirmed",
+            notification_type="payment_success",
             entity_type="order",
             entity_id=order.id,
             payload={"order_id": str(order.id), "payment_id": str(payment.id)},
-            deduplication_key=f"payment-confirmed:customer:{payment.id}",
+            deduplication_key=f"payment-success:customer:{payment.id}",
         )
         await self._add_notification(
             recipient_type="performer",
             performer_id=order.selected_performer_id,
-            notification_type="payment_confirmed",
+            notification_type="order_confirmed",
             entity_type="order",
             entity_id=order.id,
             payload={"order_id": str(order.id), "payment_id": str(payment.id)},
-            deduplication_key=f"payment-confirmed:performer:{payment.id}",
+            deduplication_key=f"order-confirmed:performer:{payment.id}",
         )
         await self._session.flush()
         return PaymentWebhookResult(

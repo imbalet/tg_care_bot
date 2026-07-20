@@ -10,6 +10,7 @@ from backend.bootstrap.dependencies import get_container
 from backend.common.domain import (
     AuthenticationError,
     AuthorizationError,
+    ValidationError,
 )
 from backend.modules.admin.application import (
     LoginAdminCommand,
@@ -21,12 +22,16 @@ from backend.modules.payments.application import (
 
 from .mappers import admin_response
 from .schemas import (
+    AdminNotificationPageResponse,
+    AdminNotificationResponse,
     AdminResponse,
     BusinessSettingResponse,
     LoginRequest,
     LoginResponse,
     ManualRefundRequest,
     ManualRefundResponse,
+    MarkAdminNotificationsReadRequest,
+    MarkAdminNotificationsReadResponse,
     PaymentRetryResponse,
     UpdateBusinessSettingRequest,
 )
@@ -94,6 +99,59 @@ async def me(
     current: Annotated[tuple[AdminResponse, str, str], Depends(get_current_admin)],
 ) -> AdminResponse:
     return current[0]
+
+
+@router.get("/notifications")
+async def list_notifications(
+    container: Annotated[Container, Depends(get_container)],
+    current: Annotated[tuple[AdminResponse, str, str], Depends(get_current_admin)],
+    status: str | None = None,
+    is_read: bool | None = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> AdminNotificationPageResponse:
+    if page < 1 or page_size < 1 or page_size > 100:
+        raise ValidationError("Invalid pagination")
+    items, total = await container.services().list_admin_notifications(
+        admin_id=UUID(current[0].id),
+        status=status,
+        is_read=is_read,
+        page=page,
+        page_size=page_size,
+    )
+    return AdminNotificationPageResponse(
+        items=[
+            AdminNotificationResponse(
+                id=item.id,
+                type=item.type,
+                entity_type=item.entity_type,
+                entity_id=item.entity_id,
+                payload=item.payload,
+                status=item.status,
+                read_at=item.read_at.isoformat() if item.read_at else None,
+                created_at=item.created_at.isoformat(),
+                sent_at=item.sent_at.isoformat() if item.sent_at else None,
+                last_error=item.last_error,
+            )
+            for item in items
+        ],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
+
+
+@router.post("/notifications/read", response_model=MarkAdminNotificationsReadResponse)
+async def mark_notifications_read(
+    request: MarkAdminNotificationsReadRequest,
+    container: Annotated[Container, Depends(get_container)],
+    current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
+) -> MarkAdminNotificationsReadResponse:
+    marked = await container.services().mark_admin_notifications_read(
+        admin_id=UUID(current[0].id),
+        notification_ids=request.ids,
+    )
+    return MarkAdminNotificationsReadResponse(marked=marked)
 
 
 @router.post("/logout", status_code=204)

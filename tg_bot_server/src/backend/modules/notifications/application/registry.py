@@ -1,0 +1,76 @@
+from dataclasses import dataclass
+from uuid import UUID
+
+
+@dataclass(frozen=True)
+class NotificationAction:
+    label: str
+    callback_prefix: str
+
+    def callback_data(self, entity_id: str | None) -> str | None:
+        if entity_id is None:
+            return None
+        try:
+            value = str(UUID(entity_id))
+        except ValueError:
+            return None
+        return f"{self.callback_prefix}:{value}"
+
+
+_ACTIONS: dict[str, tuple[NotificationAction, ...]] = {
+    "direct_invitation_created": (
+        NotificationAction("Принять", "direct_accept"),
+        NotificationAction("Отклонить", "direct_reject"),
+    ),
+    "pool_response_created": (
+        NotificationAction("Выбрать", "order_resp_select"),
+        NotificationAction("Отклонить", "order_resp_reject"),
+    ),
+}
+
+_BODIES = {
+    "direct_accepted": "Исполнитель принял приглашение. Заказ ожидает оплаты.",
+    "direct_rejected": "Исполнитель отклонил приглашение.",
+    "direct_invitation_created": "Вам поступило direct-приглашение.",
+    "direct_match_expired": "Direct-приглашение истекло.",
+    "pool_response_created": "Поступил новый отклик на заказ.",
+    "pool_response_rejected": "Заказчик отклонил отклик.",
+    "pool_response_selected": "Отклик выбран. Заказ ожидает оплаты.",
+    "pool_match_expired": "Отклик истек.",
+    "order_matching_expired": "Срок подбора истек. Заказ закрыт.",
+    "pool_no_responses": "Подбор завершен: откликов исполнителей нет.",
+    "payment_success": "Оплата подтверждена.",
+    "order_confirmed": "Заказ подтвержден и закреплен за вами.",
+    "payment_expired_order_searching": (
+        "Оплата не поступила вовремя. Заказ вернулся в подбор."
+    ),
+    "payment_expired_order_expired": "Оплата не поступила вовремя. Заказ закрыт.",
+    "refund_requested": "Запрошен возврат платежа.",
+    "refund_completed": "Возврат платежа выполнен.",
+    "refund_failed": "Возврат платежа не выполнен. Администратор разбирается.",
+    "order_approaching": "Скоро начнется заказ.",
+    "order_started": "Настало время заказа.",
+    "order_finished": "Исполнитель завершил выполнение заказа.",
+    "report_submitted": "Исполнитель отправил отчет по заказу.",
+    "report_required": "Нужно отправить отчет по заказу.",
+    "report_overdue": "Отчет по заказу просрочен.",
+}
+
+
+def notification_actions(
+    notification_type: str, entity_id: str | None
+) -> list[list[dict[str, object]]] | None:
+    actions = _ACTIONS.get(notification_type)
+    if actions is None:
+        return None
+    buttons: list[dict[str, object]] = []
+    for action in actions:
+        callback_data = action.callback_data(entity_id)
+        if callback_data is None:
+            return None
+        buttons.append({"text": action.label, "callback_data": callback_data})
+    return [buttons]
+
+
+def notification_body(notification_type: str) -> str:
+    return _BODIES.get(notification_type, notification_type)

@@ -40,6 +40,9 @@ class NotificationModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     deduplication_key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
     attempts: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    claimed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     scheduled_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -47,6 +50,9 @@ class NotificationModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+    )
+    read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     delete_after: Mapped[datetime] = mapped_column(

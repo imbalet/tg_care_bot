@@ -75,7 +75,10 @@ from backend.modules.files.application import (
 )
 from backend.modules.files.infrastructure import SqlAlchemyFileRepository
 from backend.modules.geo.infrastructure import DaDataGeocoder
-from backend.modules.notifications.infrastructure import NotificationModel
+from backend.modules.notifications.infrastructure import (
+    NotificationModel,
+    SqlAlchemyNotificationRepository,
+)
 from backend.modules.orders.application import (
     CalculatePricePreviewCommand,
     CalculatePricePreviewUseCase,
@@ -159,6 +162,38 @@ class ApplicationServices:
             redis=self.container.redis,
             ttl_seconds=self.container.settings.admin_session_ttl_seconds,
         )
+
+    async def list_admin_notifications(
+        self,
+        *,
+        admin_id: UUID,
+        status: str | None,
+        is_read: bool | None,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[NotificationModel], int]:
+        async with self._uow() as uow:
+            return await SqlAlchemyNotificationRepository(uow.session).list_admin_inbox(
+                admin_id=admin_id,
+                status=status,
+                is_read=is_read,
+                offset=(page - 1) * page_size,
+                limit=page_size,
+            )
+
+    async def mark_admin_notifications_read(
+        self,
+        *,
+        admin_id: UUID,
+        notification_ids: list[UUID],
+    ) -> int:
+        async with self._uow() as uow:
+            count = await SqlAlchemyNotificationRepository(uow.session).mark_admin_read(
+                admin_id=admin_id,
+                notification_ids=notification_ids,
+            )
+            await uow.commit()
+            return count
 
     def _geocoder(self) -> DaDataGeocoder:
         settings = self.container.settings

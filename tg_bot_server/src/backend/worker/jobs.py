@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -15,6 +17,10 @@ from backend.common.infrastructure.database import for_update_skip_locked
 from backend.modules.admin.infrastructure import AdminModel
 from backend.modules.catalog.infrastructure import BusinessSettingModel
 from backend.modules.customers.infrastructure import CustomerModel
+from backend.modules.notifications.application import (
+    notification_actions,
+    notification_body,
+)
 from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.infrastructure import (
     OrderAddressSnapshotModel,
@@ -91,14 +97,42 @@ class NotificationWorkerJob:
         self._telegram_api_base_url = telegram_api_base_url.rstrip("/")
         self._telegram_timeout_seconds = telegram_timeout_seconds
         self._max_attempts = max_attempts
+        self._recovered_processing = False
 
     async def run_once(self) -> None:
+        if not self._recovered_processing:
+            await self._recover_processing()
+            self._recovered_processing = True
+        notification_ids = await self._claim_batch()
+        for notification_id in notification_ids:
+            try:
+                delivery = await self._load_delivery(notification_id)
+                await self._send_notification(delivery)
+            except Exception as exc:
+                await self._finish(notification_id, error=type(exc).__name__)
+            else:
+                await self._finish(notification_id)
+
+    async def _recover_processing(self) -> None:
+        async with self._session_factory() as session:
+            await session.execute(
+                update(NotificationModel)
+                .where(
+                    NotificationModel.channel == "telegram",
+                    NotificationModel.status == "processing",
+                )
+                .values(status="pending", claimed_at=None),
+            )
+            await session.commit()
+
+    async def _claim_batch(self) -> tuple[UUID, ...]:
         async with self._session_factory() as session:
             now = utc_now()
             result = await session.execute(
                 for_update_skip_locked(
-                    select(NotificationModel)
+                    select(NotificationModel.id)
                     .where(
+                        NotificationModel.channel == "telegram",
                         NotificationModel.status == "pending",
                         NotificationModel.scheduled_at <= now,
                         NotificationModel.attempts < self._max_attempts,
@@ -107,37 +141,71 @@ class NotificationWorkerJob:
                     self._batch_limit,
                 ),
             )
-            notifications = tuple(result.scalars())
-            for notification in notifications:
-                notification.attempts += 1
-                try:
-                    await self._send_notification(session, notification)
-                except Exception as exc:
-                    notification.last_error = type(exc).__name__
-                    if notification.attempts >= self._max_attempts:
-                        notification.status = "failed"
-                    continue
-                else:
-                    notification.status = "sent"
-                    notification.sent_at = now
-                    notification.last_error = None
+            notification_ids = tuple(result.scalars())
+            if notification_ids:
+                await session.execute(
+                    update(NotificationModel)
+                    .where(NotificationModel.id.in_(notification_ids))
+                    .values(
+                        status="processing",
+                        attempts=NotificationModel.attempts + 1,
+                        claimed_at=now,
+                    ),
+                )
+            await session.commit()
+            return notification_ids
+
+    async def _load_delivery(self, notification_id: UUID) -> NotificationDelivery:
+        async with self._session_factory() as session:
+            notification = await session.get(NotificationModel, notification_id)
+            if notification is None or notification.status != "processing":
+                raise RuntimeError("Notification is not processing")
+            token, chat_id = await self._telegram_target(session, notification)
+            return NotificationDelivery(
+                token=token,
+                chat_id=chat_id,
+                text=_notification_text(notification),
+                reply_markup=_notification_keyboard(notification),
+            )
+
+    async def _finish(self, notification_id: UUID, error: str | None = None) -> None:
+        async with self._session_factory() as session:
+            notification = await session.get(NotificationModel, notification_id)
+            if notification is None or notification.status != "processing":
+                return
+            if error is None:
+                notification.status = "sent"
+                notification.sent_at = utc_now()
+                notification.claimed_at = None
+                notification.last_error = None
+            else:
+                notification.last_error = error
+                notification.claimed_at = None
+                notification.status = (
+                    "failed"
+                    if notification.attempts >= self._max_attempts
+                    else "pending"
+                )
+                notification.scheduled_at = utc_now()
             await session.commit()
 
     async def _send_notification(
         self,
-        session: AsyncSession,
-        notification: NotificationModel,
+        delivery: NotificationDelivery,
     ) -> None:
-        token, chat_id = await self._telegram_target(session, notification)
-        text = _notification_text(notification)
         async with httpx.AsyncClient(timeout=self._telegram_timeout_seconds) as client:
             response = await client.post(
-                f"{self._telegram_api_base_url}/bot{token}/sendMessage",
+                f"{self._telegram_api_base_url}/bot{delivery.token}/sendMessage",
                 json={
-                    "chat_id": chat_id,
-                    "text": text,
+                    "chat_id": delivery.chat_id,
+                    "text": delivery.text,
                     "parse_mode": "HTML",
                     "disable_web_page_preview": True,
+                    **(
+                        {"reply_markup": delivery.reply_markup}
+                        if delivery.reply_markup
+                        else {}
+                    ),
                 },
             )
             response.raise_for_status()
@@ -185,6 +253,14 @@ class NotificationWorkerJob:
                 raise RuntimeError("Invitation recipient telegram id is missing")
             return self._executor_bot_token, int(notification.recipient_telegram_id)
         raise RuntimeError("Admin Telegram notifications are not configured")
+
+
+@dataclass(frozen=True)
+class NotificationDelivery:
+    token: str
+    chat_id: int
+    text: str
+    reply_markup: dict[str, object] | None
 
 
 class DeadlinesWorkerJob:
@@ -395,15 +471,16 @@ class DeadlinesWorkerJob:
                 customer_id=customer_id,
                 performer_id=performer_id,
                 admin_id=admin_id,
-                channel="telegram",
+                channel="admin_panel" if recipient_type == "admin" else "telegram",
                 type=notification_type,
                 entity_type="order",
                 entity_id=entity_id,
                 payload=payload,
                 deduplication_key=deduplication_key,
-                status="pending",
+                status="sent" if recipient_type == "admin" else "pending",
                 attempts=0,
                 scheduled_at=now,
+                sent_at=now if recipient_type == "admin" else None,
                 delete_after=now + timedelta(days=30),
             ),
         )
@@ -685,7 +762,7 @@ def _notification_text(notification: NotificationModel) -> str:
             "Откройте бот исполнителя и отправьте /start."
         )
     title = _notification_title(notification)
-    body = _notification_body(notification)
+    body = notification_body(notification.type)
     lines = [f"<b>{escape(title)}</b>", escape(body)]
     order_id = notification.payload.get("order_id")
     if order_id is not None:
@@ -701,33 +778,14 @@ def _notification_title(notification: NotificationModel) -> str:
     return "Админ"
 
 
-def _notification_body(notification: NotificationModel) -> str:
-    messages = {
-        "direct_accepted": "Исполнитель принял приглашение. Заказ ожидает оплаты.",
-        "direct_rejected": "Исполнитель отклонил приглашение.",
-        "direct_match_expired": "Direct-приглашение истекло.",
-        "pool_response_created": "Поступил новый отклик на заказ.",
-        "pool_response_rejected": "Заказчик отклонил отклик.",
-        "pool_response_selected": "Отклик выбран. Заказ ожидает оплаты.",
-        "pool_match_expired": "Отклик истек.",
-        "order_matching_expired": "Срок подбора истек. Заказ закрыт.",
-        "pool_no_responses": "Подбор завершен: откликов исполнителей нет.",
-        "payment_confirmed": "Оплата подтверждена. Заказ закреплен.",
-        "payment_expired_order_searching": (
-            "Оплата не поступила вовремя. Заказ вернулся в подбор."
-        ),
-        "payment_expired_order_expired": ("Оплата не поступила вовремя. Заказ закрыт."),
-        "refund_requested": "Запрошен возврат платежа.",
-        "refund_completed": "Возврат платежа выполнен.",
-        "refund_failed": "Возврат платежа не выполнен. Администратор разбирается.",
-        "order_approaching": "Скоро начнется заказ.",
-        "order_started": "Настало время заказа.",
-        "order_finished": "Исполнитель завершил выполнение заказа.",
-        "report_submitted": "Исполнитель отправил отчет по заказу.",
-        "report_required": "Нужно отправить отчет по заказу.",
-        "report_overdue": "Отчет по заказу просрочен.",
-    }
-    return messages.get(notification.type, notification.type)
+def _notification_keyboard(notification: NotificationModel) -> dict[str, object] | None:
+    buttons = notification_actions(
+        notification.type,
+        str(notification.payload.get("match_id"))
+        if notification.payload.get("match_id") is not None
+        else None,
+    )
+    return {"inline_keyboard": buttons} if buttons else None
 
 
 @dataclass(frozen=True)
