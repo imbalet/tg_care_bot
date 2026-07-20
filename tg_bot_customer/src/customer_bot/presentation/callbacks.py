@@ -48,6 +48,10 @@ class OrderCardOpenCallback(CallbackData, prefix="order_card"):
     page: int = 1
 
 
+class NotificationOrderOpenCallback(CallbackData, prefix="notification_order"):
+    order_id: UUID
+
+
 class OrderResponsesOpenCallback(CallbackData, prefix="order_resp_open"):
     order_id: UUID
 

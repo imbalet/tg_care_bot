@@ -1,4 +1,5 @@
 import logging
+from uuid import UUID
 
 from aiogram import Bot, Router
 from aiogram.types import CallbackQuery
@@ -6,6 +7,7 @@ from aiogram.types import CallbackQuery
 from customer_bot.application.errors import BackendClientError
 from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
+    NotificationOrderOpenCallback,
     OrderCardOpenCallback,
     OrdersListCallback,
     OrdersPageCallback,
@@ -92,6 +94,50 @@ async def order_card_callback(
     telegram_user_context: TelegramUserContext,
     callback_data: OrderCardOpenCallback,
 ) -> None:
+    await _show_order_card(
+        callback=callback,
+        bot=bot,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        order_id=callback_data.order_id,
+        group=callback_data.group,
+        page=callback_data.page,
+    )
+
+
+@router.callback_query(NotificationOrderOpenCallback.filter())
+async def notification_order_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: NotificationOrderOpenCallback,
+) -> None:
+    await _show_order_card(
+        callback=callback,
+        bot=bot,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        order_id=callback_data.order_id,
+        group="active",
+        page=1,
+    )
+
+
+async def _show_order_card(
+    *,
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    order_id: UUID,
+    group: str,
+    page: int,
+) -> None:
     try:
         profile = await backend_client.get_customer_profile(
             telegram_user_context.telegram_id,
@@ -100,14 +146,14 @@ async def order_card_callback(
             raise BackendClientError("Customer profile is missing")
         order = await backend_client.get_customer_order_card(
             customer_id=profile.id,
-            order_id=callback_data.order_id,
+            order_id=order_id,
         )
     except BackendClientError as exc:
         logger.warning(
             "Failed to open customer order card",
             extra={
                 "telegram_id": telegram_user_context.telegram_id,
-                "order_id": str(callback_data.order_id),
+                "order_id": str(order_id),
                 "exception_type": type(exc).__name__,
             },
         )
@@ -138,8 +184,8 @@ async def order_card_callback(
                     payment_status=order.payment_status,
                     payment_confirmation_url=order.payment_confirmation_url,
                     payment_expires_at=order.payment_expires_at,
-                    group=callback_data.group,
-                    page=callback_data.page,
+                    group=group,
+                    page=page,
                 )
             ).build()
         ).text,
