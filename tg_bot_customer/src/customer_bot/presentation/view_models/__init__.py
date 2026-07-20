@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from decimal import Decimal
 from uuid import UUID
 
 
@@ -92,9 +92,9 @@ class OrderSummaryView:
     service_name: str
     duration_minutes: int
     objects_count: int
-    service_amount: Any
-    platform_fee_amount: Any
-    total_amount: Any
+    service_amount: Decimal
+    platform_fee_amount: Decimal
+    total_amount: Decimal
     performers_count: int
 
 
@@ -103,7 +103,7 @@ class PerformerView:
     performer_id: UUID
     full_name: str
     service_name: str
-    distance_km: object
+    distance_km: Decimal | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,7 +140,13 @@ class AddressDeleteView:
 @dataclass(frozen=True, slots=True)
 class AddressListView:
     count: int
-    items: Any
+    items: tuple[AddressListItemView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class AddressListItemView:
+    id: UUID
+    address_text: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,7 +171,13 @@ class CareObjectListView:
     category: str
     object_type: str
     count: int
-    items: Any
+    items: tuple[CareObjectListItemView, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CareObjectListItemView:
+    id: UUID
+    display_name: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,7 +199,7 @@ class MyOrderCardView:
     start_at: datetime
     end_at: datetime
     objects_count: int
-    total_amount: Any
+    total_amount: Decimal
     payment_deadline_at: datetime | None
     matching_deadline_at: datetime
     payment_status: str | None
@@ -199,11 +211,25 @@ class MyOrderCardView:
 
 @dataclass(frozen=True, slots=True)
 class MyOrdersPageView:
-    items: Any
+    items: tuple[OrderListItemView, ...]
     page: int
     total_pages: int
     total_items: int
     group: str
+
+
+@dataclass(frozen=True, slots=True)
+class OrderListItemView:
+    id: UUID
+    service_name: str
+    matching_mode: str | None
+    status: str
+    start_at: datetime
+    end_at: datetime
+    objects_count: int
+    total_amount: Decimal
+    payment_deadline_at: datetime | None
+    matching_deadline_at: datetime
 
 
 __all__ = [
@@ -213,10 +239,12 @@ __all__ = [
     "AddressDeleteView",
     "AddressExtraView",
     "AddressListView",
+    "AddressListItemView",
     "CareObjectCardView",
     "CareObjectBlockedView",
     "CareObjectDeleteView",
     "CareObjectListView",
+    "CareObjectListItemView",
     "HelpView",
     "ObjectNameView",
     "ObjectTypeView",
@@ -227,6 +255,7 @@ __all__ = [
     "PerformerView",
     "MyOrderCardView",
     "MyOrdersPageView",
+    "OrderListItemView",
     "SelectableObjectView",
     "SelectableOptionView",
     "SelectedOrderResponseView",

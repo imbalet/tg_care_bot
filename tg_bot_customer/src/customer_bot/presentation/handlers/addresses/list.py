@@ -27,6 +27,7 @@ from customer_bot.presentation.ui.screens import (
 from customer_bot.presentation.view_models import (
     AddressCardView,
     AddressDeleteView,
+    AddressListItemView,
     AddressListView,
 )
 
@@ -86,7 +87,16 @@ async def open_addresses(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := AddressListScreen(
-                AddressListView(count=len(items), items=items)
+                AddressListView(
+                    count=len(items),
+                    items=tuple(
+                        AddressListItemView(
+                            id=item.id,
+                            address_text=item.address_text,
+                        )
+                        for item in items
+                    ),
+                )
             ).build()
         ).text,
         reply_markup=screen.reply_markup,

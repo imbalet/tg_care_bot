@@ -28,6 +28,7 @@ from customer_bot.presentation.ui.screens import (
 )
 from customer_bot.presentation.view_models import (
     CareObjectCardView,
+    CareObjectListItemView,
     CareObjectListView,
 )
 
@@ -91,7 +92,13 @@ async def open_care_objects(
                     category=category.name if category is not None else "Объекты ухода",
                     object_type=object_type or "",
                     count=len(items),
-                    items=items,
+                    items=tuple(
+                        CareObjectListItemView(
+                            id=item.id,
+                            display_name=item.display_name,
+                        )
+                        for item in items
+                    ),
                 )
             ).build()
         ).text,

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+from decimal import Decimal
 from uuid import UUID
 
 from aiogram.fsm.context import FSMContext
@@ -118,7 +119,7 @@ def performer_view(value: dict[str, object]) -> PerformerView:
         performer_id=UUID(str(value["performer_id"])),
         full_name=str(value["full_name"]),
         service_name=str(value.get("service_name") or "Услуга"),
-        distance_km=distance,
+        distance_km=Decimal(str(distance)) if distance is not None else None,
     )
 
 

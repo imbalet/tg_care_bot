@@ -1,12 +1,11 @@
 import logging
 from datetime import date, datetime
-from typing import cast
 from uuid import UUID
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
-from aiogram_calendar import SimpleCalendar, SimpleCalendarCallback
+from aiogram.types import CallbackQuery, Message
+from aiogram_calendar import SimpleCalendarCallback
 
 from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
@@ -28,6 +27,12 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.addresses.state import AddressManagement
 from customer_bot.presentation.handlers.care_objects.state import CareObjectManagement
+from customer_bot.presentation.handlers.orders.creation_navigation import (
+    format_date,
+    start_calendar,
+    start_calendar_keyboard,
+    start_time_value,
+)
 from customer_bot.presentation.handlers.orders.creation_views import service_view
 from customer_bot.presentation.handlers.orders.state import (
     OrderCreation,
@@ -91,22 +96,6 @@ CARE_OBJECT_TYPE_LABELS = {
     "ward": "Подопечный",
     "pet": "Питомец",
 }
-
-
-def _order_start_calendar() -> SimpleCalendar:
-    return SimpleCalendar()
-
-
-async def _order_start_calendar_keyboard() -> InlineKeyboardMarkup:
-    return cast(InlineKeyboardMarkup, await _order_start_calendar().start_calendar())
-
-
-def _order_start_time_value(value: str) -> str:
-    if ":" in value:
-        return value
-    if len(value) == 4 and value.isdigit():
-        return f"{value[:2]}:{value[2:]}"
-    return value
 
 
 @router.callback_query(OrderCreateCallback.filter())
@@ -538,7 +527,7 @@ async def _ask_start_at(
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=OrderStartStepScreen().build().text,
-        reply_markup=await _order_start_calendar_keyboard(),
+        reply_markup=await start_calendar_keyboard(),
         create_new=True,
     )
 
@@ -570,7 +559,7 @@ async def _process_start_calendar_selection(
     telegram_user_context: TelegramUserContext,
     callback_data: SimpleCalendarCallback,
 ) -> None:
-    selected, selected_date = await _order_start_calendar().process_selection(
+    selected, selected_date = await start_calendar().process_selection(
         callback,
         callback_data,
     )
@@ -587,7 +576,7 @@ async def _process_start_calendar_selection(
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := OrderStartTimeStepScreen(
-                DateLabelView(date_label=_format_date(start_date))
+                DateLabelView(date_label=format_date(start_date))
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
@@ -621,7 +610,7 @@ async def request_manual_start(
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
                 text=(screen := OrderStartStepScreen().build()).text,
-                reply_markup=await _order_start_calendar_keyboard(),
+                reply_markup=await start_calendar_keyboard(),
                 create_new=True,
             )
             return
@@ -632,7 +621,7 @@ async def request_manual_start(
             telegram_id=telegram_user_context.telegram_id,
             text=(
                 screen := OrderTimeManualStepScreen(
-                    DateLabelView(date_label=_format_date(start_date))
+                    DateLabelView(date_label=format_date(start_date))
                 ).build()
             ).text,
             reply_markup=screen.reply_markup,
@@ -664,7 +653,7 @@ async def select_start_time(
 ) -> None:
     data = await state.get_data()
     start_date = _start_date_from_state(data)
-    start_time = parse_local_time(_order_start_time_value(callback_data.value))
+    start_time = parse_local_time(start_time_value(callback_data.value))
     if start_date is None or start_time is None:
         await telegram_responder.acknowledge(callback)
         return
@@ -799,10 +788,6 @@ def _start_date_from_state(data: dict[str, object]) -> date | None:
         return date.fromisoformat(raw_date)
     except ValueError:
         return None
-
-
-def _format_date(value: date) -> str:
-    return value.strftime("%d.%m.%Y")
 
 
 @router.message(OrderCreation.duration)

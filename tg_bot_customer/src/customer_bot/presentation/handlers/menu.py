@@ -38,6 +38,7 @@ from customer_bot.presentation.view_models import (
     HelpView,
     MyOrderCardView,
     MyOrdersPageView,
+    OrderListItemView,
 )
 
 router = Router(name="fallback")
@@ -477,7 +478,21 @@ async def _show_orders_page(
         text=(
             screen := MyOrdersPageScreen(
                 MyOrdersPageView(
-                    items=orders.items,
+                    items=tuple(
+                        OrderListItemView(
+                            id=item.id,
+                            service_name=item.service_name,
+                            matching_mode=item.matching_mode,
+                            status=item.status,
+                            start_at=item.start_at,
+                            end_at=item.end_at,
+                            objects_count=item.objects_count,
+                            total_amount=item.total_amount,
+                            payment_deadline_at=item.payment_deadline_at,
+                            matching_deadline_at=item.matching_deadline_at,
+                        )
+                        for item in orders.items
+                    ),
                     page=orders.page,
                     total_pages=orders.total_pages,
                     total_items=orders.total_items,
