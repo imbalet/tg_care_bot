@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
@@ -7,15 +7,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import utc_now
-from backend.common.domain import ValidationError
+from backend.common.domain import ConflictError, NotFoundError, ValidationError
 from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.care_objects.infrastructure import CareObjectModel
 from backend.modules.catalog.infrastructure import CityModel, ServiceOptionModel
 from backend.modules.customers.infrastructure import CustomerModel
+from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.application import (
     OrderCareObjectSnapshot,
     OrderData,
     OrderDTO,
+    OrderReportDTO,
     OrderRepository,
     PricePreviewDTO,
     ServicePricingDTO,
@@ -25,8 +27,10 @@ from backend.modules.orders.infrastructure.persistence.models import (
     OrderMatchModel,
     OrderModel,
     OrderOptionValueModel,
+    OrderReportModel,
     OrderStatusHistoryModel,
 )
+from backend.modules.payments.infrastructure import PaymentModel
 from backend.modules.performers.infrastructure import (
     PerformerModel,
     PerformerServiceModel,
@@ -40,6 +44,229 @@ class SqlAlchemyOrderRepository(OrderRepository):
     async def get_order(self, order_id: UUID) -> OrderDTO | None:
         model = await self._session.get(OrderModel, order_id)
         return await self._order_to_dto(model) if model is not None else None
+
+    async def start_order(self, *, order_id: UUID, performer_id: UUID) -> OrderDTO:
+        order = await self._lock_order(order_id)
+        if order.selected_performer_id != performer_id:
+            raise NotFoundError("Order not found")
+        if order.status != "confirmed":
+            raise self._stale(order, "Order is not ready to start")
+        now = utc_now()
+        order.status = "in_progress"
+        order.actual_started_at = now
+        self._add_status_history(
+            order.id,
+            "confirmed",
+            "in_progress",
+            actor_type="performer",
+            actor_id=performer_id,
+            reason="performer_started",
+        )
+        self._add_notification(
+            recipient_type="customer",
+            customer_id=order.customer_id,
+            notification_type="order_started",
+            entity_id=order.id,
+            deduplication_key=f"order-started:customer:{order.id}",
+        )
+        await self._session.flush()
+        return await self._order_to_dto(order)
+
+    async def finish_order(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+        report_due_at: datetime,
+    ) -> OrderDTO:
+        order = await self._lock_order(order_id)
+        if order.selected_performer_id != performer_id:
+            raise NotFoundError("Order not found")
+        if order.status != "in_progress":
+            raise self._stale(order, "Order is not in progress")
+        now = utc_now()
+        order.status = "waiting_report"
+        order.actual_finished_at = now
+        order.report_due_at = report_due_at
+        self._add_status_history(
+            order.id,
+            "in_progress",
+            "waiting_report",
+            actor_type="performer",
+            actor_id=performer_id,
+            reason="performer_finished",
+        )
+        self._add_notification(
+            recipient_type="customer",
+            customer_id=order.customer_id,
+            notification_type="order_finished",
+            entity_id=order.id,
+            deduplication_key=f"order-finished:{order.id}",
+        )
+        await self._session.flush()
+        return await self._order_to_dto(order)
+
+    async def submit_report(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+        completed_work: str,
+        comment: str | None,
+        problem_flag: bool,
+        problem_description: str | None,
+    ) -> OrderReportDTO:
+        order = await self._lock_order(order_id)
+        if order.selected_performer_id != performer_id:
+            raise NotFoundError("Order not found")
+        if order.status != "waiting_report":
+            raise self._stale(order, "Order is not waiting for report")
+        if (
+            order.photo_policy == "requires_customer_consent"
+            and order.report_photo_consent is not True
+        ):
+            raise ValidationError("Report photo consent is not granted")
+        report = OrderReportModel(
+            order_id=order.id,
+            performer_id=performer_id,
+            completed_work=completed_work,
+            comment=comment,
+            problem_flag=problem_flag,
+            problem_description=problem_description,
+        )
+        self._session.add(report)
+        now = utc_now()
+        order.status = "completed"
+        order.actual_finished_at = order.actual_finished_at or now
+        self._add_status_history(
+            order.id,
+            "waiting_report",
+            "completed",
+            actor_type="performer",
+            actor_id=performer_id,
+            reason="report_submitted",
+        )
+        self._add_notification(
+            recipient_type="customer",
+            customer_id=order.customer_id,
+            notification_type="report_submitted",
+            entity_id=order.id,
+            deduplication_key=f"report-submitted:{order.id}",
+        )
+        await self._session.flush()
+        return OrderReportDTO(
+            id=report.id,
+            order_id=report.order_id,
+            performer_id=report.performer_id,
+            completed_work=report.completed_work,
+            comment=report.comment,
+            problem_flag=report.problem_flag,
+            problem_description=report.problem_description,
+            submitted_at=report.submitted_at,
+            file_ids=(),
+        )
+
+    async def cancel_order(
+        self,
+        *,
+        order_id: UUID,
+        actor_type: str,
+        actor_id: UUID,
+        customer_deadline_minutes: int,
+        performer_deadline_minutes: int,
+    ) -> OrderDTO:
+        order = await self._lock_order(order_id)
+        now = utc_now()
+        if actor_type == "customer":
+            if order.customer_id != actor_id:
+                raise NotFoundError("Order not found")
+            if order.status not in {"searching", "waiting_payment", "confirmed"}:
+                raise self._stale(order, "Order cannot be cancelled")
+            if now > order.start_at - timedelta(minutes=customer_deadline_minutes):
+                raise ConflictError("Customer cancellation deadline has passed")
+        elif actor_type == "performer":
+            if order.selected_performer_id != actor_id:
+                raise NotFoundError("Order not found")
+            if order.status != "confirmed":
+                raise self._stale(order, "Order cannot be cancelled")
+            if now > order.start_at - timedelta(minutes=performer_deadline_minutes):
+                raise ConflictError("Performer cancellation deadline has passed")
+        elif actor_type != "admin":
+            raise ValidationError("Invalid cancellation actor")
+        if order.status in {"completed", "cancelled", "expired"}:
+            raise self._stale(order, "Order cannot be cancelled")
+        previous_status = order.status
+        order.status = "cancelled"
+        order.cancelled_by = actor_type
+        order.cancellation_reason = f"{actor_type}_cancelled"
+        order.cancelled_at = now
+        if order.active_payment_id is not None:
+            payment = await self._session.get(PaymentModel, order.active_payment_id)
+            if payment is not None and payment.status in {"created", "pending"}:
+                payment.status = "cancelled"
+        self._add_status_history(
+            order.id,
+            previous_status,
+            "cancelled",
+            actor_type=actor_type,
+            actor_id=actor_id,
+            reason=order.cancellation_reason,
+        )
+        await self._session.flush()
+        return await self._order_to_dto(order)
+
+    async def _lock_order(self, order_id: UUID) -> OrderModel:
+        result = await self._session.execute(
+            select(OrderModel).where(OrderModel.id == order_id).with_for_update(),
+        )
+        order = result.scalar_one_or_none()
+        if order is None:
+            raise NotFoundError("Order not found")
+        return order
+
+    def _stale(self, order: OrderModel, message: str) -> ConflictError:
+        return ConflictError(
+            message,
+            details={
+                "current_order": {
+                    "id": str(order.id),
+                    "status": order.status,
+                    "start_at": order.start_at.isoformat(),
+                    "end_at": order.end_at.isoformat(),
+                },
+            },
+        )
+
+    def _add_notification(
+        self,
+        *,
+        recipient_type: str,
+        customer_id: UUID | None,
+        notification_type: str,
+        entity_id: UUID,
+        deduplication_key: str,
+    ) -> None:
+        if customer_id is None:
+            return
+        now = utc_now()
+        self._session.add(
+            NotificationModel(
+                recipient_type=recipient_type,
+                customer_id=customer_id,
+                performer_id=None,
+                admin_id=None,
+                channel="telegram",
+                type=notification_type,
+                entity_type="order",
+                entity_id=entity_id,
+                payload={"order_id": str(entity_id)},
+                deduplication_key=deduplication_key,
+                status="pending",
+                attempts=0,
+                scheduled_at=now,
+                delete_after=now + timedelta(days=30),
+            ),
+        )
 
     async def create_pool(
         self,
@@ -247,15 +474,19 @@ class SqlAlchemyOrderRepository(OrderRepository):
         order_id: UUID,
         from_status: str | None,
         to_status: str,
+        *,
+        actor_type: str = "customer",
+        actor_id: UUID | None = None,
+        reason: str | None = None,
     ) -> None:
         self._session.add(
             OrderStatusHistoryModel(
                 order_id=order_id,
                 from_status=from_status,
                 to_status=to_status,
-                actor_type="customer",
-                actor_id=None,
-                reason=None,
+                actor_type=actor_type,
+                actor_id=actor_id,
+                reason=reason,
             ),
         )
 

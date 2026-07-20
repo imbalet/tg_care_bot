@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from backend.common.application import utc_now
 from backend.common.infrastructure.database import for_update_skip_locked
 from backend.modules.admin.infrastructure import AdminModel
+from backend.modules.catalog.infrastructure import BusinessSettingModel
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.infrastructure import (
@@ -215,7 +216,196 @@ class DeadlinesWorkerJob:
             )
             await self._expire_searching_orders(session=session, now=now)
             await self._expire_waiting_payments(session=session, now=now)
+            await self._process_execution_deadlines(session=session, now=now)
             await session.commit()
+
+    async def _process_execution_deadlines(
+        self,
+        *,
+        session: AsyncSession,
+        now: datetime,
+    ) -> None:
+        approaching_minutes = await self._setting_int(
+            session,
+            "order_approaching_minutes",
+            60,
+        )
+        report_deadline_minutes = await self._setting_int(
+            session,
+            "report_deadline_minutes",
+            120,
+        )
+        result = await session.execute(
+            for_update_skip_locked(
+                select(OrderModel)
+                .where(
+                    OrderModel.status == "confirmed",
+                    OrderModel.start_at <= now + timedelta(minutes=approaching_minutes),
+                )
+                .order_by(OrderModel.start_at),
+                self._batch_limit,
+            ),
+        )
+        for order in result.scalars():
+            if order.start_at > now:
+                await self._notify_once(
+                    session=session,
+                    recipient_type="customer",
+                    customer_id=order.customer_id,
+                    notification_type="order_approaching",
+                    entity_id=order.id,
+                    payload={"order_id": str(order.id)},
+                    deduplication_key=f"order-approaching:{order.id}",
+                )
+            else:
+                await self._notify_once(
+                    session=session,
+                    recipient_type="customer",
+                    customer_id=order.customer_id,
+                    notification_type="order_started",
+                    entity_id=order.id,
+                    payload={"order_id": str(order.id)},
+                    deduplication_key=f"order-started:{order.id}",
+                )
+                await self._notify_once(
+                    session=session,
+                    recipient_type="performer",
+                    performer_id=order.selected_performer_id,
+                    notification_type="order_started",
+                    entity_id=order.id,
+                    payload={"order_id": str(order.id)},
+                    deduplication_key=f"order-started:performer:{order.id}",
+                )
+
+        result = await session.execute(
+            for_update_skip_locked(
+                select(OrderModel)
+                .where(
+                    OrderModel.status == "in_progress",
+                    OrderModel.end_at <= now,
+                )
+                .order_by(OrderModel.end_at),
+                self._batch_limit,
+            ),
+        )
+        for order_probe in result.scalars():
+            order = await self._lock_order(session, order_probe.id)
+            if order.status != "in_progress":
+                continue
+            order.status = "waiting_report"
+            order.report_due_at = order.end_at + timedelta(
+                minutes=report_deadline_minutes,
+            )
+            session.add(
+                OrderStatusHistoryModel(
+                    order_id=order.id,
+                    from_status="in_progress",
+                    to_status="waiting_report",
+                    actor_type="system",
+                    reason="planned_end",
+                ),
+            )
+            await self._notify_once(
+                session=session,
+                recipient_type="performer",
+                performer_id=order.selected_performer_id,
+                notification_type="report_required",
+                entity_id=order.id,
+                payload={"order_id": str(order.id)},
+                deduplication_key=f"report-required:{order.id}",
+            )
+
+        result = await session.execute(
+            for_update_skip_locked(
+                select(OrderModel)
+                .where(
+                    OrderModel.status == "waiting_report",
+                    OrderModel.report_due_at <= now,
+                )
+                .order_by(OrderModel.report_due_at),
+                self._batch_limit,
+            ),
+        )
+        for order in result.scalars():
+            order.requires_admin_attention = True
+            await self._notify_once(
+                session=session,
+                recipient_type="performer",
+                performer_id=order.selected_performer_id,
+                notification_type="report_overdue",
+                entity_id=order.id,
+                payload={"order_id": str(order.id)},
+                deduplication_key=f"report-overdue:performer:{order.id}",
+            )
+            admin_id = await self._first_admin_id(session)
+            if admin_id is not None:
+                await self._notify_once(
+                    session=session,
+                    recipient_type="admin",
+                    admin_id=admin_id,
+                    notification_type="report_overdue",
+                    entity_id=order.id,
+                    payload={"order_id": str(order.id)},
+                    deduplication_key=f"report-overdue:admin:{order.id}",
+                )
+
+    async def _setting_int(
+        self,
+        session: AsyncSession,
+        key: str,
+        default: int,
+    ) -> int:
+        result = await session.execute(
+            select(BusinessSettingModel.value).where(BusinessSettingModel.key == key),
+        )
+        value = result.scalar_one_or_none()
+        return int(value) if value is not None else default
+
+    async def _first_admin_id(self, session: AsyncSession) -> UUID | None:
+        result = await session.execute(
+            select(AdminModel.id).order_by(AdminModel.created_at).limit(1),
+        )
+        return result.scalar_one_or_none()
+
+    async def _notify_once(
+        self,
+        *,
+        session: AsyncSession,
+        recipient_type: str,
+        notification_type: str,
+        entity_id: UUID,
+        payload: dict[str, str],
+        deduplication_key: str,
+        customer_id: UUID | None = None,
+        performer_id: UUID | None = None,
+        admin_id: UUID | None = None,
+    ) -> None:
+        exists = await session.execute(
+            select(NotificationModel.id).where(
+                NotificationModel.deduplication_key == deduplication_key,
+            ),
+        )
+        if exists.scalar_one_or_none() is not None:
+            return
+        now = utc_now()
+        session.add(
+            NotificationModel(
+                recipient_type=recipient_type,
+                customer_id=customer_id,
+                performer_id=performer_id,
+                admin_id=admin_id,
+                channel="telegram",
+                type=notification_type,
+                entity_type="order",
+                entity_id=entity_id,
+                payload=payload,
+                deduplication_key=deduplication_key,
+                status="pending",
+                attempts=0,
+                scheduled_at=now,
+                delete_after=now + timedelta(days=30),
+            ),
+        )
 
     async def _expire_matches(
         self,
@@ -506,6 +696,12 @@ def _notification_body(notification: NotificationModel) -> str:
             "Оплата не поступила вовремя. Заказ вернулся в подбор."
         ),
         "payment_expired_order_expired": ("Оплата не поступила вовремя. Заказ закрыт."),
+        "order_approaching": "Скоро начнется заказ.",
+        "order_started": "Настало время заказа.",
+        "order_finished": "Исполнитель завершил выполнение заказа.",
+        "report_submitted": "Исполнитель отправил отчет по заказу.",
+        "report_required": "Нужно отправить отчет по заказу.",
+        "report_overdue": "Отчет по заказу просрочен.",
     }
     return messages.get(notification.type, notification.type)
 

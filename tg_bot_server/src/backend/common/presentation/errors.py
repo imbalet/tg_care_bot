@@ -36,6 +36,7 @@ async def app_error_handler(_request: Request, exc: Exception) -> JSONResponse:
             "error": {
                 "code": app_error.__class__.__name__,
                 "message": str(app_error),
+                **app_error.details,
             },
         },
     )

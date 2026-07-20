@@ -114,6 +114,19 @@ class OrderMatchDTO:
 
 
 @dataclass(frozen=True)
+class OrderReportDTO:
+    id: UUID
+    order_id: UUID
+    performer_id: UUID
+    completed_work: str
+    comment: str | None
+    problem_flag: bool
+    problem_description: str | None
+    submitted_at: datetime
+    file_ids: tuple[UUID, ...]
+
+
+@dataclass(frozen=True)
 class MatchActionDTO:
     order: OrderDTO
     match: OrderMatchDTO

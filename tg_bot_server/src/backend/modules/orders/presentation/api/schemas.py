@@ -79,6 +79,36 @@ class CustomerMatchActionRequest(BaseModel):
     customer_id: UUID
 
 
+class PerformerOrderActionRequest(BaseModel):
+    performer_id: UUID
+
+
+class CancelOrderRequest(BaseModel):
+    actor_type: str = Field(pattern="^(customer|performer|admin)$")
+    actor_id: UUID
+
+
+class OrderReportRequest(BaseModel):
+    performer_id: UUID
+    completed_work: str = Field(min_length=1, max_length=10000)
+    comment: str | None = Field(default=None, max_length=10000)
+    problem_flag: bool = False
+    problem_description: str | None = Field(default=None, max_length=10000)
+    file_ids: list[UUID] = Field(default_factory=list, max_length=10)
+
+
+class OrderReportResponse(BaseModel):
+    id: str
+    order_id: str
+    performer_id: str
+    completed_work: str
+    comment: str | None
+    problem_flag: bool
+    problem_description: str | None
+    submitted_at: str
+    file_ids: list[str]
+
+
 class OrderMatchResponse(BaseModel):
     id: str
     order_id: str

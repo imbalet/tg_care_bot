@@ -20,17 +20,22 @@ from .mappers import (
     my_orders_page_response,
     order_response,
     price_preview_response,
+    report_response,
 )
 from .schemas import (
+    CancelOrderRequest,
     CustomerMatchActionRequest,
     DirectOrderRequest,
     MatchActionResponse,
     MyOrderCardResponse,
     MyOrdersPageResponse,
     OrderMatchResponse,
+    OrderReportRequest,
+    OrderReportResponse,
     OrderRequest,
     OrderResponse,
     PerformerMatchActionRequest,
+    PerformerOrderActionRequest,
     PricePreviewRequest,
     PricePreviewResponse,
 )
@@ -232,3 +237,61 @@ async def reject_pool_response(
         customer_id=request.customer_id,
     )
     return match_response(match)
+
+
+@router.post("/{order_id}/start")
+async def start_order(
+    order_id: UUID,
+    request: PerformerOrderActionRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> OrderResponse:
+    order = await container.services().start_order(
+        order_id=order_id,
+        performer_id=request.performer_id,
+    )
+    return order_response(order)
+
+
+@router.post("/{order_id}/finish")
+async def finish_order(
+    order_id: UUID,
+    request: PerformerOrderActionRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> OrderResponse:
+    order = await container.services().finish_order(
+        order_id=order_id,
+        performer_id=request.performer_id,
+    )
+    return order_response(order)
+
+
+@router.post("/{order_id}/report")
+async def submit_order_report(
+    order_id: UUID,
+    request: OrderReportRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> OrderReportResponse:
+    report = await container.services().submit_order_report(
+        order_id=order_id,
+        performer_id=request.performer_id,
+        completed_work=request.completed_work,
+        comment=request.comment,
+        problem_flag=request.problem_flag,
+        problem_description=request.problem_description,
+        file_ids=tuple(request.file_ids),
+    )
+    return report_response(report)
+
+
+@router.post("/{order_id}/cancel")
+async def cancel_order(
+    order_id: UUID,
+    request: CancelOrderRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> OrderResponse:
+    order = await container.services().cancel_order(
+        order_id=order_id,
+        actor_type=request.actor_type,
+        actor_id=request.actor_id,
+    )
+    return order_response(order)

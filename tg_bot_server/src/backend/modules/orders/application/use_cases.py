@@ -1,15 +1,17 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from backend.common.application import to_utc
+from backend.common.application import to_utc, utc_now
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.availability.application import AvailabilityRepository
+from backend.modules.files.application import CreateFileLinkCommand
 from backend.modules.orders.application.dto import (
     OrderCareObjectSnapshot,
     OrderData,
     OrderDTO,
+    OrderReportDTO,
     PricePreviewDTO,
     ServicePricingDTO,
 )
@@ -44,6 +46,36 @@ class CreatePoolOrderCommand(OrderCommand):
 @dataclass(frozen=True)
 class CreateDirectOrderCommand(OrderCommand):
     performer_id: UUID
+
+
+@dataclass(frozen=True)
+class StartOrderCommand:
+    order_id: UUID
+    performer_id: UUID
+
+
+@dataclass(frozen=True)
+class FinishOrderCommand:
+    order_id: UUID
+    performer_id: UUID
+
+
+@dataclass(frozen=True)
+class SubmitOrderReportCommand:
+    order_id: UUID
+    performer_id: UUID
+    completed_work: str
+    comment: str | None
+    problem_flag: bool
+    problem_description: str | None
+    file_ids: tuple[UUID, ...]
+
+
+@dataclass(frozen=True)
+class CancelOrderCommand:
+    order_id: UUID
+    actor_type: str
+    actor_id: UUID
 
 
 class CreatePoolOrderUseCase:
@@ -129,6 +161,130 @@ class CreateDirectOrderUseCase:
         )
         if all(item.performer_id != command.performer_id for item in suitable):
             raise ValidationError("Performer is not suitable for direct order")
+
+
+class StartOrderUseCase:
+    def __init__(self, repository: OrderRepository) -> None:
+        self._repository = repository
+
+    async def execute(self, command: StartOrderCommand) -> OrderDTO:
+        return await self._repository.start_order(
+            order_id=command.order_id,
+            performer_id=command.performer_id,
+        )
+
+
+class FinishOrderUseCase:
+    def __init__(
+        self,
+        repository: OrderRepository,
+        pricing_repository: PricingRepository,
+    ) -> None:
+        self._repository = repository
+        self._pricing_repository = pricing_repository
+
+    async def execute(self, command: FinishOrderCommand) -> OrderDTO:
+        grace_minutes = await self._pricing_repository.get_integer_setting(
+            "report_deadline_minutes",
+        )
+        if grace_minutes is None:
+            raise ValidationError("Report deadline is not configured")
+        return await self._repository.finish_order(
+            order_id=command.order_id,
+            performer_id=command.performer_id,
+            report_due_at=utc_now() + timedelta(minutes=grace_minutes),
+        )
+
+
+class SubmitOrderReportUseCase:
+    def __init__(
+        self,
+        repository: OrderRepository,
+        file_repository: Any,
+    ) -> None:
+        self._repository = repository
+        self._file_repository = file_repository
+
+    async def execute(self, command: SubmitOrderReportCommand) -> OrderReportDTO:
+        if not command.completed_work.strip():
+            raise ValidationError("Completed work is required")
+        if command.problem_flag and not command.problem_description:
+            raise ValidationError("Problem description is required")
+        if not command.problem_flag and command.problem_description:
+            raise ValidationError("Problem description is not allowed")
+        files = []
+        for file_id in command.file_ids:
+            file = await self._file_repository.get(file_id)
+            if file is None or file.status != "uploaded":
+                raise ValidationError("Report file is unavailable")
+            if not file.mime_type.startswith("image/"):
+                raise ValidationError("Report files must be images")
+            if file.size_bytes is not None and file.size_bytes > 10 * 1024 * 1024:
+                raise ValidationError("Report file is too large")
+            files.append(file)
+        order = await self._repository.get_order(command.order_id)
+        if order is None:
+            raise NotFoundError("Order not found")
+        if order.photo_policy == "required" and not files:
+            raise ValidationError("Report photo is required")
+        if order.photo_policy == "requires_customer_consent" and not files:
+            raise ValidationError("Report photo is required")
+        report = await self._repository.submit_report(
+            order_id=command.order_id,
+            performer_id=command.performer_id,
+            completed_work=command.completed_work,
+            comment=command.comment,
+            problem_flag=command.problem_flag,
+            problem_description=command.problem_description,
+        )
+        for index, file in enumerate(files):
+            await self._file_repository.add_link(
+                CreateFileLinkCommand(
+                    file_id=file.id,
+                    entity_type="order_report",
+                    entity_id=report.id,
+                    purpose="report_photo",
+                    sort_order=index,
+                ),
+            )
+        return OrderReportDTO(
+            id=report.id,
+            order_id=report.order_id,
+            performer_id=report.performer_id,
+            completed_work=report.completed_work,
+            comment=report.comment,
+            problem_flag=report.problem_flag,
+            problem_description=report.problem_description,
+            submitted_at=report.submitted_at,
+            file_ids=command.file_ids,
+        )
+
+
+class CancelOrderUseCase:
+    def __init__(
+        self,
+        repository: OrderRepository,
+        pricing_repository: PricingRepository,
+    ) -> None:
+        self._repository = repository
+        self._pricing_repository = pricing_repository
+
+    async def execute(self, command: CancelOrderCommand) -> OrderDTO:
+        customer_minutes = await self._pricing_repository.get_integer_setting(
+            "customer_cancel_before_start_minutes",
+        )
+        performer_minutes = await self._pricing_repository.get_integer_setting(
+            "performer_cancel_before_start_minutes",
+        )
+        if customer_minutes is None or performer_minutes is None:
+            raise ValidationError("Cancel policy is not configured")
+        return await self._repository.cancel_order(
+            order_id=command.order_id,
+            actor_type=command.actor_type,
+            actor_id=command.actor_id,
+            customer_deadline_minutes=customer_minutes,
+            performer_deadline_minutes=performer_minutes,
+        )
 
 
 async def _prepare_order(

@@ -3,8 +3,14 @@ class AppError(Exception):
 
     message = "Application error"
 
-    def __init__(self, message: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str | None = None,
+        *,
+        details: dict[str, object] | None = None,
+    ) -> None:
         super().__init__(message or self.message)
+        self.details = details or {}
 
 
 class AuthenticationError(AppError):

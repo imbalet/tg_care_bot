@@ -79,10 +79,18 @@ from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.application import (
     CalculatePricePreviewCommand,
     CalculatePricePreviewUseCase,
+    CancelOrderCommand,
+    CancelOrderUseCase,
     CreateDirectOrderCommand,
     CreateDirectOrderUseCase,
     CreatePoolOrderCommand,
     CreatePoolOrderUseCase,
+    FinishOrderCommand,
+    FinishOrderUseCase,
+    StartOrderCommand,
+    StartOrderUseCase,
+    SubmitOrderReportCommand,
+    SubmitOrderReportUseCase,
 )
 from backend.modules.orders.infrastructure import (
     SqlAlchemyMatchingRepository,
@@ -354,6 +362,77 @@ class ApplicationServices:
                 SqlAlchemyPricingRepository(uow.session),
                 SqlAlchemyAvailabilityRepository(uow.session),
             ).execute(command)
+            await uow.commit()
+            return order
+
+    async def start_order(self, *, order_id: UUID, performer_id: UUID) -> Any:
+        async with self._uow() as uow:
+            order = await StartOrderUseCase(
+                SqlAlchemyOrderRepository(uow.session),
+            ).execute(
+                StartOrderCommand(order_id=order_id, performer_id=performer_id),
+            )
+            await uow.commit()
+            return order
+
+    async def finish_order(self, *, order_id: UUID, performer_id: UUID) -> Any:
+        async with self._uow() as uow:
+            order = await FinishOrderUseCase(
+                SqlAlchemyOrderRepository(uow.session),
+                SqlAlchemyPricingRepository(uow.session),
+            ).execute(
+                FinishOrderCommand(order_id=order_id, performer_id=performer_id),
+            )
+            await uow.commit()
+            return order
+
+    async def submit_order_report(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+        completed_work: str,
+        comment: str | None,
+        problem_flag: bool,
+        problem_description: str | None,
+        file_ids: tuple[UUID, ...],
+    ) -> Any:
+        async with self._uow() as uow:
+            report = await SubmitOrderReportUseCase(
+                SqlAlchemyOrderRepository(uow.session),
+                SqlAlchemyFileRepository(uow.session),
+            ).execute(
+                SubmitOrderReportCommand(
+                    order_id=order_id,
+                    performer_id=performer_id,
+                    completed_work=completed_work,
+                    comment=comment,
+                    problem_flag=problem_flag,
+                    problem_description=problem_description,
+                    file_ids=file_ids,
+                ),
+            )
+            await uow.commit()
+            return report
+
+    async def cancel_order(
+        self,
+        *,
+        order_id: UUID,
+        actor_type: str,
+        actor_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            order = await CancelOrderUseCase(
+                SqlAlchemyOrderRepository(uow.session),
+                SqlAlchemyPricingRepository(uow.session),
+            ).execute(
+                CancelOrderCommand(
+                    order_id=order_id,
+                    actor_type=actor_type,
+                    actor_id=actor_id,
+                ),
+            )
             await uow.commit()
             return order
 

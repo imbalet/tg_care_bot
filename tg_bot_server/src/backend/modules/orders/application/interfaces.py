@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, Protocol
 from uuid import UUID
@@ -8,6 +9,7 @@ from backend.modules.orders.application.dto import (
     OrderCareObjectSnapshot,
     OrderData,
     OrderDTO,
+    OrderReportDTO,
     PricePreviewDTO,
     ServicePricingDTO,
 )
@@ -34,6 +36,41 @@ class PricingRepository(Protocol):
 
 class OrderRepository(Protocol):
     async def get_order(self, order_id: UUID) -> OrderDTO | None:
+        pass
+
+    async def start_order(self, *, order_id: UUID, performer_id: UUID) -> OrderDTO:
+        pass
+
+    async def finish_order(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+        report_due_at: datetime,
+    ) -> OrderDTO:
+        pass
+
+    async def submit_report(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+        completed_work: str,
+        comment: str | None,
+        problem_flag: bool,
+        problem_description: str | None,
+    ) -> OrderReportDTO:
+        pass
+
+    async def cancel_order(
+        self,
+        *,
+        order_id: UUID,
+        actor_type: str,
+        actor_id: UUID,
+        customer_deadline_minutes: int,
+        performer_deadline_minutes: int,
+    ) -> OrderDTO:
         pass
 
     async def create_pool(

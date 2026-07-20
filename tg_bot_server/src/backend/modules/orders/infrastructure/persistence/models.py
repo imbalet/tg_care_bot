@@ -7,6 +7,7 @@ from sqlalchemy import DateTime, ForeignKey, Numeric, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from backend.common.application import utc_now
 from backend.common.infrastructure.database import (
     Base,
     CreatedAtMixin,
@@ -192,3 +193,22 @@ class OrderStatusHistoryModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
     actor_type: Mapped[str] = mapped_column(Text, nullable=False)
     actor_id: Mapped[UUID | None] = mapped_column(nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class OrderReportModel(UuidPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "order_reports"
+
+    order_id: Mapped[UUID] = mapped_column(ForeignKey(OrderModel.id), nullable=False)
+    performer_id: Mapped[UUID] = mapped_column(
+        ForeignKey("performers.id"),
+        nullable=False,
+    )
+    completed_work: Mapped[str] = mapped_column(Text, nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    problem_flag: Mapped[bool] = mapped_column(nullable=False, default=False)
+    problem_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    submitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+    )

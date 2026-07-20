@@ -8,6 +8,7 @@ from backend.modules.orders.application import (
     MyOrderSummaryDTO,
     OrderDTO,
     OrderMatchDTO,
+    OrderReportDTO,
     PaymentPromptDTO,
     PricePreviewDTO,
 )
@@ -19,6 +20,7 @@ from .schemas import (
     MyOrdersPageResponse,
     MyOrderSummaryResponse,
     OrderMatchResponse,
+    OrderReportResponse,
     OrderRequest,
     OrderResponse,
     PaymentPromptResponse,
@@ -130,6 +132,20 @@ def match_response(match: OrderMatchDTO) -> OrderMatchResponse:
         closed_at=closed_at.isoformat() if closed_at is not None else None,
         close_reason=match.close_reason,
         timezone=match.timezone,
+    )
+
+
+def report_response(report: OrderReportDTO) -> OrderReportResponse:
+    return OrderReportResponse(
+        id=str(report.id),
+        order_id=str(report.order_id),
+        performer_id=str(report.performer_id),
+        completed_work=report.completed_work,
+        comment=report.comment,
+        problem_flag=report.problem_flag,
+        problem_description=report.problem_description,
+        submitted_at=report.submitted_at.isoformat(),
+        file_ids=[str(file_id) for file_id in report.file_ids],
     )
 
 
