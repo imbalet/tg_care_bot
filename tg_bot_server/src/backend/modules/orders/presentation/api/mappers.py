@@ -9,6 +9,7 @@ from backend.modules.orders.application import (
     OrderDTO,
     OrderLocationDTO,
     OrderMatchDTO,
+    OrderReportDetailDTO,
     OrderReportDTO,
     PaymentPromptDTO,
     PricePreviewDTO,
@@ -23,6 +24,8 @@ from .schemas import (
     MyOrderSummaryResponse,
     OrderLocationResponse,
     OrderMatchResponse,
+    OrderReportDetailResponse,
+    OrderReportFileResponse,
     OrderReportResponse,
     OrderRequest,
     OrderResponse,
@@ -176,6 +179,28 @@ def report_response(report: OrderReportDTO) -> OrderReportResponse:
         problem_description=report.problem_description,
         submitted_at=report.submitted_at.isoformat(),
         file_ids=[str(file_id) for file_id in report.file_ids],
+    )
+
+
+def report_detail_response(report: OrderReportDetailDTO) -> OrderReportDetailResponse:
+    return OrderReportDetailResponse(
+        id=str(report.id),
+        order_id=str(report.order_id),
+        performer_id=str(report.performer_id),
+        completed_work=report.completed_work,
+        comment=report.comment,
+        problem_flag=report.problem_flag,
+        problem_description=report.problem_description,
+        submitted_at=report.submitted_at.isoformat(),
+        files=[
+            OrderReportFileResponse(
+                id=str(file.id),
+                original_name=file.original_name,
+                mime_type=file.mime_type,
+                signed_url=file.signed_url,
+            )
+            for file in report.files
+        ],
     )
 
 

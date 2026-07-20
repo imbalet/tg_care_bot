@@ -6,6 +6,7 @@ from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import new_uuid, utc_now
+from backend.common.domain import ConflictError
 from backend.modules.catalog.infrastructure import (
     CityModel,
     LegalDocumentModel,
@@ -164,9 +165,16 @@ class SqlAlchemyPerformerRepository(PerformerRepository):
         return _performer_to_dto(performer)
 
     async def activate(self, performer_id: UUID) -> PerformerDTO | None:
-        model = await self._session.get(PerformerModel, performer_id)
+        result = await self._session.execute(
+            select(PerformerModel)
+            .where(PerformerModel.id == performer_id)
+            .with_for_update(),
+        )
+        model = result.scalar_one_or_none()
         if model is None:
             return None
+        if model.status != "profile_pending":
+            raise ConflictError("Only profile-pending performers can be activated")
         model.status = "active"
         model.updated_at = utc_now()
         return _performer_to_dto(model)

@@ -132,6 +132,15 @@ class OrderRepository(Protocol):
 
 
 class MyOrdersQueryService(Protocol):
+    async def get_order_report(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID | None = None,
+        performer_id: UUID | None = None,
+    ) -> tuple[OrderReportDTO, tuple[Any, ...]] | None:
+        pass
+
     async def list_customer_orders(
         self,
         *,

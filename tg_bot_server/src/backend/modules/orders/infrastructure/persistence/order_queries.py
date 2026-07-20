@@ -7,16 +7,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.common.domain import ValidationError
 from backend.modules.catalog.infrastructure import CityModel
 from backend.modules.customers.infrastructure import CustomerModel
+from backend.modules.files.infrastructure import FileLinkModel, FileModel
 from backend.modules.orders.application import (
     FullAddressSnapshotDTO,
     MyOrderCardDTO,
     MyOrdersPageDTO,
     MyOrderSummaryDTO,
     OrderLocationDTO,
+    OrderReportDTO,
 )
 from backend.modules.orders.infrastructure.persistence.models import (
     OrderAddressSnapshotModel,
     OrderModel,
+    OrderReportModel,
 )
 from backend.modules.payments.infrastructure import PaymentModel
 
@@ -147,6 +150,60 @@ class SqlAlchemyMyOrdersQueryService:
             city_name=snapshot.city_name,
             district_name=snapshot.district_name,
             address=address,
+        )
+
+    async def get_order_report(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID | None = None,
+        performer_id: UUID | None = None,
+    ) -> tuple[OrderReportDTO, tuple[FileModel, ...]] | None:
+        statement = (
+            select(OrderReportModel)
+            .join(OrderModel, OrderModel.id == OrderReportModel.order_id)
+            .where(
+                OrderReportModel.order_id == order_id,
+                OrderModel.status == "completed",
+            )
+        )
+        if customer_id is not None:
+            statement = statement.where(OrderModel.customer_id == customer_id)
+        elif performer_id is not None:
+            statement = statement.where(
+                OrderModel.selected_performer_id == performer_id,
+                OrderReportModel.performer_id == performer_id,
+            )
+        else:
+            raise ValidationError("Report actor is required")
+        report = (await self._session.execute(statement)).scalar_one_or_none()
+        if report is None:
+            return None
+        files_result = await self._session.execute(
+            select(FileModel)
+            .join(FileLinkModel, FileLinkModel.file_id == FileModel.id)
+            .where(
+                FileLinkModel.entity_type == "order_report",
+                FileLinkModel.entity_id == report.id,
+                FileLinkModel.purpose == "report_photo",
+                FileModel.status == "uploaded",
+            )
+            .order_by(FileLinkModel.sort_order, FileLinkModel.created_at),
+        )
+        files = tuple(files_result.scalars())
+        return (
+            OrderReportDTO(
+                id=report.id,
+                order_id=report.order_id,
+                performer_id=report.performer_id,
+                completed_work=report.completed_work,
+                comment=report.comment,
+                problem_flag=report.problem_flag,
+                problem_description=report.problem_description,
+                submitted_at=report.submitted_at,
+                file_ids=tuple(file.id for file in files),
+            ),
+            files,
         )
 
     def _base_statement(self, group: str | None = None) -> Select[Any]:

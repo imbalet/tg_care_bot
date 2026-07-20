@@ -18,6 +18,7 @@ from backend.modules.admin.infrastructure import AdminModel
 from backend.modules.catalog.infrastructure import BusinessSettingModel
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.notifications.application import (
+    notification_action_entity_id,
     notification_actions,
     notification_body,
 )
@@ -781,9 +782,7 @@ def _notification_title(notification: NotificationModel) -> str:
 def _notification_keyboard(notification: NotificationModel) -> dict[str, object] | None:
     buttons = notification_actions(
         notification.type,
-        str(notification.payload.get("match_id"))
-        if notification.payload.get("match_id") is not None
-        else None,
+        notification_action_entity_id(notification.type, notification.payload),
     )
     return {"inline_keyboard": buttons} if buttons else None
 

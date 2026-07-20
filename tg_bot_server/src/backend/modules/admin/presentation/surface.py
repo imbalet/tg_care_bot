@@ -1,5 +1,6 @@
 import json
 from collections.abc import Awaitable, Callable
+from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 from uuid import UUID
 
@@ -47,6 +48,7 @@ from backend.modules.files.infrastructure import (
     SqlAlchemyFileRepository,
 )
 from backend.modules.orders.infrastructure import (
+    OrderAddressSnapshotModel,
     OrderCareObjectModel,
     OrderMatchModel,
     OrderModel,
@@ -169,9 +171,66 @@ class OperationalModelView(ReadOnlyModelView):
 
 
 class PaymentView(OperationalModelView):
-    exclude_fields_from_detail = ["confirmation_url"]
-    searchable_fields = ["id", "order_id", "provider", "status", "provider_payment_id"]
+    actions = ["create_manual_refund"]
+    exclude_fields_from_list = ["confirmation_url", "idempotency_key"]
+    exclude_fields_from_detail = ["confirmation_url", "idempotency_key"]
+    searchable_fields = [
+        "id",
+        "order_id",
+        "provider",
+        "status",
+        "provider_payment_id",
+        "amount",
+        "created_at",
+        "paid_at",
+        "expires_at",
+    ]
     sortable_fields = ["created_at", "expires_at", "paid_at", "amount", "status"]
+
+    def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
+        super().__init__(model, **kwargs)
+        self._container = container
+
+    @action(
+        name="create_manual_refund",
+        text="Create manual refund",
+        confirmation="Create a refund for selected payments?",
+        submit_btn_text="Refund",
+        form=(
+            '<input name="amount" placeholder="Full amount by default">'
+            '<textarea name="reason" required></textarea>'
+        ),
+    )
+    async def create_manual_refund_action(
+        self, request: Request, pks: list[Any]
+    ) -> str:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"id": "Admin session is required"})
+        data = await request.form()
+        raw_amount = str(data.get("amount", "")).strip()
+        reason = str(data.get("reason", "")).strip()
+        if not reason:
+            raise FormValidationError({"reason": "Reason is required"})
+        amount: Decimal | None = None
+        if raw_amount:
+            try:
+                amount = Decimal(raw_amount)
+            except InvalidOperation as exc:
+                raise FormValidationError({"amount": "Invalid amount"}) from exc
+        for raw_pk in pks:
+            try:
+                await self._container.services().create_manual_refund(
+                    CreateManualRefundCommand(
+                        payment_id=UUID(str(raw_pk)),
+                        amount=amount,
+                        reason=reason,
+                        admin_id=admin.id,
+                    ),
+                )
+            except (ConflictError, NotFoundError, ValidationError) as exc:
+                raise FormValidationError({str(raw_pk): str(exc)}) from exc
+        return f"Refunds created: {len(pks)}"
 
 
 class AuditLogView(OperationalModelView):
@@ -179,7 +238,29 @@ class AuditLogView(OperationalModelView):
     sortable_fields = ["created_at", "action", "entity_type"]
 
 
+class RefundView(OperationalModelView):
+    searchable_fields = [
+        "id",
+        "order_id",
+        "payment_id",
+        "status",
+        "amount",
+        "created_at",
+        "completed_at",
+    ]
+    sortable_fields = ["created_at", "completed_at", "amount", "status"]
+
+
 class ReportView(OperationalModelView):
+    searchable_fields = [
+        "id",
+        "order_id",
+        "performer_id",
+        "problem_flag",
+        "submitted_at",
+    ]
+    sortable_fields = ["submitted_at", "problem_flag"]
+
     def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
         super().__init__(model, **kwargs)
         self._container = container
@@ -293,7 +374,7 @@ class PerformerView(ReadOnlyModelView):
                     performer_id,
                     audit_admin_id=admin.id,
                 )
-            except NotFoundError as exc:
+            except (ConflictError, NotFoundError) as exc:
                 errors[str(raw_pk)] = str(exc)
             else:
                 activated_count += 1
@@ -422,12 +503,68 @@ class OrderView(OperationalModelView):
         "selected_performer_id",
         "status",
         "service_code",
+        "created_at",
+        "start_at",
+        "end_at",
     ]
     sortable_fields = ["created_at", "start_at", "end_at", "status", "total_amount"]
 
     def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
         super().__init__(model, **kwargs)
         self._container = container
+        self.fields = [
+            *self.fields,
+            JSONField("customer_contact", read_only=True),
+            JSONField("address_snapshot", read_only=True),
+        ]
+
+    async def serialize(
+        self,
+        obj: Any,
+        request: Request,
+        action: RequestAction,
+        include_relationships: bool = True,
+        include_select2: bool = False,
+    ) -> dict[str, Any]:
+        if action == RequestAction.DETAIL:
+            customer = (
+                await request.state.session.get(CustomerModel, obj.customer_id)
+                if obj.customer_id is not None
+                else None
+            )
+            snapshot = await request.state.session.scalar(
+                select(OrderAddressSnapshotModel).where(
+                    OrderAddressSnapshotModel.order_id == obj.id,
+                ),
+            )
+            obj.customer_contact = (
+                {
+                    "phone": customer.phone,
+                    "telegram_username": customer.telegram_username,
+                }
+                if customer is not None
+                else None
+            )
+            obj.address_snapshot = (
+                {
+                    "city_name": snapshot.city_name,
+                    "district_name": snapshot.district_name,
+                    "address_text": snapshot.address_text,
+                    "entrance": snapshot.entrance,
+                    "floor": snapshot.floor,
+                    "apartment": snapshot.apartment,
+                    "comment": snapshot.comment,
+                }
+                if snapshot is not None
+                else None
+            )
+        return await super().serialize(
+            obj,
+            request,
+            action,
+            include_relationships=include_relationships,
+            include_select2=include_select2,
+        )
 
     @action(
         name="cancel_order",
@@ -494,8 +631,15 @@ class OrderView(OperationalModelView):
 
 
 class SupportRecordView(OperationalModelView):
-    actions = ["update_record"]
-    searchable_fields = ["id", "order_id", "status", "created_at"]
+    searchable_fields = [
+        "id",
+        "customer_id",
+        "performer_id",
+        "order_id",
+        "status",
+        "created_at",
+        "updated_at",
+    ]
     sortable_fields = ["created_at", "updated_at", "status"]
 
     def __init__(
@@ -504,6 +648,9 @@ class SupportRecordView(OperationalModelView):
         super().__init__(model, **kwargs)
         self._container = container
         self._record_kind = record_kind
+        self.actions = ["update_record"]
+        if record_kind == "deletion":
+            self.actions.append("resolve_deletion")
 
     @action(
         name="update_record",
@@ -533,6 +680,31 @@ class SupportRecordView(OperationalModelView):
             except (ConflictError, NotFoundError, ValidationError) as exc:
                 raise FormValidationError({str(raw_pk): str(exc)}) from exc
         return f"Updated records: {len(pks)}"
+
+    @action(
+        name="resolve_deletion",
+        text="Resolve deletion",
+        confirmation="Resolve selected deletion requests?",
+        submit_btn_text="Resolve",
+        form='<textarea name="comment" required></textarea>',
+    )
+    async def resolve_deletion_action(self, request: Request, pks: list[Any]) -> str:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"id": "Admin session is required"})
+        comment = str((await request.form()).get("comment", "")).strip()
+        if not comment:
+            raise FormValidationError({"comment": "Comment is required"})
+        for raw_pk in pks:
+            try:
+                await self._container.services().resolve_deletion_request(
+                    record_id=UUID(str(raw_pk)),
+                    admin_comment=comment,
+                    admin_id=admin.id,
+                )
+            except (ConflictError, NotFoundError, ValidationError) as exc:
+                raise FormValidationError({str(raw_pk): str(exc)}) from exc
+        return f"Deletion requests resolved: {len(pks)}"
 
 
 def create_admin_surface(container: Container) -> Admin:
@@ -589,8 +761,8 @@ def create_admin_surface(container: Container) -> Admin:
     admin.add_view(
         ReadOnlyModelView(OrderStatusHistoryModel, label="Order status history"),
     )
-    admin.add_view(PaymentView(PaymentModel, label="Payments"))
-    admin.add_view(OperationalModelView(RefundModel, label="Refunds"))
+    admin.add_view(PaymentView(PaymentModel, container, label="Payments"))
+    admin.add_view(RefundView(RefundModel, label="Refunds"))
     admin.add_view(ReportView(OrderReportModel, container, label="Order reports"))
     admin.add_view(
         SupportRecordView(

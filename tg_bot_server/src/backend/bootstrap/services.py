@@ -98,6 +98,8 @@ from backend.modules.orders.application import (
     CreatePoolOrderUseCase,
     FinishOrderCommand,
     FinishOrderUseCase,
+    OrderReportDetailDTO,
+    OrderReportFileDTO,
     StartOrderCommand,
     StartOrderUseCase,
     SubmitOrderReportCommand,
@@ -449,6 +451,21 @@ class ApplicationServices:
             )
             await uow.commit()
             return record
+
+    async def resolve_deletion_request(
+        self,
+        *,
+        record_id: UUID,
+        admin_comment: str,
+        admin_id: UUID,
+    ) -> Any:
+        return await self.update_support_record(
+            record_kind="deletion",
+            record_id=record_id,
+            status="resolved",
+            admin_comment=admin_comment,
+            admin_id=admin_id,
+        )
 
     @staticmethod
     def _support_model(record_kind: str) -> type[Any]:
@@ -806,6 +823,50 @@ class ApplicationServices:
             )
             await uow.commit()
             return report
+
+    async def get_order_report(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID | None = None,
+        performer_id: UUID | None = None,
+    ) -> OrderReportDetailDTO | None:
+        async with self._uow() as uow:
+            result = await SqlAlchemyMyOrdersQueryService(
+                uow.session,
+            ).get_order_report(
+                order_id=order_id,
+                customer_id=customer_id,
+                performer_id=performer_id,
+            )
+            if result is None:
+                return None
+            report, files = result
+            report_files: list[OrderReportFileDTO] = []
+            for file in files:
+                if file.storage_key is None:
+                    continue
+                report_files.append(
+                    OrderReportFileDTO(
+                        id=file.id,
+                        original_name=file.original_name,
+                        mime_type=file.mime_type,
+                        signed_url=await self._storage().create_download_url(
+                            file.storage_key,
+                        ),
+                    ),
+                )
+            return OrderReportDetailDTO(
+                id=report.id,
+                order_id=report.order_id,
+                performer_id=report.performer_id,
+                completed_work=report.completed_work,
+                comment=report.comment,
+                problem_flag=report.problem_flag,
+                problem_description=report.problem_description,
+                submitted_at=report.submitted_at,
+                files=tuple(report_files),
+            )
 
     async def cancel_order(
         self,

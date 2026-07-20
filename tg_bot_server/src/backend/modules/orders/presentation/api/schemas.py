@@ -136,6 +136,25 @@ class OrderReportResponse(BaseModel):
     file_ids: list[str]
 
 
+class OrderReportFileResponse(BaseModel):
+    id: str
+    original_name: str | None
+    mime_type: str
+    signed_url: str
+
+
+class OrderReportDetailResponse(BaseModel):
+    id: str
+    order_id: str
+    performer_id: str
+    completed_work: str
+    comment: str | None
+    problem_flag: bool
+    problem_description: str | None
+    submitted_at: str
+    files: list[OrderReportFileResponse]
+
+
 class OrderMatchResponse(BaseModel):
     id: str
     order_id: str

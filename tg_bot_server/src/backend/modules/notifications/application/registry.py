@@ -28,6 +28,32 @@ _ACTIONS: dict[str, tuple[NotificationAction, ...]] = {
     ),
 }
 
+_OPEN_ORDER_TYPES = frozenset(
+    {
+        "direct_accepted",
+        "direct_rejected",
+        "direct_match_expired",
+        "pool_response_rejected",
+        "pool_response_selected",
+        "pool_match_expired",
+        "order_matching_expired",
+        "pool_no_responses",
+        "payment_success",
+        "order_confirmed",
+        "payment_expired_order_searching",
+        "payment_expired_order_expired",
+        "refund_requested",
+        "refund_completed",
+        "refund_failed",
+        "order_approaching",
+        "order_started",
+        "order_finished",
+        "report_submitted",
+        "report_required",
+        "report_overdue",
+    }
+)
+
 _BODIES = {
     "direct_accepted": "Исполнитель принял приглашение. Заказ ожидает оплаты.",
     "direct_rejected": "Исполнитель отклонил приглашение.",
@@ -64,6 +90,8 @@ def notification_actions(
     notification_type: str, entity_id: str | None
 ) -> list[list[dict[str, object]]] | None:
     actions = _ACTIONS.get(notification_type)
+    if actions is None and notification_type in _OPEN_ORDER_TYPES:
+        actions = (NotificationAction("Открыть заказ", "notification_order"),)
     if actions is None:
         return None
     buttons: list[dict[str, object]] = []
@@ -73,6 +101,17 @@ def notification_actions(
             return None
         buttons.append({"text": action.label, "callback_data": callback_data})
     return [buttons]
+
+
+def notification_action_entity_id(
+    notification_type: str,
+    payload: dict[str, object],
+) -> str | None:
+    if notification_type in {"direct_invitation_created", "pool_response_created"}:
+        value = payload.get("match_id")
+    else:
+        value = payload.get("order_id")
+    return value if isinstance(value, str) else None
 
 
 def notification_body(notification_type: str) -> str:

@@ -151,6 +151,27 @@ class OrderReportDTO:
 
 
 @dataclass(frozen=True)
+class OrderReportFileDTO:
+    id: UUID
+    original_name: str | None
+    mime_type: str
+    signed_url: str
+
+
+@dataclass(frozen=True)
+class OrderReportDetailDTO:
+    id: UUID
+    order_id: UUID
+    performer_id: UUID
+    completed_work: str
+    comment: str | None
+    problem_flag: bool
+    problem_description: str | None
+    submitted_at: datetime
+    files: tuple[OrderReportFileDTO, ...]
+
+
+@dataclass(frozen=True)
 class MatchActionDTO:
     order: OrderDTO
     match: OrderMatchDTO

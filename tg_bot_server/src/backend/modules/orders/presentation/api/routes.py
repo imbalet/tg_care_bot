@@ -21,6 +21,7 @@ from .mappers import (
     order_location_response,
     order_response,
     price_preview_response,
+    report_detail_response,
     report_response,
 )
 from .schemas import (
@@ -33,6 +34,7 @@ from .schemas import (
     MyOrdersPageResponse,
     OrderLocationResponse,
     OrderMatchResponse,
+    OrderReportDetailResponse,
     OrderReportRequest,
     OrderReportResponse,
     OrderRequest,
@@ -341,6 +343,36 @@ async def submit_order_report(
         file_ids=tuple(request.file_ids),
     )
     return report_response(report)
+
+
+@router.get("/customer/{customer_id}/my/{order_id}/report")
+async def get_customer_order_report(
+    customer_id: UUID,
+    order_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> OrderReportDetailResponse:
+    report = await container.services().get_order_report(
+        order_id=order_id,
+        customer_id=customer_id,
+    )
+    if report is None:
+        raise NotFoundError("Order report not found")
+    return report_detail_response(report)
+
+
+@router.get("/performer/{performer_id}/my/{order_id}/report")
+async def get_performer_order_report(
+    performer_id: UUID,
+    order_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> OrderReportDetailResponse:
+    report = await container.services().get_order_report(
+        order_id=order_id,
+        performer_id=performer_id,
+    )
+    if report is None:
+        raise NotFoundError("Order report not found")
+    return report_detail_response(report)
 
 
 @router.post("/{order_id}/cancel")
