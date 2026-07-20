@@ -1,11 +1,12 @@
 import logging
 
+from redis.asyncio import Redis
+
 from customer_bot.application.ports import (
     ActiveCategoryStore,
     CurrentMessageStore,
     UsernameSyncCache,
 )
-from redis.asyncio import Redis
 
 from .keys import CustomerRedisKeys, customer_redis_keys
 
@@ -62,20 +63,7 @@ class RedisCurrentMessageStore(CurrentMessageStore):
     async def get(self, telegram_id: int) -> int | None:
         current_key = self._keys.current_message(telegram_id)
         value = await self._redis.get(current_key)
-        message_id = await self._parse_message_id(telegram_id, current_key, value)
-        if message_id is not None:
-            return message_id
-
-        legacy_key = self._keys.legacy_screen_message(telegram_id, "main")
-        legacy_value = await self._redis.get(legacy_key)
-        legacy_message_id = await self._parse_message_id(
-            telegram_id,
-            legacy_key,
-            legacy_value,
-        )
-        if legacy_message_id is not None:
-            await self.set(telegram_id, legacy_message_id)
-        return legacy_message_id
+        return await self._parse_message_id(telegram_id, current_key, value)
 
     async def set(self, telegram_id: int, message_id: int) -> None:
         await self._redis.set(

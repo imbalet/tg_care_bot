@@ -20,9 +20,6 @@ class CustomerRedisKeys:
     def current_message(self, telegram_id: int) -> str:
         return self._join("screen", str(telegram_id), "current")
 
-    def legacy_screen_message(self, telegram_id: int, screen_key: str) -> str:
-        return self._join("screen", str(telegram_id), screen_key)
-
     def _join(self, *parts: str) -> str:
         return ":".join((self.prefix, *parts))
 
