@@ -132,7 +132,7 @@ async def create_manual_refund(
     refund = await container.services().create_manual_refund(
         CreateManualRefundCommand(
             payment_id=request.payment_id,
-            amount=Decimal(request.amount),
+            amount=Decimal(request.amount) if request.amount is not None else None,
             reason=request.reason,
             admin_id=admin_id,
         ),

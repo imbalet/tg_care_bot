@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -94,6 +94,7 @@ class SqlAlchemyPaymentRepository:
         if payment is None or payment.status != "created":
             return
         payment.failure_code = failure_code
+        payment.status = "failed"
 
     async def apply_successful_webhook(
         self,
@@ -103,6 +104,8 @@ class SqlAlchemyPaymentRepository:
             command.provider_payment_id,
         )
         if payment_probe is None:
+            return None
+        if payment_probe.id != command.provider_order_id:
             return None
         order = await self._lock_order(payment_probe.order_id)
         payment = await self._lock_payment(payment_probe.id)
@@ -126,6 +129,25 @@ class SqlAlchemyPaymentRepository:
                 status=payment.status,
                 applied=False,
                 unapplied_reason=payment.unapplied_reason,
+            )
+        if payment.status in {"failed", "expired", "cancelled"}:
+            return PaymentWebhookResult(
+                payment_id=payment.id,
+                order_id=order.id,
+                status=payment.status,
+                applied=False,
+                unapplied_reason=payment.failure_code,
+            )
+        if command.status not in {"CONFIRMED", "AUTHORIZED"}:
+            payment.status = "failed"
+            payment.failure_code = f"provider_{command.status.lower()}"
+            await self._session.flush()
+            return PaymentWebhookResult(
+                payment_id=payment.id,
+                order_id=order.id,
+                status=payment.status,
+                applied=False,
+                unapplied_reason=payment.failure_code,
             )
         payment.paid_at = command.paid_at
         unapplied_reason = _unapplied_reason(
@@ -284,7 +306,7 @@ class SqlAlchemyPaymentRepository:
         self,
         *,
         payment_id: UUID,
-        amount: Decimal,
+        amount: Decimal | None,
         reason: str,
         admin_id: UUID,
     ) -> RefundDTO:
@@ -292,6 +314,10 @@ class SqlAlchemyPaymentRepository:
         order = await self._lock_order(payment.order_id)
         if payment.status != "succeeded":
             raise ConflictError("Payment is not succeeded")
+        if amount is None:
+            amount = _calculated_refund_amount(payment=payment, order=order)
+        if amount <= 0:
+            raise ValidationError("Refund amount must be positive")
         if amount > payment.amount:
             raise ValidationError("Refund amount exceeds payment amount")
         refund_type = "full" if amount == payment.amount else "partial"
@@ -302,6 +328,9 @@ class SqlAlchemyPaymentRepository:
         existing = await self._get_refund_by_idempotency_key(idempotency_key)
         if existing is not None:
             return _refund_to_dto(existing)
+        active_refund = await self._get_active_refund(payment.id)
+        if active_refund is not None:
+            raise ConflictError("Payment already has an active refund")
         refund = RefundModel(
             id=new_uuid(),
             order_id=order.id,
@@ -314,6 +343,20 @@ class SqlAlchemyPaymentRepository:
             idempotency_key=idempotency_key,
         )
         self._session.add(refund)
+        await self._add_notification(
+            recipient_type="customer",
+            customer_id=order.customer_id,
+            notification_type="refund_requested",
+            entity_type="refund",
+            entity_id=refund.id,
+            payload={
+                "order_id": str(order.id),
+                "payment_id": str(payment.id),
+                "refund_id": str(refund.id),
+                "amount": str(amount),
+            },
+            deduplication_key=f"refund-requested:{refund.id}",
+        )
         await self._session.flush()
         return _refund_to_dto(refund)
 
@@ -329,12 +372,45 @@ class SqlAlchemyPaymentRepository:
         refund.status = "succeeded"
         refund.provider_refund_id = provider_refund_id
         refund.completed_at = utc_now()
+        await self._add_notification(
+            recipient_type="customer",
+            customer_id=await self._customer_id_for_order(refund.order_id),
+            notification_type="refund_completed",
+            entity_type="refund",
+            entity_id=refund.id,
+            payload={
+                "order_id": str(refund.order_id),
+                "refund_id": str(refund.id),
+                "amount": str(refund.amount),
+            },
+            deduplication_key=f"refund-completed:{refund.id}",
+        )
 
     async def mark_refund_failed(self, *, refund_id: UUID) -> None:
         refund = await self._lock_refund(refund_id)
         if refund.status != "pending":
             return
         refund.status = "failed"
+        await self._add_notification(
+            recipient_type="customer",
+            customer_id=await self._customer_id_for_order(refund.order_id),
+            notification_type="refund_failed",
+            entity_type="refund",
+            entity_id=refund.id,
+            payload={
+                "order_id": str(refund.order_id),
+                "refund_id": str(refund.id),
+                "amount": str(refund.amount),
+            },
+            deduplication_key=f"refund-failed:{refund.id}",
+        )
+
+    async def get_refund(self, refund_id: UUID) -> RefundDTO | None:
+        result = await self._session.execute(
+            select(RefundModel).where(RefundModel.id == refund_id),
+        )
+        refund = result.scalar_one_or_none()
+        return _refund_to_dto(refund) if refund is not None else None
 
     async def _get_refund_by_idempotency_key(
         self,
@@ -344,6 +420,23 @@ class SqlAlchemyPaymentRepository:
             select(RefundModel).where(
                 RefundModel.idempotency_key == idempotency_key,
             ),
+        )
+        return result.scalar_one_or_none()
+
+    async def _get_active_refund(self, payment_id: UUID) -> RefundModel | None:
+        result = await self._session.execute(
+            select(RefundModel)
+            .where(
+                RefundModel.payment_id == payment_id,
+                RefundModel.status.in_({"pending", "succeeded"}),
+            )
+            .limit(1),
+        )
+        return result.scalar_one_or_none()
+
+    async def _customer_id_for_order(self, order_id: UUID) -> UUID | None:
+        result = await self._session.execute(
+            select(OrderModel.customer_id).where(OrderModel.id == order_id),
         )
         return result.scalar_one_or_none()
 
@@ -445,3 +538,20 @@ def _unapplied_reason(
     if paid_at > payment.expires_at:
         return "payment_expired"
     return None
+
+
+def _calculated_refund_amount(
+    *,
+    payment: PaymentModel,
+    order: OrderModel,
+) -> Decimal:
+    remaining = order.start_at - utc_now()
+    if remaining > timedelta(hours=12):
+        return payment.amount
+    if remaining >= timedelta(hours=6):
+        if order.partial_refund_percent_at_payment is None:
+            raise ValidationError("Partial refund policy is not available")
+        return (
+            payment.amount * order.partial_refund_percent_at_payment / Decimal("100")
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    raise ValidationError("Manual refund amount is required for late cancellation")

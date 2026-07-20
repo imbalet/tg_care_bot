@@ -72,7 +72,7 @@ class PaymentRepository(Protocol):
         self,
         *,
         payment_id: UUID,
-        amount: Decimal,
+        amount: Decimal | None,
         reason: str,
         admin_id: UUID,
     ) -> RefundDTO:
@@ -87,6 +87,9 @@ class PaymentRepository(Protocol):
         pass
 
     async def mark_refund_failed(self, *, refund_id: UUID) -> None:
+        pass
+
+    async def get_refund(self, refund_id: UUID) -> RefundDTO | None:
         pass
 
     async def get_customer_payment_status(

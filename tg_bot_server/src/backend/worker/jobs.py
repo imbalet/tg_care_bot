@@ -711,6 +711,9 @@ def _notification_body(notification: NotificationModel) -> str:
             "Оплата не поступила вовремя. Заказ вернулся в подбор."
         ),
         "payment_expired_order_expired": ("Оплата не поступила вовремя. Заказ закрыт."),
+        "refund_requested": "Запрошен возврат платежа.",
+        "refund_completed": "Возврат платежа выполнен.",
+        "refund_failed": "Возврат платежа не выполнен. Администратор разбирается.",
         "order_approaching": "Скоро начнется заказ.",
         "order_started": "Настало время заказа.",
         "order_finished": "Исполнитель завершил выполнение заказа.",

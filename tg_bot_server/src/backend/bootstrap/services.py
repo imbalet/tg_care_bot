@@ -731,7 +731,7 @@ class ApplicationServices:
                     reason=command.reason,
                     audit_metadata={
                         "payment_id": str(command.payment_id),
-                        "amount": str(command.amount),
+                        "amount": str(refund.amount),
                     },
                 ),
             )
@@ -752,16 +752,20 @@ class ApplicationServices:
             )
         except Exception:
             async with self._uow() as uow:
-                await SqlAlchemyPaymentRepository(uow.session).mark_refund_failed(
+                repository = SqlAlchemyPaymentRepository(uow.session)
+                await repository.mark_refund_failed(
                     refund_id=refund.id,
                 )
+                refund = await repository.get_refund(refund.id) or refund
                 await uow.commit()
             raise
         async with self._uow() as uow:
-            await SqlAlchemyPaymentRepository(uow.session).mark_refund_succeeded(
+            repository = SqlAlchemyPaymentRepository(uow.session)
+            await repository.mark_refund_succeeded(
                 refund_id=refund.id,
                 provider_refund_id=result.provider_refund_id,
             )
+            refund = await repository.get_refund(refund.id) or refund
             await uow.commit()
         return refund
 

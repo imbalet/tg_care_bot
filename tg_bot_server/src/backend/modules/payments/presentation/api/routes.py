@@ -34,20 +34,28 @@ async def tbank_webhook(
         raise HTTPException(status_code=403, detail="Invalid terminal")
     if not verify_tbank_token(payload, settings.tbank_password):
         raise HTTPException(status_code=403, detail="Invalid token")
-    if payload.get("Success") is not True:
-        return Response("OK", media_type="text/plain")
     status = str(payload.get("Status"))
-    if status not in SUCCESS_STATUSES:
-        return Response("OK", media_type="text/plain")
     payment_id = payload.get("PaymentId")
-    amount = payload.get("Amount")
-    if payment_id is None or amount is None:
+    provider_order_id = payload.get("OrderId")
+    if payment_id is None or provider_order_id is None:
         raise HTTPException(status_code=400, detail="Invalid payment webhook")
+    try:
+        order_id = UUID(str(provider_order_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid webhook order") from exc
+    amount = payload.get("Amount", 0)
+    if payload.get("Success") is True and status in SUCCESS_STATUSES:
+        if not isinstance(amount, (int, str)):
+            raise HTTPException(status_code=400, detail="Invalid webhook amount")
+        parsed_amount = Decimal(int(amount)) / Decimal("100")
+    else:
+        parsed_amount = Decimal("0")
     await container.services().apply_payment_webhook(
         PaymentWebhookCommand(
             provider_payment_id=str(payment_id),
+            provider_order_id=order_id,
             status=status,
-            amount=Decimal(int(amount)) / Decimal("100"),
+            amount=parsed_amount,
             paid_at=_paid_at(payload),
             raw_payload=_safe_payload(payload),
         ),

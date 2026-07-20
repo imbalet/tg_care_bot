@@ -49,6 +49,7 @@ class PaymentInitializationData:
 @dataclass(frozen=True)
 class PaymentWebhookCommand:
     provider_payment_id: str
+    provider_order_id: UUID
     status: str
     amount: Decimal
     paid_at: datetime

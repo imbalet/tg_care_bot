@@ -34,7 +34,7 @@ class BusinessSettingResponse(BaseModel):
 
 class ManualRefundRequest(BaseModel):
     payment_id: UUID
-    amount: str
+    amount: str | None = None
     reason: str = Field(min_length=1, max_length=500)
 
 

@@ -84,7 +84,7 @@ class ApplyPaymentWebhookUseCase:
 @dataclass(frozen=True)
 class CreateManualRefundCommand:
     payment_id: UUID
-    amount: Decimal
+    amount: Decimal | None
     reason: str
     admin_id: UUID
 
@@ -94,8 +94,6 @@ class CreateManualRefundUseCase:
         self._repository = repository
 
     async def execute(self, command: CreateManualRefundCommand) -> RefundDTO:
-        if command.amount <= 0:
-            raise ValidationError("Refund amount must be positive")
         return await self._repository.create_manual_refund(
             payment_id=command.payment_id,
             amount=command.amount,
@@ -196,6 +194,7 @@ class RetryPaymentOperationUseCase:
             return await self._repository.apply_successful_webhook(
                 PaymentWebhookCommand(
                     provider_payment_id=state.provider_payment_id,
+                    provider_order_id=data.payment.id,
                     status=state.status,
                     amount=state.amount,
                     paid_at=state.paid_at,
