@@ -1,4 +1,4 @@
-COVERAGE_MIN ?= 50
+COVERAGE_MIN ?= 60
 
 .PHONY: lint check test test-all test-coverage test-unit test-api test-integration test-e2e test-clean
 
