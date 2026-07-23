@@ -1,7 +1,7 @@
 """Compatibility exports for Telegram UI keyboard constants."""
 
 AVATAR_UPLOAD = "avatar_upload"
-REGISTRATION_ACCEPT_LEGAL = "reg_legal"
+REGISTRATION_ACCEPT_LEGAL = "registration:legal:accept"
 REGISTRATION_CONFIRM = "reg_confirm"
 WORK_ADDRESS_ADD = "work_addr_add"
 REGISTRATION_CITY_PREFIX = "reg_city:"
