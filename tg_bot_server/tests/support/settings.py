@@ -45,8 +45,13 @@ DEFAULT_TEST_ENVIRONMENT: dict[str, str] = {
 def apply_test_environment(
     monkeypatch: pytest.MonkeyPatch,
     overrides: Mapping[str, str] | None = None,
+    *,
+    preserve_existing: bool = False,
 ) -> None:
-    values = dict(DEFAULT_TEST_ENVIRONMENT)
+    values = {
+        key: os.environ.get(key, value) if preserve_existing else value
+        for key, value in DEFAULT_TEST_ENVIRONMENT.items()
+    }
     values.update(overrides or {})
     for key, value in values.items():
         monkeypatch.setenv(key, value)

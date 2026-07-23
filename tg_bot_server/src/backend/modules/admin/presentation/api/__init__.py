@@ -1,3 +1,1 @@
-from .routes import router
-
-__all__ = ["router"]
+"""Administrative API presentation package."""

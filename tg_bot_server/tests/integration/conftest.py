@@ -6,6 +6,7 @@ from typing import Any
 
 import boto3
 import pytest
+import pytest_asyncio
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -40,6 +41,7 @@ def integration_environment(
             "REDIS_DB": str(_redis_database_number(integration_database.worker_id)),
             "S3_BUCKET": f"we-are-close-test-{integration_database.worker_id}",
         },
+        preserve_existing=True,
     )
     get_settings.cache_clear()
     yield
@@ -47,7 +49,7 @@ def integration_environment(
     monkeypatch.undo()
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def engine(
     integration_database: IntegrationDatabase,
 ) -> AsyncIterator[AsyncEngine]:
@@ -72,7 +74,7 @@ async def session(
         yield test_session
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture
 async def redis(integration_database: IntegrationDatabase) -> AsyncIterator[Redis]:
     del integration_database
     client = create_redis_client(get_settings().redis_url)

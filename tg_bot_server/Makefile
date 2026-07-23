@@ -22,7 +22,7 @@ test-integration:
 	docker compose -f docker-compose.test.yml up -d postgres redis minio mock-external; \
 	status=0; \
 	docker compose -f docker-compose.test.yml run --rm test-runner \
-		sh -c 'uv sync --frozen --all-groups && uv run pytest -m integration -n auto --maxprocesses=15' || status=$$?; \
+		uv run pytest -m integration -n auto --maxprocesses=15 || status=$$?; \
 	if [ "$${KEEP_TEST_DATABASES:-0}" = "1" ]; then \
 		docker compose -f docker-compose.test.yml down; \
 	else \
@@ -33,8 +33,10 @@ test-integration:
 test-e2e:
 	set -e; \
 	status=0; \
-	docker compose -f docker-compose.test.yml up --build \
-		--abort-on-container-exit --exit-code-from e2e-runner || status=$$?; \
+	docker compose -f docker-compose.test.yml up --build -d \
+		postgres redis minio mock-external migrate api worker; \
+	docker compose -f docker-compose.test.yml up \
+		--abort-on-container-exit --exit-code-from e2e-runner e2e-runner || status=$$?; \
 	docker compose -f docker-compose.test.yml down -v; \
 	exit $$status
 

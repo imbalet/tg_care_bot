@@ -9,7 +9,7 @@ from backend.bootstrap.routes import router as bootstrap_router
 from backend.bootstrap.settings import Settings, get_settings
 from backend.common.infrastructure.logging import configure_logging
 from backend.common.presentation import register_error_handlers
-from backend.modules.admin.presentation.api import router as admin_router
+from backend.modules.admin.presentation.api.routes import router as admin_router
 from backend.modules.admin.presentation.surface import create_admin_surface
 from backend.modules.availability.presentation.api import (
     router as availability_router,

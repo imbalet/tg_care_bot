@@ -39,10 +39,9 @@ services:
       retries: 20
 
   mock-external:
-    image: python:3.14-alpine
-    working_dir: /app
-    volumes:
-      - .:/app:ro
+    build:
+      context: .
+      dockerfile: Dockerfile.test
     command: ["python", "-m", "tests.e2e.mock_external"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
@@ -126,10 +125,9 @@ services:
     command: ["python", "-m", "backend.worker.main"]
 
   test-runner:
-    image: ghcr.io/astral-sh/uv:python3.14-alpine
-    working_dir: /app
-    volumes:
-      - .:/app
+    build:
+      context: .
+      dockerfile: Dockerfile.test
     environment:
       <<: *backend-environment
       TEST_ADMIN_DATABASE: postgres
@@ -146,7 +144,7 @@ services:
         condition: service_healthy
       mock-external:
         condition: service_healthy
-    command: ["sh", "-c", "uv sync --frozen --all-groups && uv run pytest -m e2e"]
+    command: ["uv", "run", "pytest", "-m", "e2e"]
 
   e2e-runner:
     extends:
@@ -154,4 +152,4 @@ services:
     depends_on:
       api:
         condition: service_healthy
-    command: ["sh", "-c", "uv sync --frozen --all-groups && uv run pytest -m e2e"]
+    command: ["uv", "run", "pytest", "-m", "e2e"]
