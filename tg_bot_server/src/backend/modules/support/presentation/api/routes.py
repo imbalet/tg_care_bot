@@ -15,7 +15,9 @@ from backend.modules.admin.presentation.api.schemas import AdminResponse
 
 from .schemas import (
     AccountDeletionPreflightResponse,
+    ContactRequestResponse,
     CreateComplaintRequest,
+    CreateContactRequest,
     CreateDisputeRequest,
     CreateSupportRequest,
     SupportFileResponse,
@@ -211,6 +213,26 @@ async def create_customer_dispute(
         file_ids=request.file_ids,
     )
     return _record_response(record, "dispute")
+
+
+@customer_router.post("/by-telegram/{telegram_id}/contact-requests", status_code=201)
+async def create_customer_contact_request(
+    telegram_id: int,
+    request: CreateContactRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> ContactRequestResponse:
+    record = await container.support.create_contact_request(
+        telegram_id=telegram_id,
+        order_id=request.order_id,
+    )
+    return ContactRequestResponse(
+        id=record.id,
+        order_id=record.order_id,
+        performer_id=record.performer_id,
+        requested_method=record.requested_method,
+        status=record.status,
+        failure_reason=record.failure_reason,
+    )
 
 
 @performer_router.post("/by-telegram/{telegram_id}/complaints", status_code=201)

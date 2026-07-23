@@ -63,6 +63,21 @@ class DisputeModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     admin_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class ContactRequestModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "contact_requests"
+
+    customer_id: Mapped[UUID] = mapped_column(
+        ForeignKey("customers.id"), nullable=False
+    )
+    performer_id: Mapped[UUID] = mapped_column(
+        ForeignKey("performers.id"), nullable=False
+    )
+    order_id: Mapped[UUID] = mapped_column(ForeignKey("orders.id"), nullable=False)
+    requested_method: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="requested")
+    failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class AccountDeletionRequestModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "account_deletion_requests"
 

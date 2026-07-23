@@ -162,6 +162,7 @@ from backend.modules.performers.infrastructure import (
 from backend.modules.support.infrastructure import (
     AccountDeletionRequestModel,
     ComplaintModel,
+    ContactRequestModel,
     DisputeModel,
     SqlAlchemySupportRepository,
     SupportRequestModel,
@@ -196,6 +197,7 @@ __all__ = [
     "CheckPerformerAvailabilityCommand",
     "CheckPerformerAvailabilityUseCase",
     "ComplaintModel",
+    "ContactRequestModel",
     "DisputeModel",
     "ConflictError",
     "CreateCustomerAddressUseCase",

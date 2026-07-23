@@ -24,6 +24,19 @@ class CreateDisputeRequest(BaseModel):
     file_ids: list[UUID] = Field(default_factory=list, max_length=10)
 
 
+class CreateContactRequest(BaseModel):
+    order_id: UUID
+
+
+class ContactRequestResponse(BaseModel):
+    id: UUID
+    order_id: UUID
+    performer_id: UUID
+    requested_method: str
+    status: str
+    failure_reason: str | None
+
+
 class UpdateSupportRecordRequest(BaseModel):
     status: str
     admin_comment: str | None = Field(default=None, max_length=10000)
