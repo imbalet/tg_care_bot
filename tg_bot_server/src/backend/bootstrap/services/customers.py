@@ -14,6 +14,8 @@ from ._shared import (
     SqlAlchemyAddressRepository,
     SqlAlchemyCareObjectRepository,
     SqlAlchemyCustomerRepository,
+    SqlAlchemyFileRepository,
+    SqlAlchemyPerformerRepository,
     UpdateCustomerAddressCommand,
     UpdateCustomerAddressUseCase,
     UpdateCustomerCareObjectCommand,
@@ -22,6 +24,8 @@ from ._shared import (
     UpdateCustomerProfileUseCase,
     UpdateCustomerUsernameCommand,
     UpdateCustomerUsernameUseCase,
+    UploadActorFileCommand,
+    UploadActorFileUseCase,
 )
 from .context import Service
 
@@ -62,6 +66,20 @@ class CustomerServices(Service):
             ).execute(command)
             await uow.commit()
             return customer
+
+    async def upload_customer_file(
+        self,
+        command: UploadActorFileCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            file = await UploadActorFileUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+                SqlAlchemyPerformerRepository(uow.session),
+                SqlAlchemyFileRepository(uow.session),
+                self._storage(),
+            ).execute(command)
+            await uow.commit()
+            return file
 
     async def list_customer_care_objects(
         self,

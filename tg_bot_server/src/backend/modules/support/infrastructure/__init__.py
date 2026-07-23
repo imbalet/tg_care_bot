@@ -1,6 +1,8 @@
 from .persistence import (
     AccountDeletionRequestModel,
     ComplaintModel,
+    ContactRequestModel,
+    DisputeModel,
     SqlAlchemySupportRepository,
     SupportRequestModel,
 )
@@ -8,6 +10,8 @@ from .persistence import (
 __all__ = [
     "AccountDeletionRequestModel",
     "ComplaintModel",
+    "ContactRequestModel",
+    "DisputeModel",
     "SqlAlchemySupportRepository",
     "SupportRequestModel",
 ]

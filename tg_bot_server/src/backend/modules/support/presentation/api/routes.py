@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 
 from backend.bootstrap.container import Container
 from backend.bootstrap.dependencies import get_container
@@ -12,6 +12,7 @@ from backend.modules.admin.presentation.api.routes import (
     require_admin_csrf,
 )
 from backend.modules.admin.presentation.api.schemas import AdminResponse
+from backend.modules.files.application import UploadActorFileCommand
 
 from .schemas import (
     AccountDeletionPreflightResponse,
@@ -20,6 +21,7 @@ from .schemas import (
     CreateContactRequest,
     CreateDisputeRequest,
     CreateSupportRequest,
+    FileUploadResponse,
     SupportFileResponse,
     SupportRecordPageResponse,
     SupportRecordResponse,
@@ -232,6 +234,54 @@ async def create_customer_contact_request(
         requested_method=record.requested_method,
         status=record.status,
         failure_reason=record.failure_reason,
+    )
+
+
+@customer_router.post("/by-telegram/{telegram_id}/files", status_code=201)
+async def upload_customer_file(
+    telegram_id: int,
+    file: Annotated[UploadFile, File()],
+    container: Annotated[Container, Depends(get_container)],
+) -> FileUploadResponse:
+    stored = await container.customers.upload_customer_file(
+        UploadActorFileCommand(
+            actor_type="customer",
+            telegram_id=telegram_id,
+            content=await file.read(),
+            content_type=file.content_type or "",
+            original_name=file.filename,
+        )
+    )
+    return FileUploadResponse(
+        id=stored.id,
+        original_name=stored.original_name,
+        mime_type=stored.mime_type,
+        size_bytes=stored.size_bytes,
+        status=stored.status,
+    )
+
+
+@performer_router.post("/by-telegram/{telegram_id}/files", status_code=201)
+async def upload_performer_file(
+    telegram_id: int,
+    file: Annotated[UploadFile, File()],
+    container: Annotated[Container, Depends(get_container)],
+) -> FileUploadResponse:
+    stored = await container.performers.upload_performer_file(
+        UploadActorFileCommand(
+            actor_type="performer",
+            telegram_id=telegram_id,
+            content=await file.read(),
+            content_type=file.content_type or "",
+            original_name=file.filename,
+        )
+    )
+    return FileUploadResponse(
+        id=stored.id,
+        original_name=stored.original_name,
+        mime_type=stored.mime_type,
+        size_bytes=stored.size_bytes,
+        status=stored.status,
     )
 
 

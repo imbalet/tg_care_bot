@@ -82,6 +82,8 @@ from backend.modules.customers.infrastructure import (
     SqlAlchemyCustomerRepository,
 )
 from backend.modules.files.application import (
+    UploadActorFileCommand,
+    UploadActorFileUseCase,
     UploadPerformerAvatarCommand,
     UploadPerformerAvatarUseCase,
 )
@@ -305,6 +307,8 @@ __all__ = [
     "UpdatePerformerUsernameUseCase",
     "UploadPerformerAvatarCommand",
     "UploadPerformerAvatarUseCase",
+    "UploadActorFileCommand",
+    "UploadActorFileUseCase",
     "ValidationError",
     "cast",
     "dataclass",

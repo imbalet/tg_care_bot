@@ -37,6 +37,14 @@ class ContactRequestResponse(BaseModel):
     failure_reason: str | None
 
 
+class FileUploadResponse(BaseModel):
+    id: UUID
+    original_name: str | None
+    mime_type: str
+    size_bytes: int | None
+    status: str
+
+
 class UpdateSupportRecordRequest(BaseModel):
     status: str
     admin_comment: str | None = Field(default=None, max_length=10000)

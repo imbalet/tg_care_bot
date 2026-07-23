@@ -32,10 +32,13 @@ from ._shared import (
     SqlAlchemyAddressRepository,
     SqlAlchemyAdminAuditRepository,
     SqlAlchemyAvailabilityRepository,
+    SqlAlchemyCustomerRepository,
     SqlAlchemyFileRepository,
     SqlAlchemyPerformerRepository,
     UpdatePerformerUsernameCommand,
     UpdatePerformerUsernameUseCase,
+    UploadActorFileCommand,
+    UploadActorFileUseCase,
     UploadPerformerAvatarCommand,
     UploadPerformerAvatarUseCase,
     timedelta,
@@ -45,6 +48,20 @@ from .context import Service
 
 
 class PerformerServices(Service):
+    async def upload_performer_file(
+        self,
+        command: UploadActorFileCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            file = await UploadActorFileUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+                SqlAlchemyPerformerRepository(uow.session),
+                SqlAlchemyFileRepository(uow.session),
+                self._storage(),
+            ).execute(command)
+            await uow.commit()
+            return file
+
     async def create_invitation(
         self,
         command: CreateInvitationCommand,
