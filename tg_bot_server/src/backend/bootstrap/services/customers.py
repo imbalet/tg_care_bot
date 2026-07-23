@@ -14,8 +14,12 @@ from ._shared import (
     SqlAlchemyAddressRepository,
     SqlAlchemyCareObjectRepository,
     SqlAlchemyCustomerRepository,
+    UpdateCustomerAddressCommand,
+    UpdateCustomerAddressUseCase,
     UpdateCustomerCareObjectCommand,
     UpdateCustomerCareObjectUseCase,
+    UpdateCustomerProfileCommand,
+    UpdateCustomerProfileUseCase,
     UpdateCustomerUsernameCommand,
     UpdateCustomerUsernameUseCase,
 )
@@ -43,6 +47,17 @@ class CustomerServices(Service):
     ) -> Any:
         async with self._uow() as uow:
             customer = await UpdateCustomerUsernameUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return customer
+
+    async def update_customer_profile(
+        self,
+        command: UpdateCustomerProfileCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            customer = await UpdateCustomerProfileUseCase(
                 SqlAlchemyCustomerRepository(uow.session),
             ).execute(command)
             await uow.commit()
@@ -131,3 +146,16 @@ class CustomerServices(Service):
                 SqlAlchemyAddressRepository(uow.session),
             ).execute(telegram_id=telegram_id, address_id=address_id)
             await uow.commit()
+
+    async def update_customer_address(
+        self,
+        command: UpdateCustomerAddressCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            address = await UpdateCustomerAddressUseCase(
+                SqlAlchemyCustomerRepository(uow.session),
+                SqlAlchemyAddressRepository(uow.session),
+                self._geocoder(),
+            ).execute(command)
+            await uow.commit()
+            return address

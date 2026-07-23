@@ -4,6 +4,8 @@ from .use_cases import (
     GetCustomerProfileUseCase,
     RegisterCustomerCommand,
     RegisterCustomerUseCase,
+    UpdateCustomerProfileCommand,
+    UpdateCustomerProfileUseCase,
     UpdateCustomerUsernameCommand,
     UpdateCustomerUsernameUseCase,
 )
@@ -16,4 +18,6 @@ __all__ = [
     "RegisterCustomerUseCase",
     "UpdateCustomerUsernameCommand",
     "UpdateCustomerUsernameUseCase",
+    "UpdateCustomerProfileCommand",
+    "UpdateCustomerProfileUseCase",
 ]

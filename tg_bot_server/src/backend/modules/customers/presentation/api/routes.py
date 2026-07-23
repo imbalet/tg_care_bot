@@ -8,11 +8,13 @@ from backend.bootstrap.dependencies import get_container
 from backend.common.presentation import require_service_key
 from backend.modules.addresses.application import (
     CreateOwnerAddressCommand,
+    UpdateCustomerAddressCommand,
 )
 from backend.modules.care_objects.application import (
     CreateCustomerCareObjectCommand,
     UpdateCustomerCareObjectCommand,
 )
+from backend.modules.customers.application import UpdateCustomerProfileCommand
 
 from .mappers import (
     address_response,
@@ -29,6 +31,8 @@ from .schemas import (
     CreateCareObjectRequest,
     CustomerResponse,
     RegisterCustomerRequest,
+    UpdateAddressRequest,
+    UpdateCustomerProfileRequest,
     UpdateTelegramUsernameRequest,
 )
 
@@ -67,6 +71,24 @@ async def update_telegram_username(
 ) -> CustomerResponse:
     customer = await container.customers.update_customer_username(
         update_customer_username_command(telegram_id, request),
+    )
+    return customer_response(customer)
+
+
+@router.patch("/by-telegram/{telegram_id}/profile")
+async def update_profile(
+    telegram_id: int,
+    request: UpdateCustomerProfileRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> CustomerResponse:
+    customer = await container.customers.update_customer_profile(
+        UpdateCustomerProfileCommand(
+            telegram_id=telegram_id,
+            full_name=request.full_name,
+            phone=request.phone,
+            city_id=request.city_id,
+            contact_method=request.contact_method,
+        ),
     )
     return customer_response(customer)
 
@@ -186,3 +208,25 @@ async def delete_address(
         address_id=address_id,
     )
     return {"status": "deleted"}
+
+
+@router.patch("/by-telegram/{telegram_id}/addresses/{address_id}")
+async def update_address(
+    telegram_id: int,
+    address_id: UUID,
+    request: UpdateAddressRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> AddressResponse:
+    address = await container.customers.update_customer_address(
+        UpdateCustomerAddressCommand(
+            telegram_id=telegram_id,
+            address_id=address_id,
+            city_id=request.city_id,
+            unrestricted_value=request.unrestricted_value,
+            entrance=request.entrance,
+            floor=request.floor,
+            apartment=request.apartment,
+            comment=request.comment,
+        ),
+    )
+    return address_response(address)

@@ -23,6 +23,8 @@ from backend.modules.addresses.application import (
     SetPerformerCurrentAddressUseCase,
     SuggestAddressCommand,
     SuggestAddressesUseCase,
+    UpdateCustomerAddressCommand,
+    UpdateCustomerAddressUseCase,
 )
 from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
 from backend.modules.admin.application import (
@@ -70,6 +72,8 @@ from backend.modules.customers.application import (
     GetCustomerProfileUseCase,
     RegisterCustomerCommand,
     RegisterCustomerUseCase,
+    UpdateCustomerProfileCommand,
+    UpdateCustomerProfileUseCase,
     UpdateCustomerUsernameCommand,
     UpdateCustomerUsernameUseCase,
 )
@@ -193,6 +197,8 @@ __all__ = [
     "ComplaintModel",
     "ConflictError",
     "CreateCustomerAddressUseCase",
+    "UpdateCustomerAddressCommand",
+    "UpdateCustomerAddressUseCase",
     "CreateCustomerCareObjectCommand",
     "CreateCustomerCareObjectUseCase",
     "CreateDirectOrderCommand",
@@ -289,6 +295,8 @@ __all__ = [
     "UpdateCustomerCareObjectUseCase",
     "UpdateCustomerUsernameCommand",
     "UpdateCustomerUsernameUseCase",
+    "UpdateCustomerProfileCommand",
+    "UpdateCustomerProfileUseCase",
     "UpdatePerformerUsernameCommand",
     "UpdatePerformerUsernameUseCase",
     "UploadPerformerAvatarCommand",

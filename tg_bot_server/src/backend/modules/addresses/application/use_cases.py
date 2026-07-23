@@ -155,6 +155,66 @@ class DeleteCustomerAddressUseCase:
         await self._address_repository.soft_delete(address_id)
 
 
+@dataclass(frozen=True)
+class UpdateCustomerAddressCommand:
+    telegram_id: int
+    address_id: UUID
+    city_id: UUID
+    unrestricted_value: str
+    entrance: str | None = None
+    floor: str | None = None
+    apartment: str | None = None
+    comment: str | None = None
+
+
+class UpdateCustomerAddressUseCase:
+    def __init__(
+        self,
+        customer_repository: CustomerRepository,
+        address_repository: AddressRepository,
+        geocoder: Geocoder,
+    ) -> None:
+        self._customer_repository = customer_repository
+        self._address_repository = address_repository
+        self._geocoder = geocoder
+
+    async def execute(self, command: UpdateCustomerAddressCommand) -> AddressDTO:
+        customer = await self._customer_repository.get_by_telegram_id(
+            command.telegram_id,
+        )
+        if customer is None:
+            raise NotFoundError("Customer is not registered")
+        if customer.status != CustomerStatus.ACTIVE:
+            raise ValidationError("Customer cannot manage addresses")
+        old_address = await self._address_repository.get(command.address_id)
+        if old_address is None or old_address.customer_id != customer.id:
+            raise NotFoundError("Address not found")
+        normalized = await self._geocoder.normalize(
+            unrestricted_value=command.unrestricted_value,
+        )
+        address = await self._address_repository.add(
+            CreateAddressCommand(
+                owner_type="customer",
+                customer_id=customer.id,
+                performer_id=None,
+                city_id=command.city_id,
+                district_id=None,
+                address_text=normalized.address_text,
+                fias_id=normalized.fias_id,
+                latitude=normalized.latitude,
+                longitude=normalized.longitude,
+                geocoding_provider=normalized.provider,
+                geocoding_quality=normalized.quality,
+                entrance=command.entrance,
+                floor=command.floor,
+                apartment=command.apartment,
+                comment=command.comment,
+            ),
+        )
+        await self._address_repository.soft_delete(old_address.id)
+        return address
+
+
 class DeletePerformerAddressUseCase:
     def __init__(
         self,

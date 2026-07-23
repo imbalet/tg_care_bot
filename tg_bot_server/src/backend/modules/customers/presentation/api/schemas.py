@@ -17,6 +17,13 @@ class UpdateTelegramUsernameRequest(BaseModel):
     telegram_username: str | None = None
 
 
+class UpdateCustomerProfileRequest(BaseModel):
+    full_name: str = Field(min_length=1)
+    phone: str = Field(min_length=1)
+    city_id: UUID
+    contact_method: str
+
+
 class CustomerResponse(BaseModel):
     id: str
     telegram_id: int
@@ -67,6 +74,10 @@ class CreateAddressRequest(BaseModel):
     floor: str | None = None
     apartment: str | None = None
     comment: str | None = None
+
+
+class UpdateAddressRequest(CreateAddressRequest):
+    pass
 
 
 class AddressResponse(BaseModel):
