@@ -1,7 +1,7 @@
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from .labels import MsgKey, text
+from .screens.labels import MsgKey, text
 
 
 class InlineKeyboardFactory:
