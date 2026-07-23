@@ -7,6 +7,7 @@ from executor_bot.application.dto import (
     AddressSuggestionDTO,
     AvailableOrderDTO,
     CityDTO,
+    DeletionPreflightDTO,
     FileDTO,
     LegalDocumentDTO,
     MatchActionDTO,
@@ -104,6 +105,19 @@ class BackendPort(Protocol):
     ) -> FileDTO: ...
 
     async def delete_avatar(self, *, telegram_id: int) -> None: ...
+
+    async def upload_file(
+        self,
+        *,
+        telegram_id: int,
+        filename: str,
+        content: bytes,
+        content_type: str,
+    ) -> FileDTO: ...
+
+    async def get_deletion_preflight(
+        self, *, telegram_id: int
+    ) -> DeletionPreflightDTO: ...
 
     async def list_performer_services(
         self,

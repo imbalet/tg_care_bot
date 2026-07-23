@@ -92,6 +92,12 @@ class FileDTO:
 
 
 @dataclass(frozen=True)
+class DeletionPreflightDTO:
+    can_delete: bool
+    blockers: tuple[dict[str, object], ...]
+
+
+@dataclass(frozen=True)
 class PerformerServiceDTO:
     service_id: UUID
     service_code: str

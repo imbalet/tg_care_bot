@@ -10,6 +10,7 @@ from executor_bot.application.dto import (
     AddressSuggestionDTO,
     AvailableOrderDTO,
     CityDTO,
+    DeletionPreflightDTO,
     FileDTO,
     LegalDocumentDTO,
     MatchActionDTO,
@@ -292,6 +293,44 @@ class BackendClient(BackendPort):
             f"/api/performers/by-telegram/{telegram_id}/avatar",
         )
         self._raise_for_status(response)
+
+    async def upload_file(
+        self,
+        *,
+        telegram_id: int,
+        filename: str,
+        content: bytes,
+        content_type: str,
+    ) -> FileDTO:
+        response = await self._request(
+            "POST",
+            f"/api/performers/by-telegram/{telegram_id}/files",
+            files={"file": (filename, content, content_type)},
+        )
+        self._raise_for_status(response)
+        data = response.json()
+        return FileDTO(
+            id=UUID(str(data["id"])),
+            mime_type=str(data["mime_type"]),
+            size_bytes=int(data["size_bytes"])
+            if data.get("size_bytes") is not None
+            else None,
+            status=str(data["status"]),
+        )
+
+    async def get_deletion_preflight(
+        self, *, telegram_id: int
+    ) -> DeletionPreflightDTO:
+        response = await self._request(
+            "GET",
+            f"/api/performers/by-telegram/{telegram_id}/deletion-preflight",
+        )
+        self._raise_for_status(response)
+        payload = response.json()
+        return DeletionPreflightDTO(
+            can_delete=bool(payload["can_delete"]),
+            blockers=tuple(payload.get("blockers", [])),
+        )
 
     async def list_performer_services(
         self,
