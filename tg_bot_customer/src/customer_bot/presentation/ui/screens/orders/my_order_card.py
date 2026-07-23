@@ -11,6 +11,7 @@ from customer_bot.presentation.callbacks import (
     OrderReportOpenCallback,
     OrderResponsesOpenCallback,
     OrdersPageCallback,
+    OrderStartConfirmCallback,
     PaymentRefreshCallback,
     SupportOpenCallback,
 )
@@ -157,6 +158,11 @@ class Screen(BaseScreen[_View]):
             keyboard.button(
                 "Подтвердить выполнение",
                 OrderReportConfirmCallback(order_id=order_id),
+            )
+        if status == "confirmed":
+            keyboard.button(
+                "Подтвердить начало",
+                OrderStartConfirmCallback(order_id=order_id),
             )
         return (
             keyboard.button(

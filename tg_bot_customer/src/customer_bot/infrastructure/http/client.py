@@ -598,6 +598,19 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return _order_from_json(response.json())
 
+    async def start_customer_order(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> OrderDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/customer/{customer_id}/my/{order_id}/start",
+        )
+        self._raise_for_status(response)
+        return _order_from_json(response.json())
+
     async def create_support_request(
         self,
         *,

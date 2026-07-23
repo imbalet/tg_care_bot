@@ -259,6 +259,13 @@ class BackendPort(Protocol):
         customer_id: UUID,
     ) -> OrderDTO: ...
 
+    async def start_customer_order(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> OrderDTO: ...
+
     async def create_support_request(
         self,
         *,

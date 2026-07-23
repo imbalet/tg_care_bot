@@ -14,6 +14,7 @@ from customer_bot.presentation.callbacks import (
     OrderReportConfirmCallback,
     OrdersListCallback,
     OrdersPageCallback,
+    OrderStartConfirmCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.navigation import active_category
@@ -33,6 +34,52 @@ from customer_bot.presentation.view_models import (
 
 router = Router(name="customer_orders")
 logger = logging.getLogger(__name__)
+
+
+@router.callback_query(OrderStartConfirmCallback.filter())
+async def start_order_confirm_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderStartConfirmCallback,
+) -> None:
+    try:
+        profile = await backend_client.get_customer_profile(
+            telegram_user_context.telegram_id,
+        )
+        if profile is None:
+            raise BackendClientError("Customer profile is missing")
+        await backend_client.start_customer_order(
+            order_id=callback_data.order_id,
+            customer_id=profile.id,
+        )
+        await _show_order_card(
+            callback=callback,
+            bot=bot,
+            backend_client=backend_client,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            order_id=callback_data.order_id,
+            group="active",
+            page=1,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to start customer order",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "order_id": str(callback_data.order_id),
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await _show_unavailable(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+        )
 
 
 @router.callback_query(OrderReportConfirmCallback.filter())
