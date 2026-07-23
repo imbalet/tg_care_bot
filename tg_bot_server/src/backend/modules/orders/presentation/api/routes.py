@@ -170,6 +170,19 @@ async def get_customer_order_location(
     return order_location_response(location)
 
 
+@router.post("/customer/{customer_id}/my/{order_id}/confirm-report")
+async def confirm_customer_report(
+    customer_id: UUID,
+    order_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> OrderResponse:
+    order = await container.orders.confirm_customer_report(
+        order_id=order_id,
+        customer_id=customer_id,
+    )
+    return order_response(order)
+
+
 @router.get("/performer/{performer_id}/my")
 async def list_performer_my_orders(
     performer_id: UUID,

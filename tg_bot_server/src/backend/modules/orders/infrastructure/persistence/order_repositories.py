@@ -136,12 +136,12 @@ class SqlAlchemyOrderRepository(OrderRepository):
         )
         self._session.add(report)
         now = utc_now()
-        order.status = "completed"
+        order.status = "report_submitted"
         order.actual_finished_at = order.actual_finished_at or now
         self._add_status_history(
             order.id,
             "waiting_report",
-            "completed",
+            "report_submitted",
             actor_type="performer",
             actor_id=performer_id,
             reason="report_submitted",
@@ -165,6 +165,42 @@ class SqlAlchemyOrderRepository(OrderRepository):
             submitted_at=report.submitted_at,
             file_ids=(),
         )
+
+    async def confirm_report(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+        confirmation_window_minutes: int,
+    ) -> OrderDTO:
+        order = await self._lock_order(order_id)
+        if order.customer_id != customer_id:
+            raise NotFoundError("Order not found")
+        if order.status != "report_submitted":
+            raise self._stale(order, "Order report is not awaiting confirmation")
+        report = await self._session.scalar(
+            select(OrderReportModel)
+            .where(OrderReportModel.order_id == order.id)
+            .order_by(OrderReportModel.created_at.desc())
+            .limit(1),
+        )
+        if report is None:
+            raise ValidationError("Order report is missing")
+        if utc_now() > report.created_at + timedelta(
+            minutes=confirmation_window_minutes,
+        ):
+            raise ConflictError("Report confirmation window has expired")
+        order.status = "completed"
+        self._add_status_history(
+            order.id,
+            "report_submitted",
+            "completed",
+            actor_type="customer",
+            actor_id=customer_id,
+            reason="customer_confirmed_report",
+        )
+        await self._session.flush()
+        return await self._order_to_dto(order)
 
     async def cancel_order(
         self,

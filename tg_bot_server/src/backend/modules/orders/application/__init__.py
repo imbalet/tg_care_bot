@@ -22,6 +22,8 @@ from .pricing import CalculatePricePreviewCommand, CalculatePricePreviewUseCase
 from .use_cases import (
     CancelOrderCommand,
     CancelOrderUseCase,
+    ConfirmReportCommand,
+    ConfirmReportUseCase,
     CreateDirectOrderCommand,
     CreateDirectOrderUseCase,
     CreatePoolOrderCommand,
@@ -40,6 +42,8 @@ __all__ = [
     "CancellationPreviewDTO",
     "CancelOrderCommand",
     "CancelOrderUseCase",
+    "ConfirmReportCommand",
+    "ConfirmReportUseCase",
     "CreateDirectOrderCommand",
     "CreateDirectOrderUseCase",
     "CreatePoolOrderCommand",

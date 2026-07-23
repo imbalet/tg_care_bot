@@ -52,6 +52,15 @@ class OrderRepository(Protocol):
     ) -> OrderDTO:
         pass
 
+    async def confirm_report(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+        confirmation_window_minutes: int,
+    ) -> OrderDTO:
+        pass
+
     async def submit_report(
         self,
         *,

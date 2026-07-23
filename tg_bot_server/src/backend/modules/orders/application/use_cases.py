@@ -65,6 +65,12 @@ class FinishOrderCommand:
 
 
 @dataclass(frozen=True)
+class ConfirmReportCommand:
+    order_id: UUID
+    customer_id: UUID
+
+
+@dataclass(frozen=True)
 class SubmitOrderReportCommand:
     order_id: UUID
     performer_id: UUID
@@ -73,6 +79,26 @@ class SubmitOrderReportCommand:
     problem_flag: bool
     problem_description: str | None
     file_ids: tuple[UUID, ...]
+
+
+class ConfirmReportUseCase:
+    def __init__(
+        self, repository: OrderRepository, pricing_repository: PricingRepository
+    ) -> None:
+        self._repository = repository
+        self._pricing_repository = pricing_repository
+
+    async def execute(self, command: ConfirmReportCommand) -> OrderDTO:
+        window = await self._pricing_repository.get_integer_setting(
+            "report_confirmation_window_minutes",
+        )
+        if window is None:
+            raise ValidationError("Report confirmation policy is not configured")
+        return await self._repository.confirm_report(
+            order_id=command.order_id,
+            customer_id=command.customer_id,
+            confirmation_window_minutes=window,
+        )
 
 
 @dataclass(frozen=True)

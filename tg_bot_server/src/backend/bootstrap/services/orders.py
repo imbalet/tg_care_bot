@@ -5,6 +5,8 @@ from ._shared import (
     CalculatePricePreviewUseCase,
     CancelOrderCommand,
     CancelOrderUseCase,
+    ConfirmReportCommand,
+    ConfirmReportUseCase,
     CreateDirectOrderCommand,
     CreateDirectOrderUseCase,
     CreatePoolOrderCommand,
@@ -41,6 +43,25 @@ class OrderServices(Service):
                 SqlAlchemyOrderRepository(uow.session),
                 SqlAlchemyPricingRepository(uow.session),
             ).execute(command)
+            await uow.commit()
+            return order
+
+    async def confirm_customer_report(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            order = await ConfirmReportUseCase(
+                SqlAlchemyOrderRepository(uow.session),
+                SqlAlchemyPricingRepository(uow.session),
+            ).execute(
+                ConfirmReportCommand(
+                    order_id=order_id,
+                    customer_id=customer_id,
+                ),
+            )
             await uow.commit()
             return order
 
