@@ -7,6 +7,7 @@ import httpx
 
 from customer_bot.application.dto import (
     AddressDTO,
+    CancellationPreviewDTO,
     CareObjectDTO,
     CustomerProfileDTO,
     FullAddressSnapshotDTO,
@@ -241,6 +242,25 @@ def _match_action_from_json(data: dict[str, object]) -> MatchActionDTO:
         order_status=str(data["order_status"]),
         match_id=UUID(str(data["match_id"])),
         payment_confirmation_url=confirmation_url,
+    )
+
+
+def _cancellation_preview_from_json(
+    data: dict[str, object],
+) -> CancellationPreviewDTO:
+    return CancellationPreviewDTO(
+        order_id=UUID(str(data["order_id"])),
+        order_status=str(data["order_status"]),
+        can_cancel=bool(data["can_cancel"]),
+        refund_outcome=str(data["refund_outcome"]),
+        refund_amount=Decimal(str(data["refund_amount"])),
+        policy_version=data["policy_version"]
+        if isinstance(data["policy_version"], str)
+        else None,
+        partial_refund_percent=Decimal(str(data["partial_refund_percent"]))
+        if data["partial_refund_percent"] is not None
+        else None,
+        remaining_minutes=int(cast(str | int, data["remaining_minutes"])),
     )
 
 

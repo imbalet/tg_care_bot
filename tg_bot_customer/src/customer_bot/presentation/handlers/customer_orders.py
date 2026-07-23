@@ -8,7 +8,8 @@ from customer_bot.application.errors import BackendClientError
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.callbacks import (
     NotificationOrderOpenCallback,
-    OrderCancelCallback,
+    OrderCancelConfirmCallback,
+    OrderCancelPreviewCallback,
     OrderCardOpenCallback,
     OrdersListCallback,
     OrdersPageCallback,
@@ -19,6 +20,7 @@ from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
     MyOrderCardScreen,
     MyOrdersPageScreen,
+    OrderCancellationPreviewScreen,
     RetryLaterScreen,
     StaleActionScreen,
 )
@@ -32,14 +34,57 @@ router = Router(name="customer_orders")
 logger = logging.getLogger(__name__)
 
 
-@router.callback_query(OrderCancelCallback.filter())
-async def cancel_order_callback(
+@router.callback_query(OrderCancelPreviewCallback.filter())
+async def cancel_order_preview_callback(
     callback: CallbackQuery,
     bot: Bot,
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
-    callback_data: OrderCancelCallback,
+    callback_data: OrderCancelPreviewCallback,
+) -> None:
+    try:
+        profile = await backend_client.get_customer_profile(
+            telegram_user_context.telegram_id,
+        )
+        if profile is None:
+            raise BackendClientError("Customer profile is missing")
+        preview = await backend_client.get_customer_cancellation_preview(
+            order_id=callback_data.order_id,
+            customer_id=profile.id,
+        )
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := OrderCancellationPreviewScreen(preview).build()).text,
+            reply_markup=screen.reply_markup,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load cancellation preview",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "order_id": str(callback_data.order_id),
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await _show_unavailable(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+        )
+
+
+@router.callback_query(OrderCancelConfirmCallback.filter())
+async def cancel_order_confirm_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderCancelConfirmCallback,
 ) -> None:
     try:
         profile = await backend_client.get_customer_profile(
@@ -58,7 +103,7 @@ async def cancel_order_callback(
             telegram_responder=telegram_responder,
             telegram_user_context=telegram_user_context,
             order_id=callback_data.order_id,
-            group="active",
+            group="archive",
             page=1,
         )
     except BackendClientError as exc:

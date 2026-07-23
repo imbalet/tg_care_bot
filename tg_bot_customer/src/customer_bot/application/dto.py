@@ -182,6 +182,18 @@ class MyOrderCardDTO(MyOrderSummaryDTO):
 
 
 @dataclass(frozen=True)
+class CancellationPreviewDTO:
+    order_id: UUID
+    order_status: str
+    can_cancel: bool
+    refund_outcome: str
+    refund_amount: Decimal
+    policy_version: str | None
+    partial_refund_percent: Decimal | None
+    remaining_minutes: int
+
+
+@dataclass(frozen=True)
 class FullAddressSnapshotDTO:
     city_name: str
     district_name: str | None

@@ -5,6 +5,7 @@ from uuid import UUID
 from customer_bot.application.dto import (
     AddressDTO,
     AddressSuggestionDTO,
+    CancellationPreviewDTO,
     CareObjectDTO,
     CityDTO,
     CustomerProfileDTO,
@@ -212,6 +213,13 @@ class BackendPort(Protocol):
         order_id: UUID,
         customer_id: UUID,
     ) -> OrderDTO: ...
+
+    async def get_customer_cancellation_preview(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> CancellationPreviewDTO: ...
 
     async def list_customer_orders(
         self,

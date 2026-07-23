@@ -70,7 +70,11 @@ class PaymentRefreshCallback(CallbackData, prefix="payment_refresh"):
     order_id: UUID
 
 
-class OrderCancelCallback(CallbackData, prefix="order_cancel"):
+class OrderCancelPreviewCallback(CallbackData, prefix="order_cancel_preview"):
+    order_id: UUID
+
+
+class OrderCancelConfirmCallback(CallbackData, prefix="order_cancel_confirm"):
     order_id: UUID
 
 

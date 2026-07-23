@@ -1,6 +1,7 @@
 from .my_order_card import Screen as MyOrderCardScreen
 from .my_orders_page import Screen as MyOrdersPageScreen
 from .order_address_step import Screen as OrderAddressStepScreen
+from .order_cancellation_preview import Screen as OrderCancellationPreviewScreen
 from .order_comment_step import Screen as OrderCommentStepScreen
 from .order_datetime_manual_step import Screen as OrderDatetimeManualStepScreen
 from .order_direct_selection import Screen as OrderDirectSelectionScreen
@@ -31,6 +32,7 @@ __all__ = [
     "OrderLocationScreen",
     "OrderReportScreen",
     "MyOrdersPageScreen",
+    "OrderCancellationPreviewScreen",
     "OrderAddressStepScreen",
     "OrderCommentStepScreen",
     "OrderDatetimeManualStepScreen",

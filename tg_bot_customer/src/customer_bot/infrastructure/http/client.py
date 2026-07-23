@@ -8,6 +8,7 @@ import httpx
 from customer_bot.application.dto import (
     AddressDTO,
     AddressSuggestionDTO,
+    CancellationPreviewDTO,
     CareObjectDTO,
     CityDTO,
     CustomerProfileDTO,
@@ -36,6 +37,7 @@ from .errors import (
 )
 from .parsers import (
     _address_from_json,
+    _cancellation_preview_from_json,
     _care_object_from_json,
     _customer_from_json,
     _error_message,
@@ -508,6 +510,19 @@ class BackendClient(BackendPort):
         )
         self._raise_for_status(response)
         return _order_from_json(response.json())
+
+    async def get_customer_cancellation_preview(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> CancellationPreviewDTO:
+        response = await self._request(
+            "GET",
+            f"/api/orders/customer/{customer_id}/my/{order_id}/cancellation-preview",
+        )
+        self._raise_for_status(response)
+        return _cancellation_preview_from_json(response.json())
 
     async def list_customer_orders(
         self,
