@@ -218,11 +218,14 @@ class MyOrdersPageView:
     total_pages: int
     total_items: int
     group: str
+    category_code: str | None
+    active_category_code: str | None
 
 
 @dataclass(frozen=True, slots=True)
 class OrderListItemView:
     id: UUID
+    category_code: str
     service_name: str
     matching_mode: str | None
     status: str

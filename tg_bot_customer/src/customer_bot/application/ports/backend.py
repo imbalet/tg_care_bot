@@ -213,6 +213,7 @@ class BackendPort(Protocol):
         group: str,
         page: int,
         page_size: int = 5,
+        category_code: str | None = None,
     ) -> MyOrdersPageDTO: ...
 
     async def get_customer_order_card(

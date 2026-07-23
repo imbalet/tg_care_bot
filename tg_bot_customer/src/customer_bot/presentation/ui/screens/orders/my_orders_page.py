@@ -41,6 +41,9 @@ class MyOrderSummaryView(Protocol):
     def id(self) -> UUID: ...
 
     @property
+    def category_code(self) -> str: ...
+
+    @property
     def service_name(self) -> str: ...
 
     @property
@@ -84,6 +87,12 @@ class _View(Protocol):
     @property
     def group(self) -> str: ...
 
+    @property
+    def category_code(self) -> str | None: ...
+
+    @property
+    def active_category_code(self) -> str | None: ...
+
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
@@ -100,6 +109,7 @@ class Screen(BaseScreen[_View]):
                 (
                     "",
                     f"{index}. {escape(item.service_name)}",
+                    f"Направление: {escape(item.category_code)}",
                     f"Статус: {_order_status_label(item.status)}",
                     f"Время: {_datetime_label(item.start_at)}",
                     f"Итого: {escape(str(item.total_amount))} ₽",
@@ -121,21 +131,54 @@ class Screen(BaseScreen[_View]):
                         order_id=order_id,
                         group=self.data.group,
                         page=page_number,
+                        category_code=self.data.category_code,
                     ),
                 )
         if self.data.group != "active":
-            keyboard.button("Активные", OrdersPageCallback(group="active", page=1))
+            keyboard.button(
+                "Активные",
+                OrdersPageCallback(
+                    group="active", page=1, category_code=self.data.category_code
+                ),
+            )
         if self.data.group != "archive":
-            keyboard.button("Архив", OrdersPageCallback(group="archive", page=1))
+            keyboard.button(
+                "Архив",
+                OrdersPageCallback(
+                    group="archive", page=1, category_code=self.data.category_code
+                ),
+            )
+        if self.data.category_code is not None:
+            keyboard.button(
+                "Все направления",
+                OrdersPageCallback(group=self.data.group, page=1),
+            )
+        elif self.data.active_category_code is not None:
+            keyboard.button(
+                "Текущее направление",
+                OrdersPageCallback(
+                    group=self.data.group,
+                    page=1,
+                    category_code=self.data.active_category_code,
+                ),
+            )
         if page_number > 1:
             keyboard.button(
                 "Назад",
-                OrdersPageCallback(group=self.data.group, page=page_number - 1),
+                OrdersPageCallback(
+                    group=self.data.group,
+                    page=page_number - 1,
+                    category_code=self.data.category_code,
+                ),
             )
         if total_pages > page_number:
             keyboard.button(
                 "Дальше",
-                OrdersPageCallback(group=self.data.group, page=page_number + 1),
+                OrdersPageCallback(
+                    group=self.data.group,
+                    page=page_number + 1,
+                    category_code=self.data.category_code,
+                ),
             )
         return (
             keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())

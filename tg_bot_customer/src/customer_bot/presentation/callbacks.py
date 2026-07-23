@@ -40,12 +40,14 @@ class OrdersListCallback(CallbackData, prefix="orders_list"):
 class OrdersPageCallback(CallbackData, prefix="orders_page"):
     group: str = "active"
     page: int = 1
+    category_code: str | None = None
 
 
 class OrderCardOpenCallback(CallbackData, prefix="order_card"):
     order_id: UUID
     group: str = "active"
     page: int = 1
+    category_code: str | None = None
 
 
 class NotificationOrderOpenCallback(CallbackData, prefix="notification_order"):

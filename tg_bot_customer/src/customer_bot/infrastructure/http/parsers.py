@@ -283,6 +283,7 @@ def _my_order_summary_from_json(data: dict[str, object]) -> MyOrderSummaryDTO:
     )
     return MyOrderSummaryDTO(
         id=UUID(str(data["id"])),
+        category_code=str(data["category_code"]),
         service_name=str(data["service_name"]),
         matching_mode=data["matching_mode"]
         if isinstance(data["matching_mode"], str)

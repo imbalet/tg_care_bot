@@ -5,7 +5,7 @@ from aiogram import Bot, Router
 from aiogram.types import CallbackQuery
 
 from customer_bot.application.errors import BackendClientError
-from customer_bot.application.ports import BackendPort
+from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.callbacks import (
     NotificationOrderOpenCallback,
     OrderCardOpenCallback,
@@ -13,6 +13,7 @@ from customer_bot.presentation.callbacks import (
     OrdersPageCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
+from customer_bot.presentation.navigation import active_category
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
     MyOrderCardScreen,
@@ -51,9 +52,15 @@ async def orders_list_callback(
     callback: CallbackQuery,
     bot: Bot,
     backend_client: BackendPort,
+    active_category_store: ActiveCategoryStore,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
+    category = await active_category(
+        backend_client=backend_client,
+        active_category_store=active_category_store,
+        telegram_id=telegram_user_context.telegram_id,
+    )
     await _show_orders_page(
         bot=bot,
         event=callback,
@@ -62,6 +69,8 @@ async def orders_list_callback(
         telegram_id=telegram_user_context.telegram_id,
         group="active",
         page=1,
+        category_code=category.code if category is not None else None,
+        active_category_code=category.code if category is not None else None,
     )
 
 
@@ -70,10 +79,16 @@ async def orders_page_callback(
     callback: CallbackQuery,
     bot: Bot,
     backend_client: BackendPort,
+    active_category_store: ActiveCategoryStore,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: OrdersPageCallback,
 ) -> None:
+    category = await active_category(
+        backend_client=backend_client,
+        active_category_store=active_category_store,
+        telegram_id=telegram_user_context.telegram_id,
+    )
     await _show_orders_page(
         bot=bot,
         event=callback,
@@ -82,6 +97,8 @@ async def orders_page_callback(
         telegram_id=telegram_user_context.telegram_id,
         group=callback_data.group,
         page=callback_data.page,
+        category_code=callback_data.category_code,
+        active_category_code=category.code if category is not None else None,
     )
 
 
@@ -202,6 +219,8 @@ async def _show_orders_page(
     telegram_id: int,
     group: str,
     page: int,
+    category_code: str | None,
+    active_category_code: str | None,
 ) -> None:
     try:
         profile = await backend_client.get_customer_profile(telegram_id)
@@ -211,6 +230,7 @@ async def _show_orders_page(
             customer_id=profile.id,
             group=group,
             page=page,
+            category_code=category_code,
         )
     except BackendClientError as exc:
         logger.warning(
@@ -240,6 +260,7 @@ async def _show_orders_page(
                     items=tuple(
                         OrderListItemView(
                             id=item.id,
+                            category_code=item.category_code,
                             service_name=item.service_name,
                             matching_mode=item.matching_mode,
                             status=item.status,
@@ -256,6 +277,8 @@ async def _show_orders_page(
                     total_pages=orders.total_pages,
                     total_items=orders.total_items,
                     group=group,
+                    category_code=category_code,
+                    active_category_code=active_category_code,
                 )
             ).build()
         ).text,
