@@ -1,14 +1,13 @@
 import logging
 from time import time
 
-from redis.asyncio import Redis
-
 from executor_bot.application.ports import (
     ActiveCategoryStore,
     CurrentMessageStore,
     UsernameSyncCache,
     ViewedAvailableOrdersStore,
 )
+from redis.asyncio import Redis
 
 from .keys import ExecutorRedisKeys, executor_redis_keys
 

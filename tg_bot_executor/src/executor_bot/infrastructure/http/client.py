@@ -1,6 +1,6 @@
+import logging
 from datetime import date, datetime, time, timedelta
-from decimal import Decimal
-from typing import Any, cast
+from typing import Any
 from uuid import UUID
 
 import httpx
@@ -15,22 +15,59 @@ from executor_bot.application.dto import (
     MatchActionDTO,
     MyOrderCardDTO,
     MyOrdersPageDTO,
-    MyOrderSummaryDTO,
     OrderMatchDTO,
     PerformerProfileDTO,
     PerformerScheduleDTO,
     PerformerServiceDTO,
     RegistrationStateDTO,
     ServiceCategoryDTO,
-    ServiceDTO,
     SupportContactDTO,
 )
 from executor_bot.application.errors import (
+    BackendNotFoundError,
     BackendUnauthorizedError,
     BackendUnavailableError,
     BackendValidationError,
 )
 from executor_bot.application.ports import BackendPort
+from executor_bot.infrastructure.http.parsers import (
+    address_from_json as _address_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    available_order_from_json as _available_order_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    error_message as _error_message,
+)
+from executor_bot.infrastructure.http.parsers import (
+    match_action_from_json as _match_action_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    my_order_card_from_json as _my_order_card_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    my_orders_page_from_json as _my_orders_page_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    order_match_from_json as _order_match_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    performer_from_json as _performer_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    performer_service_from_json as _performer_service_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    schedule_from_json as _schedule_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    service_category_from_json as _service_category_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    support_contact_from_json as _support_contact_from_json,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class BackendClient(BackendPort):
@@ -43,12 +80,16 @@ class BackendClient(BackendPort):
     ) -> None:
         self._client = httpx.AsyncClient(
             base_url=base_url,
-            headers={"X-Service-Key": service_key},
+            headers={
+                "X-Service-Name": "executor-bot",
+                "X-Service-Key": service_key,
+            },
             timeout=timeout_seconds,
             transport=transport,
         )
 
     async def close(self) -> None:
+        logger.info("Closing backend HTTP client")
         await self._client.aclose()
 
     async def ping(self) -> None:
@@ -440,7 +481,7 @@ class BackendClient(BackendPort):
         files: dict[str, tuple[str, bytes, str]] | None = None,
     ) -> httpx.Response:
         try:
-            return await self._client.request(
+            response = await self._client.request(
                 method,
                 url,
                 json=json,
@@ -448,247 +489,39 @@ class BackendClient(BackendPort):
                 files=files,
             )
         except httpx.HTTPError as exc:
+            logger.warning(
+                "Backend request failed",
+                extra={
+                    "method": method,
+                    "url": url,
+                    "exception_type": type(exc).__name__,
+                },
+            )
             raise BackendUnavailableError("Backend is unavailable") from exc
+        if response.status_code >= 400:
+            logger.warning(
+                "Backend returned error response",
+                extra={
+                    "method": method,
+                    "url": url,
+                    "status_code": response.status_code,
+                },
+            )
+        return response
 
     def _raise_for_status(self, response: httpx.Response) -> None:
         if response.status_code == 401:
             raise BackendUnauthorizedError("Backend rejected service key")
+        if response.status_code == 404:
+            raise BackendNotFoundError("Backend resource not found")
         if response.status_code == 422:
-            raise BackendValidationError(_error_message(response))
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = None
+            raise BackendValidationError(_error_message(payload))
         if response.status_code >= 400:
             raise BackendUnavailableError("Backend request failed")
 
 
-def _error_message(response: httpx.Response) -> str:
-    try:
-        data = response.json()
-    except ValueError:
-        return "Backend rejected data"
-    if isinstance(data, dict):
-        error = data.get("error")
-        if isinstance(error, dict):
-            message = error.get("message")
-            if isinstance(message, str):
-                return message
-    return "Backend rejected data"
-
-
-def _performer_from_json(data: dict[str, object]) -> PerformerProfileDTO:
-    return PerformerProfileDTO(
-        id=UUID(str(data["id"])),
-        telegram_id=int(cast(str | int, data["telegram_id"])),
-        full_name=str(data["full_name"]),
-        phone=str(data["phone"]),
-        telegram_username=data["telegram_username"]
-        if isinstance(data["telegram_username"], str)
-        else None,
-        contact_method=str(data["contact_method"]),
-        city_id=UUID(str(data["city_id"])),
-        about_text=data["about_text"] if isinstance(data["about_text"], str) else None,
-        status=str(data["status"]),
-        is_accepting_orders=bool(data["is_accepting_orders"]),
-        current_address_id=UUID(str(data["current_address_id"]))
-        if data.get("current_address_id") is not None
-        else None,
-    )
-
-
-def _service_category_from_json(data: dict[str, object]) -> ServiceCategoryDTO:
-    services = data.get("services")
-    return ServiceCategoryDTO(
-        id=UUID(str(data["id"])),
-        code=str(data["code"]),
-        name=str(data["name"]),
-        sort_order=int(cast(str | int, data["sort_order"])),
-        care_object_type=str(data["care_object_type"]),
-        services=tuple(
-            _service_from_json(item) for item in services if isinstance(item, dict)
-        )
-        if isinstance(services, list)
-        else (),
-    )
-
-
-def _service_from_json(data: dict[str, object]) -> ServiceDTO:
-    return ServiceDTO(
-        id=UUID(str(data["id"])),
-        code=str(data["code"]),
-        name=str(data["name"]),
-        description=str(data["description"]),
-        price_type=str(data["price_type"]),
-        base_price=str(data["base_price"]),
-        location_policy=str(data["location_policy"]),
-        photo_policy=str(data["photo_policy"]),
-        schedule_policy=str(data["schedule_policy"]),
-        allows_multiday=bool(data["allows_multiday"]),
-        min_duration_minutes=int(cast(str | int, data["min_duration_minutes"]))
-        if data.get("min_duration_minutes") is not None
-        else None,
-        max_duration_minutes=int(cast(str | int, data["max_duration_minutes"]))
-        if data.get("max_duration_minutes") is not None
-        else None,
-    )
-
-
-def _support_contact_from_json(data: dict[str, object]) -> SupportContactDTO:
-    return SupportContactDTO(
-        label=str(data["label"]),
-        telegram_url=data["telegram_url"]
-        if isinstance(data["telegram_url"], str)
-        else None,
-    )
-
-
-def _address_from_json(data: dict[str, object]) -> AddressDTO:
-    return AddressDTO(
-        id=UUID(str(data["id"])),
-        city_id=UUID(str(data["city_id"])),
-        address_text=str(data["address_text"]),
-        entrance=data["entrance"] if isinstance(data["entrance"], str) else None,
-        floor=data["floor"] if isinstance(data["floor"], str) else None,
-        apartment=data["apartment"] if isinstance(data["apartment"], str) else None,
-        comment=data["comment"] if isinstance(data["comment"], str) else None,
-    )
-
-
-def _performer_service_from_json(data: dict[str, object]) -> PerformerServiceDTO:
-    constraints = data.get("constraints")
-    return PerformerServiceDTO(
-        service_id=UUID(str(data["service_id"])),
-        service_code=str(data["service_code"]),
-        service_name=str(data["service_name"]),
-        service_location_policy=str(data["service_location_policy"]),
-        is_approved=bool(data["is_approved"]),
-        is_enabled=bool(data["is_enabled"]),
-        admin_max_objects=int(cast(str | int, data["admin_max_objects"])),
-        performer_max_objects=int(cast(str | int, data["performer_max_objects"])),
-        constraints=constraints if isinstance(constraints, dict) else {},
-    )
-
-
-def _schedule_from_json(data: dict[str, object]) -> PerformerScheduleDTO:
-    work_days = data.get("work_days")
-    return PerformerScheduleDTO(
-        schedule_type=str(data["schedule_type"]),
-        work_days=tuple(int(item) for item in work_days)
-        if isinstance(work_days, list)
-        else None,
-        work_start_time=str(data["work_start_time"]),
-        work_end_time=str(data["work_end_time"]),
-    )
-
-
-def _available_order_from_json(data: dict[str, object]) -> AvailableOrderDTO:
-    return AvailableOrderDTO(
-        id=UUID(str(data["id"])),
-        service_name=str(data["service_name"]),
-        matching_mode=data["matching_mode"]
-        if isinstance(data["matching_mode"], str)
-        else None,
-        status=str(data["status"]),
-        start_at=datetime.fromisoformat(str(data["start_at"])),
-        end_at=datetime.fromisoformat(str(data["end_at"])),
-        objects_count=int(cast(str | int, data["objects_count"])),
-        total_amount=Decimal(str(data["total_amount"])),
-    )
-
-
-def _order_match_from_json(data: dict[str, object]) -> OrderMatchDTO:
-    return OrderMatchDTO(
-        id=UUID(str(data["id"])),
-        order_id=UUID(str(data["order_id"])),
-        performer_id=UUID(str(data["performer_id"])),
-        source=str(data["source"]),
-        status=str(data["status"]),
-    )
-
-
-def _match_action_from_json(data: dict[str, object]) -> MatchActionDTO:
-    order_data = data["order"]
-    match_data = data["match"]
-    payment_data = data.get("payment")
-    if not isinstance(order_data, dict) or not isinstance(match_data, dict):
-        raise BackendUnavailableError("Backend response is invalid")
-    confirmation_url = None
-    if isinstance(payment_data, dict) and isinstance(
-        payment_data.get("confirmation_url"),
-        str,
-    ):
-        confirmation_url = str(payment_data["confirmation_url"])
-    return MatchActionDTO(
-        order_id=UUID(str(order_data["id"])),
-        match_id=UUID(str(match_data["id"])),
-        status=str(order_data["status"]),
-        confirmation_url=confirmation_url,
-    )
-
-
-def _my_orders_page_from_json(data: dict[str, object]) -> MyOrdersPageDTO:
-    raw_items = data["items"] if isinstance(data["items"], list) else []
-    return MyOrdersPageDTO(
-        items=tuple(_my_order_summary_from_json(item) for item in raw_items),
-        page=int(cast(str | int, data["page"])),
-        page_size=int(cast(str | int, data["page_size"])),
-        total_items=int(cast(str | int, data["total_items"])),
-        total_pages=int(cast(str | int, data["total_pages"])),
-    )
-
-
-def _my_order_summary_from_json(data: dict[str, object]) -> MyOrderSummaryDTO:
-    payment_deadline_at = (
-        datetime.fromisoformat(str(data["payment_deadline_at"]))
-        if data["payment_deadline_at"] is not None
-        else None
-    )
-    return MyOrderSummaryDTO(
-        id=UUID(str(data["id"])),
-        service_name=str(data["service_name"]),
-        matching_mode=data["matching_mode"]
-        if isinstance(data["matching_mode"], str)
-        else None,
-        status=str(data["status"]),
-        start_at=datetime.fromisoformat(str(data["start_at"])),
-        end_at=datetime.fromisoformat(str(data["end_at"])),
-        objects_count=int(cast(str | int, data["objects_count"])),
-        total_amount=Decimal(str(data["total_amount"])),
-        payment_deadline_at=payment_deadline_at,
-        matching_deadline_at=datetime.fromisoformat(str(data["matching_deadline_at"])),
-        timezone=str(data["timezone"]),
-    )
-
-
-def _my_order_card_from_json(data: dict[str, object]) -> MyOrderCardDTO:
-    summary = _my_order_summary_from_json(data)
-    payment_expires_at = (
-        datetime.fromisoformat(str(data["payment_expires_at"]))
-        if data["payment_expires_at"] is not None
-        else None
-    )
-    return MyOrderCardDTO(
-        **summary.__dict__,
-        payment_status=data["payment_status"]
-        if isinstance(data["payment_status"], str)
-        else None,
-        payment_expires_at=payment_expires_at,
-    )
-
-
-__all__ = [
-    "AddressDTO",
-    "AddressSuggestionDTO",
-    "AvailableOrderDTO",
-    "BackendClient",
-    "CityDTO",
-    "FileDTO",
-    "LegalDocumentDTO",
-    "MatchActionDTO",
-    "MyOrderCardDTO",
-    "MyOrderSummaryDTO",
-    "MyOrdersPageDTO",
-    "OrderMatchDTO",
-    "PerformerProfileDTO",
-    "PerformerScheduleDTO",
-    "PerformerServiceDTO",
-    "RegistrationStateDTO",
-    "SupportContactDTO",
-]
+__all__ = ["BackendClient"]

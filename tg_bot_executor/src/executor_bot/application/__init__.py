@@ -13,6 +13,7 @@ from .dto import (
 )
 from .errors import (
     BackendClientError,
+    BackendNotFoundError,
     BackendUnauthorizedError,
     BackendUnavailableError,
     BackendValidationError,
@@ -22,6 +23,7 @@ __all__ = [
     "AddressDTO",
     "AddressSuggestionDTO",
     "BackendClientError",
+    "BackendNotFoundError",
     "BackendUnauthorizedError",
     "BackendUnavailableError",
     "BackendValidationError",

@@ -10,9 +10,8 @@ from aiogram.types import BotCommand
 from redis.asyncio import Redis
 
 from executor_bot.application.services import UsernameSyncService
-from executor_bot.bootstrap import get_settings
 from executor_bot.infrastructure.http import BackendClient
-from executor_bot.infrastructure.logger import LogLevel, setup_logger
+from executor_bot.infrastructure.logger import setup_logger
 from executor_bot.infrastructure.redis import (
     RedisActiveCategoryStore,
     RedisCurrentMessageStore,
@@ -20,6 +19,7 @@ from executor_bot.infrastructure.redis import (
     RedisViewedAvailableOrdersStore,
     create_fsm_storage,
 )
+from executor_bot.infrastructure.settings import get_settings
 from executor_bot.presentation.contexts import AppContext
 from executor_bot.presentation.error_handler import handle_unexpected_error
 from executor_bot.presentation.handlers import (
@@ -34,6 +34,7 @@ from executor_bot.presentation.handlers import (
 )
 from executor_bot.presentation.middlewares import (
     AppContextMiddleware,
+    CallbackMessageMiddleware,
     TelegramUserContextMiddleware,
     TelegramUsernameSyncMiddleware,
 )
@@ -45,7 +46,7 @@ logger = logging.getLogger(__name__)
 async def amain() -> None:
     settings = get_settings()
 
-    setup_logger(level=LogLevel(settings.log_level))
+    setup_logger(level=settings.log_level)
     logger.info("Executor bot starting")
 
     storage = create_fsm_storage(settings.redis_url)
@@ -57,6 +58,7 @@ async def amain() -> None:
     dispatcher.update.middleware(TelegramUserContextMiddleware())
     dispatcher.update.middleware(AppContextMiddleware())
     dispatcher.update.middleware(TelegramUsernameSyncMiddleware())
+    dispatcher.callback_query.middleware(CallbackMessageMiddleware())
     dispatcher.errors.register(handle_unexpected_error)
     dispatcher.include_router(start_router)
     dispatcher.include_router(registration_router)

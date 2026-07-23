@@ -22,9 +22,14 @@ SAFE_EXTRA_FIELDS = (
     "status_code",
     "exception_type",
     "category_code",
+    "object_type",
+    "care_object_type",
+    "care_object_id",
     "address_id",
     "service_id",
+    "order_id",
     "index",
+    "performers_count",
 )
 
 
@@ -45,6 +50,7 @@ def setup_logger(
     level: LogLevel = LogLevel.INFO,
     log_dir: Path | None = None,
 ) -> None:
+    """Configure console and optional file logging."""
     handlers: list[logging.Handler] = [
         logging.StreamHandler(),
     ]

@@ -4,6 +4,8 @@ from urllib.parse import quote_plus
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from executor_bot.infrastructure.logger import LogLevel
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -12,6 +14,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    log_level: LogLevel = Field(default=LogLevel.INFO, validation_alias="LOG_LEVEL")
     bot_token: str = Field(validation_alias="BOT_TOKEN")
     backend_scheme: str = Field(default="http", validation_alias="BACKEND_SCHEME")
     backend_host: str = Field(default="localhost", validation_alias="BACKEND_HOST")
@@ -24,7 +27,6 @@ class Settings(BaseSettings):
     redis_port: int = Field(default=6379, validation_alias="REDIS_PORT")
     redis_db: int = Field(default=2, validation_alias="REDIS_DB")
     redis_password: str = Field(default="", validation_alias="REDIS_PASSWORD")
-    log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
     request_timeout_seconds: float = Field(
         default=5.0,
         validation_alias="REQUEST_TIMEOUT_SECONDS",

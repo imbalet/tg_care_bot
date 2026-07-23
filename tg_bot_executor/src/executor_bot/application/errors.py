@@ -6,6 +6,10 @@ class BackendUnavailableError(BackendClientError):
     """Backend did not return a usable response."""
 
 
+class BackendNotFoundError(BackendClientError):
+    """Backend resource was not found."""
+
+
 class BackendUnauthorizedError(BackendClientError):
     """Backend rejected the service credentials."""
 
@@ -16,6 +20,7 @@ class BackendValidationError(BackendClientError):
 
 __all__ = [
     "BackendClientError",
+    "BackendNotFoundError",
     "BackendUnauthorizedError",
     "BackendUnavailableError",
     "BackendValidationError",

@@ -1,5 +1,6 @@
 from executor_bot.application.errors import (
     BackendClientError,
+    BackendNotFoundError,
     BackendUnauthorizedError,
     BackendUnavailableError,
     BackendValidationError,
@@ -7,6 +8,7 @@ from executor_bot.application.errors import (
 
 __all__ = [
     "BackendClientError",
+    "BackendNotFoundError",
     "BackendUnauthorizedError",
     "BackendUnavailableError",
     "BackendValidationError",

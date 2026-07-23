@@ -43,7 +43,7 @@ from executor_bot.presentation.callbacks import (
 )
 from executor_bot.presentation.types import ContactMethod, OrderFilterScope
 from executor_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
-from executor_bot.presentation.ui.labels import MsgKey
+from executor_bot.presentation.ui.screens.labels import MsgKey
 
 
 class CityButtonView(Protocol):

@@ -1,4 +1,4 @@
-from .screens.keyboards import (
+from .keyboards import (
     available_orders_keyboard,
     avatar_keyboard,
     calendar_keyboard,
@@ -23,7 +23,7 @@ from .screens.keyboards import (
     work_address_suggestions_keyboard,
     work_addresses_keyboard,
 )
-from .screens.texts import (
+from .texts import (
     about_step_text,
     available_orders_placeholder_text,
     available_orders_text,
