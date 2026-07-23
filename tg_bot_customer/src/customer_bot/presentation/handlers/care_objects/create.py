@@ -116,6 +116,19 @@ async def enter_name(
     data = await state.get_data()
     draft = care_object_draft(data)
     draft["display_name"] = message.text.strip()
+    if draft.get("object_type") == "pet":
+        draft["age_group"] = "unknown"
+        await state.update_data(draft=draft)
+        await state.set_state(CareObjectManagement.species)
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := CareObjectSpeciesStepScreen().build()).text,
+            reply_markup=screen.reply_markup,
+            create_new=True,
+        )
+        return
     await state.update_data(draft=draft)
     await state.set_state(CareObjectManagement.age)
     await telegram_responder.update(

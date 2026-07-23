@@ -30,11 +30,10 @@ class Screen(BaseScreen[_View]):
         return "<b>Возрастная группа</b>\n\nВыберите подходящий вариант."
 
     def _build_keyboard(self) -> Markup:
-        age_keys = (
-            ("infant", "preschool", "school_age", "teenager")
-            if self.data.object_type == "child"
-            else ("adult", "senior", "unknown")
-        )
+        age_keys = {
+            "child": ("infant", "preschool", "school_age", "teenager"),
+            "ward": ("adult", "senior", "unknown"),
+        }.get(self.data.object_type, ())
         keyboard = InlineKeyboardFactory()
         for age_group in age_keys:
             keyboard.button(
