@@ -7,6 +7,7 @@ from customer_bot.presentation.callbacks import (
     MainMenuCallback,
     OrderCancelPreviewCallback,
     OrderContactCallback,
+    OrderDisputeOpenCallback,
     OrderLocationOpenCallback,
     OrderPerformerProfileCallback,
     OrderReportConfirmCallback,
@@ -164,6 +165,7 @@ class Screen(BaseScreen[_View]):
             )
         if status in {"report_submitted", "completed"}:
             keyboard.button("Отчёт", OrderReportOpenCallback(order_id=order_id))
+            keyboard.button("Открыть спор", OrderDisputeOpenCallback(order_id=order_id))
         if status == "report_submitted":
             keyboard.button(
                 "Подтвердить выполнение",

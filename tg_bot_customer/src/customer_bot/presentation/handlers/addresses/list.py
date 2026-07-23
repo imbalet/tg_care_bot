@@ -11,13 +11,16 @@ from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
     AddressDeleteCallback,
     AddressDeleteConfirmCallback,
+    AddressEditCallback,
     AddressesOpenCallback,
     AddressSelectCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
+from customer_bot.presentation.handlers.addresses.state import AddressManagement
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
     AddressCardScreen,
+    AddressCityStepScreen,
     AddressDeleteConfirmScreen,
     AddressDeletedScreen,
     AddressListScreen,
@@ -140,6 +143,50 @@ async def select_address(
                 )
             ).build()
         ).text,
+        reply_markup=screen.reply_markup,
+        create_new=True,
+    )
+
+
+@router.callback_query(AddressEditCallback.filter())
+async def edit_address(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: AddressEditCallback,
+) -> None:
+    item = await _address_by_id(state, callback_data.address_id)
+    if item is None:
+        await telegram_responder.acknowledge(callback)
+        return
+    try:
+        cities = await backend_client.list_active_cities()
+    except BackendClientError:
+        await telegram_responder.acknowledge(callback)
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Не удалось загрузить города. Попробуйте позже.",
+            reply_markup=None,
+            create_new=True,
+        )
+        return
+    await state.set_state(AddressManagement.city)
+    await state.update_data(
+        city_ids=[str(city.id) for city in cities],
+        city_names=[city.name for city in cities],
+        address_edit_id=str(callback_data.address_id),
+        address_draft={},
+    )
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=(screen := AddressCityStepScreen(cities).build()).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )

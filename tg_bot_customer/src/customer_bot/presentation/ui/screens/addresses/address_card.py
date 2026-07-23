@@ -4,6 +4,7 @@ from uuid import UUID
 
 from customer_bot.presentation.callbacks import (
     AddressDeleteCallback,
+    AddressEditCallback,
     AddressesOpenCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
@@ -55,6 +56,10 @@ class Screen(BaseScreen[_View]):
     def _build_keyboard(self) -> Markup:
         return (
             InlineKeyboardFactory()
+            .button(
+                "Редактировать",
+                AddressEditCallback(address_id=UUID(str(self.data.id))),
+            )
             .button(
                 MsgKey.DELETE,
                 AddressDeleteCallback(address_id=UUID(str(self.data.id))),

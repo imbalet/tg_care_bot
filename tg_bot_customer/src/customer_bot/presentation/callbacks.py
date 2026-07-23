@@ -33,6 +33,18 @@ class ProfileOpenCallback(CallbackData, prefix="profile_open"):
     pass
 
 
+class ProfileDeletionCheckCallback(CallbackData, prefix="profile_delete_check"):
+    pass
+
+
+class ProfileDeletionConfirmCallback(CallbackData, prefix="profile_delete_confirm"):
+    pass
+
+
+class ProfileEditCallback(CallbackData, prefix="profile_edit"):
+    pass
+
+
 class OrdersListCallback(CallbackData, prefix="orders_list"):
     pass
 
@@ -103,6 +115,10 @@ class OrderPerformerProfileCallback(CallbackData, prefix="order_performer"):
 
 
 class OrderComplaintOpenCallback(CallbackData, prefix="order_complaint"):
+    order_id: UUID
+
+
+class OrderDisputeOpenCallback(CallbackData, prefix="order_dispute"):
     order_id: UUID
 
 
@@ -183,6 +199,10 @@ class AddressAddCallback(CallbackData, prefix="addr_add"):
 
 
 class AddressSelectCallback(CallbackData, prefix="addr_select"):
+    address_id: UUID
+
+
+class AddressEditCallback(CallbackData, prefix="addr_edit"):
     address_id: UUID
 
 

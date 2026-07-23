@@ -1,7 +1,12 @@
 from html import escape
 from typing import Protocol
 
-from customer_bot.presentation.ui.screens.common._keyboard import fallback_keyboard
+from customer_bot.presentation.callbacks import (
+    HelpCallback,
+    ProfileDeletionCheckCallback,
+    ProfileEditCallback,
+)
+from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreen,
     Markup,
@@ -69,4 +74,13 @@ class Screen(BaseScreen[_View]):
         )
 
     def _build_keyboard(self) -> Markup:
-        return fallback_keyboard(include_main_menu=True)
+        keyboard = InlineKeyboardFactory()
+        keyboard.button(
+            "Проверить удаление аккаунта",
+            ProfileDeletionCheckCallback(),
+        )
+        return (
+            keyboard.button("Редактировать профиль", ProfileEditCallback())
+            .button("Помощь", HelpCallback())
+            .as_markup()
+        )
