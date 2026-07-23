@@ -1,1 +1,1 @@
-__all__: list[str] = []
+"""Test support package for the backend repository."""

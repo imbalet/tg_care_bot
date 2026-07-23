@@ -1,0 +1,157 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio-password
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  mock-external:
+    image: python:3.14-alpine
+    working_dir: /app
+    volumes:
+      - .:/app:ro
+    command: ["python", "-m", "tests.e2e.mock_external"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment: &backend-environment
+      APP_ENV: test
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: postgres
+      DB_USER: postgres
+      DB_PASS: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
+      SERVICE_KEY: test-service-key
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY_ID: minio
+      S3_SECRET_ACCESS_KEY: minio-password
+      S3_BUCKET: we-are-close-test-files
+      S3_REGION: us-east-1
+      CUSTOMER_BOT_TOKEN: test-customer-token
+      EXECUTOR_BOT_TOKEN: test-executor-token
+      TELEGRAM_API_BASE_URL: http://mock-external:8080
+      DADATA_API_KEY: test-dadata-key
+      DADATA_SECRET_KEY: test-dadata-secret
+      DADATA_BASE_URL: http://mock-external:8080
+      PAYMENT_PROVIDER: tbank_test
+      TBANK_BASE_URL: http://mock-external:8080
+      TBANK_TERMINAL_KEY: test-terminal
+      TBANK_PASSWORD: test-password
+      TBANK_NOTIFICATION_URL: http://api:8000/api/payments/webhook
+      DEFAULT_ADMIN_EMAIL: admin@test.local
+      DEFAULT_ADMIN_FULL_NAME: Test Admin
+      DEFAULT_ADMIN_PASSWORD: test-password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment: *backend-environment
+    ports:
+      - "18000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live')"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mock-external:
+        condition: service_healthy
+    command: ["uvicorn", "backend.bootstrap.api:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment: *backend-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mock-external:
+        condition: service_healthy
+    command: ["python", "-m", "backend.worker.main"]
+
+  test-runner:
+    image: ghcr.io/astral-sh/uv:python3.14-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      <<: *backend-environment
+      TEST_ADMIN_DATABASE: postgres
+      TEST_DATABASE_PREFIX: we_are_close_test
+      TEST_RUN_ID: ${TEST_RUN_ID:-local}
+      KEEP_TEST_DATABASES: ${KEEP_TEST_DATABASES:-0}
+      E2E_BASE_URL: http://api:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mock-external:
+        condition: service_healthy
+    command: ["sh", "-c", "uv sync --frozen --all-groups && uv run pytest -m e2e"]
+
+  e2e-runner:
+    extends:
+      service: test-runner
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ["sh", "-c", "uv sync --frozen --all-groups && uv run pytest -m e2e"]

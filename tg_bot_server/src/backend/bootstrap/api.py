@@ -1,12 +1,12 @@
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 from fastapi import FastAPI
 
-from backend.bootstrap.container import create_container
+from backend.bootstrap.container import Container, create_container
 from backend.bootstrap.middlewares import register_middlewares
 from backend.bootstrap.routes import router as bootstrap_router
-from backend.bootstrap.settings import get_settings
+from backend.bootstrap.settings import Settings, get_settings
 from backend.common.infrastructure.logging import configure_logging
 from backend.common.presentation import register_error_handlers
 from backend.modules.admin.presentation.api import router as admin_router
@@ -41,24 +41,40 @@ from backend.modules.system_checks.presentation.api import (
     router as system_checks_router,
 )
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    settings = get_settings()
-    configure_logging(settings.log_level)
-    container = create_container(settings)
-    app.state.container = container
-    if not getattr(app.state, "admin_surface_mounted", False):
-        create_admin_surface(container).mount_to(app)
-        app.state.admin_surface_mounted = True
-    try:
-        yield
-    finally:
-        await container.close()
+ContainerFactory = Callable[[Settings], Container]
+SettingsFactory = Callable[[], Settings]
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="We Are Close API", lifespan=lifespan)
+def _create_lifespan(
+    container_factory: ContainerFactory,
+    settings_factory: SettingsFactory,
+) -> Callable[[FastAPI], AbstractAsyncContextManager[None]]:
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        settings = settings_factory()
+        configure_logging(settings.log_level)
+        container = container_factory(settings)
+        app.state.container = container
+        if not getattr(app.state, "admin_surface_mounted", False):
+            create_admin_surface(container).mount_to(app)
+            app.state.admin_surface_mounted = True
+        try:
+            yield
+        finally:
+            await container.close()
+
+    return lifespan
+
+
+def create_app(
+    *,
+    container_factory: ContainerFactory = create_container,
+    settings_factory: SettingsFactory = get_settings,
+) -> FastAPI:
+    app = FastAPI(
+        title="We Are Close API",
+        lifespan=_create_lifespan(container_factory, settings_factory),
+    )
     register_error_handlers(app)
     app.include_router(admin_router)
     app.include_router(availability_router)

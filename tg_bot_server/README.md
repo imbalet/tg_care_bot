@@ -71,15 +71,32 @@ Published development ports:
 
 ```bash
 make lint
-uv run pytest
+make test
 ```
 
-PostgreSQL integration tests are opt-in and require the local compose
-PostgreSQL/Redis ports:
+The default test command runs only isolated unit and FastAPI tests. The test
+suite is split into explicit levels:
 
 ```bash
-RUN_POSTGRES_TESTS=1 uv run pytest tests/integration
+make test-unit
+make test-api
+make test-integration
+make test-e2e
 ```
 
-Alembic migrations create the default admin and seed the MVP catalog data needed
-for local startup.
+Integration tests use the test Compose stack and real PostgreSQL, Redis and
+MinIO. PostgreSQL is migrated with Alembic, then each pytest-xdist worker gets
+an isolated database cloned from the migrated template database.
+
+The E2E command runs pytest inside a disposable test-runner container together
+with API, worker, PostgreSQL, Redis, MinIO and deterministic mock external
+services.
+
+To preserve worker databases after a failed integration run:
+
+```bash
+KEEP_TEST_DATABASES=1 make test-integration
+```
+
+Use `make test-clean` to remove the test Compose resources. Alembic migrations
+create the default admin and seed the MVP catalog data needed for local startup.
