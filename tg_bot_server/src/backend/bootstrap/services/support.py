@@ -9,7 +9,6 @@ from ._shared import (
     NotificationModel,
     PerformerModel,
     SqlAlchemyAdminAuditRepository,
-    SqlAlchemyNotificationRepository,
     SqlAlchemySupportRepository,
     SupportRequestModel,
     ValidationError,
@@ -194,15 +193,12 @@ class SupportServices(Service):
                 if actor_type == "customer"
                 else model.performer_id == actor.id
             )
-            return cast(
-                tuple[list[Any], int],
-                await repository.list_records_for_actor(
-                    model=model,
-                    condition=condition,
-                    status=status,
-                    offset=(page - 1) * page_size,
-                    limit=page_size,
-                ),
+            return await repository.list_records_for_actor(
+                model=model,
+                condition=condition,
+                status=status,
+                offset=(page - 1) * page_size,
+                limit=page_size,
             )
 
     async def get_support_record(
@@ -254,14 +250,11 @@ class SupportServices(Service):
         self, *, record_kind: str, status: str | None, page: int, page_size: int
     ) -> tuple[list[Any], int]:
         async with self._uow() as uow:
-            return cast(
-                tuple[list[Any], int],
-                await SqlAlchemySupportRepository(uow.session).list_records(
-                    model=self._support_model(record_kind),
-                    status=status,
-                    offset=(page - 1) * page_size,
-                    limit=page_size,
-                ),
+            return await SqlAlchemySupportRepository(uow.session).list_records(
+                model=self._support_model(record_kind),
+                status=status,
+                offset=(page - 1) * page_size,
+                limit=page_size,
             )
 
     async def update_support_record(
@@ -356,41 +349,3 @@ class SupportServices(Service):
                 delete_after=now + timedelta(days=30),
             ),
         )
-
-    async def list_admin_notifications(
-        self,
-        *,
-        admin_id: UUID,
-        status: str | None,
-        is_read: bool | None,
-        page: int,
-        page_size: int,
-    ) -> tuple[list[NotificationModel], int]:
-        async with self._uow() as uow:
-            return cast(
-                tuple[list[NotificationModel], int],
-                await SqlAlchemyNotificationRepository(uow.session).list_admin_inbox(
-                    admin_id=admin_id,
-                    status=status,
-                    is_read=is_read,
-                    offset=(page - 1) * page_size,
-                    limit=page_size,
-                ),
-            )
-
-    async def mark_admin_notifications_read(
-        self,
-        *,
-        admin_id: UUID,
-        notification_ids: list[UUID],
-    ) -> int:
-        async with self._uow() as uow:
-            count = cast(
-                int,
-                await SqlAlchemyNotificationRepository(uow.session).mark_admin_read(
-                    admin_id=admin_id,
-                    notification_ids=notification_ids,
-                ),
-            )
-            await uow.commit()
-            return count

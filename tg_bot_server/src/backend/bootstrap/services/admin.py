@@ -12,9 +12,11 @@ from ._shared import (
     LoginAdminUseCase,
     LogoutAdminUseCase,
     NotFoundError,
+    NotificationModel,
     SqlAlchemyAdminAuditRepository,
     SqlAlchemyAdminRepository,
     SqlAlchemyBusinessSettingRepository,
+    SqlAlchemyNotificationRepository,
     ValidationError,
     utc_now,
 )
@@ -22,6 +24,38 @@ from .context import Service
 
 
 class AdminServices(Service):
+    async def list_admin_notifications(
+        self,
+        *,
+        admin_id: UUID,
+        status: str | None,
+        is_read: bool | None,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[NotificationModel], int]:
+        async with self._uow() as uow:
+            return await SqlAlchemyNotificationRepository(uow.session).list_admin_inbox(
+                admin_id=admin_id,
+                status=status,
+                is_read=is_read,
+                offset=(page - 1) * page_size,
+                limit=page_size,
+            )
+
+    async def mark_admin_notifications_read(
+        self,
+        *,
+        admin_id: UUID,
+        notification_ids: list[UUID],
+    ) -> int:
+        async with self._uow() as uow:
+            count = await SqlAlchemyNotificationRepository(uow.session).mark_admin_read(
+                admin_id=admin_id,
+                notification_ids=notification_ids,
+            )
+            await uow.commit()
+            return count
+
     @staticmethod
     def _validated_setting_value(value_type: str, value: object) -> object:
         if value is None:
