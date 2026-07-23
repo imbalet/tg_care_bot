@@ -83,7 +83,7 @@ class AdminSurfaceAuthProvider(AuthProvider):
         if session_id is None:
             return False
         try:
-            admin, _csrf_token = await self._container.services().get_current_admin(
+            admin, _csrf_token = await self._container.admin.get_current_admin(
                 session_id,
             )
         except AuthenticationError, AuthorizationError:
@@ -100,7 +100,7 @@ class AdminSurfaceAuthProvider(AuthProvider):
         response: Response,
     ) -> Response:
         try:
-            result = await self._container.services().login_admin(
+            result = await self._container.admin.login_admin(
                 LoginAdminCommand(email=username, password=password),
             )
         except (AuthenticationError, AuthorizationError) as exc:
@@ -119,7 +119,7 @@ class AdminSurfaceAuthProvider(AuthProvider):
     async def logout(self, request: Request, response: Response) -> Response:
         session_id = request.cookies.get(ADMIN_SESSION_COOKIE)
         if session_id is not None:
-            await self._container.services().logout_admin(session_id)
+            await self._container.admin.logout_admin(session_id)
         response.delete_cookie(ADMIN_SESSION_COOKIE, path="/admin")
         return response
 
@@ -220,7 +220,7 @@ class PaymentView(OperationalModelView):
                 raise FormValidationError({"amount": "Invalid amount"}) from exc
         for raw_pk in pks:
             try:
-                await self._container.services().create_manual_refund(
+                await self._container.payments.create_manual_refund(
                     CreateManualRefundCommand(
                         payment_id=UUID(str(raw_pk)),
                         amount=amount,
@@ -288,9 +288,7 @@ class ReportView(OperationalModelView):
                 .order_by(FileLinkModel.sort_order),
             )
             obj.report_photo_urls = [
-                await self._container.services()
-                ._storage()
-                .create_download_url(
+                await self._container.storage.create_download_url(
                     file.storage_key,
                 )
                 for file in result.scalars()
@@ -334,7 +332,7 @@ class BusinessSettingView(OperationalModelView):
             if setting is None:
                 raise FormValidationError({str(raw_pk): "Setting not found"})
             try:
-                await self._container.services().update_business_setting(
+                await self._container.admin.update_business_setting(
                     key=setting.key, value=value, admin_id=admin.id
                 )
             except (NotFoundError, ValidationError) as exc:
@@ -370,7 +368,7 @@ class PerformerView(ReadOnlyModelView):
         for raw_pk in pks:
             performer_id = UUID(str(raw_pk))
             try:
-                await self._container.services().activate_performer(
+                await self._container.performers.activate_performer(
                     performer_id,
                     audit_admin_id=admin.id,
                 )
@@ -403,7 +401,7 @@ class PerformerView(ReadOnlyModelView):
             raise FormValidationError({"reason": "Reason and comment are required"})
         for raw_pk in pks:
             try:
-                await self._container.services().reject_performer(
+                await self._container.performers.reject_performer(
                     performer_id=UUID(str(raw_pk)),
                     reason=reason,
                     comment=comment,
@@ -449,7 +447,7 @@ class PerformerInvitationView(ReadOnlyModelView):
         if admin is None:
             raise FormValidationError({"telegram_id": "Admin session is required"})
         try:
-            invitation = await self._container.services().create_invitation(
+            invitation = await self._container.performers.create_invitation(
                 CreateInvitationCommand(
                     telegram_id=data["telegram_id"],
                     created_by_admin_id=admin.id,
@@ -609,14 +607,14 @@ class OrderView(OperationalModelView):
                     order.active_payment_id,
                 )
             try:
-                await self._container.services().cancel_order(
+                await self._container.orders.cancel_order(
                     order_id=order.id,
                     actor_type="admin",
                     actor_id=admin.id,
                     comment=comment,
                 )
                 if force and payment is not None and payment.status == "succeeded":
-                    await self._container.services().create_manual_refund(
+                    await self._container.payments.create_manual_refund(
                         CreateManualRefundCommand(
                             payment_id=payment.id,
                             amount=payment.amount,
@@ -670,7 +668,7 @@ class SupportRecordView(OperationalModelView):
             raise FormValidationError({"status": "Status is required"})
         for raw_pk in pks:
             try:
-                await self._container.services().update_support_record(
+                await self._container.support.update_support_record(
                     record_kind=self._record_kind,
                     record_id=UUID(str(raw_pk)),
                     status=status,
@@ -697,7 +695,7 @@ class SupportRecordView(OperationalModelView):
             raise FormValidationError({"comment": "Comment is required"})
         for raw_pk in pks:
             try:
-                await self._container.services().resolve_deletion_request(
+                await self._container.support.resolve_deletion_request(
                     record_id=UUID(str(raw_pk)),
                     admin_comment=comment,
                     admin_id=admin.id,

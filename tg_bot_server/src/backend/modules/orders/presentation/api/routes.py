@@ -57,7 +57,7 @@ async def create_pool(
     request: OrderRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderResponse:
-    order = await container.services().create_pool_order(create_pool_command(request))
+    order = await container.orders.create_pool_order(create_pool_command(request))
     return order_response(order)
 
 
@@ -66,7 +66,7 @@ async def create_direct(
     request: DirectOrderRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderResponse:
-    order = await container.services().create_direct_order(
+    order = await container.orders.create_direct_order(
         create_direct_command(request),
     )
     return order_response(order)
@@ -77,7 +77,7 @@ async def price_preview(
     request: PricePreviewRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PricePreviewResponse:
-    preview = await container.services().calculate_price_preview(
+    preview = await container.orders.calculate_price_preview(
         CalculatePricePreviewCommand(
             customer_id=request.customer_id,
             service_id=request.service_id,
@@ -95,7 +95,7 @@ async def list_available_pool_orders(
     container: Annotated[Container, Depends(get_container)],
     limit: int = 20,
 ) -> list[OrderResponse]:
-    orders = await container.services().list_available_pool_orders(
+    orders = await container.orders.list_available_pool_orders(
         performer_id=performer_id,
         limit=limit,
     )
@@ -110,7 +110,7 @@ async def list_customer_my_orders(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=10)] = 5,
 ) -> MyOrdersPageResponse:
-    orders = await container.services().list_customer_my_orders(
+    orders = await container.orders.list_customer_my_orders(
         customer_id=customer_id,
         group=group,
         page=page,
@@ -125,7 +125,7 @@ async def get_customer_my_order(
     order_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> MyOrderCardResponse:
-    order = await container.services().get_customer_my_order(
+    order = await container.orders.get_customer_my_order(
         customer_id=customer_id,
         order_id=order_id,
     )
@@ -140,7 +140,7 @@ async def get_customer_order_location(
     order_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderLocationResponse:
-    location = await container.services().get_customer_order_location(
+    location = await container.orders.get_customer_order_location(
         customer_id=customer_id,
         order_id=order_id,
     )
@@ -157,7 +157,7 @@ async def list_performer_my_orders(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=10)] = 5,
 ) -> MyOrdersPageResponse:
-    orders = await container.services().list_performer_my_orders(
+    orders = await container.orders.list_performer_my_orders(
         performer_id=performer_id,
         group=group,
         page=page,
@@ -172,7 +172,7 @@ async def get_performer_my_order(
     order_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> MyOrderCardResponse:
-    order = await container.services().get_performer_my_order(
+    order = await container.orders.get_performer_my_order(
         performer_id=performer_id,
         order_id=order_id,
     )
@@ -187,7 +187,7 @@ async def get_performer_order_location(
     order_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderLocationResponse:
-    location = await container.services().get_performer_order_location(
+    location = await container.orders.get_performer_order_location(
         performer_id=performer_id,
         order_id=order_id,
     )
@@ -202,7 +202,7 @@ async def create_pool_response(
     request: PerformerMatchActionRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderMatchResponse:
-    match = await container.services().create_pool_response(
+    match = await container.orders.create_pool_response(
         order_id=order_id,
         performer_id=request.performer_id,
     )
@@ -215,7 +215,7 @@ async def invite_direct_performer(
     request: CustomerDirectPerformerRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderMatchResponse:
-    match = await container.services().invite_direct_performer(
+    match = await container.orders.invite_direct_performer(
         order_id=order_id,
         customer_id=request.customer_id,
         performer_id=request.performer_id,
@@ -229,7 +229,7 @@ async def publish_pool_order(
     request: CustomerMatchActionRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderResponse:
-    order = await container.services().publish_pool_order(
+    order = await container.orders.publish_pool_order(
         order_id=order_id,
         customer_id=request.customer_id,
     )
@@ -242,7 +242,7 @@ async def list_order_matches(
     customer_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> list[OrderMatchResponse]:
-    matches = await container.services().list_order_matches(
+    matches = await container.orders.list_order_matches(
         order_id=order_id,
         customer_id=customer_id,
     )
@@ -255,7 +255,7 @@ async def accept_direct_match(
     request: PerformerMatchActionRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> MatchActionResponse:
-    result = await container.services().accept_direct_match(
+    result = await container.orders.accept_direct_match(
         match_id=match_id,
         performer_id=request.performer_id,
     )
@@ -268,7 +268,7 @@ async def reject_direct_match(
     request: PerformerMatchActionRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderMatchResponse:
-    match = await container.services().reject_direct_match(
+    match = await container.orders.reject_direct_match(
         match_id=match_id,
         performer_id=request.performer_id,
     )
@@ -281,7 +281,7 @@ async def select_pool_response(
     request: CustomerMatchActionRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> MatchActionResponse:
-    result = await container.services().select_pool_response(
+    result = await container.orders.select_pool_response(
         match_id=match_id,
         customer_id=request.customer_id,
     )
@@ -294,7 +294,7 @@ async def reject_pool_response(
     request: CustomerMatchActionRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderMatchResponse:
-    match = await container.services().reject_pool_response(
+    match = await container.orders.reject_pool_response(
         match_id=match_id,
         customer_id=request.customer_id,
     )
@@ -307,7 +307,7 @@ async def start_order(
     request: PerformerOrderActionRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderResponse:
-    order = await container.services().start_order(
+    order = await container.orders.start_order(
         order_id=order_id,
         performer_id=request.performer_id,
     )
@@ -320,7 +320,7 @@ async def finish_order(
     request: PerformerOrderActionRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderResponse:
-    order = await container.services().finish_order(
+    order = await container.orders.finish_order(
         order_id=order_id,
         performer_id=request.performer_id,
     )
@@ -333,7 +333,7 @@ async def submit_order_report(
     request: OrderReportRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderReportResponse:
-    report = await container.services().submit_order_report(
+    report = await container.orders.submit_order_report(
         order_id=order_id,
         performer_id=request.performer_id,
         completed_work=request.completed_work,
@@ -351,7 +351,7 @@ async def get_customer_order_report(
     order_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderReportDetailResponse:
-    report = await container.services().get_order_report(
+    report = await container.orders.get_order_report(
         order_id=order_id,
         customer_id=customer_id,
     )
@@ -366,7 +366,7 @@ async def get_performer_order_report(
     order_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderReportDetailResponse:
-    report = await container.services().get_order_report(
+    report = await container.orders.get_order_report(
         order_id=order_id,
         performer_id=performer_id,
     )
@@ -381,7 +381,7 @@ async def cancel_order(
     request: CancelOrderRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderResponse:
-    order = await container.services().cancel_order(
+    order = await container.orders.cancel_order(
         order_id=order_id,
         actor_type=request.actor_type,
         actor_id=request.actor_id,

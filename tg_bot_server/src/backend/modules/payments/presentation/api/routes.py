@@ -50,7 +50,7 @@ async def tbank_webhook(
         parsed_amount = Decimal(int(amount)) / Decimal("100")
     else:
         parsed_amount = Decimal("0")
-    await container.services().apply_payment_webhook(
+    await container.payments.apply_payment_webhook(
         PaymentWebhookCommand(
             provider_payment_id=str(payment_id),
             provider_order_id=order_id,
@@ -72,7 +72,7 @@ async def get_customer_payment_status(
     customer_id: str,
     container: Annotated[Container, Depends(get_container)],
 ) -> PaymentStatusResponse:
-    result = await container.services().get_customer_payment_status(
+    result = await container.payments.get_customer_payment_status(
         GetCustomerPaymentStatusCommand(
             order_id=UUID(order_id),
             customer_id=UUID(customer_id),

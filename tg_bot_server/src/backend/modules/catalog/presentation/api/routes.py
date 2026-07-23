@@ -27,7 +27,7 @@ async def list_cities(
     container: Annotated[Container, Depends(get_container)],
     active_only: Annotated[bool, Query(alias="active")] = True,
 ) -> list[CityResponse]:
-    cities = await container.services().list_cities(active_only=active_only)
+    cities = await container.catalog.list_cities(active_only=active_only)
     return [city_response(city) for city in cities]
 
 
@@ -36,7 +36,7 @@ async def get_catalog(
     container: Annotated[Container, Depends(get_container)],
     active_only: Annotated[bool, Query(alias="active")] = True,
 ) -> CatalogResponse:
-    catalog = await container.services().get_catalog(active_only=active_only)
+    catalog = await container.catalog.get_catalog(active_only=active_only)
     return catalog_response(catalog)
 
 
@@ -44,7 +44,7 @@ async def get_catalog(
 async def get_support_contact(
     container: Annotated[Container, Depends(get_container)],
 ) -> SupportContactResponse:
-    contact = await container.services().get_support_contact()
+    contact = await container.catalog.get_support_contact()
     return support_contact_response(contact)
 
 
@@ -53,7 +53,7 @@ async def list_legal_documents(
     container: Annotated[Container, Depends(get_container)],
     active_only: Annotated[bool, Query(alias="active")] = True,
 ) -> list[LegalDocumentResponse]:
-    documents = await container.services().list_legal_documents(
+    documents = await container.catalog.list_legal_documents(
         active_only=active_only,
     )
     return [legal_document_response(document) for document in documents]

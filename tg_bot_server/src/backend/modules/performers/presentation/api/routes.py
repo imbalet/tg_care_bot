@@ -80,7 +80,7 @@ async def create_invitation(
     request: CreateInvitationRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> InvitationResponse:
-    invitation = await container.services().create_invitation(
+    invitation = await container.performers.create_invitation(
         CreateInvitationCommand(
             telegram_id=request.telegram_id,
             created_by_admin_id=request.created_by_admin_id,
@@ -97,7 +97,7 @@ async def create_invitation_as_admin(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> InvitationResponse:
     admin_id = UUID(current[0].id)
-    invitation = await container.services().create_invitation(
+    invitation = await container.performers.create_invitation(
         CreateInvitationCommand(
             telegram_id=request.telegram_id,
             created_by_admin_id=admin_id,
@@ -113,7 +113,7 @@ async def registration_state(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> RegistrationStateResponse:
-    state = await container.services().get_registration_state(telegram_id)
+    state = await container.performers.get_registration_state(telegram_id)
     return registration_state_response(state)
 
 
@@ -122,7 +122,7 @@ async def register_by_invitation(
     request: RegisterPerformerRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerResponse:
-    performer = await container.services().register_performer(
+    performer = await container.performers.register_performer(
         RegisterPerformerCommand(
             telegram_id=request.telegram_id,
             full_name=request.full_name,
@@ -142,7 +142,7 @@ async def activate(
     performer_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerResponse:
-    performer = await container.services().activate_performer(performer_id)
+    performer = await container.performers.activate_performer(performer_id)
     return performer_response(performer)
 
 
@@ -153,7 +153,7 @@ async def activate_as_admin(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> PerformerResponse:
     admin_id = UUID(current[0].id)
-    performer = await container.services().activate_performer(
+    performer = await container.performers.activate_performer(
         performer_id,
         audit_admin_id=admin_id,
     )
@@ -169,7 +169,7 @@ async def approve_service_as_admin(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> PerformerServiceResponse:
     admin_id = UUID(current[0].id)
-    service = await container.services().approve_performer_service(
+    service = await container.performers.approve_performer_service(
         ApprovePerformerServiceCommand(
             performer_id=performer_id,
             service_id=service_id,
@@ -188,7 +188,7 @@ async def list_services_as_admin(
     container: Annotated[Container, Depends(get_container)],
     _current: Annotated[tuple[AdminResponse, str, str], Depends(get_current_admin)],
 ) -> list[PerformerServiceResponse]:
-    services = await container.services().list_performer_services_by_id(performer_id)
+    services = await container.performers.list_performer_services_by_id(performer_id)
     return [performer_service_response(service) for service in services]
 
 
@@ -200,7 +200,7 @@ async def set_schedule_as_admin(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> ScheduleResponse:
     admin_id = UUID(current[0].id)
-    schedule = await container.services().set_schedule_as_admin(
+    schedule = await container.performers.set_schedule_as_admin(
         performer_id,
         lambda telegram_id: SetPerformerScheduleCommand(
             telegram_id=telegram_id,
@@ -224,7 +224,7 @@ async def add_override_as_admin(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> CalendarOverrideResponse:
     admin_id = UUID(current[0].id)
-    override = await container.services().add_override_as_admin(
+    override = await container.performers.add_override_as_admin(
         performer_id,
         lambda telegram_id: AddCalendarOverrideCommand(
             telegram_id=telegram_id,
@@ -244,7 +244,7 @@ async def update_telegram_username(
     request: UpdateTelegramUsernameRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerResponse:
-    performer = await container.services().update_performer_username(
+    performer = await container.performers.update_performer_username(
         UpdatePerformerUsernameCommand(
             telegram_id=telegram_id,
             telegram_username=request.telegram_username,
@@ -258,7 +258,7 @@ async def list_services_by_telegram(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> list[PerformerServiceResponse]:
-    services = await container.services().list_performer_services_by_telegram(
+    services = await container.performers.list_performer_services_by_telegram(
         telegram_id,
     )
     return [performer_service_response(service) for service in services]
@@ -271,7 +271,7 @@ async def set_service_enabled(
     request: SetPerformerServiceEnabledRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerServiceResponse:
-    service = await container.services().set_performer_service_enabled(
+    service = await container.performers.set_performer_service_enabled(
         SetPerformerServiceEnabledCommand(
             telegram_id=telegram_id,
             service_id=service_id,
@@ -288,7 +288,7 @@ async def set_service_max_objects(
     request: SetPerformerServiceMaxObjectsRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerServiceResponse:
-    service = await container.services().set_performer_service_max_objects(
+    service = await container.performers.set_performer_service_max_objects(
         SetPerformerServiceMaxObjectsCommand(
             telegram_id=telegram_id,
             service_id=service_id,
@@ -304,7 +304,7 @@ async def set_accepting_orders(
     request: SetAcceptingOrdersRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> PerformerResponse:
-    performer = await container.services().set_performer_accepting_orders(
+    performer = await container.performers.set_performer_accepting_orders(
         SetPerformerAcceptingOrdersCommand(
             telegram_id=telegram_id,
             is_accepting_orders=request.is_accepting_orders,
@@ -318,7 +318,7 @@ async def list_addresses(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> list[AddressResponse]:
-    addresses = await container.services().list_performer_addresses(
+    addresses = await container.performers.list_performer_addresses(
         telegram_id=telegram_id,
     )
     return [address_response(address) for address in addresses]
@@ -330,7 +330,7 @@ async def create_address(
     request: CreateAddressRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> AddressResponse:
-    address = await container.services().create_performer_address(
+    address = await container.performers.create_performer_address(
         CreateOwnerAddressCommand(
             telegram_id=telegram_id,
             city_id=request.city_id,
@@ -350,7 +350,7 @@ async def set_current_address(
     address_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> AddressResponse:
-    address = await container.services().set_performer_current_address(
+    address = await container.performers.set_performer_current_address(
         telegram_id=telegram_id,
         address_id=address_id,
     )
@@ -363,7 +363,7 @@ async def delete_address(
     address_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> dict[str, str]:
-    await container.services().delete_performer_address(
+    await container.performers.delete_performer_address(
         telegram_id=telegram_id,
         address_id=address_id,
     )
@@ -377,7 +377,7 @@ async def upload_avatar(
     file: Annotated[UploadFile, File()],
 ) -> FileResponse:
     content = await file.read()
-    stored_file = await container.services().upload_performer_avatar(
+    stored_file = await container.performers.upload_performer_avatar(
         UploadPerformerAvatarCommand(
             telegram_id=telegram_id,
             content=content,
@@ -394,5 +394,5 @@ async def delete_avatar(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> dict[str, str]:
-    await container.services().delete_performer_avatar(telegram_id=telegram_id)
+    await container.performers.delete_performer_avatar(telegram_id=telegram_id)
     return {"status": "deleted"}

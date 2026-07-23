@@ -10,7 +10,7 @@ async def bootstrap_admin(email: str, full_name: str, password: str) -> None:
     settings = get_settings()
     container = create_container(settings)
     try:
-        await container.services().bootstrap_admin(
+        await container.admin.bootstrap_admin(
             BootstrapAdminCommand(
                 email=email,
                 full_name=full_name,

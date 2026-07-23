@@ -71,7 +71,7 @@ async def _user_list(
 ) -> SupportRecordPageResponse:
     if page < 1 or page_size < 1 or page_size > 100:
         raise ValidationError("Invalid pagination")
-    records, total = await container.services().list_support_records(
+    records, total = await container.support.list_support_records(
         actor_type=actor_type,
         telegram_id=telegram_id,
         record_kind=kind,
@@ -96,7 +96,7 @@ async def _admin_list(
 ) -> SupportRecordPageResponse:
     if page < 1 or page_size < 1 or page_size > 100:
         raise ValidationError("Invalid pagination")
-    records, total = await container.services().list_admin_support_records(
+    records, total = await container.support.list_admin_support_records(
         record_kind=kind,
         status=status,
         page=page,
@@ -116,7 +116,7 @@ async def create_customer_support(
     request: CreateSupportRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> SupportRecordResponse:
-    record = await container.services().create_support_request(
+    record = await container.support.create_support_request(
         actor_type="customer",
         telegram_id=telegram_id,
         order_id=request.order_id,
@@ -133,7 +133,7 @@ async def create_performer_support(
     request: CreateSupportRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> SupportRecordResponse:
-    record = await container.services().create_support_request(
+    record = await container.support.create_support_request(
         actor_type="performer",
         telegram_id=telegram_id,
         order_id=request.order_id,
@@ -150,7 +150,7 @@ async def create_customer_complaint(
     request: CreateComplaintRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> SupportRecordResponse:
-    record = await container.services().create_complaint(
+    record = await container.support.create_complaint(
         actor_type="customer",
         telegram_id=telegram_id,
         order_id=request.order_id,
@@ -167,7 +167,7 @@ async def create_performer_complaint(
     request: CreateComplaintRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> SupportRecordResponse:
-    record = await container.services().create_complaint(
+    record = await container.support.create_complaint(
         actor_type="performer",
         telegram_id=telegram_id,
         order_id=request.order_id,
@@ -183,7 +183,7 @@ async def create_customer_deletion(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> SupportRecordResponse:
-    record = await container.services().create_deletion_request(
+    record = await container.support.create_deletion_request(
         actor_type="customer", telegram_id=telegram_id
     )
     return _record_response(record, "deletion")
@@ -194,7 +194,7 @@ async def create_performer_deletion(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> SupportRecordResponse:
-    record = await container.services().create_deletion_request(
+    record = await container.support.create_deletion_request(
         actor_type="performer", telegram_id=telegram_id
     )
     return _record_response(record, "deletion")
@@ -244,7 +244,7 @@ def _register_user_reads(router: APIRouter, actor_type: str) -> None:
         record_id: UUID,
         container: Annotated[Container, Depends(get_container)],
     ) -> SupportRecordResponse:
-        record, files = await container.services().get_support_record(
+        record, files = await container.support.get_support_record(
             record_kind=kind,
             record_id=record_id,
             actor_type=actor_type,
@@ -276,7 +276,7 @@ async def get_admin_record(
     container: Annotated[Container, Depends(get_container)],
     _current: Annotated[tuple[AdminResponse, str, str], Depends(get_current_admin)],
 ) -> SupportRecordResponse:
-    record, files = await container.services().get_support_record(
+    record, files = await container.support.get_support_record(
         record_kind=kind, record_id=record_id
     )
     return _record_response(record, kind, files)
@@ -290,7 +290,7 @@ async def update_admin_record(
     container: Annotated[Container, Depends(get_container)],
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> SupportRecordResponse:
-    record = await container.services().update_support_record(
+    record = await container.support.update_support_record(
         record_kind=kind,
         record_id=record_id,
         status=request.status,

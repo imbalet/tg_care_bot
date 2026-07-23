@@ -44,7 +44,7 @@ async def get_profile(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> CustomerResponse:
-    customer = await container.services().get_customer_profile(telegram_id)
+    customer = await container.customers.get_customer_profile(telegram_id)
     return customer_response(customer)
 
 
@@ -53,7 +53,7 @@ async def register(
     request: RegisterCustomerRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> CustomerResponse:
-    customer = await container.services().register_customer(
+    customer = await container.customers.register_customer(
         register_customer_command(request),
     )
     return customer_response(customer)
@@ -65,7 +65,7 @@ async def update_telegram_username(
     request: UpdateTelegramUsernameRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> CustomerResponse:
-    customer = await container.services().update_customer_username(
+    customer = await container.customers.update_customer_username(
         update_customer_username_command(telegram_id, request),
     )
     return customer_response(customer)
@@ -77,7 +77,7 @@ async def list_care_objects(
     container: Annotated[Container, Depends(get_container)],
     object_type: Annotated[str | None, Query()] = None,
 ) -> list[CareObjectResponse]:
-    care_objects = await container.services().list_customer_care_objects(
+    care_objects = await container.customers.list_customer_care_objects(
         telegram_id=telegram_id,
         object_type=object_type,
     )
@@ -90,7 +90,7 @@ async def create_care_object(
     request: CreateCareObjectRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> CareObjectResponse:
-    care_object = await container.services().create_customer_care_object(
+    care_object = await container.customers.create_customer_care_object(
         CreateCustomerCareObjectCommand(
             telegram_id=telegram_id,
             object_type=request.object_type,
@@ -114,7 +114,7 @@ async def update_care_object(
     request: CareObjectRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> CareObjectResponse:
-    care_object = await container.services().update_customer_care_object(
+    care_object = await container.customers.update_customer_care_object(
         UpdateCustomerCareObjectCommand(
             telegram_id=telegram_id,
             care_object_id=care_object_id,
@@ -137,7 +137,7 @@ async def delete_care_object(
     care_object_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> dict[str, str]:
-    await container.services().delete_customer_care_object(
+    await container.customers.delete_customer_care_object(
         telegram_id=telegram_id,
         care_object_id=care_object_id,
     )
@@ -149,7 +149,7 @@ async def list_addresses(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> list[AddressResponse]:
-    addresses = await container.services().list_customer_addresses(
+    addresses = await container.customers.list_customer_addresses(
         telegram_id=telegram_id,
     )
     return [address_response(address) for address in addresses]
@@ -161,7 +161,7 @@ async def create_address(
     request: CreateAddressRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> AddressResponse:
-    address = await container.services().create_customer_address(
+    address = await container.customers.create_customer_address(
         CreateOwnerAddressCommand(
             telegram_id=telegram_id,
             city_id=request.city_id,
@@ -181,7 +181,7 @@ async def delete_address(
     address_id: UUID,
     container: Annotated[Container, Depends(get_container)],
 ) -> dict[str, str]:
-    await container.services().delete_customer_address(
+    await container.customers.delete_customer_address(
         telegram_id=telegram_id,
         address_id=address_id,
     )

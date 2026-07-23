@@ -52,7 +52,7 @@ async def login(
     response: Response,
     container: Annotated[Container, Depends(get_container)],
 ) -> LoginResponse:
-    result = await container.services().login_admin(
+    result = await container.admin.login_admin(
         LoginAdminCommand(email=str(request.email), password=request.password),
     )
     response.set_cookie(
@@ -76,7 +76,7 @@ async def get_current_admin(
 ) -> tuple[AdminResponse, str, str]:
     if admin_session is None:
         raise AuthenticationError("Admin session is required")
-    admin, csrf_token = await container.services().get_current_admin(admin_session)
+    admin, csrf_token = await container.admin.get_current_admin(admin_session)
     return (
         admin_response(admin),
         csrf_token,
@@ -112,7 +112,7 @@ async def list_notifications(
 ) -> AdminNotificationPageResponse:
     if page < 1 or page_size < 1 or page_size > 100:
         raise ValidationError("Invalid pagination")
-    items, total = await container.services().list_admin_notifications(
+    items, total = await container.admin.list_admin_notifications(
         admin_id=UUID(current[0].id),
         status=status,
         is_read=is_read,
@@ -147,7 +147,7 @@ async def mark_notifications_read(
     container: Annotated[Container, Depends(get_container)],
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> MarkAdminNotificationsReadResponse:
-    marked = await container.services().mark_admin_notifications_read(
+    marked = await container.admin.mark_admin_notifications_read(
         admin_id=UUID(current[0].id),
         notification_ids=request.ids,
     )
@@ -161,7 +161,7 @@ async def logout(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> None:
     session_id = current[2]
-    await container.services().logout_admin(session_id)
+    await container.admin.logout_admin(session_id)
     response.delete_cookie(ADMIN_SESSION_COOKIE, path="/admin")
 
 
@@ -173,7 +173,7 @@ async def update_business_setting(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> BusinessSettingResponse:
     admin_id = UUID(current[0].id)
-    return await container.services().update_business_setting(
+    return await container.admin.update_business_setting(
         key=key,
         value=request.value,
         admin_id=admin_id,
@@ -187,7 +187,7 @@ async def create_manual_refund(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> ManualRefundResponse:
     admin_id = UUID(current[0].id)
-    refund = await container.services().create_manual_refund(
+    refund = await container.payments.create_manual_refund(
         CreateManualRefundCommand(
             payment_id=request.payment_id,
             amount=Decimal(request.amount) if request.amount is not None else None,
@@ -214,7 +214,7 @@ async def retry_payment_operation(
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> PaymentRetryResponse:
     admin_id = UUID(current[0].id)
-    result = await container.services().retry_payment_operation(
+    result = await container.payments.retry_payment_operation(
         command=RetryPaymentOperationCommand(payment_id=payment_id),
         admin_id=admin_id,
     )

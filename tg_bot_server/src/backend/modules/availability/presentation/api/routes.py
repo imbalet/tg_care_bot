@@ -44,7 +44,7 @@ async def set_schedule(
     request: SetScheduleRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> ScheduleResponse:
-    schedule = await container.services().set_performer_schedule(
+    schedule = await container.availability.set_performer_schedule(
         SetPerformerScheduleCommand(
             telegram_id=telegram_id,
             schedule_type=request.schedule_type,
@@ -67,7 +67,7 @@ async def add_override(
     request: AddOverrideRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> CalendarOverrideResponse:
-    override = await container.services().add_calendar_override(
+    override = await container.availability.add_calendar_override(
         AddCalendarOverrideCommand(
             telegram_id=telegram_id,
             override_type=request.override_type,
@@ -84,7 +84,7 @@ async def get_calendar(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> CalendarResponse:
-    schedule, overrides = await container.services().get_performer_calendar(
+    schedule, overrides = await container.availability.get_performer_calendar(
         telegram_id,
     )
     return calendar_response(schedule, overrides)
@@ -100,7 +100,7 @@ async def check_availability(
     exclude_order_id: UUID | None = None,
     exclude_match_id: UUID | None = None,
 ) -> AvailabilityCheckResponse:
-    result = await container.services().check_performer_availability(
+    result = await container.availability.check_performer_availability(
         CheckPerformerAvailabilityCommand(
             performer_id=performer_id,
             service_id=service_id,
@@ -125,7 +125,7 @@ async def find_suitable_performers(
     address_id: UUID | None = None,
     limit: int = 20,
 ) -> list[SuitablePerformerResponse]:
-    performers = await container.services().find_suitable_performers(
+    performers = await container.availability.find_suitable_performers(
         FindSuitablePerformersCommand(
             city_id=city_id,
             service_id=service_id,

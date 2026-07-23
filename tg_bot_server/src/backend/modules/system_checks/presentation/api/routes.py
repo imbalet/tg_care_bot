@@ -22,7 +22,7 @@ async def create_system_check(
     request: CreateSystemCheckRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> SystemCheckResponse:
-    record = await container.services().create_system_check(
+    record = await container.system_checks.create_system_check(
         CreateSystemCheckCommand(name=request.name),
     )
     return system_check_response(record)

@@ -26,7 +26,7 @@ async def address_suggestions(
     city_id: Annotated[UUID, Query()],
     query: Annotated[str, Query(min_length=1)],
 ) -> list[AddressSuggestionResponse]:
-    suggestions = await container.services().suggest_addresses(
+    suggestions = await container.geo.suggest_addresses(
         SuggestAddressCommand(city_id=city_id, query=query),
     )
     return [suggestion_response(suggestion) for suggestion in suggestions]
