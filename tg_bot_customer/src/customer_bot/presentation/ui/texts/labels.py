@@ -46,7 +46,7 @@ TEXTS: dict[MsgKey, str] = {
     MsgKey.DELETE: "Удалить",
     MsgKey.DENY: "Не разрешаю",
     MsgKey.EDIT: "Редактировать",
-    MsgKey.EDIT_NAME: "Редактировать имя",
+    MsgKey.EDIT_NAME: "Редактировать",
     MsgKey.HELP: "Помощь",
     MsgKey.MAIN_MENU: "Главное меню",
     MsgKey.MY_ORDERS: "Мои заказы",

@@ -13,32 +13,30 @@ def _price_type_label(price_type: str) -> str:
     return {
         "hourly": "за час",
         "fixed": "за услугу",
-        "daily": "за сутки",
+        "started_24h": "за начатые сутки",
     }.get(price_type, "")
 
 
 def _location_policy_label(policy: str) -> str:
     return {
-        "customer_home": "у заказчика",
-        "performer_home": "у исполнителя",
-        "remote": "удаленно",
-        "walk": "прогулка",
+        "customer_address": "по адресу заказчика",
+        "performer_address": "по адресу исполнителя",
     }.get(policy, escape(policy))
 
 
 def _photo_policy_label(policy: str) -> str:
     return {
-        "none": "не нужен",
+        "forbidden": "не используется",
         "optional": "по желанию",
         "required": "обязателен",
+        "requires_customer_consent": "с согласия заказчика",
     }.get(policy, escape(policy))
 
 
 def _schedule_policy_label(policy: str) -> str:
     return {
-        "fixed_start": "фиксированное начало",
-        "flexible": "гибкое время",
-        "overnight": "с ночевкой",
+        "working_hours": "в рабочие часы",
+        "calendar_only": "по календарю исполнителя",
     }.get(policy, escape(policy))
 
 

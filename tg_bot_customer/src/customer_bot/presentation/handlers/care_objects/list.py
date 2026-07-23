@@ -32,6 +32,29 @@ from customer_bot.presentation.view_models import (
     CareObjectListView,
 )
 
+CARE_OBJECT_TYPE_LABELS = {
+    "child": "Ребенок",
+    "ward": "Подопечный",
+    "pet": "Питомец",
+}
+
+CARE_OBJECT_AGE_LABELS = {
+    "infant": "До 1 года",
+    "preschool": "Дошкольник",
+    "school_age": "Школьник",
+    "teenager": "Подросток",
+    "adult": "Взрослый",
+    "senior": "Пожилой",
+    "unknown": "Не указано",
+}
+
+CARE_OBJECT_SIZE_LABELS = {
+    "small": "Маленький",
+    "medium": "Средний",
+    "large": "Крупный",
+    "unknown": "Не указано",
+}
+
 router = Router(name="care_objects_list")
 logger = logging.getLogger(__name__)
 
@@ -142,19 +165,39 @@ async def select_care_object(
             screen := CareObjectCardScreen(
                 CareObjectCardView(
                     id=str(item["id"]),
-                    object_type=str(item["object_type"]),
+                    object_type=CARE_OBJECT_TYPE_LABELS.get(
+                        str(item["object_type"]), str(item["object_type"])
+                    ),
                     display_name=str(item["display_name"]),
-                    age_group=str(item["age_group"]),
-                    species=str(item.get("species") or ""),
-                    breed=str(item.get("breed") or ""),
-                    pet_size=str(item.get("pet_size") or ""),
-                    mobility_assistance_required=item.get(
-                        "mobility_assistance_required"
+                    age_group=CARE_OBJECT_AGE_LABELS.get(
+                        str(item["age_group"]), str(item["age_group"])
+                    ),
+                    species=_optional_text(item, "species"),
+                    breed=_optional_text(item, "breed"),
+                    pet_size=CARE_OBJECT_SIZE_LABELS.get(
+                        str(item["pet_size"]), str(item["pet_size"])
                     )
-                    is True,
+                    if _optional_text(item, "pet_size") is not None
+                    else None,
+                    mobility_assistance_required=_optional_bool(
+                        item,
+                        "mobility_assistance_required",
+                    ),
+                    routine_notes=_optional_text(item, "routine_notes"),
+                    behavior_notes=_optional_text(item, "behavior_notes"),
                 )
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )
+
+
+def _optional_text(item: dict[str, object], key: str) -> str | None:
+    value = item.get(key)
+    return value if isinstance(value, str) and value else None
+
+
+def _optional_bool(item: dict[str, object], key: str) -> bool | None:
+    value = item.get(key)
+    return value if isinstance(value, bool) else None

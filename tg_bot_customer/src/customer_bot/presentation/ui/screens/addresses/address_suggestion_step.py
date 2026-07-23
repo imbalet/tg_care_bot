@@ -30,9 +30,9 @@ class Screen(BaseScreen[_View]):
 
     def _build_keyboard(self) -> Markup:
         keyboard = InlineKeyboardFactory()
-        for index, suggestion in enumerate(self.data):
+        for index, _suggestion in enumerate(self.data):
             keyboard.button(
-                suggestion.value,
+                f"№{index + 1}",
                 AddressSuggestionCallback(index=index),
             )
         return keyboard.as_markup()

@@ -160,10 +160,12 @@ class CareObjectCardView:
     object_type: str
     display_name: str
     age_group: str
-    species: str
-    breed: str
-    pet_size: str
-    mobility_assistance_required: bool
+    species: str | None
+    breed: str | None
+    pet_size: str | None
+    mobility_assistance_required: bool | None
+    routine_notes: str | None
+    behavior_notes: str | None
 
 
 @dataclass(frozen=True, slots=True)

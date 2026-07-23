@@ -35,16 +35,20 @@ class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
         if self.data.count == 0:
             return "<b>Адреса</b>\n\nДобавьте адрес до создания заказа."
-        return "<b>Адреса</b>\n\nВыберите адрес или добавьте новый."
+        lines = ["<b>Адреса</b>", "", "Выберите адрес или добавьте новый:"]
+        lines.extend(
+            f"{index}. {item.address_text}"
+            for index, item in enumerate(self.data.items, start=1)
+        )
+        return "\n".join(lines)
 
     def _build_keyboard(self) -> Markup:
         keyboard = InlineKeyboardFactory().button(
             MsgKey.ADD_ADDRESS, AddressAddCallback()
         )
         for index, item in enumerate(self.data.items):
-            address_text = getattr(item, "address_text", f"#{index + 1}")
             keyboard.button(
-                str(address_text),
+                f"№{index + 1}",
                 AddressSelectCallback(address_id=UUID(str(item.id))),
             )
         return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()

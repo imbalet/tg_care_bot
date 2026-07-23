@@ -29,16 +29,22 @@ class _View(Protocol):
     def age_group(self) -> str: ...
 
     @property
-    def species(self) -> str: ...
+    def species(self) -> str | None: ...
 
     @property
-    def breed(self) -> str: ...
+    def breed(self) -> str | None: ...
 
     @property
-    def pet_size(self) -> str: ...
+    def pet_size(self) -> str | None: ...
 
     @property
-    def mobility_assistance_required(self) -> bool: ...
+    def mobility_assistance_required(self) -> bool | None: ...
+
+    @property
+    def routine_notes(self) -> str | None: ...
+
+    @property
+    def behavior_notes(self) -> str | None: ...
 
 
 class Screen(BaseScreen[_View]):
@@ -46,10 +52,16 @@ class Screen(BaseScreen[_View]):
         object_type = escape(self.data.object_type)
         display_name = escape(self.data.display_name)
         age_group = escape(self.data.age_group)
-        species = escape(self.data.species)
-        breed = escape(self.data.breed)
-        pet_size = escape(self.data.pet_size)
+        species = escape(self.data.species) if self.data.species else None
+        breed = escape(self.data.breed) if self.data.breed else None
+        pet_size = escape(self.data.pet_size) if self.data.pet_size else None
         mobility = self.data.mobility_assistance_required
+        routine_notes = (
+            escape(self.data.routine_notes) if self.data.routine_notes else None
+        )
+        behavior_notes = (
+            escape(self.data.behavior_notes) if self.data.behavior_notes else None
+        )
         lines = [
             "<b>Карточка объекта ухода</b>",
             "",
@@ -57,14 +69,18 @@ class Screen(BaseScreen[_View]):
             f"Имя: {display_name}",
             f"Возраст: {age_group}",
         ]
-        if isinstance(species, str):
+        if species is not None and self.data.object_type == "Питомец":
             lines.append(f"Вид: {species}")
-        if isinstance(breed, str):
+        if breed is not None and self.data.object_type == "Питомец":
             lines.append(f"Порода: {breed}")
-        if isinstance(pet_size, str):
+        if pet_size is not None and self.data.object_type == "Питомец":
             lines.append(f"Размер: {pet_size}")
-        if isinstance(mobility, bool):
+        if mobility is not None and self.data.object_type == "Подопечный":
             lines.append(f"Помощь с передвижением: {'да' if mobility else 'нет'}")
+        if routine_notes is not None:
+            lines.append(f"Комментарий по уходу: {routine_notes}")
+        if behavior_notes is not None:
+            lines.append(f"Особенности поведения: {behavior_notes}")
         return "\n".join(lines)
 
     def _build_keyboard(self) -> Markup:

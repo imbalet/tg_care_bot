@@ -25,7 +25,23 @@ class _View(Protocol):
     def city_id(self) -> object: ...
 
     @property
+    def city_name(self) -> str: ...
+
+    @property
     def status(self) -> str: ...
+
+
+CONTACT_METHOD_LABELS = {
+    "telegram": "Telegram",
+    "phone": "телефон",
+    "both": "Telegram и телефон",
+}
+
+STATUS_LABELS = {
+    "active": "Активен",
+    "blocked": "Заблокирован",
+    "pending": "На проверке",
+}
 
 
 class Screen(BaseScreen[_View]):
@@ -34,16 +50,21 @@ class Screen(BaseScreen[_View]):
         username_text = (
             f"@{escape(username)}" if isinstance(username, str) else "не указан"
         )
+        contact = CONTACT_METHOD_LABELS.get(
+            self.data.contact_method,
+            self.data.contact_method,
+        )
+        status = STATUS_LABELS.get(self.data.status, self.data.status)
         return "\n".join(
             (
                 "<b>Профиль заказчика</b>",
                 "",
                 f"ФИО: {escape(self.data.full_name)}",
                 f"Телефон: {escape(self.data.phone)}",
-                f"Город ID: {escape(str(self.data.city_id))}",
-                f"Контакт: {escape(self.data.contact_method)}",
+                f"Город: {escape(self.data.city_name or str(self.data.city_id))}",
+                f"Контакт: {escape(contact)}",
                 f"Telegram: {username_text}",
-                f"Статус: {escape(self.data.status)}",
+                f"Статус: {escape(status)}",
             ),
         )
 

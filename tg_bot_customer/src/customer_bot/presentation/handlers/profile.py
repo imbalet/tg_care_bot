@@ -1,4 +1,5 @@
 import logging
+from dataclasses import replace
 
 from aiogram import Bot, Router
 from aiogram.types import CallbackQuery
@@ -70,11 +71,30 @@ async def profile_callback(
             reply_markup=screen.reply_markup,
         )
         return
+    try:
+        cities = await backend_client.list_active_cities()
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load city for customer profile",
+            extra={"exception_type": type(exc).__name__},
+        )
+        await _show_unavailable(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+        )
+        return
+    city_name = next(
+        (city.name for city in cities if city.id == profile.city_id),
+        str(profile.city_id),
+    )
+    profile_view = replace(profile, city_name=city_name)
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := ProfileScreen(profile).build()).text,
+        text=(screen := ProfileScreen(profile_view).build()).text,
         reply_markup=screen.reply_markup,
     )
 

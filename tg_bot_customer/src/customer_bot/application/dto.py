@@ -65,6 +65,7 @@ class CustomerProfileDTO:
     contact_method: str
     city_id: UUID
     status: str
+    city_name: str = ""
 
 
 @dataclass(frozen=True)

@@ -203,6 +203,11 @@ def parse_local_time(value: str) -> time | None:
         return None
 
 
+def start_is_valid(start_at: datetime, *, now: datetime | None = None) -> bool:
+    current = now or datetime.now()
+    return start_at >= current + timedelta(hours=6)
+
+
 def parse_duration_interval(
     value: str | None,
     draft_data: dict[str, object],

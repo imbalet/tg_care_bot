@@ -29,6 +29,7 @@ from customer_bot.presentation.ui import (
     select_city_keyboard,
     summary_text,
 )
+from customer_bot.presentation.ui.screens.common.support import Screen as SupportScreen
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,8 @@ class CareObject:
     breed: str | None = None
     pet_size: str | None = "small"
     mobility_assistance_required: bool | None = None
+    routine_notes: str | None = None
+    behavior_notes: str | None = None
 
 
 @dataclass(frozen=True)
@@ -156,9 +159,33 @@ def test_main_menu_keyboard_passes_category_code_to_care_objects() -> None:
 
 
 def test_care_object_card_text_escapes_user_values() -> None:
-    text = care_object_card_text(CareObject(display_name="Барсик <script>"))
+    text = care_object_card_text(
+        CareObject(
+            display_name="Барсик <script>",
+            pet_size="Маленький",
+            routine_notes="Кормить <утром>",
+            behavior_notes="Не оставлять <одного>",
+        )
+    )
 
     assert "Барсик &lt;script&gt;" in text
+    assert "Размер: Маленький" in text
+    assert "Кормить &lt;утром&gt;" in text
+    assert "Не оставлять &lt;одного&gt;" in text
+
+
+def test_support_screen_ignores_invalid_support_url() -> None:
+    screen = SupportScreen(
+        type(
+            "Support",
+            (),
+            {"label": "Поддержка", "telegram_url": "todo-support-url"},
+        )()
+    ).build()
+
+    buttons = [button for row in screen.reply_markup.inline_keyboard for button in row]
+    assert all(button.url is None for button in buttons)
+    assert any(button.text == "Написать в поддержку" for button in buttons)
 
 
 def test_addresses_keyboard_is_inline_first() -> None:

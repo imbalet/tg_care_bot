@@ -1,12 +1,11 @@
 import logging
 
-from redis.asyncio import Redis
-
 from customer_bot.application.ports import (
     ActiveCategoryStore,
     CurrentMessageStore,
     UsernameSyncCache,
 )
+from redis.asyncio import Redis
 
 from .keys import CustomerRedisKeys, customer_redis_keys
 

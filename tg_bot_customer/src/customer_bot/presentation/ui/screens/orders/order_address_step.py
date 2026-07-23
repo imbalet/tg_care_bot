@@ -27,13 +27,18 @@ type _View = Sequence[_Item]
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
-        return "<b>Адрес</b>\n\nВыберите адрес заказа."
+        lines = ["<b>Адрес</b>", "", "Выберите адрес заказа:"]
+        lines.extend(
+            f"{index}. {item.address_text}"
+            for index, item in enumerate(self.data, start=1)
+        )
+        return "\n".join(lines)
 
     def _build_keyboard(self) -> Markup:
         keyboard = InlineKeyboardFactory()
-        for item in self.data:
+        for index, item in enumerate(self.data, start=1):
             keyboard.button(
-                item.address_text,
+                f"№{index}",
                 OrderAddressCallback(address_id=UUID(str(item.id))),
             )
         return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()

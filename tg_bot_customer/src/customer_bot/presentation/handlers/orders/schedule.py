@@ -23,6 +23,7 @@ from customer_bot.presentation.handlers.orders.state import (
     duration_unit,
     parse_local_datetime,
     parse_local_time,
+    start_is_valid,
 )
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
@@ -247,6 +248,17 @@ async def enter_start(
             create_new=True,
         )
         return
+    if not start_is_valid(start_at):
+        screen = InvalidDatetimeScreen().build()
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text=screen.text,
+            reply_markup=screen.reply_markup,
+            create_new=True,
+        )
+        return
     await _set_start_at_and_ask_duration(
         message,
         bot,
@@ -265,6 +277,17 @@ async def _set_start_at_and_ask_duration(
     telegram_user_context: TelegramUserContext,
     start_at: datetime,
 ) -> None:
+    if not start_is_valid(start_at):
+        screen = InvalidDatetimeScreen().build()
+        await telegram_responder.update(
+            bot=bot,
+            event=event,
+            telegram_id=telegram_user_context.telegram_id,
+            text=screen.text,
+            reply_markup=screen.reply_markup,
+            create_new=True,
+        )
+        return
     data = await state.get_data()
     order_draft = draft(data)
     order_draft["start_at"] = start_at.isoformat()
