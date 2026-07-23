@@ -261,6 +261,15 @@ class ContactRequestDTO:
 
 
 @dataclass(frozen=True)
+class PerformerProfileDTO:
+    performer_id: UUID
+    full_name: str
+    about_text: str | None
+    contact_method: str
+    telegram_username: str | None
+
+
+@dataclass(frozen=True)
 class MyOrdersPageDTO:
     items: tuple[MyOrderSummaryDTO, ...]
     page: int

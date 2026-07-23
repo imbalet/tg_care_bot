@@ -20,6 +20,7 @@ from customer_bot.application.dto import (
     OrderMatchDTO,
     OrderReportDTO,
     PaymentStatusDTO,
+    PerformerProfileDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
     SuitablePerformerDTO,
@@ -169,6 +170,10 @@ class BackendPort(Protocol):
     async def create_contact_request(
         self, *, telegram_id: int, order_id: UUID
     ) -> ContactRequestDTO: ...
+
+    async def get_performer_profile(
+        self, *, telegram_id: int, order_id: UUID
+    ) -> PerformerProfileDTO: ...
 
     async def upload_file(
         self,

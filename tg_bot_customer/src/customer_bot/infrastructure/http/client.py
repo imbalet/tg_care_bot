@@ -23,6 +23,7 @@ from customer_bot.application.dto import (
     OrderMatchDTO,
     OrderReportDTO,
     PaymentStatusDTO,
+    PerformerProfileDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
     SuitablePerformerDTO,
@@ -32,6 +33,7 @@ from customer_bot.application.dto import (
 from customer_bot.application.ports import BackendPort
 
 from .errors import (
+    BackendClientError,
     BackendNotFoundError,
     BackendUnauthorizedError,
     BackendUnavailableError,
@@ -734,6 +736,26 @@ class BackendClient(BackendPort):
             requested_method=str(payload["requested_method"]),
             status=str(payload["status"]),
             failure_reason=payload.get("failure_reason"),
+        )
+
+    async def get_performer_profile(
+        self, *, telegram_id: int, order_id: UUID
+    ) -> PerformerProfileDTO:
+        profile = await self.get_customer_profile(telegram_id)
+        if profile is None:
+            raise BackendClientError("Customer profile is missing")
+        response = await self._request(
+            "GET",
+            f"/api/orders/customer/{profile.id}/my/{order_id}/performer-profile",
+        )
+        self._raise_for_status(response)
+        payload = response.json()
+        return PerformerProfileDTO(
+            performer_id=UUID(payload["performer_id"]),
+            full_name=str(payload["full_name"]),
+            about_text=payload.get("about_text"),
+            contact_method=str(payload["contact_method"]),
+            telegram_username=payload.get("telegram_username"),
         )
 
     async def upload_file(
