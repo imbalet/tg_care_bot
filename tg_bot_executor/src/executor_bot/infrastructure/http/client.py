@@ -332,6 +332,13 @@ class BackendClient(BackendPort):
             blockers=tuple(payload.get("blockers", [])),
         )
 
+    async def create_deletion_request(self, *, telegram_id: int) -> None:
+        response = await self._request(
+            "POST",
+            f"/api/performers/by-telegram/{telegram_id}/deletion-requests",
+        )
+        self._raise_for_status(response)
+
     async def list_performer_services(
         self,
         *,

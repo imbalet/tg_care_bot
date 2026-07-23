@@ -27,6 +27,14 @@ class ProfileOpenCallback(CallbackData, prefix="profile_open"):
     pass
 
 
+class ProfileDeletionCheckCallback(CallbackData, prefix="profile_delete_check"):
+    pass
+
+
+class ProfileDeletionConfirmCallback(CallbackData, prefix="profile_delete_confirm"):
+    pass
+
+
 class AvailableOrdersOpenCallback(CallbackData, prefix="orders_feed"):
     scope: OrderFilterScope = OrderFilterScope.CURRENT_CATEGORY
 

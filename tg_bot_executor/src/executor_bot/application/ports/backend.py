@@ -119,6 +119,8 @@ class BackendPort(Protocol):
         self, *, telegram_id: int
     ) -> DeletionPreflightDTO: ...
 
+    async def create_deletion_request(self, *, telegram_id: int) -> None: ...
+
     async def list_performer_services(
         self,
         *,

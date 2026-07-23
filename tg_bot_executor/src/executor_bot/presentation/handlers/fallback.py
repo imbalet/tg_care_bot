@@ -7,6 +7,8 @@ from executor_bot.application.ports import ActiveCategoryStore, BackendPort
 from executor_bot.presentation.callbacks import (
     HelpCallback,
     MainMenuCallback,
+    ProfileDeletionCheckCallback,
+    ProfileDeletionConfirmCallback,
     ProfileOpenCallback,
     SupportOpenCallback,
 )
@@ -28,8 +30,52 @@ from executor_bot.presentation.ui import (
     support_text,
     unavailable_action_text,
 )
+from executor_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
+from executor_bot.presentation.ui.screens.labels import MsgKey
 
 router = Router(name="fallback")
+
+
+@router.callback_query(ProfileDeletionCheckCallback.filter())
+async def deletion_check_callback(
+    callback: CallbackQuery,
+    backend_client: BackendPort,
+) -> None:
+    try:
+        preflight = await backend_client.get_deletion_preflight(
+            telegram_id=callback.from_user.id,
+        )
+    except BackendClientError:
+        await callback.answer("Не удалось проверить аккаунт", show_alert=True)
+        return
+    if preflight.blockers:
+        await callback.answer(
+            "Удаление пока недоступно: есть активные обязательства", show_alert=True
+        )
+        return
+    if not isinstance(callback.message, Message):
+        await callback.answer("Сообщение недоступно", show_alert=True)
+        return
+    await callback.message.answer(
+        "Активных обязательств нет. Подтвердить удаление аккаунта?",
+        reply_markup=InlineKeyboardFactory()
+        .button("Подтвердить удаление", ProfileDeletionConfirmCallback())
+        .as_markup(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(ProfileDeletionConfirmCallback.filter())
+async def deletion_confirm_callback(
+    callback: CallbackQuery,
+    backend_client: BackendPort,
+) -> None:
+    try:
+        await backend_client.create_deletion_request(telegram_id=callback.from_user.id)
+    except BackendClientError:
+        await callback.answer("Удаление сейчас недоступно", show_alert=True)
+        return
+    await callback.answer("Запрос на удаление отправлен")
 
 
 @router.callback_query(MainMenuCallback.filter())
@@ -198,7 +244,12 @@ async def profile_callback(
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=executor_profile_text(state.performer, city_name=city_name),
-        reply_markup=fallback_keyboard(),
+        reply_markup=(
+            InlineKeyboardFactory()
+            .button("Проверить удаление аккаунта", ProfileDeletionCheckCallback())
+            .button(MsgKey.MAIN_MENU, MainMenuCallback())
+            .as_markup()
+        ),
     )
 
 
