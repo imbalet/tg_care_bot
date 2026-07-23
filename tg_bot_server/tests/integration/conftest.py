@@ -49,7 +49,7 @@ def integration_environment(
     monkeypatch.undo()
 
 
-@pytest_asyncio.fixture(scope="session", loop_scope="session")
+@pytest_asyncio.fixture
 async def engine(
     integration_database: IntegrationDatabase,
 ) -> AsyncIterator[AsyncEngine]:
@@ -59,19 +59,29 @@ async def engine(
     await test_engine.dispose()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def session_factory(
     engine: AsyncEngine,
 ) -> async_sessionmaker[AsyncSession]:
     return create_session_factory(engine)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def session(
-    session_factory: async_sessionmaker[AsyncSession],
+    engine: AsyncEngine,
 ) -> AsyncIterator[AsyncSession]:
-    async with session_factory() as test_session:
-        yield test_session
+    async with engine.connect() as connection:
+        transaction = await connection.begin()
+        test_session = AsyncSession(
+            bind=connection,
+            expire_on_commit=False,
+            join_transaction_mode="create_savepoint",
+        )
+        try:
+            yield test_session
+        finally:
+            await test_session.close()
+            await transaction.rollback()
 
 
 @pytest_asyncio.fixture
@@ -84,7 +94,7 @@ async def redis(integration_database: IntegrationDatabase) -> AsyncIterator[Redi
     await client.aclose()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def s3_client() -> Iterator[Any]:
     settings = get_settings()
     client = boto3.client(
@@ -97,14 +107,16 @@ def s3_client() -> Iterator[Any]:
     bucket = settings.s3_bucket
     with suppress(client.exceptions.BucketAlreadyOwnedByYou):
         client.create_bucket(Bucket=bucket)
-    yield client
-    objects = client.list_objects_v2(Bucket=bucket).get("Contents", [])
-    if objects:
-        client.delete_objects(
-            Bucket=bucket,
-            Delete={"Objects": [{"Key": item["Key"]} for item in objects]},
-        )
-    client.delete_bucket(Bucket=bucket)
+    try:
+        yield client
+    finally:
+        objects = client.list_objects_v2(Bucket=bucket).get("Contents", [])
+        if objects:
+            client.delete_objects(
+                Bucket=bucket,
+                Delete={"Objects": [{"Key": item["Key"]} for item in objects]},
+            )
+        client.delete_bucket(Bucket=bucket)
 
 
 def _redis_database_number(worker_id: str) -> int:

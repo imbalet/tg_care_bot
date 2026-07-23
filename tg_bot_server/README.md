@@ -84,6 +84,17 @@ make test-integration
 make test-e2e
 ```
 
+Run the complete local verification sequence with:
+
+```bash
+make test-all
+```
+
+This command checks formatting, linting and typing, then runs unit/API,
+PostgreSQL integration and Compose E2E tests. Integration and E2E images are
+rebuilt before execution. The test runner image contains the source, tests and
+virtual environment; the project directory is never mounted into it.
+
 Integration tests use the test Compose stack and real PostgreSQL, Redis and
 MinIO. PostgreSQL is migrated with Alembic, then each pytest-xdist worker gets
 an isolated database cloned from the migrated template database.
@@ -100,3 +111,22 @@ KEEP_TEST_DATABASES=1 make test-integration
 
 Use `make test-clean` to remove the test Compose resources. Alembic migrations
 create the default admin and seed the MVP catalog data needed for local startup.
+
+Integration fixtures provide a real PostgreSQL session, Redis client and MinIO
+client. Each xdist worker receives a database cloned from the migrated
+template, and each test session is rolled back after the test. Redis and S3
+resources are cleaned by their fixtures. Shared fake adapters are available in
+`tests/support/fakes.py` for clocks, object storage, payments, geocoding and
+external HTTP calls.
+
+For focused runs use pytest directly, for example:
+
+```bash
+uv run pytest tests/unit/test_test_doubles.py -m unit
+docker compose -f docker-compose.test.yml run --rm test-runner \
+  uv run pytest tests/integration/test_test_resources.py -m integration -n 1
+```
+
+When debugging a failed integration run, use `KEEP_TEST_DATABASES=1` and
+inspect the service logs with `docker compose -f docker-compose.test.yml logs`.
+Finish with `make test-clean` after debugging.

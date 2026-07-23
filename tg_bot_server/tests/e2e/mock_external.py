@@ -24,4 +24,5 @@ class MockExternalHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    ThreadingHTTPServer(("127.0.0.1", 8080), MockExternalHandler).serve_forever()
+    # The service must be reachable from the Compose network.
+    ThreadingHTTPServer(("0.0.0.0", 8080), MockExternalHandler).serve_forever()  # noqa: S104
