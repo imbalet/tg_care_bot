@@ -285,8 +285,12 @@ class RefundWorkerJob:
         self._session_factory = session_factory
         self._batch_limit = batch_limit
         self._gateway_factory = gateway_factory
+        self._recovered_processing = False
 
     async def run_once(self) -> None:
+        if not self._recovered_processing:
+            await self._recover_processing()
+            self._recovered_processing = True
         claimed = await self._claim_batch()
         for (
             refund_id,
@@ -318,6 +322,15 @@ class RefundWorkerJob:
                         provider_refund_id=result.provider_refund_id,
                     )
                     await session.commit()
+
+    async def _recover_processing(self) -> None:
+        async with self._session_factory() as session:
+            await session.execute(
+                update(RefundModel)
+                .where(RefundModel.status == "processing")
+                .values(status="pending"),
+            )
+            await session.commit()
 
     async def _claim_batch(
         self,
