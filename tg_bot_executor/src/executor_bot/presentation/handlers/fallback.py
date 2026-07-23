@@ -188,11 +188,16 @@ async def profile_callback(
             reply_markup=fallback_keyboard(),
         )
         return
+    cities = await backend_client.list_active_cities()
+    city_name = next(
+        (city.name for city in cities if city.id == state.performer.city_id),
+        str(state.performer.city_id),
+    )
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=executor_profile_text(state.performer),
+        text=executor_profile_text(state.performer, city_name=city_name),
         reply_markup=fallback_keyboard(),
     )
 

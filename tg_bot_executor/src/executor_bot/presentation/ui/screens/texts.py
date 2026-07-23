@@ -234,33 +234,54 @@ def executor_main_menu_text(category: object | None = None) -> str:
     return f"<b>{escape(title)}</b>"
 
 
-def executor_profile_text(profile: ExecutorProfileView) -> str:
+def executor_profile_text(
+    profile: ExecutorProfileView,
+    *,
+    city_name: str | None = None,
+) -> str:
     username = profile.telegram_username
     username_text = f"@{escape(username)}" if isinstance(username, str) else "не указан"
     about = profile.about_text
     about_text = escape(about) if isinstance(about, str) else "не указано"
     accepting_orders = "включен" if profile.is_accepting_orders else "выключен"
+    contact_method = {
+        "telegram": "Telegram",
+        "phone": "телефон",
+        "both": "Telegram и телефон",
+    }.get(profile.contact_method, profile.contact_method)
+    status = {
+        "active": "Активен",
+        "blocked": "Заблокирован",
+        "pending": "На проверке",
+    }.get(profile.status, profile.status)
+    current_address = "не выбран" if profile.current_address_id is None else "выбран"
     return "\n".join(
         (
             "<b>Профиль исполнителя</b>",
             "",
             f"ФИО: {escape(profile.full_name)}",
             f"Телефон: {escape(profile.phone)}",
-            f"Город ID: {escape(str(profile.city_id))}",
-            f"Контакт: {escape(profile.contact_method)}",
+            f"Город: {escape(city_name or str(profile.city_id))}",
+            f"Контакт: {escape(contact_method)}",
             f"О себе: {about_text}",
             f"Telegram: {username_text}",
-            f"Статус: {escape(profile.status)}",
+            f"Статус: {escape(status)}",
             f"Прием заказов: {accepting_orders}",
-            f"Текущий рабочий адрес ID: {escape(str(profile.current_address_id))}",
+            f"Текущий рабочий адрес: {current_address}",
         ),
     )
 
 
-def work_addresses_list_text(count: int) -> str:
+def work_addresses_list_text(items: Sequence[object]) -> str:
+    count = len(items)
     if count == 0:
         return "<b>Рабочий адрес</b>\n\nДобавьте адрес для профиля исполнителя."
-    return "<b>Рабочие адреса</b>\n\nВыберите адрес или добавьте новый."
+    lines = ["<b>Рабочие адреса</b>", "", "Выберите адрес или добавьте новый:"]
+    lines.extend(
+        f"{index}. {getattr(item, 'address_text', '')}"
+        for index, item in enumerate(items, start=1)
+    )
+    return "\n".join(lines)
 
 
 def work_address_card_text(item: object) -> str:
@@ -289,8 +310,13 @@ def work_address_query_step_text() -> str:
     return "<b>Адрес</b>\n\nВведите улицу, дом или полный адрес."
 
 
-def work_address_suggestion_step_text() -> str:
-    return "<b>Подсказки адреса</b>\n\nВыберите подходящий вариант."
+def work_address_suggestion_step_text(items: Sequence[object]) -> str:
+    lines = ["<b>Подсказки адреса</b>", "", "Выберите подходящий вариант:"]
+    lines.extend(
+        f"{index}. {getattr(item, 'value', '')}"
+        for index, item in enumerate(items, start=1)
+    )
+    return "\n".join(lines)
 
 
 def work_address_extra_step_text(field_name: str) -> str:

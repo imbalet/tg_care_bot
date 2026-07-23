@@ -94,7 +94,7 @@ async def open_work_addresses(
         event=callback,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
-        text=work_addresses_list_text(len(items)),
+        text=work_addresses_list_text(items),
         reply_markup=work_addresses_keyboard(items),
     )
 
@@ -229,7 +229,7 @@ async def enter_query(
         event=message,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
-        text=work_address_suggestion_step_text(),
+        text=work_address_suggestion_step_text(suggestions),
         reply_markup=work_address_suggestions_keyboard(suggestions),
     )
 

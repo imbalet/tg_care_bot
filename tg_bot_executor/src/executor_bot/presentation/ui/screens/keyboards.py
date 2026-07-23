@@ -146,7 +146,11 @@ def fallback_keyboard(*, include_main_menu: bool = True) -> InlineKeyboardMarkup
     keyboard = InlineKeyboardFactory()
     if include_main_menu:
         keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
-    return keyboard.button(MsgKey.HELP, HelpCallback()).as_markup()
+    return (
+        keyboard.button(MsgKey.HELP, HelpCallback())
+        .button("Связаться с поддержкой", SupportOpenCallback())
+        .as_markup()
+    )
 
 
 def stale_action_keyboard() -> InlineKeyboardMarkup:
@@ -266,9 +270,8 @@ def work_addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
         MsgKey.ADD_ADDRESS,
         WorkAddressAddCallback(),
     )
-    for index, item in enumerate(items):
-        address_text = getattr(item, "address_text", f"#{index + 1}")
-        keyboard.button(str(address_text), WorkAddressSelectCallback(index=index))
+    for index, _item in enumerate(items):
+        keyboard.button(f"№{index + 1}", WorkAddressSelectCallback(index=index))
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
@@ -295,9 +298,9 @@ def work_address_suggestions_keyboard(
     suggestions: Sequence[object],
 ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory()
-    for index, suggestion in enumerate(suggestions):
+    for index, _suggestion in enumerate(suggestions):
         keyboard.button(
-            str(getattr(suggestion, "value", index + 1)),
+            f"№{index + 1}",
             WorkAddressSuggestionCallback(index=index),
         )
     return keyboard.as_markup()
