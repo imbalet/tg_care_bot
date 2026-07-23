@@ -45,12 +45,13 @@ test-integration:
 test-e2e:
 	set -e; \
 	status=0; \
+	cleanup() { docker compose -f docker-compose.test.yml down -v --remove-orphans; }; \
+	trap cleanup EXIT INT TERM; \
 	docker compose -f docker-compose.test.yml build test-runner e2e-runner mock-external; \
 	docker compose -f docker-compose.test.yml up --build -d \
 		postgres redis minio mock-external migrate api worker; \
 	docker compose -f docker-compose.test.yml up \
 		--abort-on-container-exit --exit-code-from e2e-runner e2e-runner || status=$$?; \
-	docker compose -f docker-compose.test.yml down -v; \
 	exit $$status
 
 test-clean:
