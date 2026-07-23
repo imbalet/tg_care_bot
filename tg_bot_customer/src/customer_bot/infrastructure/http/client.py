@@ -11,7 +11,9 @@ from customer_bot.application.dto import (
     CancellationPreviewDTO,
     CareObjectDTO,
     CityDTO,
+    ContactRequestDTO,
     CustomerProfileDTO,
+    DeletionPreflightDTO,
     LegalDocumentDTO,
     MatchActionDTO,
     MyOrderCardDTO,
@@ -93,6 +95,28 @@ class BackendClient(BackendPort):
         )
         if response.status_code == 404:
             return None
+        self._raise_for_status(response)
+        return _customer_from_json(response.json())
+
+    async def update_customer_profile(
+        self,
+        *,
+        telegram_id: int,
+        full_name: str,
+        phone: str,
+        city_id: UUID,
+        contact_method: str,
+    ) -> CustomerProfileDTO:
+        response = await self._request(
+            "PATCH",
+            f"/api/customers/by-telegram/{telegram_id}/profile",
+            json={
+                "full_name": full_name,
+                "phone": phone,
+                "city_id": str(city_id),
+                "contact_method": contact_method,
+            },
+        )
         self._raise_for_status(response)
         return _customer_from_json(response.json())
 
@@ -321,6 +345,33 @@ class BackendClient(BackendPort):
             f"/api/customers/by-telegram/{telegram_id}/addresses/{address_id}",
         )
         self._raise_for_status(response)
+
+    async def update_address(
+        self,
+        *,
+        telegram_id: int,
+        address_id: UUID,
+        city_id: UUID,
+        unrestricted_value: str,
+        entrance: str | None,
+        floor: str | None,
+        apartment: str | None,
+        comment: str | None,
+    ) -> AddressDTO:
+        response = await self._request(
+            "PATCH",
+            f"/api/customers/by-telegram/{telegram_id}/addresses/{address_id}",
+            json={
+                "city_id": str(city_id),
+                "unrestricted_value": unrestricted_value,
+                "entrance": entrance,
+                "floor": floor,
+                "apartment": apartment,
+                "comment": comment,
+            },
+        )
+        self._raise_for_status(response)
+        return _address_from_json(response.json())
 
     async def preview_order_price(
         self,
@@ -631,6 +682,80 @@ class BackendClient(BackendPort):
         )
         self._raise_for_status(response)
         return _support_record_from_json(response.json())
+
+    async def get_deletion_preflight(
+        self, *, telegram_id: int
+    ) -> DeletionPreflightDTO:
+        response = await self._request(
+            "GET",
+            f"/api/customers/by-telegram/{telegram_id}/deletion-preflight",
+        )
+        self._raise_for_status(response)
+        payload = response.json()
+        return DeletionPreflightDTO(
+            can_delete=bool(payload["can_delete"]),
+            blockers=tuple(payload.get("blockers", [])),
+        )
+
+    async def create_dispute(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID,
+        text: str,
+        file_ids: tuple[UUID, ...] = (),
+    ) -> SupportRecordDTO:
+        response = await self._request(
+            "POST",
+            f"/api/customers/by-telegram/{telegram_id}/disputes",
+            json={
+                "order_id": str(order_id),
+                "text": text,
+                "file_ids": [str(file_id) for file_id in file_ids],
+            },
+        )
+        self._raise_for_status(response)
+        return _support_record_from_json(response.json())
+
+    async def create_contact_request(
+        self, *, telegram_id: int, order_id: UUID
+    ) -> ContactRequestDTO:
+        response = await self._request(
+            "POST",
+            f"/api/customers/by-telegram/{telegram_id}/contact-requests",
+            json={"order_id": str(order_id)},
+        )
+        self._raise_for_status(response)
+        payload = response.json()
+        return ContactRequestDTO(
+            id=UUID(payload["id"]),
+            order_id=UUID(payload["order_id"]),
+            performer_id=UUID(payload["performer_id"]),
+            requested_method=str(payload["requested_method"]),
+            status=str(payload["status"]),
+            failure_reason=payload.get("failure_reason"),
+        )
+
+    async def upload_file(
+        self,
+        *,
+        telegram_id: int,
+        content: bytes,
+        content_type: str,
+        original_name: str | None,
+    ) -> UUID:
+        response = await self._client.post(
+            f"/api/customers/by-telegram/{telegram_id}/files",
+            files={
+                "file": (
+                    original_name or "upload",
+                    content,
+                    content_type,
+                )
+            },
+        )
+        self._raise_for_status(response)
+        return UUID(response.json()["id"])
 
     async def create_complaint(
         self,

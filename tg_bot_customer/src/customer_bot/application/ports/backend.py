@@ -8,7 +8,9 @@ from customer_bot.application.dto import (
     CancellationPreviewDTO,
     CareObjectDTO,
     CityDTO,
+    ContactRequestDTO,
     CustomerProfileDTO,
+    DeletionPreflightDTO,
     LegalDocumentDTO,
     MatchActionDTO,
     MyOrderCardDTO,
@@ -33,6 +35,16 @@ class BackendPort(Protocol):
         self,
         telegram_id: int,
     ) -> CustomerProfileDTO | None: ...
+
+    async def update_customer_profile(
+        self,
+        *,
+        telegram_id: int,
+        full_name: str,
+        phone: str,
+        city_id: UUID,
+        contact_method: str,
+    ) -> CustomerProfileDTO: ...
 
     async def list_active_cities(self) -> tuple[CityDTO, ...]: ...
 
@@ -127,6 +139,45 @@ class BackendPort(Protocol):
     ) -> AddressDTO: ...
 
     async def delete_address(self, *, telegram_id: int, address_id: UUID) -> None: ...
+
+    async def update_address(
+        self,
+        *,
+        telegram_id: int,
+        address_id: UUID,
+        city_id: UUID,
+        unrestricted_value: str,
+        entrance: str | None,
+        floor: str | None,
+        apartment: str | None,
+        comment: str | None,
+    ) -> AddressDTO: ...
+
+    async def get_deletion_preflight(
+        self, *, telegram_id: int
+    ) -> DeletionPreflightDTO: ...
+
+    async def create_dispute(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID,
+        text: str,
+        file_ids: tuple[UUID, ...] = (),
+    ) -> SupportRecordDTO: ...
+
+    async def create_contact_request(
+        self, *, telegram_id: int, order_id: UUID
+    ) -> ContactRequestDTO: ...
+
+    async def upload_file(
+        self,
+        *,
+        telegram_id: int,
+        content: bytes,
+        content_type: str,
+        original_name: str | None,
+    ) -> UUID: ...
 
     async def preview_order_price(
         self,

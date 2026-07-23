@@ -245,6 +245,22 @@ class SupportRecordDTO:
 
 
 @dataclass(frozen=True)
+class DeletionPreflightDTO:
+    can_delete: bool
+    blockers: tuple[dict[str, object], ...]
+
+
+@dataclass(frozen=True)
+class ContactRequestDTO:
+    id: UUID
+    order_id: UUID
+    performer_id: UUID
+    requested_method: str
+    status: str
+    failure_reason: str | None
+
+
+@dataclass(frozen=True)
 class MyOrdersPageDTO:
     items: tuple[MyOrderSummaryDTO, ...]
     page: int
