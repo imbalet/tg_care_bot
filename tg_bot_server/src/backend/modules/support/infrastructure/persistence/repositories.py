@@ -16,7 +16,7 @@ from backend.modules.orders.infrastructure import OrderMatchModel, OrderModel
 from backend.modules.payments.infrastructure import PaymentModel, RefundModel
 from backend.modules.performers.infrastructure import PerformerModel
 
-from .models import AccountDeletionRequestModel
+from .models import AccountDeletionRequestModel, DisputeModel
 
 SUPPORT_TYPES = frozenset(("technical", "payment", "order", "account", "other"))
 COMPLAINT_CATEGORIES = frozenset(
@@ -303,7 +303,8 @@ class SqlAlchemySupportRepository:
         status: str,
         admin_comment: str | None,
     ) -> Any:
-        if status not in STATUSES:
+        allowed_statuses = {"open", "closed"} if model is DisputeModel else STATUSES
+        if status not in allowed_statuses:
             raise ValidationError("Invalid support status")
         record = await self.get_record(model=model, record_id=record_id)
         record.status = status

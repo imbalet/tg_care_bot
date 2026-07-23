@@ -18,6 +18,12 @@ class CreateComplaintRequest(BaseModel):
     file_ids: list[UUID] = Field(default_factory=list, max_length=10)
 
 
+class CreateDisputeRequest(BaseModel):
+    order_id: UUID
+    text: str = Field(min_length=1, max_length=10000)
+    file_ids: list[UUID] = Field(default_factory=list, max_length=10)
+
+
 class UpdateSupportRecordRequest(BaseModel):
     status: str
     admin_comment: str | None = Field(default=None, max_length=10000)

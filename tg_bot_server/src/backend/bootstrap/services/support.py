@@ -1,3 +1,7 @@
+from sqlalchemy import select
+
+from backend.modules.orders.infrastructure import OrderModel
+
 from ._shared import (
     UUID,
     AccountDeletionRequestModel,
@@ -6,6 +10,7 @@ from ._shared import (
     ComplaintModel,
     ConflictError,
     CustomerModel,
+    DisputeModel,
     NotificationModel,
     PerformerModel,
     SqlAlchemyAdminAuditRepository,
@@ -20,6 +25,75 @@ from .context import Service
 
 
 class SupportServices(Service):
+    async def create_dispute(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID,
+        text: str,
+        file_ids: list[UUID],
+    ) -> DisputeModel:
+        async with self._uow() as uow:
+            repository = SqlAlchemySupportRepository(uow.session)
+            actor = await repository.get_actor(
+                actor_type="customer",
+                telegram_id=telegram_id,
+                for_update=True,
+            )
+            existing = await uow.session.scalar(
+                select(DisputeModel).where(
+                    DisputeModel.order_id == order_id,
+                    DisputeModel.status == "open",
+                )
+            )
+            if existing is not None:
+                await uow.commit()
+                return existing
+            order = await uow.session.scalar(
+                select(OrderModel)
+                .where(
+                    OrderModel.id == order_id,
+                    OrderModel.customer_id == actor.id,
+                )
+                .with_for_update()
+            )
+            if order is None:
+                raise AuthorizationError("Order does not belong to customer")
+            if order.status not in {"report_submitted", "completed"}:
+                raise ConflictError("Order is not available for dispute")
+            if (
+                order.confirmation_deadline_at is not None
+                and order.confirmation_deadline_at < utc_now()
+            ):
+                raise ConflictError("Dispute window has expired")
+            await repository.validate_files(
+                actor_type="customer", actor_id=actor.id, file_ids=file_ids
+            )
+            record = DisputeModel(
+                customer_id=actor.id,
+                order_id=order.id,
+                text=text,
+            )
+            uow.session.add(record)
+            order.payout_status = "blocked"
+            order.payout_block_reason = "customer_dispute"
+            await uow.session.flush()
+            await repository.add_file_links(
+                file_ids=file_ids,
+                entity_type="dispute",
+                entity_id=record.id,
+                purpose="dispute_attachment",
+            )
+            self._add_admin_panel_notification(
+                session=uow.session,
+                notification_type="dispute_created",
+                entity_type="dispute",
+                entity_id=record.id,
+                deduplication_key=f"dispute-created:{record.id}",
+            )
+            await uow.commit()
+            return record
+
     async def deletion_preflight(
         self, *, actor_type: str, telegram_id: int
     ) -> list[dict[str, Any]]:
@@ -297,6 +371,21 @@ class SupportServices(Service):
                     account.status = (
                         "active" if status == "rejected" else "deletion_pending"
                     )
+            if isinstance(record, DisputeModel) and status == "closed":
+                order = await uow.session.scalar(
+                    select(OrderModel)
+                    .where(OrderModel.id == record.order_id)
+                    .with_for_update()
+                )
+                open_dispute = await uow.session.scalar(
+                    select(DisputeModel.id).where(
+                        DisputeModel.order_id == record.order_id,
+                        DisputeModel.status == "open",
+                    )
+                )
+                if order is not None and open_dispute is None:
+                    order.payout_status = "ready"
+                    order.payout_block_reason = None
             await SqlAlchemyAdminAuditRepository(uow.session).add(
                 admin_id=admin_id,
                 action="update_support_record",
@@ -327,6 +416,7 @@ class SupportServices(Service):
         models = {
             "support": SupportRequestModel,
             "complaint": ComplaintModel,
+            "dispute": DisputeModel,
             "deletion": AccountDeletionRequestModel,
         }
         try:

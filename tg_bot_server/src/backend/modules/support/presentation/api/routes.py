@@ -16,6 +16,7 @@ from backend.modules.admin.presentation.api.schemas import AdminResponse
 from .schemas import (
     AccountDeletionPreflightResponse,
     CreateComplaintRequest,
+    CreateDisputeRequest,
     CreateSupportRequest,
     SupportFileResponse,
     SupportRecordPageResponse,
@@ -197,6 +198,21 @@ async def create_customer_complaint(
     return _record_response(record, "complaint")
 
 
+@customer_router.post("/by-telegram/{telegram_id}/disputes", status_code=201)
+async def create_customer_dispute(
+    telegram_id: int,
+    request: CreateDisputeRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> SupportRecordResponse:
+    record = await container.support.create_dispute(
+        telegram_id=telegram_id,
+        order_id=request.order_id,
+        text=request.text,
+        file_ids=request.file_ids,
+    )
+    return _record_response(record, "dispute")
+
+
 @performer_router.post("/by-telegram/{telegram_id}/complaints", status_code=201)
 async def create_performer_complaint(
     telegram_id: int,
@@ -259,6 +275,18 @@ def _register_user_reads(router: APIRouter, actor_type: str) -> None:
     ) -> SupportRecordPageResponse:
         return await _user_list(
             container, actor_type, telegram_id, "complaint", status, page, page_size
+        )
+
+    @router.get("/by-telegram/{telegram_id}/disputes")
+    async def list_disputes(
+        telegram_id: int,
+        container: Annotated[Container, Depends(get_container)],
+        status: str | None = Query(default=None),
+        page: int = 1,
+        page_size: int = 50,
+    ) -> SupportRecordPageResponse:
+        return await _user_list(
+            container, actor_type, telegram_id, "dispute", status, page, page_size
         )
 
     @router.get("/by-telegram/{telegram_id}/deletion-requests")
