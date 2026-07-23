@@ -148,6 +148,7 @@ class MyOrdersQueryService(Protocol):
         group: str,
         page: int,
         page_size: int,
+        category_code: str | None = None,
     ) -> MyOrdersPageDTO:
         pass
 

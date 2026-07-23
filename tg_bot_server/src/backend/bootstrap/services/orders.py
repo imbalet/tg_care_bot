@@ -240,6 +240,7 @@ class OrderServices(Service):
         group: str,
         page: int,
         page_size: int,
+        category_code: str | None = None,
     ) -> Any:
         async with self._uow() as uow:
             return await SqlAlchemyMyOrdersQueryService(
@@ -249,6 +250,7 @@ class OrderServices(Service):
                 group=group,
                 page=page,
                 page_size=page_size,
+                category_code=category_code,
             )
 
     async def get_customer_my_order(

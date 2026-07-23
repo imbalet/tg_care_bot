@@ -51,8 +51,9 @@ class SqlAlchemyMyOrdersQueryService:
         group: str,
         page: int,
         page_size: int,
+        category_code: str | None = None,
     ) -> MyOrdersPageDTO:
-        statement = self._base_statement(group).where(
+        statement = self._base_statement(group, category_code=category_code).where(
             OrderModel.customer_id == customer_id,
         )
         return await self._list_orders(
@@ -210,7 +211,12 @@ class SqlAlchemyMyOrdersQueryService:
             files,
         )
 
-    def _base_statement(self, group: str | None = None) -> Select[Any]:
+    def _base_statement(
+        self,
+        group: str | None = None,
+        *,
+        category_code: str | None = None,
+    ) -> Select[Any]:
         statement = (
             select(OrderModel, CityModel.timezone, ServiceCategoryModel.code)
             .join(CustomerModel, CustomerModel.id == OrderModel.customer_id)
@@ -234,6 +240,8 @@ class SqlAlchemyMyOrdersQueryService:
             statement = statement.where(
                 OrderModel.status.in_(_statuses_for_group(group)),
             )
+        if category_code is not None:
+            statement = statement.where(ServiceCategoryModel.code == category_code)
         return statement
 
     async def _list_orders(

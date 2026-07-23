@@ -109,12 +109,14 @@ async def list_customer_my_orders(
     group: Annotated[str, Query(pattern="^(active|archive)$")] = "active",
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=10)] = 5,
+    category_code: str | None = None,
 ) -> MyOrdersPageResponse:
     orders = await container.orders.list_customer_my_orders(
         customer_id=customer_id,
         group=group,
         page=page,
         page_size=page_size,
+        category_code=category_code,
     )
     return my_orders_page_response(orders)
 
