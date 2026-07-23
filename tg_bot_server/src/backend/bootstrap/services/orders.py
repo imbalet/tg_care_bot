@@ -11,6 +11,7 @@ from ._shared import (
     CreateDirectOrderUseCase,
     CreatePoolOrderCommand,
     CreatePoolOrderUseCase,
+    CustomerPerformerProfileDTO,
     FinishOrderCommand,
     FinishOrderUseCase,
     OrderReportDetailDTO,
@@ -47,6 +48,20 @@ class OrderServices(Service):
             ).execute(command)
             await uow.commit()
             return order
+
+    async def get_customer_performer_profile(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> CustomerPerformerProfileDTO:
+        async with self._uow() as uow:
+            return await SqlAlchemyOrderRepository(
+                uow.session
+            ).get_customer_performer_profile(
+                order_id=order_id,
+                customer_id=customer_id,
+            )
 
     async def confirm_customer_report(
         self,

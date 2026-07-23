@@ -5,6 +5,7 @@ from uuid import UUID
 
 from backend.modules.orders.application.dto import (
     CancellationPreviewDTO,
+    CustomerPerformerProfileDTO,
     MyOrderCardDTO,
     MyOrdersPageDTO,
     OrderCareObjectSnapshot,
@@ -37,6 +38,11 @@ class PricingRepository(Protocol):
 
 
 class OrderRepository(Protocol):
+    async def get_customer_performer_profile(
+        self, *, order_id: UUID, customer_id: UUID
+    ) -> CustomerPerformerProfileDTO:
+        pass
+
     async def get_order(self, order_id: UUID) -> OrderDTO | None:
         pass
 

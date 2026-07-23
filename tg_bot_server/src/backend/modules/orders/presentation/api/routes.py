@@ -30,6 +30,7 @@ from .schemas import (
     CancelOrderRequest,
     CustomerDirectPerformerRequest,
     CustomerMatchActionRequest,
+    CustomerPerformerProfileResponse,
     DirectOrderRequest,
     MatchActionResponse,
     MyOrderCardResponse,
@@ -168,6 +169,25 @@ async def get_customer_order_location(
     if location is None:
         raise NotFoundError("Order location not found")
     return order_location_response(location)
+
+
+@router.get("/customer/{customer_id}/my/{order_id}/performer-profile")
+async def get_customer_performer_profile(
+    customer_id: UUID,
+    order_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> CustomerPerformerProfileResponse:
+    profile = await container.orders.get_customer_performer_profile(
+        order_id=order_id,
+        customer_id=customer_id,
+    )
+    return CustomerPerformerProfileResponse(
+        performer_id=profile.performer_id,
+        full_name=profile.full_name,
+        about_text=profile.about_text,
+        contact_method=profile.contact_method,
+        telegram_username=profile.telegram_username,
+    )
 
 
 @router.post("/customer/{customer_id}/my/{order_id}/confirm-report")

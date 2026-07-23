@@ -14,6 +14,7 @@ from backend.modules.catalog.infrastructure import CityModel, ServiceOptionModel
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.application import (
+    CustomerPerformerProfileDTO,
     OrderCareObjectSnapshot,
     OrderData,
     OrderDTO,
@@ -44,6 +45,40 @@ class SqlAlchemyOrderRepository(OrderRepository):
     async def get_order(self, order_id: UUID) -> OrderDTO | None:
         model = await self._session.get(OrderModel, order_id)
         return await self._order_to_dto(model) if model is not None else None
+
+    async def get_customer_performer_profile(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> CustomerPerformerProfileDTO:
+        result = await self._session.execute(
+            select(PerformerModel)
+            .join(OrderModel, OrderModel.selected_performer_id == PerformerModel.id)
+            .where(
+                OrderModel.id == order_id,
+                OrderModel.customer_id == customer_id,
+                OrderModel.status.in_(
+                    (
+                        "confirmed",
+                        "in_progress",
+                        "waiting_report",
+                        "report_submitted",
+                        "completed",
+                    )
+                ),
+            )
+        )
+        performer = result.scalar_one_or_none()
+        if performer is None:
+            raise NotFoundError("Performer profile is not available")
+        return CustomerPerformerProfileDTO(
+            performer_id=performer.id,
+            full_name=performer.full_name,
+            about_text=performer.about_text,
+            contact_method=performer.contact_method,
+            telegram_username=performer.telegram_username,
+        )
 
     async def start_order(self, *, order_id: UUID, performer_id: UUID) -> OrderDTO:
         order = await self._lock_order(order_id)

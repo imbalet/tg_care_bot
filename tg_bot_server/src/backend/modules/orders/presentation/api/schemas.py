@@ -74,6 +74,14 @@ class OrderLocationResponse(BaseModel):
     address: FullAddressSnapshotResponse | None
 
 
+class CustomerPerformerProfileResponse(BaseModel):
+    performer_id: UUID
+    full_name: str
+    about_text: str | None
+    contact_method: str
+    telegram_username: str | None
+
+
 class PricePreviewResponse(BaseModel):
     service_id: str
     service_code: str

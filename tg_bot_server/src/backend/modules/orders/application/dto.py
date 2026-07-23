@@ -90,6 +90,15 @@ class OrderDTO:
 
 
 @dataclass(frozen=True)
+class CustomerPerformerProfileDTO:
+    performer_id: UUID
+    full_name: str
+    about_text: str | None
+    contact_method: str
+    telegram_username: str | None
+
+
+@dataclass(frozen=True)
 class FullAddressSnapshotDTO:
     city_name: str
     district_name: str | None
