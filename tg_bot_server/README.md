@@ -32,9 +32,10 @@ Migrations must target PostgreSQL. SQLite is not used for persistence checks.
 
 ## Docker Compose
 
-From this repository:
+Run the repository-level Compose stack from the parent directory:
 
 ```bash
+cd ..
 cp .env.example .env
 docker compose up --build
 ```
@@ -47,6 +48,7 @@ are defined in `docker-compose.yml`.
 For CI or one-off local smoke checks, pass the example values explicitly:
 
 ```bash
+cd ..
 docker compose --env-file .env.example config
 docker compose --env-file .env.example up --build
 docker compose --env-file .env.example down
