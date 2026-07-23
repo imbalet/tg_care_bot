@@ -20,6 +20,10 @@ class CustomerRedisKeys:
     def current_message(self, telegram_id: int) -> str:
         return self._join("screen", str(telegram_id), "current")
 
+    def screen_message(self, telegram_id: int, _screen_key: str) -> str:
+        """Compatibility alias for callers migrated to a single current message."""
+        return self.current_message(telegram_id)
+
     def _join(self, *parts: str) -> str:
         return ":".join((self.prefix, *parts))
 

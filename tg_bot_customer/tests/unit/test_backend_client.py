@@ -415,6 +415,7 @@ async def test_order_methods_use_backend_contract() -> None:
 
     categories = await client.list_catalog_categories()
     price = await client.preview_order_price(
+        customer_id=customer_id,
         service_id=service_id,
         start_at=start_at,
         end_at=end_at,
@@ -429,6 +430,7 @@ async def test_order_methods_use_backend_contract() -> None:
         address_id=address_id,
         customer_comment="comment",
         report_photo_consent=True,
+        option_values={},
     )
     direct = await client.create_order_direct(
         customer_id=customer_id,
@@ -439,6 +441,7 @@ async def test_order_methods_use_backend_contract() -> None:
         address_id=address_id,
         customer_comment="comment",
         report_photo_consent=True,
+        option_values={},
         performer_id=performer_id,
     )
     performers = await client.find_suitable_performers(

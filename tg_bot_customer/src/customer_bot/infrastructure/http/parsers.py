@@ -73,7 +73,7 @@ def _service_category_from_json(data: dict[str, object]) -> ServiceCategoryDTO:
 
 
 def _service_from_json(data: dict[str, object]) -> ServiceDTO:
-    raw_options = data["options"] if isinstance(data["options"], list) else []
+    raw_options = data.get("options") if isinstance(data.get("options"), list) else []
     return ServiceDTO(
         id=UUID(str(data["id"])),
         code=str(data["code"]),
