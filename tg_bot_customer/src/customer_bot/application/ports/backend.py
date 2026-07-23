@@ -13,12 +13,15 @@ from customer_bot.application.dto import (
     MyOrderCardDTO,
     MyOrdersPageDTO,
     OrderDTO,
+    OrderLocationDTO,
     OrderMatchDTO,
+    OrderReportDTO,
     PaymentStatusDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
     SuitablePerformerDTO,
     SupportContactDTO,
+    SupportRecordDTO,
 )
 
 
@@ -218,3 +221,35 @@ class BackendPort(Protocol):
         customer_id: UUID,
         order_id: UUID,
     ) -> MyOrderCardDTO: ...
+
+    async def get_customer_order_location(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> OrderLocationDTO: ...
+
+    async def get_customer_order_report(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> OrderReportDTO: ...
+
+    async def create_support_request(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID | None,
+        request_type: str,
+        text: str,
+    ) -> SupportRecordDTO: ...
+
+    async def create_complaint(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID | None,
+        category: str,
+        text: str,
+    ) -> SupportRecordDTO: ...

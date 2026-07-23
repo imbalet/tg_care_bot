@@ -68,6 +68,22 @@ class PaymentRefreshCallback(CallbackData, prefix="payment_refresh"):
     order_id: UUID
 
 
+class OrderLocationOpenCallback(CallbackData, prefix="order_location"):
+    order_id: UUID
+
+
+class OrderReportOpenCallback(CallbackData, prefix="order_report"):
+    order_id: UUID
+
+
+class OrderComplaintOpenCallback(CallbackData, prefix="order_complaint"):
+    order_id: UUID
+
+
+class SupportRequestOpenCallback(CallbackData, prefix="support_request"):
+    order_id: UUID | None = None
+
+
 class ServicesPricesCallback(CallbackData, prefix="services_prices"):
     pass
 

@@ -9,12 +9,16 @@ from customer_bot.application.dto import (
     AddressDTO,
     CareObjectDTO,
     CustomerProfileDTO,
+    FullAddressSnapshotDTO,
     MatchActionDTO,
     MyOrderCardDTO,
     MyOrdersPageDTO,
     MyOrderSummaryDTO,
     OrderDTO,
+    OrderLocationDTO,
     OrderMatchDTO,
+    OrderReportDTO,
+    OrderReportFileDTO,
     PaymentStatusDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
@@ -22,6 +26,7 @@ from customer_bot.application.dto import (
     ServiceOptionDTO,
     SuitablePerformerDTO,
     SupportContactDTO,
+    SupportRecordDTO,
 )
 
 
@@ -309,4 +314,93 @@ def _my_order_card_from_json(data: dict[str, object]) -> MyOrderCardDTO:
         if isinstance(data["payment_confirmation_url"], str)
         else None,
         payment_expires_at=payment_expires_at,
+    )
+
+
+def _order_location_from_json(data: dict[str, object]) -> OrderLocationDTO:
+    raw_address = data["address"] if isinstance(data["address"], dict) else None
+    address = (
+        FullAddressSnapshotDTO(
+            city_name=str(raw_address["city_name"]),
+            district_name=(
+                str(raw_address["district_name"])
+                if raw_address["district_name"] is not None
+                else None
+            ),
+            address_text=str(raw_address["address_text"]),
+            entrance=(
+                str(raw_address["entrance"])
+                if raw_address["entrance"] is not None
+                else None
+            ),
+            floor=(
+                str(raw_address["floor"]) if raw_address["floor"] is not None else None
+            ),
+            apartment=(
+                str(raw_address["apartment"])
+                if raw_address["apartment"] is not None
+                else None
+            ),
+            comment=(
+                str(raw_address["comment"])
+                if raw_address["comment"] is not None
+                else None
+            ),
+        )
+        if raw_address is not None
+        else None
+    )
+    return OrderLocationDTO(
+        order_id=UUID(str(data["order_id"])),
+        city_name=str(data["city_name"]),
+        district_name=(
+            str(data["district_name"]) if data["district_name"] is not None else None
+        ),
+        address=address,
+    )
+
+
+def _order_report_from_json(data: dict[str, object]) -> OrderReportDTO:
+    raw_files = data["files"] if isinstance(data["files"], list) else []
+    return OrderReportDTO(
+        id=UUID(str(data["id"])),
+        order_id=UUID(str(data["order_id"])),
+        performer_id=UUID(str(data["performer_id"])),
+        completed_work=str(data["completed_work"]),
+        comment=str(data["comment"]) if data["comment"] is not None else None,
+        problem_flag=bool(data["problem_flag"]),
+        problem_description=(
+            str(data["problem_description"])
+            if data["problem_description"] is not None
+            else None
+        ),
+        submitted_at=datetime.fromisoformat(str(data["submitted_at"])),
+        files=tuple(
+            OrderReportFileDTO(
+                id=UUID(str(item["id"])),
+                original_name=(
+                    str(item["original_name"])
+                    if item["original_name"] is not None
+                    else None
+                ),
+                mime_type=str(item["mime_type"]),
+                signed_url=str(item["signed_url"]),
+            )
+            for item in raw_files
+        ),
+    )
+
+
+def _support_record_from_json(data: dict[str, object]) -> SupportRecordDTO:
+    raw_blockers = data["blockers"] if isinstance(data["blockers"], list) else []
+    return SupportRecordDTO(
+        id=UUID(str(data["id"])),
+        kind=str(data["kind"]),
+        order_id=(
+            UUID(str(data["order_id"])) if data["order_id"] is not None else None
+        ),
+        status=str(data["status"]),
+        text=str(data["text"]) if data["text"] is not None else None,
+        category=(str(data["category"]) if data["category"] is not None else None),
+        blockers=tuple(item for item in raw_blockers if isinstance(item, dict)),
     )

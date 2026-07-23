@@ -180,6 +180,57 @@ class MyOrderCardDTO(MyOrderSummaryDTO):
 
 
 @dataclass(frozen=True)
+class FullAddressSnapshotDTO:
+    city_name: str
+    district_name: str | None
+    address_text: str
+    entrance: str | None
+    floor: str | None
+    apartment: str | None
+    comment: str | None
+
+
+@dataclass(frozen=True)
+class OrderLocationDTO:
+    order_id: UUID
+    city_name: str
+    district_name: str | None
+    address: FullAddressSnapshotDTO | None
+
+
+@dataclass(frozen=True)
+class OrderReportFileDTO:
+    id: UUID
+    original_name: str | None
+    mime_type: str
+    signed_url: str
+
+
+@dataclass(frozen=True)
+class OrderReportDTO:
+    id: UUID
+    order_id: UUID
+    performer_id: UUID
+    completed_work: str
+    comment: str | None
+    problem_flag: bool
+    problem_description: str | None
+    submitted_at: datetime
+    files: tuple[OrderReportFileDTO, ...]
+
+
+@dataclass(frozen=True)
+class SupportRecordDTO:
+    id: UUID
+    kind: str
+    order_id: UUID | None
+    status: str
+    text: str | None
+    category: str | None
+    blockers: tuple[dict[str, object], ...]
+
+
+@dataclass(frozen=True)
 class MyOrdersPageDTO:
     items: tuple[MyOrderSummaryDTO, ...]
     page: int

@@ -16,12 +16,15 @@ from customer_bot.application.dto import (
     MyOrderCardDTO,
     MyOrdersPageDTO,
     OrderDTO,
+    OrderLocationDTO,
     OrderMatchDTO,
+    OrderReportDTO,
     PaymentStatusDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
     SuitablePerformerDTO,
     SupportContactDTO,
+    SupportRecordDTO,
 )
 from customer_bot.application.ports import BackendPort
 
@@ -40,13 +43,16 @@ from .parsers import (
     _my_order_card_from_json,
     _my_orders_page_from_json,
     _order_from_json,
+    _order_location_from_json,
     _order_match_from_json,
+    _order_report_from_json,
     _order_request_json,
     _payment_status_from_json,
     _price_preview_from_json,
     _service_category_from_json,
     _suitable_performer_from_json,
     _support_contact_from_json,
+    _support_record_from_json,
 )
 
 logger = logging.getLogger(__name__)
@@ -517,6 +523,74 @@ class BackendClient(BackendPort):
         )
         self._raise_for_status(response)
         return _my_order_card_from_json(response.json())
+
+    async def get_customer_order_location(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> OrderLocationDTO:
+        response = await self._request(
+            "GET",
+            f"/api/orders/customer/{customer_id}/my/{order_id}/location",
+        )
+        self._raise_for_status(response)
+        return _order_location_from_json(response.json())
+
+    async def get_customer_order_report(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> OrderReportDTO:
+        response = await self._request(
+            "GET",
+            f"/api/orders/customer/{customer_id}/my/{order_id}/report",
+        )
+        self._raise_for_status(response)
+        return _order_report_from_json(response.json())
+
+    async def create_support_request(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID | None,
+        request_type: str,
+        text: str,
+    ) -> SupportRecordDTO:
+        response = await self._request(
+            "POST",
+            f"/api/customers/by-telegram/{telegram_id}/support-requests",
+            json={
+                "order_id": str(order_id) if order_id is not None else None,
+                "type": request_type,
+                "text": text,
+                "file_ids": [],
+            },
+        )
+        self._raise_for_status(response)
+        return _support_record_from_json(response.json())
+
+    async def create_complaint(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID | None,
+        category: str,
+        text: str,
+    ) -> SupportRecordDTO:
+        response = await self._request(
+            "POST",
+            f"/api/customers/by-telegram/{telegram_id}/complaints",
+            json={
+                "order_id": str(order_id) if order_id is not None else None,
+                "category": category,
+                "text": text,
+                "file_ids": [],
+            },
+        )
+        self._raise_for_status(response)
+        return _support_record_from_json(response.json())
 
     async def _request(
         self,
