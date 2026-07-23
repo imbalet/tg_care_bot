@@ -14,6 +14,7 @@ from backend.modules.admin.presentation.api.routes import (
 from backend.modules.admin.presentation.api.schemas import AdminResponse
 
 from .schemas import (
+    AccountDeletionPreflightResponse,
     CreateComplaintRequest,
     CreateSupportRequest,
     SupportFileResponse,
@@ -33,6 +34,41 @@ performer_router = APIRouter(
     dependencies=[Depends(require_service_key)],
 )
 admin_router = APIRouter(prefix="/admin/support", tags=["admin-support"])
+
+
+async def _deletion_preflight(
+    container: Container,
+    actor_type: str,
+    telegram_id: int,
+) -> AccountDeletionPreflightResponse:
+    blockers = await container.support.deletion_preflight(
+        actor_type=actor_type,
+        telegram_id=telegram_id,
+    )
+    return AccountDeletionPreflightResponse(
+        can_delete=not blockers,
+        blockers=blockers,
+    )
+
+
+@customer_router.get(
+    "/by-telegram/{telegram_id}/deletion-preflight",
+)
+async def customer_deletion_preflight(
+    telegram_id: int,
+    container: Annotated[Container, Depends(get_container)],
+) -> AccountDeletionPreflightResponse:
+    return await _deletion_preflight(container, "customer", telegram_id)
+
+
+@performer_router.get(
+    "/by-telegram/{telegram_id}/deletion-preflight",
+)
+async def performer_deletion_preflight(
+    telegram_id: int,
+    container: Annotated[Container, Depends(get_container)],
+) -> AccountDeletionPreflightResponse:
+    return await _deletion_preflight(container, "performer", telegram_id)
 
 
 def _record_response(

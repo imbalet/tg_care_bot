@@ -20,6 +20,20 @@ from .context import Service
 
 
 class SupportServices(Service):
+    async def deletion_preflight(
+        self, *, actor_type: str, telegram_id: int
+    ) -> list[dict[str, Any]]:
+        async with self._uow() as uow:
+            repository = SqlAlchemySupportRepository(uow.session)
+            actor = await repository.get_actor(
+                actor_type=actor_type,
+                telegram_id=telegram_id,
+            )
+            return await repository.blockers(
+                actor_type=actor_type,
+                actor_id=actor.id,
+            )
+
     async def create_support_request(
         self,
         *,

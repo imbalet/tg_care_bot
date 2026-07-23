@@ -55,3 +55,8 @@ class SupportRecordPageResponse(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+class AccountDeletionPreflightResponse(BaseModel):
+    can_delete: bool
+    blockers: list[dict[str, Any]]
