@@ -8,6 +8,7 @@ from customer_bot.application.errors import BackendClientError
 from customer_bot.application.ports import ActiveCategoryStore, BackendPort
 from customer_bot.presentation.callbacks import (
     NotificationOrderOpenCallback,
+    OrderCancelCallback,
     OrderCardOpenCallback,
     OrdersListCallback,
     OrdersPageCallback,
@@ -29,6 +30,52 @@ from customer_bot.presentation.view_models import (
 
 router = Router(name="customer_orders")
 logger = logging.getLogger(__name__)
+
+
+@router.callback_query(OrderCancelCallback.filter())
+async def cancel_order_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderCancelCallback,
+) -> None:
+    try:
+        profile = await backend_client.get_customer_profile(
+            telegram_user_context.telegram_id,
+        )
+        if profile is None:
+            raise BackendClientError("Customer profile is missing")
+        await backend_client.cancel_customer_order(
+            order_id=callback_data.order_id,
+            customer_id=profile.id,
+        )
+        await _show_order_card(
+            callback=callback,
+            bot=bot,
+            backend_client=backend_client,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            order_id=callback_data.order_id,
+            group="active",
+            page=1,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to cancel customer order",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "order_id": str(callback_data.order_id),
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await _show_unavailable(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+        )
 
 
 async def _show_unavailable(

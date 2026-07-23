@@ -495,6 +495,20 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return _payment_status_from_json(response.json())
 
+    async def cancel_customer_order(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> OrderDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/{order_id}/cancel",
+            json={"actor_type": "customer", "actor_id": str(customer_id)},
+        )
+        self._raise_for_status(response)
+        return _order_from_json(response.json())
+
     async def list_customer_orders(
         self,
         *,

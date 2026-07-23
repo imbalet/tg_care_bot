@@ -5,6 +5,7 @@ from uuid import UUID
 
 from customer_bot.presentation.callbacks import (
     MainMenuCallback,
+    OrderCancelCallback,
     OrderLocationOpenCallback,
     OrderReportOpenCallback,
     OrderResponsesOpenCallback,
@@ -133,6 +134,7 @@ class Screen(BaseScreen[_View]):
             keyboard.button(
                 "Обновить оплату", PaymentRefreshCallback(order_id=order_id)
             )
+            keyboard.button("Отменить заказ", OrderCancelCallback(order_id=order_id))
         if status == "searching" and matching_mode == "pool":
             keyboard.button("Отклики", OrderResponsesOpenCallback(order_id=order_id))
         if status in {

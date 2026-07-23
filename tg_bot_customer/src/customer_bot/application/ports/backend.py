@@ -206,6 +206,13 @@ class BackendPort(Protocol):
         customer_id: UUID,
     ) -> PaymentStatusDTO: ...
 
+    async def cancel_customer_order(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> OrderDTO: ...
+
     async def list_customer_orders(
         self,
         *,
