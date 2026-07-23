@@ -41,8 +41,8 @@ from .common import (
 from .orders import (
     MyOrderCardScreen,
     MyOrdersPageScreen,
-    OrderCancellationPreviewScreen,
     OrderAddressStepScreen,
+    OrderCancellationPreviewScreen,
     OrderCommentStepScreen,
     OrderDatetimeManualStepScreen,
     OrderDirectSelectionScreen,
