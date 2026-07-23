@@ -185,6 +185,7 @@ class MatchActionResponse(BaseModel):
 
 class MyOrderSummaryResponse(BaseModel):
     id: str
+    category_code: str
     service_name: str
     matching_mode: str | None
     status: str

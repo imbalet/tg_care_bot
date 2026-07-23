@@ -17,6 +17,9 @@ class CareObjectRepository(Protocol):
     async def soft_delete(self, care_object_id: UUID) -> None:
         pass
 
+    async def has_active_order(self, care_object_id: UUID) -> bool:
+        pass
+
     async def list_for_customer(
         self,
         customer_id: UUID,

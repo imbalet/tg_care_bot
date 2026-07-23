@@ -418,11 +418,13 @@ class SqlAlchemyOrderRepository(OrderRepository):
         care_object_ids: tuple[UUID, ...],
     ) -> tuple[OrderCareObjectSnapshot, ...]:
         result = await self._session.execute(
-            select(CareObjectModel).where(
+            select(CareObjectModel)
+            .where(
                 CareObjectModel.customer_id == customer_id,
                 CareObjectModel.id.in_(care_object_ids),
                 CareObjectModel.deleted_at.is_(None),
-            ),
+            )
+            .with_for_update(),
         )
         objects_by_id = {model.id: model for model in result.scalars()}
         return tuple(

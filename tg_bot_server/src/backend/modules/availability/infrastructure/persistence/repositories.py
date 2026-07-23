@@ -220,8 +220,7 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
                 PerformerServiceModel.performer_max_objects >= objects_count,
                 ServiceModel.is_active.is_(True),
             )
-            .order_by(PerformerModel.full_name)
-            .limit(limit * 3)
+            .order_by(PerformerModel.id)
         )
         result = await self._session.execute(statement)
         care_objects = await self._list_care_objects(care_object_ids)
@@ -256,9 +255,7 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
                     current_address_id=performer.current_address_id,
                 ),
             )
-            if len(suitable) >= limit:
-                break
-        return tuple(suitable)
+        return tuple(_sort_suitable_performers(suitable)[:limit])
 
     async def _get_performer_by_telegram_id(
         self,
@@ -477,6 +474,20 @@ def _string_set(value: object) -> set[str]:
     if not isinstance(value, list):
         return set()
     return {item for item in value if isinstance(item, str)}
+
+
+def _sort_suitable_performers(
+    performers: list[SuitablePerformerDTO],
+) -> list[SuitablePerformerDTO]:
+    return sorted(
+        performers,
+        key=lambda item: (
+            item.distance_km is None,
+            item.distance_km if item.distance_km is not None else Decimal("0"),
+            item.full_name.casefold(),
+            str(item.performer_id),
+        ),
+    )
 
 
 def _distance(

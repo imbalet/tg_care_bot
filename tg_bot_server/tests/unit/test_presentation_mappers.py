@@ -197,6 +197,7 @@ def test_order_mappers_cover_location_match_report_payment_and_pages() -> None:
     assert payment_prompt_response(payment).confirmation_url == "https://pay.test"
     summary = MyOrderSummaryDTO(
         id=order.id,
+        category_code="nanny",
         service_name="Care",
         matching_mode="pool",
         status="confirmed",

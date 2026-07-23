@@ -181,6 +181,7 @@ class MatchActionDTO:
 @dataclass(frozen=True)
 class MyOrderSummaryDTO:
     id: UUID
+    category_code: str
     service_name: str
     matching_mode: str | None
     status: str

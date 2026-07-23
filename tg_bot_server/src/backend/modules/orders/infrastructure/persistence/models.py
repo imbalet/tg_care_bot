@@ -15,6 +15,15 @@ from backend.common.infrastructure.database import (
     UuidPrimaryKeyMixin,
 )
 
+ACTIVE_ORDER_STATUSES = (
+    "searching",
+    "waiting_payment",
+    "confirmed",
+    "in_progress",
+    "waiting_report",
+    "report_submitted",
+)
+
 
 class OrderModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "orders"

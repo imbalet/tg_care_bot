@@ -40,7 +40,7 @@ def upgrade() -> None:
             {
                 "id": UUID("71111111-1111-4111-8111-000000000101"),
                 "key": "support_telegram_url",
-                "value": _jsonb_literal("todo-support-url"),
+                "value": _jsonb_literal("https://t.me/we_are_close_support"),
                 "value_type": "string",
                 "description": "External Telegram support URL",
                 "updated_by_admin_id": None,

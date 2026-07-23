@@ -235,6 +235,7 @@ def my_order_summary_response(order: MyOrderSummaryDTO) -> MyOrderSummaryRespons
     matching_deadline_at = to_timezone(order.matching_deadline_at, order.timezone)
     return MyOrderSummaryResponse(
         id=str(order.id),
+        category_code=order.category_code,
         service_name=order.service_name,
         matching_mode=order.matching_mode,
         status=order.status,

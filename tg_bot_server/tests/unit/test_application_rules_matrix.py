@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from backend.common.domain import NotFoundError, ValidationError
+from backend.common.domain import ConflictError, NotFoundError, ValidationError
 from backend.modules.addresses.application.use_cases import (
     CreateOwnerAddressCommand,
     CreatePerformerAddressUseCase,
@@ -96,6 +96,7 @@ async def test_care_object_list_and_delete_delegate_to_owner_repository() -> Non
     customer = SimpleNamespace(id=uuid4(), status=CustomerStatus.ACTIVE)
     customers.get_by_telegram_id.return_value = customer
     objects.get.return_value = SimpleNamespace(customer_id=customer.id)
+    objects.has_active_order.return_value = False
 
     await ListCustomerCareObjectsUseCase(customers, objects).execute(
         telegram_id=1,
@@ -111,6 +112,24 @@ async def test_care_object_list_and_delete_delegate_to_owner_repository() -> Non
         object_type="pet",
     )
     objects.soft_delete.assert_awaited_once()
+
+
+@pytest.mark.unit
+async def test_care_object_delete_rejects_active_order() -> None:
+    customers = AsyncMock()
+    objects = AsyncMock()
+    customer = SimpleNamespace(id=uuid4(), status=CustomerStatus.ACTIVE)
+    customers.get_by_telegram_id.return_value = customer
+    objects.get.return_value = SimpleNamespace(customer_id=customer.id)
+    objects.has_active_order.return_value = True
+
+    with pytest.raises(ConflictError, match="active order"):
+        await DeleteCustomerCareObjectUseCase(customers, objects).execute(
+            telegram_id=1,
+            care_object_id=uuid4(),
+        )
+
+    objects.soft_delete.assert_not_awaited()
 
 
 @pytest.mark.unit

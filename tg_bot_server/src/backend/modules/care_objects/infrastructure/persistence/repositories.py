@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import utc_now
@@ -12,6 +12,11 @@ from backend.modules.care_objects.application import (
     CreateCareObjectCommand,
     UpdateCareObjectCommand,
     validate_care_object_fields,
+)
+from backend.modules.orders.infrastructure.persistence.models import (
+    ACTIVE_ORDER_STATUSES,
+    OrderCareObjectModel,
+    OrderModel,
 )
 
 from .models import CareObjectModel
@@ -97,6 +102,23 @@ class SqlAlchemyCareObjectRepository(CareObjectRepository, CareObjectQueryServic
         if model is None or model.deleted_at is not None:
             raise NotFoundError("Care object not found")
         model.deleted_at = utc_now()
+
+    async def has_active_order(self, care_object_id: UUID) -> bool:
+        care_object = await self._session.scalar(
+            select(CareObjectModel)
+            .where(CareObjectModel.id == care_object_id)
+            .with_for_update(),
+        )
+        if care_object is None:
+            return False
+        statement = select(
+            exists().where(
+                OrderCareObjectModel.care_object_id == care_object_id,
+                OrderCareObjectModel.order_id == OrderModel.id,
+                OrderModel.status.in_(ACTIVE_ORDER_STATUSES),
+            ),
+        )
+        return bool(await self._session.scalar(statement))
 
     async def list_for_customer(
         self,

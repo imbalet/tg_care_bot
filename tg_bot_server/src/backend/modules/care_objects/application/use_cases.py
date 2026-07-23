@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from backend.common.domain import NotFoundError, ValidationError
+from backend.common.domain import ConflictError, NotFoundError, ValidationError
 from backend.modules.care_objects.application.dto import (
     CareObjectDTO,
     CreateCareObjectCommand,
@@ -155,4 +155,8 @@ class DeleteCustomerCareObjectUseCase:
         care_object = await self._care_object_repository.get(care_object_id)
         if care_object is None or care_object.customer_id != customer.id:
             raise NotFoundError("Care object not found")
+        if await self._care_object_repository.has_active_order(care_object_id):
+            raise ConflictError(
+                "Care object cannot be deleted while an active order uses it",
+            )
         await self._care_object_repository.soft_delete(care_object_id)

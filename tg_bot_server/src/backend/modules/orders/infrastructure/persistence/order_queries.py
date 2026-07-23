@@ -5,7 +5,11 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.domain import ValidationError
-from backend.modules.catalog.infrastructure import CityModel
+from backend.modules.catalog.infrastructure import (
+    CityModel,
+    ServiceCategoryModel,
+    ServiceModel,
+)
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.files.infrastructure import FileLinkModel, FileModel
 from backend.modules.orders.application import (
@@ -208,9 +212,14 @@ class SqlAlchemyMyOrdersQueryService:
 
     def _base_statement(self, group: str | None = None) -> Select[Any]:
         statement = (
-            select(OrderModel, CityModel.timezone)
+            select(OrderModel, CityModel.timezone, ServiceCategoryModel.code)
             .join(CustomerModel, CustomerModel.id == OrderModel.customer_id)
             .join(CityModel, CityModel.id == CustomerModel.city_id)
+            .join(ServiceModel, ServiceModel.id == OrderModel.service_id)
+            .join(
+                ServiceCategoryModel,
+                ServiceCategoryModel.id == ServiceModel.category_id,
+            )
             .where(
                 CustomerModel.status == "active",
                 CustomerModel.deleted_at.is_(None),
@@ -241,7 +250,10 @@ class SqlAlchemyMyOrdersQueryService:
         result = await self._session.execute(
             statement.offset((page - 1) * page_size).limit(page_size),
         )
-        items = tuple(_summary_dto(order, timezone) for order, timezone in result.all())
+        items = tuple(
+            _summary_dto(order, timezone, category_code)
+            for order, timezone, category_code in result.all()
+        )
         return MyOrdersPageDTO(
             items=items,
             page=page,
@@ -271,9 +283,16 @@ class SqlAlchemyMyOrdersQueryService:
         row = result.one_or_none()
         if row is None:
             return None
-        order, timezone, payment_status, confirmation_url, payment_expires_at = row
+        (
+            order,
+            timezone,
+            category_code,
+            payment_status,
+            confirmation_url,
+            payment_expires_at,
+        ) = row
         return MyOrderCardDTO(
-            **_summary_dto(order, timezone).__dict__,
+            **_summary_dto(order, timezone, category_code).__dict__,
             payment_status=payment_status,
             payment_confirmation_url=confirmation_url if include_payment_url else None,
             payment_expires_at=payment_expires_at,
@@ -291,9 +310,11 @@ def _statuses_for_group(group: str) -> frozenset[str]:
 def _summary_dto(
     model: OrderModel,
     timezone: str,
+    category_code: str,
 ) -> MyOrderSummaryDTO:
     return MyOrderSummaryDTO(
         id=model.id,
+        category_code=category_code,
         service_name=model.service_name,
         matching_mode=model.matching_mode,
         status=model.status,
