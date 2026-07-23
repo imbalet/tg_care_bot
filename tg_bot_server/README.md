@@ -90,6 +90,11 @@ Run the complete local verification sequence with:
 make test-all
 ```
 
+`make test-all` enforces the current local coverage baseline of 50% for the
+unit/API suite. Raise it explicitly as coverage grows, for example with
+`COVERAGE_MIN=55 make test-all`; integration and E2E coverage remain separate
+because they execute inside disposable Docker images.
+
 This command checks formatting, linting and typing, then runs unit/API,
 PostgreSQL integration and Compose E2E tests. Integration and E2E images are
 rebuilt before execution. The test runner image contains the source, tests and

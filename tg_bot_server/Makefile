@@ -1,4 +1,6 @@
-.PHONY: lint check test test-all test-unit test-api test-integration test-e2e test-clean
+COVERAGE_MIN ?= 50
+
+.PHONY: lint check test test-all test-coverage test-unit test-api test-integration test-e2e test-clean
 
 lint:
 	uv run ruff format src alembic tests
@@ -17,9 +19,15 @@ test-all:
 	uv run mypy src tests
 	uv run python -m compileall -q src tests
 	docker compose -f docker-compose.test.yml config >/dev/null
-	uv run pytest -m "unit or api"
+	$(MAKE) test-coverage
 	$(MAKE) test-integration
 	$(MAKE) test-e2e
+
+test-coverage:
+	uv run pytest -m "unit or api" \
+		--cov=src/backend \
+		--cov-report=term-missing \
+		--cov-fail-under=$(COVERAGE_MIN)
 
 test-unit:
 	uv run pytest -m unit
