@@ -367,7 +367,7 @@ class SqlAlchemyPaymentRepository:
         provider_refund_id: str,
     ) -> None:
         refund = await self._lock_refund(refund_id)
-        if refund.status != "pending":
+        if refund.status not in {"pending", "processing"}:
             return
         refund.status = "succeeded"
         refund.provider_refund_id = provider_refund_id
@@ -388,7 +388,7 @@ class SqlAlchemyPaymentRepository:
 
     async def mark_refund_failed(self, *, refund_id: UUID) -> None:
         refund = await self._lock_refund(refund_id)
-        if refund.status != "pending":
+        if refund.status not in {"pending", "processing"}:
             return
         refund.status = "failed"
         await self._add_notification(

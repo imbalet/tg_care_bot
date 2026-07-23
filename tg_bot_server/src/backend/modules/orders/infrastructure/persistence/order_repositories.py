@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID
 
@@ -30,7 +30,7 @@ from backend.modules.orders.infrastructure.persistence.models import (
     OrderReportModel,
     OrderStatusHistoryModel,
 )
-from backend.modules.payments.infrastructure import PaymentModel
+from backend.modules.payments.infrastructure import PaymentModel, RefundModel
 from backend.modules.performers.infrastructure import (
     PerformerModel,
     PerformerServiceModel,
@@ -209,6 +209,8 @@ class SqlAlchemyOrderRepository(OrderRepository):
             payment = await self._session.get(PaymentModel, order.active_payment_id)
             if payment is not None and payment.status in {"created", "pending"}:
                 payment.status = "cancelled"
+            if payment is not None and payment.status == "succeeded":
+                await self._create_customer_refund(order=order, payment=payment)
         matches = await self._session.execute(
             select(OrderMatchModel).where(
                 OrderMatchModel.order_id == order.id,
@@ -227,6 +229,51 @@ class SqlAlchemyOrderRepository(OrderRepository):
         )
         await self._session.flush()
         return await self._order_to_dto(order)
+
+    async def _create_customer_refund(
+        self,
+        *,
+        order: OrderModel,
+        payment: PaymentModel,
+    ) -> None:
+        remaining_minutes = int(
+            max(0, (order.start_at - utc_now()).total_seconds()) // 60,
+        )
+        if remaining_minutes < 6 * 60:
+            return
+        amount = payment.amount
+        refund_type = "full"
+        if remaining_minutes <= 12 * 60:
+            percent = order.partial_refund_percent_at_payment
+            if percent is None:
+                raise ValidationError("Partial refund policy is not available")
+            amount = (amount * percent / Decimal("100")).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            )
+            refund_type = "partial"
+        if amount <= 0:
+            return
+        idempotency_key = f"customer-cancellation:{order.id}:{payment.id}"
+        existing = await self._session.scalar(
+            select(RefundModel).where(
+                RefundModel.idempotency_key == idempotency_key,
+            ),
+        )
+        if existing is not None:
+            return
+        self._session.add(
+            RefundModel(
+                order_id=order.id,
+                payment_id=payment.id,
+                refund_type=refund_type,
+                amount=amount,
+                status="pending",
+                reason="customer_cancellation",
+                created_by_admin_id=None,
+                idempotency_key=idempotency_key,
+            ),
+        )
 
     async def _lock_order(self, order_id: UUID) -> OrderModel:
         result = await self._session.execute(

@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import Decimal
 from html import escape
 from typing import Protocol
 from uuid import UUID
@@ -29,7 +30,15 @@ from backend.modules.orders.infrastructure import (
     OrderModel,
     OrderStatusHistoryModel,
 )
-from backend.modules.payments.infrastructure import PaymentModel
+from backend.modules.payments.application import (
+    PaymentGateway,
+    PaymentGatewayRefundCommand,
+)
+from backend.modules.payments.infrastructure import (
+    PaymentModel,
+    RefundModel,
+    SqlAlchemyPaymentRepository,
+)
 from backend.modules.performers.infrastructure import PerformerModel
 
 _ADMIN_TABLE = AdminModel.__table__
@@ -262,6 +271,89 @@ class NotificationDelivery:
     chat_id: int
     text: str
     reply_markup: dict[str, object] | None
+
+
+class RefundWorkerJob:
+    name = "refunds"
+
+    def __init__(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        batch_limit: int,
+        gateway_factory: Callable[[], PaymentGateway],
+    ) -> None:
+        self._session_factory = session_factory
+        self._batch_limit = batch_limit
+        self._gateway_factory = gateway_factory
+
+    async def run_once(self) -> None:
+        claimed = await self._claim_batch()
+        for (
+            refund_id,
+            payment_id,
+            provider_payment_id,
+            idempotency_key,
+            amount,
+        ) in claimed:
+            try:
+                result = await self._gateway_factory().create_refund(
+                    PaymentGatewayRefundCommand(
+                        refund_id=refund_id,
+                        payment_id=payment_id,
+                        provider_payment_id=provider_payment_id,
+                        idempotency_key=idempotency_key,
+                        amount=amount,
+                    ),
+                )
+            except Exception:
+                async with self._session_factory() as session:
+                    await SqlAlchemyPaymentRepository(session).mark_refund_failed(
+                        refund_id=refund_id,
+                    )
+                    await session.commit()
+            else:
+                async with self._session_factory() as session:
+                    await SqlAlchemyPaymentRepository(session).mark_refund_succeeded(
+                        refund_id=refund_id,
+                        provider_refund_id=result.provider_refund_id,
+                    )
+                    await session.commit()
+
+    async def _claim_batch(
+        self,
+    ) -> tuple[tuple[UUID, UUID, str, str, Decimal], ...]:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                for_update_skip_locked(
+                    select(
+                        RefundModel,
+                        PaymentModel.provider_payment_id,
+                    )
+                    .join(PaymentModel, PaymentModel.id == RefundModel.payment_id)
+                    .where(
+                        RefundModel.status == "pending",
+                        PaymentModel.status == "succeeded",
+                        PaymentModel.provider_payment_id.is_not(None),
+                    )
+                    .order_by(RefundModel.created_at),
+                    self._batch_limit,
+                ),
+            )
+            rows = tuple(result.all())
+            for refund, _ in rows:
+                refund.status = "processing"
+            await session.commit()
+            return tuple(
+                (
+                    refund.id,
+                    refund.payment_id,
+                    provider_payment_id,
+                    refund.idempotency_key,
+                    refund.amount,
+                )
+                for refund, provider_payment_id in rows
+                if provider_payment_id is not None
+            )
 
 
 class DeadlinesWorkerJob:

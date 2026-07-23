@@ -9,6 +9,7 @@ from backend.worker.jobs import (
     DeadlinesWorkerJob,
     NoopWorkerJob,
     NotificationWorkerJob,
+    RefundWorkerJob,
     RetryPolicy,
     WorkerJob,
     WorkerRunner,
@@ -65,6 +66,11 @@ async def amain() -> None:
     worker = Worker(
         settings.worker_poll_interval_seconds,
         jobs=[
+            RefundWorkerJob(
+                container.session_factory,
+                settings.worker_batch_limit,
+                container.context.payment_gateway,
+            ),
             DeadlinesWorkerJob(
                 container.session_factory,
                 settings.worker_batch_limit,
