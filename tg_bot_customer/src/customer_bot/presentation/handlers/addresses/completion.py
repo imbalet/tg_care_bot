@@ -15,13 +15,17 @@ from customer_bot.presentation.handlers.addresses.state import (
 from customer_bot.presentation.handlers.orders.state import OrderCreation
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
-    AddressCreatedScreen,
     AddressExtraStepScreen,
+    AddressListScreen,
     AddressValidationScreen,
     OrderAddressStepScreen,
     RetryLaterScreen,
 )
-from customer_bot.presentation.view_models import AddressExtraView
+from customer_bot.presentation.view_models import (
+    AddressExtraView,
+    AddressListItemView,
+    AddressListView,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -110,11 +114,45 @@ async def _advance_or_create(
         "Address created",
         extra={"telegram_id": telegram_user_context.telegram_id},
     )
+    try:
+        addresses = await backend_client.list_addresses(
+            telegram_id=telegram_user_context.telegram_id,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Address created but failed to reload address list",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await telegram_responder.update(
+            bot=bot,
+            event=event,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Адрес сохранен. Откройте список адресов, чтобы увидеть его.",
+            reply_markup=None,
+            create_new=True,
+        )
+        return
     await telegram_responder.update(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := AddressCreatedScreen().build()).text,
+        text=(
+            screen := AddressListScreen(
+                AddressListView(
+                    count=len(addresses),
+                    items=tuple(
+                        AddressListItemView(
+                            id=address.id,
+                            address_text=address.address_text,
+                        )
+                        for address in addresses
+                    ),
+                )
+            ).build()
+        ).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )

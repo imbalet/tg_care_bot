@@ -1,5 +1,6 @@
 from html import escape
 from typing import Protocol
+from urllib.parse import urlparse
 
 from customer_bot.presentation.callbacks import (
     MainMenuCallback,
@@ -27,8 +28,15 @@ class Screen(BaseScreen[_View]):
 
     def _build_keyboard(self) -> Markup:
         keyboard = InlineKeyboardFactory()
-        if isinstance(self.data.telegram_url, str):
+        if _is_valid_telegram_url(self.data.telegram_url):
             keyboard.url_button(self.data.label, self.data.telegram_url)
         keyboard.button("Написать в поддержку", SupportRequestOpenCallback())
         keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
         return keyboard.as_markup()
+
+
+def _is_valid_telegram_url(value: str | None) -> bool:
+    if not isinstance(value, str):
+        return False
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)

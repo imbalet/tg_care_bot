@@ -224,7 +224,7 @@ def _order_match_from_json(data: dict[str, object]) -> OrderMatchDTO:
         id=UUID(str(data["id"])),
         order_id=UUID(str(data["order_id"])),
         performer_id=UUID(str(data["performer_id"])),
-        match_type=str(data["match_type"]),
+        match_type=str(data.get("match_type", data["source"])),
         status=str(data["status"]),
     )
 
