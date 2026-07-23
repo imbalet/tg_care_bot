@@ -11,6 +11,7 @@ from customer_bot.presentation.callbacks import (
     OrderCancelConfirmCallback,
     OrderCancelPreviewCallback,
     OrderCardOpenCallback,
+    OrderReportConfirmCallback,
     OrdersListCallback,
     OrdersPageCallback,
 )
@@ -32,6 +33,52 @@ from customer_bot.presentation.view_models import (
 
 router = Router(name="customer_orders")
 logger = logging.getLogger(__name__)
+
+
+@router.callback_query(OrderReportConfirmCallback.filter())
+async def confirm_order_report_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderReportConfirmCallback,
+) -> None:
+    try:
+        profile = await backend_client.get_customer_profile(
+            telegram_user_context.telegram_id,
+        )
+        if profile is None:
+            raise BackendClientError("Customer profile is missing")
+        await backend_client.confirm_customer_order_report(
+            order_id=callback_data.order_id,
+            customer_id=profile.id,
+        )
+        await _show_order_card(
+            callback=callback,
+            bot=bot,
+            backend_client=backend_client,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            order_id=callback_data.order_id,
+            group="active",
+            page=1,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to confirm customer order report",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "order_id": str(callback_data.order_id),
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await _show_unavailable(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+        )
 
 
 @router.callback_query(OrderCancelPreviewCallback.filter())

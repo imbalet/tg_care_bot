@@ -252,6 +252,13 @@ class BackendPort(Protocol):
         order_id: UUID,
     ) -> OrderReportDTO: ...
 
+    async def confirm_customer_order_report(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> OrderDTO: ...
+
     async def create_support_request(
         self,
         *,

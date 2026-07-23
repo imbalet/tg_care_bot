@@ -86,6 +86,10 @@ class OrderReportOpenCallback(CallbackData, prefix="order_report"):
     order_id: UUID
 
 
+class OrderReportConfirmCallback(CallbackData, prefix="order_report_confirm"):
+    order_id: UUID
+
+
 class OrderComplaintOpenCallback(CallbackData, prefix="order_complaint"):
     order_id: UUID
 
