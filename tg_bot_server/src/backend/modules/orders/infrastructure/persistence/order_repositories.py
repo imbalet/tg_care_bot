@@ -72,6 +72,31 @@ class SqlAlchemyOrderRepository(OrderRepository):
         await self._session.flush()
         return await self._order_to_dto(order)
 
+    async def start_order_by_customer(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> OrderDTO:
+        order = await self._lock_order(order_id)
+        if order.customer_id != customer_id:
+            raise NotFoundError("Order not found")
+        if order.status != "confirmed":
+            raise self._stale(order, "Order is not ready to start")
+        now = utc_now()
+        order.status = "in_progress"
+        order.actual_started_at = now
+        self._add_status_history(
+            order.id,
+            "confirmed",
+            "in_progress",
+            actor_type="customer",
+            actor_id=customer_id,
+            reason="customer_started",
+        )
+        await self._session.flush()
+        return await self._order_to_dto(order)
+
     async def finish_order(
         self,
         *,

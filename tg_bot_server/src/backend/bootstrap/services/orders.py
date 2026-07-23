@@ -21,6 +21,8 @@ from ._shared import (
     SqlAlchemyMyOrdersQueryService,
     SqlAlchemyOrderRepository,
     SqlAlchemyPricingRepository,
+    StartOrderByCustomerCommand,
+    StartOrderByCustomerUseCase,
     StartOrderCommand,
     StartOrderUseCase,
     SubmitOrderReportCommand,
@@ -58,6 +60,24 @@ class OrderServices(Service):
                 SqlAlchemyPricingRepository(uow.session),
             ).execute(
                 ConfirmReportCommand(
+                    order_id=order_id,
+                    customer_id=customer_id,
+                ),
+            )
+            await uow.commit()
+            return order
+
+    async def start_customer_order(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            order = await StartOrderByCustomerUseCase(
+                SqlAlchemyOrderRepository(uow.session),
+            ).execute(
+                StartOrderByCustomerCommand(
                     order_id=order_id,
                     customer_id=customer_id,
                 ),

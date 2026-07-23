@@ -43,6 +43,14 @@ class OrderRepository(Protocol):
     async def start_order(self, *, order_id: UUID, performer_id: UUID) -> OrderDTO:
         pass
 
+    async def start_order_by_customer(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> OrderDTO:
+        pass
+
     async def finish_order(
         self,
         *,

@@ -59,6 +59,12 @@ class StartOrderCommand:
 
 
 @dataclass(frozen=True)
+class StartOrderByCustomerCommand:
+    order_id: UUID
+    customer_id: UUID
+
+
+@dataclass(frozen=True)
 class FinishOrderCommand:
     order_id: UUID
     performer_id: UUID
@@ -131,6 +137,17 @@ class CreatePoolOrderUseCase:
             price=price,
             object_snapshots=snapshots,
             matching_deadline_minutes=deadline,
+        )
+
+
+class StartOrderByCustomerUseCase:
+    def __init__(self, repository: OrderRepository) -> None:
+        self._repository = repository
+
+    async def execute(self, command: StartOrderByCustomerCommand) -> OrderDTO:
+        return await self._repository.start_order_by_customer(
+            order_id=command.order_id,
+            customer_id=command.customer_id,
         )
 
 
