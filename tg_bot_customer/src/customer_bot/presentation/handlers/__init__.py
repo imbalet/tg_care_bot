@@ -7,6 +7,7 @@ from .orders import router as orders_router
 from .profile import router as profile_router
 from .registration import router as registration_router
 from .start import router as start_router
+from .support import router as support_router
 
 __all__ = [
     "care_objects_router",
@@ -18,4 +19,5 @@ __all__ = [
     "profile_router",
     "registration_router",
     "start_router",
+    "support_router",
 ]

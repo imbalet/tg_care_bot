@@ -3,6 +3,7 @@ from typing import Protocol
 
 from customer_bot.presentation.callbacks import (
     MainMenuCallback,
+    SupportRequestOpenCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.screen import (
@@ -28,5 +29,6 @@ class Screen(BaseScreen[_View]):
         keyboard = InlineKeyboardFactory()
         if isinstance(self.data.telegram_url, str):
             keyboard.url_button(self.data.label, self.data.telegram_url)
+        keyboard.button("Написать в поддержку", SupportRequestOpenCallback())
         keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
         return keyboard.as_markup()

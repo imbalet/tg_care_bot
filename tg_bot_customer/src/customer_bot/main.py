@@ -31,6 +31,7 @@ from customer_bot.presentation.handlers import (
     profile_router,
     registration_router,
     start_router,
+    support_router,
 )
 from customer_bot.presentation.middlewares import (
     AppContextMiddleware,
@@ -69,6 +70,7 @@ async def main() -> None:
     dispatcher.include_router(profile_router)
     dispatcher.include_router(category_router)
     dispatcher.include_router(customer_orders_router)
+    dispatcher.include_router(support_router)
     dispatcher.include_router(fallback_router)
 
     bot = Bot(
