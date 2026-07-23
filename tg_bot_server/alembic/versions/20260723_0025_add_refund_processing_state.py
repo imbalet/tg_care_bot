@@ -11,18 +11,18 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.drop_constraint("ck_refunds_status", "refunds", type_="check")
+    op.drop_constraint(op.f("ck_refunds_status"), "refunds", type_="check")
     op.create_check_constraint(
-        "ck_refunds_status",
+        op.f("ck_refunds_status"),
         "refunds",
         "status in ('pending', 'processing', 'succeeded', 'failed')",
     )
 
 
 def downgrade() -> None:
-    op.drop_constraint("ck_refunds_status", "refunds", type_="check")
+    op.drop_constraint(op.f("ck_refunds_status"), "refunds", type_="check")
     op.create_check_constraint(
-        "ck_refunds_status",
+        op.f("ck_refunds_status"),
         "refunds",
         "status in ('pending', 'succeeded', 'failed')",
     )
