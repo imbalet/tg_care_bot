@@ -1,1 +1,0 @@
-"""Performers module."""

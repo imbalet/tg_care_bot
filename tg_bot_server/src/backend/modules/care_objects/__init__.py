@@ -1,1 +1,0 @@
-"""Care objects module."""

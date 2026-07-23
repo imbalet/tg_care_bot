@@ -1,1 +1,0 @@
-"""Performers presentation package."""

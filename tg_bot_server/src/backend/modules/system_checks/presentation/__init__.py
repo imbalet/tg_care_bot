@@ -1,1 +1,0 @@
-"""System checks presentation package."""
