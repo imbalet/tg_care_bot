@@ -1,9 +1,11 @@
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.common.application import utc_now
 from backend.common.domain import ValidationError
 from backend.modules.catalog.infrastructure import (
     CityModel,
@@ -13,6 +15,7 @@ from backend.modules.catalog.infrastructure import (
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.files.infrastructure import FileLinkModel, FileModel
 from backend.modules.orders.application import (
+    CancellationPreviewDTO,
     FullAddressSnapshotDTO,
     MyOrderCardDTO,
     MyOrdersPageDTO,
@@ -60,6 +63,70 @@ class SqlAlchemyMyOrdersQueryService:
             statement,
             page=page,
             page_size=page_size,
+        )
+
+    async def get_customer_cancellation_preview(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> CancellationPreviewDTO | None:
+        result = await self._session.execute(
+            select(OrderModel, PaymentModel.status, PaymentModel.amount)
+            .outerjoin(
+                PaymentModel,
+                PaymentModel.id == OrderModel.active_payment_id,
+            )
+            .where(
+                OrderModel.id == order_id,
+                OrderModel.customer_id == customer_id,
+            ),
+        )
+        row = result.one_or_none()
+        if row is None:
+            return None
+        order, payment_status, payment_amount = row
+        remaining_minutes = max(
+            0,
+            int((order.start_at - utc_now()).total_seconds() // 60),
+        )
+        can_cancel = order.status in {"searching", "waiting_payment", "confirmed"}
+        if not can_cancel:
+            return CancellationPreviewDTO(
+                order_id=order.id,
+                order_status=order.status,
+                can_cancel=False,
+                refund_outcome="not_available",
+                refund_amount=Decimal("0.00"),
+                policy_version=order.refund_policy_version_at_payment,
+                partial_refund_percent=order.partial_refund_percent_at_payment,
+                remaining_minutes=remaining_minutes,
+            )
+        if payment_status != "succeeded" or payment_amount is None:
+            outcome = "none"
+            amount = Decimal("0.00")
+        elif remaining_minutes > 12 * 60:
+            outcome = "full"
+            amount = payment_amount
+        elif remaining_minutes >= 6 * 60:
+            outcome = "partial"
+            percent = order.partial_refund_percent_at_payment or Decimal("0")
+            amount = (payment_amount * percent / Decimal("100")).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            )
+        else:
+            outcome = "none"
+            amount = Decimal("0.00")
+        return CancellationPreviewDTO(
+            order_id=order.id,
+            order_status=order.status,
+            can_cancel=True,
+            refund_outcome=outcome,
+            refund_amount=amount,
+            policy_version=order.refund_policy_version_at_payment,
+            partial_refund_percent=order.partial_refund_percent_at_payment,
+            remaining_minutes=remaining_minutes,
         )
 
     async def get_customer_order_card(

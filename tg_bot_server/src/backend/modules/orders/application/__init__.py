@@ -1,4 +1,5 @@
 from .dto import (
+    CancellationPreviewDTO,
     FullAddressSnapshotDTO,
     MatchActionDTO,
     MyOrderCardDTO,
@@ -36,6 +37,7 @@ from .use_cases import (
 __all__ = [
     "CalculatePricePreviewCommand",
     "CalculatePricePreviewUseCase",
+    "CancellationPreviewDTO",
     "CancelOrderCommand",
     "CancelOrderUseCase",
     "CreateDirectOrderCommand",

@@ -1,5 +1,6 @@
 from backend.common.application import to_timezone
 from backend.modules.orders.application import (
+    CancellationPreviewDTO,
     CreateDirectOrderCommand,
     CreatePoolOrderCommand,
     MatchActionDTO,
@@ -16,6 +17,7 @@ from backend.modules.orders.application import (
 )
 
 from .schemas import (
+    CancellationPreviewResponse,
     DirectOrderRequest,
     FullAddressSnapshotResponse,
     MatchActionResponse,
@@ -135,6 +137,21 @@ def price_preview_response(preview: PricePreviewDTO) -> PricePreviewResponse:
         performer_amount=preview.performer_amount,
         total_amount=preview.total_amount,
         hold_limit_checked=preview.hold_limit_checked,
+    )
+
+
+def cancellation_preview_response(
+    preview: CancellationPreviewDTO,
+) -> CancellationPreviewResponse:
+    return CancellationPreviewResponse(
+        order_id=str(preview.order_id),
+        order_status=preview.order_status,
+        can_cancel=preview.can_cancel,
+        refund_outcome=preview.refund_outcome,
+        refund_amount=preview.refund_amount,
+        policy_version=preview.policy_version,
+        partial_refund_percent=preview.partial_refund_percent,
+        remaining_minutes=preview.remaining_minutes,
     )
 
 

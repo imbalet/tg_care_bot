@@ -267,6 +267,20 @@ class OrderServices(Service):
                 order_id=order_id,
             )
 
+    async def get_customer_cancellation_preview(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyMyOrdersQueryService(
+                uow.session,
+            ).get_customer_cancellation_preview(
+                customer_id=customer_id,
+                order_id=order_id,
+            )
+
     async def get_customer_order_location(
         self,
         *,

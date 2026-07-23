@@ -12,6 +12,7 @@ from backend.modules.orders.application import (
 )
 
 from .mappers import (
+    cancellation_preview_response,
     create_direct_command,
     create_pool_command,
     match_action_response,
@@ -25,6 +26,7 @@ from .mappers import (
     report_response,
 )
 from .schemas import (
+    CancellationPreviewResponse,
     CancelOrderRequest,
     CustomerDirectPerformerRequest,
     CustomerMatchActionRequest,
@@ -134,6 +136,23 @@ async def get_customer_my_order(
     if order is None:
         raise NotFoundError("Order not found")
     return my_order_card_response(order)
+
+
+@router.get(
+    "/customer/{customer_id}/my/{order_id}/cancellation-preview",
+)
+async def get_customer_cancellation_preview(
+    customer_id: UUID,
+    order_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> CancellationPreviewResponse:
+    preview = await container.orders.get_customer_cancellation_preview(
+        customer_id=customer_id,
+        order_id=order_id,
+    )
+    if preview is None:
+        raise NotFoundError("Order not found")
+    return cancellation_preview_response(preview)
 
 
 @router.get("/customer/{customer_id}/my/{order_id}/location")

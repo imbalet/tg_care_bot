@@ -4,6 +4,7 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from backend.modules.orders.application.dto import (
+    CancellationPreviewDTO,
     MyOrderCardDTO,
     MyOrdersPageDTO,
     OrderCareObjectSnapshot,
@@ -132,6 +133,14 @@ class OrderRepository(Protocol):
 
 
 class MyOrdersQueryService(Protocol):
+    async def get_customer_cancellation_preview(
+        self,
+        *,
+        customer_id: UUID,
+        order_id: UUID,
+    ) -> CancellationPreviewDTO | None:
+        pass
+
     async def get_order_report(
         self,
         *,

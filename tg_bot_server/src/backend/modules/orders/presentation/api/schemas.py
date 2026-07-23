@@ -204,6 +204,17 @@ class MyOrderCardResponse(MyOrderSummaryResponse):
     payment_expires_at: str | None
 
 
+class CancellationPreviewResponse(BaseModel):
+    order_id: str
+    order_status: str
+    can_cancel: bool
+    refund_outcome: str
+    refund_amount: Decimal
+    policy_version: str | None
+    partial_refund_percent: Decimal | None
+    remaining_minutes: int
+
+
 class MyOrdersPageResponse(BaseModel):
     items: list[MyOrderSummaryResponse]
     page: int
