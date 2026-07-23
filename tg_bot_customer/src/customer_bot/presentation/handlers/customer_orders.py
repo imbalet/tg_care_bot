@@ -12,6 +12,7 @@ from customer_bot.presentation.callbacks import (
     OrderCancelPreviewCallback,
     OrderCardOpenCallback,
     OrderContactCallback,
+    OrderPerformerProfileCallback,
     OrderReportConfirmCallback,
     OrdersListCallback,
     OrdersPageCallback,
@@ -52,6 +53,27 @@ async def contact_order_callback(
         await callback.answer("Запрос контакта отправлен исполнителю")
     except BackendClientError:
         await callback.answer("Запрос контакта сейчас недоступен", show_alert=True)
+
+
+@router.callback_query(OrderPerformerProfileCallback.filter())
+async def performer_profile_callback(
+    callback: CallbackQuery,
+    backend_client: BackendPort,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderPerformerProfileCallback,
+) -> None:
+    try:
+        profile = await backend_client.get_performer_profile(
+            telegram_id=telegram_user_context.telegram_id,
+            order_id=callback_data.order_id,
+        )
+        about = f"\n{profile.about_text}" if profile.about_text else ""
+        await callback.answer(
+            f"{profile.full_name}{about}",
+            show_alert=True,
+        )
+    except BackendClientError:
+        await callback.answer("Профиль исполнителя сейчас недоступен", show_alert=True)
 
 
 @router.callback_query(OrderStartConfirmCallback.filter())

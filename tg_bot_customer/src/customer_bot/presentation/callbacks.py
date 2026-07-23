@@ -98,6 +98,10 @@ class OrderContactCallback(CallbackData, prefix="order_contact"):
     order_id: UUID
 
 
+class OrderPerformerProfileCallback(CallbackData, prefix="order_performer"):
+    order_id: UUID
+
+
 class OrderComplaintOpenCallback(CallbackData, prefix="order_complaint"):
     order_id: UUID
 

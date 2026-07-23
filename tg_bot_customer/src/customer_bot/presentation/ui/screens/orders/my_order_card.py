@@ -8,6 +8,7 @@ from customer_bot.presentation.callbacks import (
     OrderCancelPreviewCallback,
     OrderContactCallback,
     OrderLocationOpenCallback,
+    OrderPerformerProfileCallback,
     OrderReportConfirmCallback,
     OrderReportOpenCallback,
     OrderResponsesOpenCallback,
@@ -156,6 +157,10 @@ class Screen(BaseScreen[_View]):
             keyboard.button(
                 "Запросить контакт",
                 OrderContactCallback(order_id=order_id),
+            )
+            keyboard.button(
+                "Профиль исполнителя",
+                OrderPerformerProfileCallback(order_id=order_id),
             )
         if status in {"report_submitted", "completed"}:
             keyboard.button("Отчёт", OrderReportOpenCallback(order_id=order_id))
