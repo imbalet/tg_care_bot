@@ -6,6 +6,7 @@ from uuid import UUID
 from customer_bot.presentation.callbacks import (
     MainMenuCallback,
     OrderCancelPreviewCallback,
+    OrderContactCallback,
     OrderLocationOpenCallback,
     OrderReportConfirmCallback,
     OrderReportOpenCallback,
@@ -151,6 +152,10 @@ class Screen(BaseScreen[_View]):
         }:
             keyboard.button(
                 "Место оказания", OrderLocationOpenCallback(order_id=order_id)
+            )
+            keyboard.button(
+                "Запросить контакт",
+                OrderContactCallback(order_id=order_id),
             )
         if status in {"report_submitted", "completed"}:
             keyboard.button("Отчёт", OrderReportOpenCallback(order_id=order_id))

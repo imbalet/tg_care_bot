@@ -11,6 +11,7 @@ from customer_bot.presentation.callbacks import (
     OrderCancelConfirmCallback,
     OrderCancelPreviewCallback,
     OrderCardOpenCallback,
+    OrderContactCallback,
     OrderReportConfirmCallback,
     OrdersListCallback,
     OrdersPageCallback,
@@ -34,6 +35,23 @@ from customer_bot.presentation.view_models import (
 
 router = Router(name="customer_orders")
 logger = logging.getLogger(__name__)
+
+
+@router.callback_query(OrderContactCallback.filter())
+async def contact_order_callback(
+    callback: CallbackQuery,
+    backend_client: BackendPort,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderContactCallback,
+) -> None:
+    try:
+        await backend_client.create_contact_request(
+            telegram_id=telegram_user_context.telegram_id,
+            order_id=callback_data.order_id,
+        )
+        await callback.answer("Запрос контакта отправлен исполнителю")
+    except BackendClientError:
+        await callback.answer("Запрос контакта сейчас недоступен", show_alert=True)
 
 
 @router.callback_query(OrderStartConfirmCallback.filter())

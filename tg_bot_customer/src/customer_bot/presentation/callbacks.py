@@ -94,6 +94,10 @@ class OrderStartConfirmCallback(CallbackData, prefix="order_start_confirm"):
     order_id: UUID
 
 
+class OrderContactCallback(CallbackData, prefix="order_contact"):
+    order_id: UUID
+
+
 class OrderComplaintOpenCallback(CallbackData, prefix="order_complaint"):
     order_id: UUID
 
