@@ -12,6 +12,8 @@ from backend.modules.catalog.infrastructure import (
     BusinessSettingModel,
     CityModel,
     DistrictModel,
+    ServiceCategoryModel,
+    ServiceModel,
 )
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.notifications.infrastructure import NotificationModel
@@ -43,6 +45,7 @@ class SqlAlchemyMatchingRepository:
         *,
         performer_id: UUID,
         limit: int,
+        category_code: str | None = None,
     ) -> tuple[OrderDTO, ...]:
         performer = await self._session.get(PerformerModel, performer_id)
         if performer is None or performer.status != "active":
@@ -50,6 +53,11 @@ class SqlAlchemyMatchingRepository:
         now = utc_now()
         result = await self._session.execute(
             select(OrderModel)
+            .join(ServiceModel, ServiceModel.id == OrderModel.service_id)
+            .join(
+                ServiceCategoryModel,
+                ServiceCategoryModel.id == ServiceModel.category_id,
+            )
             .where(
                 OrderModel.matching_mode == "pool",
                 OrderModel.status == "searching",
@@ -60,6 +68,11 @@ class SqlAlchemyMatchingRepository:
                         OrderMatchModel.performer_id == performer_id,
                     ),
                 ),
+            )
+            .where(
+                ServiceCategoryModel.code == category_code
+                if category_code is not None
+                else True,
             )
             .order_by(OrderModel.start_at)
             .limit(limit),

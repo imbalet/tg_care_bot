@@ -9,8 +9,6 @@ from .use_cases import (
     SetPerformerCurrentAddressUseCase,
     SuggestAddressCommand,
     SuggestAddressesUseCase,
-    UpdateCustomerAddressCommand,
-    UpdateCustomerAddressUseCase,
 )
 
 __all__ = [
@@ -26,6 +24,4 @@ __all__ = [
     "SetPerformerCurrentAddressUseCase",
     "SuggestAddressCommand",
     "SuggestAddressesUseCase",
-    "UpdateCustomerAddressCommand",
-    "UpdateCustomerAddressUseCase",
 ]

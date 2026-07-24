@@ -76,10 +76,6 @@ class CreateAddressRequest(BaseModel):
     comment: str | None = None
 
 
-class UpdateAddressRequest(CreateAddressRequest):
-    pass
-
-
 class AddressResponse(BaseModel):
     id: str
     owner_type: str

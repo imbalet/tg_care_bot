@@ -16,8 +16,6 @@ from ._shared import (
     SqlAlchemyCustomerRepository,
     SqlAlchemyFileRepository,
     SqlAlchemyPerformerRepository,
-    UpdateCustomerAddressCommand,
-    UpdateCustomerAddressUseCase,
     UpdateCustomerCareObjectCommand,
     UpdateCustomerCareObjectUseCase,
     UpdateCustomerProfileCommand,
@@ -164,16 +162,3 @@ class CustomerServices(Service):
                 SqlAlchemyAddressRepository(uow.session),
             ).execute(telegram_id=telegram_id, address_id=address_id)
             await uow.commit()
-
-    async def update_customer_address(
-        self,
-        command: UpdateCustomerAddressCommand,
-    ) -> Any:
-        async with self._uow() as uow:
-            address = await UpdateCustomerAddressUseCase(
-                SqlAlchemyCustomerRepository(uow.session),
-                SqlAlchemyAddressRepository(uow.session),
-                self._geocoder(),
-            ).execute(command)
-            await uow.commit()
-            return address

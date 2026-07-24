@@ -47,7 +47,7 @@ from backend.modules.files.infrastructure import (
     FileModel,
     SqlAlchemyFileRepository,
 )
-from backend.modules.orders.infrastructure import (
+from backend.modules.orders.infrastructure.exports import (
     OrderAddressSnapshotModel,
     OrderCareObjectModel,
     OrderMatchModel,

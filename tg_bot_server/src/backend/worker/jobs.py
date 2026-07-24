@@ -24,7 +24,7 @@ from backend.modules.notifications.application import (
     notification_body,
 )
 from backend.modules.notifications.infrastructure import NotificationModel
-from backend.modules.orders.infrastructure import (
+from backend.modules.orders.infrastructure.exports import (
     OrderAddressSnapshotModel,
     OrderMatchModel,
     OrderModel,

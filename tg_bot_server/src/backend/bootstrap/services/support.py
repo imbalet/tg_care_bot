@@ -1,6 +1,6 @@
 from sqlalchemy import select
 
-from backend.modules.orders.infrastructure import OrderModel
+from backend.modules.orders.infrastructure.exports import OrderModel
 
 from ._shared import (
     UUID,

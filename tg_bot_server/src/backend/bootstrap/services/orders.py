@@ -284,11 +284,16 @@ class OrderServices(Service):
         *,
         performer_id: UUID,
         limit: int,
+        category_code: str | None = None,
     ) -> Any:
         async with self._uow() as uow:
             return await SqlAlchemyMatchingRepository(
                 uow.session,
-            ).list_available_pool_orders(performer_id=performer_id, limit=limit)
+            ).list_available_pool_orders(
+                performer_id=performer_id,
+                limit=limit,
+                category_code=category_code,
+            )
 
     async def list_customer_my_orders(
         self,

@@ -23,8 +23,6 @@ from backend.modules.addresses.application import (
     SetPerformerCurrentAddressUseCase,
     SuggestAddressCommand,
     SuggestAddressesUseCase,
-    UpdateCustomerAddressCommand,
-    UpdateCustomerAddressUseCase,
 )
 from backend.modules.addresses.infrastructure import SqlAlchemyAddressRepository
 from backend.modules.admin.application import (
@@ -116,7 +114,7 @@ from backend.modules.orders.application import (
     SubmitOrderReportCommand,
     SubmitOrderReportUseCase,
 )
-from backend.modules.orders.infrastructure import (
+from backend.modules.orders.infrastructure.exports import (
     SqlAlchemyMatchingRepository,
     SqlAlchemyMyOrdersQueryService,
     SqlAlchemyOrderRepository,
@@ -205,8 +203,6 @@ __all__ = [
     "DisputeModel",
     "ConflictError",
     "CreateCustomerAddressUseCase",
-    "UpdateCustomerAddressCommand",
-    "UpdateCustomerAddressUseCase",
     "CreateCustomerCareObjectCommand",
     "CreateCustomerCareObjectUseCase",
     "CreateDirectOrderCommand",

@@ -12,7 +12,7 @@ from backend.modules.files.infrastructure.persistence.models import (
     FileLinkModel,
     FileModel,
 )
-from backend.modules.orders.infrastructure import OrderMatchModel, OrderModel
+from backend.modules.orders.infrastructure.exports import OrderMatchModel, OrderModel
 from backend.modules.payments.infrastructure import PaymentModel, RefundModel
 from backend.modules.performers.infrastructure import PerformerModel
 

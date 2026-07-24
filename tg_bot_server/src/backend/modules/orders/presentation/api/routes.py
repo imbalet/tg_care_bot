@@ -97,10 +97,12 @@ async def list_available_pool_orders(
     performer_id: UUID,
     container: Annotated[Container, Depends(get_container)],
     limit: int = 20,
+    category_code: str | None = None,
 ) -> list[OrderResponse]:
     orders = await container.orders.list_available_pool_orders(
         performer_id=performer_id,
         limit=limit,
+        category_code=category_code,
     )
     return [order_response(order) for order in orders]
 

@@ -8,7 +8,6 @@ from backend.bootstrap.dependencies import get_container
 from backend.common.presentation import require_service_key
 from backend.modules.addresses.application import (
     CreateOwnerAddressCommand,
-    UpdateCustomerAddressCommand,
 )
 from backend.modules.care_objects.application import (
     CreateCustomerCareObjectCommand,
@@ -31,7 +30,6 @@ from .schemas import (
     CreateCareObjectRequest,
     CustomerResponse,
     RegisterCustomerRequest,
-    UpdateAddressRequest,
     UpdateCustomerProfileRequest,
     UpdateTelegramUsernameRequest,
 )
@@ -165,7 +163,6 @@ async def delete_care_object(
     )
     return {"status": "deleted"}
 
-
 @router.get("/by-telegram/{telegram_id}/addresses")
 async def list_addresses(
     telegram_id: int,
@@ -208,25 +205,3 @@ async def delete_address(
         address_id=address_id,
     )
     return {"status": "deleted"}
-
-
-@router.patch("/by-telegram/{telegram_id}/addresses/{address_id}")
-async def update_address(
-    telegram_id: int,
-    address_id: UUID,
-    request: UpdateAddressRequest,
-    container: Annotated[Container, Depends(get_container)],
-) -> AddressResponse:
-    address = await container.customers.update_customer_address(
-        UpdateCustomerAddressCommand(
-            telegram_id=telegram_id,
-            address_id=address_id,
-            city_id=request.city_id,
-            unrestricted_value=request.unrestricted_value,
-            entrance=request.entrance,
-            floor=request.floor,
-            apartment=request.apartment,
-            comment=request.comment,
-        ),
-    )
-    return address_response(address)
