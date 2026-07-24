@@ -18,9 +18,7 @@ class UpdateTelegramUsernameRequest(BaseModel):
 
 
 class UpdateCustomerProfileRequest(BaseModel):
-    full_name: str = Field(min_length=1)
     phone: str = Field(min_length=1)
-    city_id: UUID
     contact_method: str
 
 

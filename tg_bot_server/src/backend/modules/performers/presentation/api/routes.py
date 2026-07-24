@@ -38,6 +38,7 @@ from backend.modules.performers.application import (
     SetPerformerAcceptingOrdersCommand,
     SetPerformerServiceEnabledCommand,
     SetPerformerServiceMaxObjectsCommand,
+    UpdatePerformerProfileCommand,
     UpdatePerformerUsernameCommand,
 )
 
@@ -64,6 +65,7 @@ from .schemas import (
     SetAcceptingOrdersRequest,
     SetPerformerServiceEnabledRequest,
     SetPerformerServiceMaxObjectsRequest,
+    UpdatePerformerProfileRequest,
     UpdateTelegramUsernameRequest,
 )
 
@@ -248,6 +250,22 @@ async def update_telegram_username(
         UpdatePerformerUsernameCommand(
             telegram_id=telegram_id,
             telegram_username=request.telegram_username,
+        ),
+    )
+    return performer_response(performer)
+
+
+@router.patch("/performers/by-telegram/{telegram_id}/profile")
+async def update_profile(
+    telegram_id: int,
+    request: UpdatePerformerProfileRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> PerformerResponse:
+    performer = await container.performers.update_performer_profile(
+        UpdatePerformerProfileCommand(
+            telegram_id=telegram_id,
+            phone=request.phone,
+            contact_method=request.contact_method,
         ),
     )
     return performer_response(performer)

@@ -35,6 +35,8 @@ from ._shared import (
     SqlAlchemyCustomerRepository,
     SqlAlchemyFileRepository,
     SqlAlchemyPerformerRepository,
+    UpdatePerformerProfileCommand,
+    UpdatePerformerProfileUseCase,
     UpdatePerformerUsernameCommand,
     UpdatePerformerUsernameUseCase,
     UploadActorFileCommand,
@@ -259,6 +261,17 @@ class PerformerServices(Service):
     ) -> Any:
         async with self._uow() as uow:
             performer = await UpdatePerformerUsernameUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return performer
+
+    async def update_performer_profile(
+        self,
+        command: UpdatePerformerProfileCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            performer = await UpdatePerformerProfileUseCase(
                 SqlAlchemyPerformerRepository(uow.session),
             ).execute(command)
             await uow.commit()

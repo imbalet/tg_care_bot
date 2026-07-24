@@ -169,6 +169,32 @@ class UpdatePerformerUsernameUseCase:
 
 
 @dataclass(frozen=True)
+class UpdatePerformerProfileCommand:
+    telegram_id: int
+    phone: str
+    contact_method: str
+
+
+class UpdatePerformerProfileUseCase:
+    def __init__(self, repository: PerformerRepository) -> None:
+        self._repository = repository
+
+    async def execute(self, command: UpdatePerformerProfileCommand) -> PerformerDTO:
+        if not command.phone.strip():
+            raise ValidationError("Phone is required")
+        if command.contact_method not in {"telegram", "phone", "both"}:
+            raise ValidationError("Contact method is invalid")
+        performer = await self._repository.update_profile(
+            telegram_id=command.telegram_id,
+            phone=command.phone,
+            contact_method=command.contact_method,
+        )
+        if performer is None:
+            raise NotFoundError("Performer not found")
+        return performer
+
+
+@dataclass(frozen=True)
 class ApprovePerformerServiceCommand:
     performer_id: UUID
     service_id: UUID

@@ -57,6 +57,15 @@ class PerformerRepository(Protocol):
     ) -> PerformerDTO | None:
         pass
 
+    async def update_profile(
+        self,
+        *,
+        telegram_id: int,
+        phone: str,
+        contact_method: str,
+    ) -> PerformerDTO | None:
+        pass
+
     async def set_current_address(
         self,
         *,

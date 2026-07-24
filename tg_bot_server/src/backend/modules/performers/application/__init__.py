@@ -16,6 +16,8 @@ from .use_cases import (
     SetPerformerServiceEnabledUseCase,
     SetPerformerServiceMaxObjectsCommand,
     SetPerformerServiceMaxObjectsUseCase,
+    UpdatePerformerProfileCommand,
+    UpdatePerformerProfileUseCase,
     UpdatePerformerUsernameCommand,
     UpdatePerformerUsernameUseCase,
 )
@@ -43,4 +45,6 @@ __all__ = [
     "SetPerformerServiceMaxObjectsUseCase",
     "UpdatePerformerUsernameCommand",
     "UpdatePerformerUsernameUseCase",
+    "UpdatePerformerProfileCommand",
+    "UpdatePerformerProfileUseCase",
 ]

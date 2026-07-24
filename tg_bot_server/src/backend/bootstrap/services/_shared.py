@@ -153,6 +153,8 @@ from backend.modules.performers.application import (
     SetPerformerServiceEnabledUseCase,
     SetPerformerServiceMaxObjectsCommand,
     SetPerformerServiceMaxObjectsUseCase,
+    UpdatePerformerProfileCommand,
+    UpdatePerformerProfileUseCase,
     UpdatePerformerUsernameCommand,
     UpdatePerformerUsernameUseCase,
 )
@@ -303,6 +305,8 @@ __all__ = [
     "UpdateCustomerProfileUseCase",
     "UpdatePerformerUsernameCommand",
     "UpdatePerformerUsernameUseCase",
+    "UpdatePerformerProfileCommand",
+    "UpdatePerformerProfileUseCase",
     "UploadPerformerAvatarCommand",
     "UploadPerformerAvatarUseCase",
     "UploadActorFileCommand",

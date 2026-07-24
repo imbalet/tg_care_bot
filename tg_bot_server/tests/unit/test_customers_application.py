@@ -8,6 +8,8 @@ from backend.common.domain import ValidationError
 from backend.modules.customers.application.use_cases import (
     RegisterCustomerCommand,
     RegisterCustomerUseCase,
+    UpdateCustomerProfileCommand,
+    UpdateCustomerProfileUseCase,
 )
 from backend.modules.customers.domain import ContactMethod
 from tests.support.fakes import FakeClock
@@ -77,4 +79,43 @@ async def test_customer_registration_is_idempotent_for_existing_customer() -> No
 
     assert result.full_name == "New Name"
     repository.add.assert_not_awaited()
+    repository.update.assert_awaited_once_with(existing)
+
+
+@pytest.mark.unit
+async def test_customer_profile_update_keeps_name_and_city_immutable() -> None:
+    repository = AsyncMock()
+    city_id = uuid4()
+    existing = type(
+        "ExistingCustomer",
+        (),
+        {
+            "id": uuid4(),
+            "telegram_id": 100,
+            "full_name": "Original Name",
+            "phone": "+70000000000",
+            "telegram_username": None,
+            "contact_method": ContactMethod.TELEGRAM,
+            "city_id": city_id,
+            "status": type("Status", (), {"value": "active"})(),
+            "updated_at": None,
+        },
+    )()
+    repository.get_by_telegram_id.return_value = existing
+
+    result = await UpdateCustomerProfileUseCase(
+        repository,
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+    ).execute(
+        UpdateCustomerProfileCommand(
+            telegram_id=100,
+            phone="+79990000000",
+            contact_method="both",
+        ),
+    )
+
+    assert result.full_name == "Original Name"
+    assert result.city_id == city_id
+    assert result.phone == "+79990000000"
+    assert result.contact_method == "both"
     repository.update.assert_awaited_once_with(existing)

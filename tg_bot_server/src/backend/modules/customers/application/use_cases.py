@@ -140,9 +140,7 @@ class UpdateCustomerUsernameUseCase:
 @dataclass(frozen=True)
 class UpdateCustomerProfileCommand:
     telegram_id: int
-    full_name: str
     phone: str
-    city_id: UUID
     contact_method: str
 
 
@@ -156,20 +154,16 @@ class UpdateCustomerProfileUseCase:
         self._clock = clock or SystemClock()
 
     async def execute(self, command: UpdateCustomerProfileCommand) -> CustomerDTO:
-        if not command.full_name.strip() or not command.phone.strip():
-            raise ValidationError("Full name and phone are required")
+        if not command.phone.strip():
+            raise ValidationError("Phone is required")
         try:
             contact_method = ContactMethod(command.contact_method)
         except ValueError as exc:
             raise ValidationError("Contact method is invalid") from exc
-        if not await self._repository.get_city_is_active(command.city_id):
-            raise ValidationError("City is inactive or unknown")
         customer = await self._repository.get_by_telegram_id(command.telegram_id)
         if customer is None:
             raise NotFoundError("Customer is not registered")
-        customer.full_name = command.full_name
         customer.phone = command.phone
-        customer.city_id = command.city_id
         customer.contact_method = contact_method
         customer.updated_at = self._clock.now()
         await self._repository.update(customer)

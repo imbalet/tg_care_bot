@@ -196,6 +196,27 @@ class SqlAlchemyPerformerRepository(PerformerRepository):
             model.updated_at = utc_now()
         return _performer_to_dto(model)
 
+    async def update_profile(
+        self,
+        *,
+        telegram_id: int,
+        phone: str,
+        contact_method: str,
+    ) -> PerformerDTO | None:
+        result = await self._session.execute(
+            select(PerformerModel)
+            .where(PerformerModel.telegram_id == telegram_id)
+            .with_for_update(),
+        )
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+        model.phone = phone
+        model.contact_method = contact_method
+        model.updated_at = utc_now()
+        await self._session.flush()
+        return _performer_to_dto(model)
+
     async def set_current_address(
         self,
         *,

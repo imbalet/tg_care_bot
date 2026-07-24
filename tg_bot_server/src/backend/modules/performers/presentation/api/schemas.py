@@ -31,6 +31,11 @@ class UpdateTelegramUsernameRequest(BaseModel):
     telegram_username: str | None = None
 
 
+class UpdatePerformerProfileRequest(BaseModel):
+    phone: str = Field(min_length=1)
+    contact_method: str
+
+
 class ApprovePerformerServiceRequest(BaseModel):
     admin_max_objects: int = Field(ge=1)
     constraints: dict[str, Any] = Field(default_factory=dict)

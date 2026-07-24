@@ -82,9 +82,7 @@ async def update_profile(
     customer = await container.customers.update_customer_profile(
         UpdateCustomerProfileCommand(
             telegram_id=telegram_id,
-            full_name=request.full_name,
             phone=request.phone,
-            city_id=request.city_id,
             contact_method=request.contact_method,
         ),
     )
