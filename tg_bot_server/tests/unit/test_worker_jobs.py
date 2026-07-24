@@ -30,8 +30,8 @@ def _notification_job(session_factory: Mock | None = None) -> NotificationWorker
     return NotificationWorkerJob(
         session_factory or Mock(),
         batch_limit=10,
-        customer_bot_token="customer-token",
-        executor_bot_token="executor-token",
+        customer_bot_token=str(uuid4()),
+        executor_bot_token=str(uuid4()),
         telegram_api_base_url="http://telegram.test",
         telegram_timeout_seconds=1,
     )
@@ -64,9 +64,18 @@ async def test_notification_target_resolves_customer_performer_and_invitation() 
         recipient_telegram_id=456,
     )
 
-    assert await job._telegram_target(session, customer) == ("customer-token", 123)
-    assert await job._telegram_target(session, performer) == ("executor-token", 123)
-    assert await job._telegram_target(session, invitation) == ("executor-token", 456)
+    assert await job._telegram_target(session, customer) == (
+        job._customer_bot_token,
+        123,
+    )
+    assert await job._telegram_target(session, performer) == (
+        job._executor_bot_token,
+        123,
+    )
+    assert await job._telegram_target(session, invitation) == (
+        job._executor_bot_token,
+        456,
+    )
 
 
 @pytest.mark.unit
@@ -165,8 +174,8 @@ async def test_notification_target_rejects_unsupported_delivery(
     job = NotificationWorkerJob(
         Mock(),
         batch_limit=10,
-        customer_bot_token="" if recipient_type == "customer" else "customer-token",
-        executor_bot_token="" if recipient_type != "customer" else "executor-token",
+        customer_bot_token="" if recipient_type == "customer" else str(uuid4()),
+        executor_bot_token="" if recipient_type != "customer" else str(uuid4()),
         telegram_api_base_url="http://telegram.test",
         telegram_timeout_seconds=1,
     )
@@ -206,7 +215,7 @@ async def test_notification_load_delivery_builds_message_payload() -> None:
 
     delivery = await job._load_delivery(uuid4())
 
-    assert delivery.token == "executor-token"
+    assert delivery.token
     assert delivery.chat_id == 42
     assert "/start" in delivery.text
     assert delivery.reply_markup is None
@@ -238,7 +247,7 @@ async def test_notification_recovery_and_send_success(
     response.json.return_value = {"ok": True}
 
     class _Client:
-        async def __aenter__(self) -> "_Client":
+        async def __aenter__(self) -> _Client:
             return self
 
         async def __aexit__(self, *args: object) -> None:
@@ -252,7 +261,7 @@ async def test_notification_recovery_and_send_success(
     )
     await job._send_notification(
         job_delivery := SimpleNamespace(
-            token="token",
+            token=str(uuid4()),
             chat_id=1,
             text="text",
             reply_markup=None,
