@@ -7,7 +7,7 @@ from sqlalchemy import Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import to_timezone, utc_now
-from backend.modules.addresses.infrastructure import AddressModel
+from backend.modules.addresses.infrastructure.persistence.models import AddressModel
 from backend.modules.availability.application import (
     AvailabilityCheckDTO,
     AvailabilityRepository,
@@ -15,14 +15,19 @@ from backend.modules.availability.application import (
     PerformerScheduleDTO,
     SuitablePerformerDTO,
 )
-from backend.modules.care_objects.infrastructure import CareObjectModel
-from backend.modules.catalog.infrastructure import CityModel, ServiceModel
+from backend.modules.care_objects.infrastructure.persistence.models import (
+    CareObjectModel,
+)
+from backend.modules.catalog.infrastructure.persistence.models import (
+    CityModel,
+    ServiceModel,
+)
 from backend.modules.geo.application import haversine_distance_km
 from backend.modules.orders.infrastructure.persistence.models import (
     OrderMatchModel,
     OrderModel,
 )
-from backend.modules.performers.infrastructure import (
+from backend.modules.performers.infrastructure.persistence.models import (
     PerformerCalendarOverrideModel,
     PerformerModel,
     PerformerScheduleModel,
