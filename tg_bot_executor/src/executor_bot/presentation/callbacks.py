@@ -27,6 +27,10 @@ class ProfileOpenCallback(CallbackData, prefix="profile_open"):
     pass
 
 
+class ProfileEditCallback(CallbackData, prefix="profile_edit"):
+    pass
+
+
 class ProfileDeletionCheckCallback(CallbackData, prefix="profile_delete_check"):
     pass
 

@@ -61,6 +61,14 @@ class BackendPort(Protocol):
         telegram_username: str | None,
     ) -> PerformerProfileDTO: ...
 
+    async def update_performer_profile(
+        self,
+        *,
+        telegram_id: int,
+        phone: str,
+        contact_method: str,
+    ) -> PerformerProfileDTO: ...
+
     async def suggest_addresses(
         self,
         *,

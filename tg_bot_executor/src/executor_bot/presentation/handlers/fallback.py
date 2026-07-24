@@ -1,6 +1,7 @@
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 
 from executor_bot.application.errors import BackendClientError
 from executor_bot.application.ports import ActiveCategoryStore, BackendPort
@@ -9,9 +10,12 @@ from executor_bot.presentation.callbacks import (
     MainMenuCallback,
     ProfileDeletionCheckCallback,
     ProfileDeletionConfirmCallback,
+    ProfileEditCallback,
     ProfileOpenCallback,
+    RegistrationContactCallback,
     SupportOpenCallback,
 )
+from executor_bot.presentation.handlers.responses import send_step
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.navigation import (
     active_category,
@@ -20,10 +24,15 @@ from executor_bot.presentation.navigation import (
 )
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
+    contact_methods_keyboard,
     executor_profile_text,
     fallback_keyboard,
     fallback_text,
     help_text,
+    invalid_phone_contact_text,
+    phone_contact_keyboard,
+    phone_step_text,
+    select_contact_method_text,
     stale_action_keyboard,
     stale_action_text,
     support_keyboard,
@@ -34,6 +43,113 @@ from executor_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from executor_bot.presentation.ui.screens.labels import MsgKey
 
 router = Router(name="fallback")
+
+
+class ProfileEditForm(StatesGroup):
+    phone = State()
+    contact_method = State()
+
+
+@router.callback_query(ProfileEditCallback.filter())
+async def profile_edit_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await state.set_state(ProfileEditForm.phone)
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=phone_step_text(),
+        reply_markup=phone_contact_keyboard(),
+    )
+
+
+@router.message(ProfileEditForm.phone)
+async def profile_edit_phone(
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    contact = message.contact
+    if contact is None or contact.user_id != telegram_user_context.telegram_id:
+        await send_step(
+            bot=bot,
+            event=message,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=invalid_phone_contact_text(),
+            reply_markup=phone_contact_keyboard(),
+            create_new=True,
+        )
+        return
+    await state.update_data(profile_phone=contact.phone_number)
+    await state.set_state(ProfileEditForm.contact_method)
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text="Телефон получен.",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    await send_step(
+        bot=bot,
+        event=message,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=select_contact_method_text(),
+        reply_markup=contact_methods_keyboard(),
+        create_new=True,
+    )
+
+
+@router.callback_query(
+    ProfileEditForm.contact_method,
+    RegistrationContactCallback.filter(),
+)
+async def profile_edit_contact_method(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: RegistrationContactCallback,
+) -> None:
+    data = await state.get_data()
+    try:
+        await backend_client.update_performer_profile(
+            telegram_id=telegram_user_context.telegram_id,
+            phone=str(data["profile_phone"]),
+            contact_method=callback_data.method.value,
+        )
+    except BackendClientError:
+        await send_step(
+            bot=bot,
+            event=callback,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            text=unavailable_action_text(),
+            reply_markup=fallback_keyboard(),
+        )
+        await state.clear()
+        return
+    await state.clear()
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text="Профиль обновлён",
+        reply_markup=fallback_keyboard(),
+    )
 
 
 @router.callback_query(ProfileDeletionCheckCallback.filter())
@@ -147,23 +263,19 @@ async def help_callback(
 ) -> None:
     message = callback.message
     if isinstance(message, Message):
-        current_state = await state.get_state()
-        include_main_menu = False
-        if current_state is None:
-            try:
-                include_main_menu = (
-                    await backend_client.get_registration_state(
-                        telegram_user_context.telegram_id,
-                    )
-                ).state == "registered"
-            except BackendClientError:
-                include_main_menu = False
+        try:
+            documents = await backend_client.list_active_legal_documents()
+        except BackendClientError:
+            documents = ()
         await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=help_text(),
-            reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
+            reply_markup=fallback_keyboard(
+                include_main_menu=True,
+                legal_documents=documents,
+            ),
         )
         return
     await callback.answer("Сообщение недоступно", show_alert=True)
@@ -246,6 +358,7 @@ async def profile_callback(
         text=executor_profile_text(state.performer, city_name=city_name),
         reply_markup=(
             InlineKeyboardFactory()
+            .button("Редактировать профиль", ProfileEditCallback())
             .button("Проверить удаление аккаунта", ProfileDeletionCheckCallback())
             .button(MsgKey.MAIN_MENU, MainMenuCallback())
             .as_markup()

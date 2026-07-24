@@ -201,6 +201,21 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return _performer_from_json(response.json())
 
+    async def update_performer_profile(
+        self,
+        *,
+        telegram_id: int,
+        phone: str,
+        contact_method: str,
+    ) -> PerformerProfileDTO:
+        response = await self._request(
+            "PATCH",
+            f"/api/performers/by-telegram/{telegram_id}/profile",
+            json={"phone": phone, "contact_method": contact_method},
+        )
+        self._raise_for_status(response)
+        return _performer_from_json(response.json())
+
     async def suggest_addresses(
         self,
         *,

@@ -81,21 +81,19 @@ async def help_command(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    include_main_menu = False
     try:
-        include_main_menu = (
-            await backend_client.get_registration_state(
-                telegram_user_context.telegram_id
-            )
-        ).state == "registered"
+        documents = await backend_client.list_active_legal_documents()
     except BackendClientError:
-        include_main_menu = False
+        documents = ()
     await telegram_responder.update(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
         text=help_text(),
-        reply_markup=fallback_keyboard(include_main_menu=include_main_menu),
+        reply_markup=fallback_keyboard(
+            include_main_menu=True,
+            legal_documents=documents,
+        ),
     )
 
 
@@ -188,7 +186,7 @@ async def _open_start_or_menu(
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
         text=help_text(),
-        reply_markup=fallback_keyboard(include_main_menu=False),
+        reply_markup=fallback_keyboard(include_main_menu=True),
     )
 
 
