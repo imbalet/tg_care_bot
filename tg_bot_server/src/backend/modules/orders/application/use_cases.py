@@ -251,10 +251,12 @@ class SubmitOrderReportUseCase:
         repository: OrderRepository,
         file_repository: FileRepository,
         storage: ObjectStorage,
+        pricing_repository: PricingRepository | None = None,
     ) -> None:
         self._repository = repository
         self._file_repository = file_repository
         self._storage = storage
+        self._pricing_repository = pricing_repository
 
     async def execute(self, command: SubmitOrderReportCommand) -> OrderReportDTO:
         if not command.completed_work.strip():
@@ -284,6 +286,14 @@ class SubmitOrderReportUseCase:
             raise ValidationError("Report photo is required")
         if order.photo_policy == "requires_customer_consent" and not files:
             raise ValidationError("Report photo is required")
+        confirmation_minutes = 24 * 60
+        if self._pricing_repository is not None:
+            configured_minutes = await self._pricing_repository.get_integer_setting(
+                "report_confirmation_window_minutes"
+            )
+            if configured_minutes is None:
+                raise ValidationError("Report confirmation policy is not configured")
+            confirmation_minutes = configured_minutes
         report = await self._repository.submit_report(
             order_id=command.order_id,
             performer_id=command.performer_id,
@@ -291,6 +301,8 @@ class SubmitOrderReportUseCase:
             comment=command.comment,
             problem_flag=command.problem_flag,
             problem_description=command.problem_description,
+            confirmation_deadline_at=utc_now()
+            + timedelta(minutes=confirmation_minutes),
         )
         for index, file in enumerate(files):
             await self._file_repository.add_link(

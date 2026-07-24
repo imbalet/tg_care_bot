@@ -490,12 +490,66 @@ class DeadlinesWorkerJob:
             )
             await self._notify_once(
                 session=session,
+                recipient_type="customer",
+                customer_id=order.customer_id,
+                notification_type="report_required",
+                entity_id=order.id,
+                payload={"order_id": str(order.id)},
+                deduplication_key=f"report-required:customer:{order.id}",
+            )
+            await self._notify_once(
+                session=session,
                 recipient_type="performer",
                 performer_id=order.selected_performer_id,
                 notification_type="report_required",
                 entity_id=order.id,
                 payload={"order_id": str(order.id)},
                 deduplication_key=f"report-required:{order.id}",
+            )
+
+        result = await session.execute(
+            for_update_skip_locked(
+                select(OrderModel)
+                .where(
+                    OrderModel.status == "report_submitted",
+                    OrderModel.confirmation_deadline_at <= now,
+                )
+                .order_by(OrderModel.confirmation_deadline_at),
+                self._batch_limit,
+            ),
+        )
+        for order_probe in result.scalars():
+            order = await self._lock_order(session, order_probe.id)
+            if order.status != "report_submitted":
+                continue
+            order.status = "completed"
+            order.confirmation_deadline_at = None
+            session.add(
+                OrderStatusHistoryModel(
+                    order_id=order.id,
+                    from_status="report_submitted",
+                    to_status="completed",
+                    actor_type="system",
+                    reason="report_confirmation_timeout",
+                ),
+            )
+            await self._notify_once(
+                session=session,
+                recipient_type="performer",
+                performer_id=order.selected_performer_id,
+                notification_type="report_auto_accepted",
+                entity_id=order.id,
+                payload={"order_id": str(order.id)},
+                deduplication_key=f"report-auto-accepted:performer:{order.id}",
+            )
+            await self._notify_once(
+                session=session,
+                recipient_type="customer",
+                customer_id=order.customer_id,
+                notification_type="report_auto_accepted",
+                entity_id=order.id,
+                payload={"order_id": str(order.id)},
+                deduplication_key=f"report-auto-accepted:customer:{order.id}",
             )
 
         result = await session.execute(

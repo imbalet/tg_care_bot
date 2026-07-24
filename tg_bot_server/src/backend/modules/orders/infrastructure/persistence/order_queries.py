@@ -236,7 +236,7 @@ class SqlAlchemyMyOrdersQueryService:
             .join(OrderModel, OrderModel.id == OrderReportModel.order_id)
             .where(
                 OrderReportModel.order_id == order_id,
-                OrderModel.status == "completed",
+                OrderModel.status.in_(("report_submitted", "completed")),
             )
         )
         if customer_id is not None:

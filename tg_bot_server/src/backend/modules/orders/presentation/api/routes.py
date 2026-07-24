@@ -233,6 +233,19 @@ async def list_performer_my_orders(
     return my_orders_page_response(orders)
 
 
+@router.get("/performer/{performer_id}/responses")
+async def list_performer_responses(
+    performer_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+    group: Annotated[str, Query(pattern="^(active|selected|closed)$")] = "active",
+) -> list[OrderMatchResponse]:
+    matches = await container.orders.list_performer_responses(
+        performer_id=performer_id,
+        group=group,
+    )
+    return [match_response(match) for match in matches]
+
+
 @router.get("/performer/{performer_id}/my/{order_id}")
 async def get_performer_my_order(
     performer_id: UUID,

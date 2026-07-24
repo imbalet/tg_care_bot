@@ -174,6 +174,7 @@ class OrderServices(Service):
                 SqlAlchemyOrderRepository(uow.session),
                 SqlAlchemyFileRepository(uow.session),
                 self._storage(),
+                SqlAlchemyPricingRepository(uow.session),
             ).execute(
                 SubmitOrderReportCommand(
                     order_id=order_id,
@@ -421,6 +422,12 @@ class OrderServices(Service):
                 order_id=order_id,
                 customer_id=customer_id,
             )
+
+    async def list_performer_responses(self, *, performer_id: UUID, group: str) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyMatchingRepository(
+                uow.session
+            ).list_performer_responses(performer_id=performer_id, group=group)
 
     async def reject_pool_response(
         self,

@@ -51,6 +51,8 @@ _OPEN_ORDER_TYPES = frozenset(
         "report_submitted",
         "report_required",
         "report_overdue",
+        "report_auto_accepted",
+        "contact_request_created",
     }
 )
 
@@ -80,6 +82,10 @@ _BODIES = {
     "report_submitted": "Исполнитель отправил отчет по заказу.",
     "report_required": "Нужно отправить отчет по заказу.",
     "report_overdue": "Отчет по заказу просрочен.",
+    "report_auto_accepted": (
+        "Отчет автоматически принят после окончания окна подтверждения."
+    ),
+    "contact_request_created": "Исполнитель просит связаться по заказу.",
     "support_request_created": "Поступило новое обращение в поддержку.",
     "complaint_created": "Поступила новая жалоба.",
     "account_deletion_requested": "Поступил запрос на удаление аккаунта.",

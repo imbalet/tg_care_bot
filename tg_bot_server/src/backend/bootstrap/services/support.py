@@ -167,6 +167,81 @@ class SupportServices(Service):
             await uow.commit()
             return record
 
+    async def create_performer_contact_request(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID,
+    ) -> ContactRequestModel:
+        async with self._uow() as uow:
+            repository = SqlAlchemySupportRepository(uow.session)
+            performer = await repository.get_actor(
+                actor_type="performer",
+                telegram_id=telegram_id,
+                for_update=True,
+            )
+            order = await uow.session.scalar(
+                select(OrderModel)
+                .where(
+                    OrderModel.id == order_id,
+                    OrderModel.selected_performer_id == performer.id,
+                    OrderModel.customer_id.is_not(None),
+                    OrderModel.status.in_(
+                        (
+                            "confirmed",
+                            "in_progress",
+                            "waiting_report",
+                            "report_submitted",
+                        )
+                    ),
+                )
+                .with_for_update()
+            )
+            if order is None or order.customer_id is None:
+                raise ConflictError("Order is not available for contact")
+            existing = await uow.session.scalar(
+                select(ContactRequestModel).where(
+                    ContactRequestModel.order_id == order.id,
+                    ContactRequestModel.status.in_(("requested", "sent")),
+                )
+            )
+            if existing is not None:
+                await uow.commit()
+                return existing
+            customer = await uow.session.get(CustomerModel, order.customer_id)
+            if customer is None:
+                raise ConflictError("Customer is not available for contact")
+            record = ContactRequestModel(
+                customer_id=customer.id,
+                performer_id=performer.id,
+                order_id=order.id,
+                requested_method=customer.contact_method,
+                status="sent" if customer.telegram_id else "failed",
+                failure_reason=(
+                    None if customer.telegram_id else "telegram_unavailable"
+                ),
+            )
+            uow.session.add(record)
+            await uow.session.flush()
+            if customer.telegram_id:
+                now = utc_now()
+                uow.session.add(
+                    NotificationModel(
+                        recipient_type="customer",
+                        customer_id=customer.id,
+                        performer_id=None,
+                        type="contact_request_created",
+                        entity_type="contact_request",
+                        entity_id=record.id,
+                        payload={"order_id": str(order.id)},
+                        deduplication_key=f"contact-request:{record.id}",
+                        scheduled_at=now,
+                        delete_after=now + timedelta(days=30),
+                    )
+                )
+            await uow.commit()
+            return record
+
     async def deletion_preflight(
         self, *, actor_type: str, telegram_id: int
     ) -> list[dict[str, Any]]:

@@ -84,6 +84,7 @@ class OrderRepository(Protocol):
         comment: str | None,
         problem_flag: bool,
         problem_description: str | None,
+        confirmation_deadline_at: datetime,
     ) -> OrderReportDTO:
         pass
 

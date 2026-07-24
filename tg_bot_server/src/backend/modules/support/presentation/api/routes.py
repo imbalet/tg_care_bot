@@ -237,6 +237,26 @@ async def create_customer_contact_request(
     )
 
 
+@performer_router.post("/by-telegram/{telegram_id}/contact-requests", status_code=201)
+async def create_performer_contact_request(
+    telegram_id: int,
+    request: CreateContactRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> ContactRequestResponse:
+    record = await container.support.create_performer_contact_request(
+        telegram_id=telegram_id,
+        order_id=request.order_id,
+    )
+    return ContactRequestResponse(
+        id=record.id,
+        order_id=record.order_id,
+        performer_id=record.performer_id,
+        requested_method=record.requested_method,
+        status=record.status,
+        failure_reason=record.failure_reason,
+    )
+
+
 @customer_router.post("/by-telegram/{telegram_id}/files", status_code=201)
 async def upload_customer_file(
     telegram_id: int,

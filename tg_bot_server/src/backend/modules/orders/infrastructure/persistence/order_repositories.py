@@ -175,6 +175,7 @@ class SqlAlchemyOrderRepository(OrderRepository):
         comment: str | None,
         problem_flag: bool,
         problem_description: str | None,
+        confirmation_deadline_at: datetime,
     ) -> OrderReportDTO:
         order = await self._lock_order(order_id)
         if order.selected_performer_id != performer_id:
@@ -198,6 +199,7 @@ class SqlAlchemyOrderRepository(OrderRepository):
         now = utc_now()
         order.status = "report_submitted"
         order.actual_finished_at = order.actual_finished_at or now
+        order.confirmation_deadline_at = confirmation_deadline_at
         self._add_status_history(
             order.id,
             "waiting_report",

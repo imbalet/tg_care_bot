@@ -77,6 +77,33 @@ class SqlAlchemyMatchingRepository:
                 orders.append(await self._order_to_dto(order))
         return tuple(orders)
 
+    async def list_performer_responses(
+        self,
+        *,
+        performer_id: UUID,
+        group: str,
+    ) -> tuple[OrderMatchDTO, ...]:
+        statuses = {
+            "active": ("active",),
+            "selected": ("selected",),
+            "closed": ("closed", "rejected", "cancelled", "expired"),
+        }.get(group)
+        if statuses is None:
+            raise ValidationError("Invalid response group")
+        result = await self._session.execute(
+            select(OrderMatchModel, OrderModel)
+            .join(OrderModel, OrderModel.id == OrderMatchModel.order_id)
+            .where(
+                OrderMatchModel.performer_id == performer_id,
+                OrderMatchModel.status.in_(statuses),
+            )
+            .order_by(OrderMatchModel.created_at.desc())
+        )
+        matches: list[OrderMatchDTO] = []
+        for match, order in result.all():
+            matches.append(_match_to_dto(match, await self._order_timezone(order)))
+        return tuple(matches)
+
     async def create_pool_response(
         self,
         *,
