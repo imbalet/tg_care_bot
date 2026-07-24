@@ -1,18 +1,26 @@
+from decimal import Decimal
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
 
 from backend.modules.notifications.infrastructure import NotificationModel
+from backend.modules.payments.infrastructure import RefundModel
 from backend.worker.jobs import (
     DeadlinesWorkerJob,
     NoopWorkerJob,
+    NotificationDelivery,
     NotificationWorkerJob,
     RefundWorkerJob,
     _notification_keyboard,
     _notification_text,
 )
+
+
+def _as_notification(value: SimpleNamespace) -> NotificationModel:
+    return cast(NotificationModel, value)
 
 
 class _SessionContext:
@@ -64,15 +72,15 @@ async def test_notification_target_resolves_customer_performer_and_invitation() 
         recipient_telegram_id=456,
     )
 
-    assert await job._telegram_target(session, customer) == (
+    assert await job._telegram_target(session, _as_notification(customer)) == (
         job._customer_bot_token,
         123,
     )
-    assert await job._telegram_target(session, performer) == (
+    assert await job._telegram_target(session, _as_notification(performer)) == (
         job._executor_bot_token,
         123,
     )
-    assert await job._telegram_target(session, invitation) == (
+    assert await job._telegram_target(session, _as_notification(invitation)) == (
         job._executor_bot_token,
         456,
     )
@@ -93,7 +101,7 @@ async def test_notification_target_rejects_missing_telegram_id() -> None:
     )
 
     with pytest.raises(RuntimeError, match="Customer telegram id is missing"):
-        await job._telegram_target(session, notification)
+        await job._telegram_target(session, _as_notification(notification))
 
 
 @pytest.mark.unit
@@ -111,7 +119,7 @@ async def test_notification_target_rejects_missing_performer_telegram_id() -> No
     )
 
     with pytest.raises(RuntimeError, match="Performer telegram id is missing"):
-        await job._telegram_target(session, notification)
+        await job._telegram_target(session, _as_notification(notification))
 
 
 @pytest.mark.unit
@@ -143,7 +151,7 @@ async def test_notification_target_rejects_incomplete_recipient(
     job = _notification_job()
 
     with pytest.raises(RuntimeError, match=message):
-        await job._telegram_target(session, notification)
+        await job._telegram_target(session, _as_notification(notification))
 
 
 @pytest.mark.unit
@@ -181,7 +189,7 @@ async def test_notification_target_rejects_unsupported_delivery(
     )
 
     with pytest.raises(RuntimeError, match=message):
-        await job._telegram_target(session, notification)
+        await job._telegram_target(session, _as_notification(notification))
 
 
 @pytest.mark.unit
@@ -259,27 +267,32 @@ async def test_notification_recovery_and_send_success(
     monkeypatch.setattr(
         "backend.worker.jobs.httpx.AsyncClient", lambda **kwargs: _Client()
     )
-    await job._send_notification(
-        job_delivery := SimpleNamespace(
+    delivery = cast(
+        NotificationDelivery,
+        SimpleNamespace(
             token=str(uuid4()),
             chat_id=1,
             text="text",
             reply_markup=None,
         ),
     )
-    assert job_delivery.chat_id == 1
+    await job._send_notification(delivery)
+    assert delivery.chat_id == 1
     response.raise_for_status.assert_called_once()
 
 
 @pytest.mark.unit
 async def test_refund_claim_batch_builds_gateway_commands() -> None:
     session = AsyncMock()
-    refund = SimpleNamespace(
-        id=uuid4(),
-        payment_id=uuid4(),
-        idempotency_key="refund-key",
-        amount=10,
-        status="pending",
+    refund = cast(
+        RefundModel,
+        SimpleNamespace(
+            id=uuid4(),
+            payment_id=uuid4(),
+            idempotency_key="refund-key",
+            amount=Decimal("10"),
+            status="pending",
+        ),
     )
     result = Mock()
     result.all.return_value = [(refund, "provider-payment")]
@@ -294,7 +307,7 @@ async def test_refund_claim_batch_builds_gateway_commands() -> None:
             refund.payment_id,
             "provider-payment",
             "refund-key",
-            10,
+            Decimal("10"),
         ),
     )
     assert refund.status == "processing"
@@ -319,12 +332,16 @@ async def test_refund_worker_marks_success_and_failure(
     )
     refund_id = uuid4()
     payment_id = uuid4()
-    job._recover_processing = AsyncMock()
-    job._claim_batch = AsyncMock(
-        return_value=(
-            (refund_id, payment_id, "provider-payment", "key-1", 10),
-            (refund_id, payment_id, "provider-payment", "key-2", 20),
-        )
+    monkeypatch.setattr(job, "_recover_processing", AsyncMock())
+    monkeypatch.setattr(
+        job,
+        "_claim_batch",
+        AsyncMock(
+            return_value=(
+                (refund_id, payment_id, "provider-payment", "key-1", 10),
+                (refund_id, payment_id, "provider-payment", "key-2", 20),
+            )
+        ),
     )
     mark_succeeded = AsyncMock()
     mark_failed = AsyncMock()
@@ -457,20 +474,27 @@ async def test_notification_claim_batch_allows_empty_queue() -> None:
 
 
 @pytest.mark.unit
-async def test_notification_run_once_finishes_success_and_failure() -> None:
+async def test_notification_run_once_finishes_success_and_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     job = _notification_job()
-    job._recover_processing = AsyncMock()
-    job._claim_batch = AsyncMock(return_value=(uuid4(), uuid4()))
-    job._load_delivery = AsyncMock(side_effect=[object(), RuntimeError("broken")])
-    job._send_notification = AsyncMock()
-    job._finish = AsyncMock()
+    recover_processing = AsyncMock()
+    claim_batch = AsyncMock(return_value=(uuid4(), uuid4()))
+    load_delivery = AsyncMock(side_effect=[object(), RuntimeError("broken")])
+    send_notification = AsyncMock()
+    finish = AsyncMock()
+    monkeypatch.setattr(job, "_recover_processing", recover_processing)
+    monkeypatch.setattr(job, "_claim_batch", claim_batch)
+    monkeypatch.setattr(job, "_load_delivery", load_delivery)
+    monkeypatch.setattr(job, "_send_notification", send_notification)
+    monkeypatch.setattr(job, "_finish", finish)
 
     await job.run_once()
 
-    job._recover_processing.assert_awaited_once()
-    assert job._send_notification.await_count == 1
-    assert job._finish.await_args_list[0].kwargs == {}
-    assert job._finish.await_args_list[1].kwargs == {"error": "RuntimeError"}
+    recover_processing.assert_awaited_once()
+    assert send_notification.await_count == 1
+    assert finish.await_args_list[0].kwargs == {}
+    assert finish.await_args_list[1].kwargs == {"error": "RuntimeError"}
 
 
 @pytest.mark.unit
@@ -559,9 +583,9 @@ def test_notification_rendering_covers_performer_and_admin_titles() -> None:
         payload={},
     )
 
-    assert "Исполнитель" in _notification_text(performer)
-    assert "Админ" in _notification_text(admin)
-    assert _notification_keyboard(performer) is not None
+    assert "Исполнитель" in _notification_text(_as_notification(performer))
+    assert "Админ" in _notification_text(_as_notification(admin))
+    assert _notification_keyboard(_as_notification(performer)) is not None
 
 
 @pytest.mark.unit
@@ -582,7 +606,7 @@ def test_notification_rendering_handles_invitation_and_role_titles() -> None:
         payload={"order_id": "<order>"},
     )
 
-    assert "/start" in _notification_text(invitation)
-    assert "Заказчик" in _notification_text(customer)
-    assert "&lt;order&gt;" in _notification_text(customer)
-    assert _notification_keyboard(invitation) is None
+    assert "/start" in _notification_text(_as_notification(invitation))
+    assert "Заказчик" in _notification_text(_as_notification(customer))
+    assert "&lt;order&gt;" in _notification_text(_as_notification(customer))
+    assert _notification_keyboard(_as_notification(invitation)) is None
