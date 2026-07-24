@@ -156,6 +156,52 @@ async def test_create_photo_consent_is_required_only_for_restricted_services() -
 
 
 @pytest.mark.unit
+async def test_create_order_rejects_missing_objects() -> None:
+    service = _service()
+    repository = _order_repository(service, _snapshot())
+
+    with pytest.raises(ValidationError, match="care objects"):
+        await CreatePoolOrderUseCase(repository, repository).execute(
+            replace(_command(service), care_object_ids=()),
+        )
+
+
+@pytest.mark.unit
+async def test_create_order_rejects_inactive_customer_address() -> None:
+    service = _service()
+    repository = _order_repository(service, _snapshot())
+    repository.customer_address_is_active.return_value = False
+
+    with pytest.raises(ValidationError, match="address"):
+        await CreatePoolOrderUseCase(repository, repository).execute(
+            _command(service),
+        )
+
+
+@pytest.mark.unit
+async def test_create_order_rejects_unknown_service_option() -> None:
+    service = _service()
+    repository = _order_repository(service, _snapshot())
+    repository.service_options_exist.return_value = False
+
+    with pytest.raises(ValidationError, match="option"):
+        await CreatePoolOrderUseCase(repository, repository).execute(
+            _command(service),
+        )
+
+
+@pytest.mark.unit
+async def test_create_order_rejects_consent_for_service_without_photo_policy() -> None:
+    service = _service(photo_policy="not_allowed")
+    repository = _order_repository(service, _snapshot())
+
+    with pytest.raises(ValidationError, match="consent"):
+        await CreatePoolOrderUseCase(repository, repository).execute(
+            replace(_command(service), report_photo_consent=True),
+        )
+
+
+@pytest.mark.unit
 async def test_direct_order_rejects_unsuitable_performer() -> None:
     service = _service()
     repository = _order_repository(service, _snapshot())

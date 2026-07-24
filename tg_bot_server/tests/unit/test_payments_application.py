@@ -254,3 +254,32 @@ async def test_payment_status_and_retry_cover_provider_state_branches() -> None:
         is None
     )
     repository.mark_provider_status.assert_awaited_once()
+
+
+@pytest.mark.unit
+async def test_retry_payment_rejects_non_created_attempt_without_provider_id() -> None:
+    repository = AsyncMock()
+    gateway = AsyncMock()
+    data = _initialization_data(status="pending")
+    repository.get_initialization_data.return_value = data
+
+    with pytest.raises(ValidationError, match="Provider payment id"):
+        await RetryPaymentOperationUseCase(repository, gateway).execute(
+            RetryPaymentOperationCommand(data.payment.id),
+        )
+
+    gateway.get_payment_state.assert_not_awaited()
+
+
+@pytest.mark.unit
+async def test_initialize_payment_maps_missing_attempt_to_not_found() -> None:
+    repository = AsyncMock()
+    gateway = AsyncMock()
+    repository.get_initialization_data.return_value = None
+
+    with pytest.raises(NotFoundError, match="Payment not found"):
+        await InitializePaymentUseCase(repository, gateway).execute(
+            InitializePaymentCommand(uuid4()),
+        )
+
+    gateway.create_payment.assert_not_awaited()

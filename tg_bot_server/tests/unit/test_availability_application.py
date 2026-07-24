@@ -8,6 +8,8 @@ from backend.common.domain import ValidationError
 from backend.modules.availability.application.use_cases import (
     CheckPerformerAvailabilityCommand,
     CheckPerformerAvailabilityUseCase,
+    FindSuitablePerformersCommand,
+    FindSuitablePerformersUseCase,
     SetPerformerScheduleCommand,
     SetPerformerScheduleUseCase,
 )
@@ -48,3 +50,39 @@ async def test_availability_rejects_reversed_interval_before_repository_call() -
         )
 
     checker.check.assert_not_awaited()
+
+
+@pytest.mark.unit
+async def test_suitable_performers_rejects_invalid_count_and_limit() -> None:
+    repository = AsyncMock()
+    use_case = FindSuitablePerformersUseCase(repository)
+    now = datetime(2026, 1, 1, 10, tzinfo=UTC)
+
+    with pytest.raises(ValidationError, match="positive"):
+        await use_case.execute(
+            FindSuitablePerformersCommand(
+                city_id=uuid4(),
+                service_id=uuid4(),
+                starts_at=now,
+                ends_at=now + timedelta(hours=1),
+                objects_count=0,
+                care_object_ids=(),
+                address_id=None,
+            ),
+        )
+
+    with pytest.raises(ValidationError, match="between 1 and 100"):
+        await use_case.execute(
+            FindSuitablePerformersCommand(
+                city_id=uuid4(),
+                service_id=uuid4(),
+                starts_at=now,
+                ends_at=now + timedelta(hours=1),
+                objects_count=1,
+                care_object_ids=(uuid4(),),
+                address_id=None,
+                limit=101,
+            ),
+        )
+
+    repository.find_suitable_performers.assert_not_awaited()
