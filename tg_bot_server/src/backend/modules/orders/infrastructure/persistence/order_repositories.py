@@ -298,12 +298,15 @@ class SqlAlchemyOrderRepository(OrderRepository):
         previous_status = order.status
         order.status = "cancelled"
         order.cancelled_by = actor_type
-        order.cancellation_reason = reason or (
-            {
-                "customer": "customer_changed_plans",
-                "performer": "performer_unavailable",
-                "admin": "admin_decision",
-            }[actor_type]
+        order.cancellation_reason = (
+            reason
+            or (
+                {
+                    "customer": "customer_changed_plans",
+                    "performer": "performer_unavailable",
+                    "admin": "admin_decision",
+                }[actor_type]
+            )
         )
         order.cancellation_comment = comment
         order.cancelled_at = now
