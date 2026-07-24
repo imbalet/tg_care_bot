@@ -147,7 +147,14 @@ class Screen(BaseScreen[_View]):
         matching_mode = self.data.matching_mode
         if payment_url and payment_url.startswith("https://"):
             keyboard.url_button("Оплатить", payment_url)
-        if status in {"searching", "waiting_payment", "confirmed"}:
+        if status in {
+            "searching",
+            "waiting_payment",
+            "confirmed",
+            "in_progress",
+            "waiting_report",
+            "report_submitted",
+        }:
             if status == "waiting_payment":
                 keyboard.button(
                     "Обновить оплату", PaymentRefreshCallback(order_id=order_id)
