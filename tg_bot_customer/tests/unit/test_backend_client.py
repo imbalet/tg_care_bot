@@ -111,6 +111,47 @@ async def test_get_customer_profile_returns_none_on_404() -> None:
 
 
 @pytest.mark.asyncio
+async def test_update_customer_profile_sends_only_editable_fields() -> None:
+    city_id = uuid4()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/customers/by-telegram/123/profile"
+        assert json_body(request) == {
+            "phone": "+79990000000",
+            "contact_method": "both",
+        }
+        return httpx.Response(
+            200,
+            json={
+                "id": str(uuid4()),
+                "telegram_id": 123,
+                "full_name": "Original Name",
+                "phone": "+79990000000",
+                "telegram_username": None,
+                "contact_method": "both",
+                "city_id": str(city_id),
+                "status": "active",
+            },
+        )
+
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(handler),
+    )
+
+    profile = await client.update_customer_profile(
+        telegram_id=123,
+        phone="+79990000000",
+        contact_method="both",
+    )
+
+    assert profile.full_name == "Original Name"
+    await client.close()
+
+
+@pytest.mark.asyncio
 async def test_catalog_methods_parse_backend_dtos() -> None:
     city_id = uuid4()
     document_id = uuid4()

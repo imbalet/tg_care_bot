@@ -1,19 +1,20 @@
 import logging
 from dataclasses import replace
-from uuid import UUID
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 
 from customer_bot.application.errors import BackendClientError
 from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
+    MainMenuCallback,
     ProfileDeletionCheckCallback,
     ProfileDeletionConfirmCallback,
     ProfileEditCallback,
     ProfileOpenCallback,
+    RegistrationContactCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import TelegramResponder
@@ -23,13 +24,18 @@ from customer_bot.presentation.ui.screens import (
     ProfileScreen,
     RetryLaterScreen,
 )
+from customer_bot.presentation.ui.screens.registration.phone_step import (
+    Screen as PhoneStepScreen,
+)
+from customer_bot.presentation.ui.screens.registration.select_contact_method import (
+    Screen as SelectContactMethodScreen,
+)
 
 router = Router(name="profile")
 logger = logging.getLogger(__name__)
 
 
 class ProfileEditForm(StatesGroup):
-    full_name = State()
     phone = State()
     contact_method = State()
 
@@ -57,43 +63,15 @@ async def profile_edit_callback(
             callback, "Профиль не найден", show_alert=True
         )
         return
-    await state.set_state(ProfileEditForm.full_name)
-    await state.update_data(
-        profile_city_id=str(profile.city_id),
-        profile_phone=profile.phone,
-    )
+    await state.set_state(ProfileEditForm.phone)
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=f"Введите ФИО\n\nТекущее: {profile.full_name}",
-        reply_markup=None,
+        text=(screen := PhoneStepScreen()).build().text,
+        reply_markup=screen.reply_markup,
     )
     await telegram_responder.acknowledge(callback)
-
-
-@router.message(ProfileEditForm.full_name)
-async def profile_edit_full_name(
-    message: Message,
-    state: FSMContext,
-    bot: Bot,
-    telegram_responder: TelegramResponder,
-    telegram_user_context: TelegramUserContext,
-) -> None:
-    if not message.text or not message.text.strip():
-        await _prompt_profile(
-            message,
-            bot,
-            telegram_responder,
-            telegram_user_context,
-            "Введите ФИО текстом",
-        )
-        return
-    await state.update_data(profile_full_name=message.text.strip())
-    await state.set_state(ProfileEditForm.phone)
-    await _prompt_profile(
-        message, bot, telegram_responder, telegram_user_context, "Введите телефон"
-    )
 
 
 @router.message(ProfileEditForm.phone)
@@ -104,57 +82,64 @@ async def profile_edit_phone(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    if not message.text or not message.text.strip():
-        await _prompt_profile(
-            message,
-            bot,
-            telegram_responder,
-            telegram_user_context,
-            "Введите телефон текстом",
+    contact = message.contact
+    if contact is None or contact.user_id != telegram_user_context.telegram_id:
+        screen = PhoneStepScreen().build()
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(
+                f"{screen.text}\n\n"
+                "Можно передать только свой контакт."
+            ),
+            reply_markup=screen.reply_markup,
+            create_new=True,
         )
         return
-    await state.update_data(profile_phone=message.text.strip())
+    await state.update_data(profile_phone=contact.phone_number)
     await state.set_state(ProfileEditForm.contact_method)
-    await _prompt_profile(
-        message,
-        bot,
-        telegram_responder,
-        telegram_user_context,
-        "Введите способ связи: telegram, phone или both",
+    await telegram_responder.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Телефон получен.",
+        reply_markup=ReplyKeyboardRemove(),
+        create_new=True,
+    )
+    await telegram_responder.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text=(screen := SelectContactMethodScreen()).build().text,
+        reply_markup=screen.reply_markup,
+        create_new=True,
     )
 
 
-@router.message(ProfileEditForm.contact_method)
+@router.callback_query(
+    ProfileEditForm.contact_method,
+    RegistrationContactCallback.filter(),
+)
 async def profile_edit_contact_method(
-    message: Message,
+    callback: CallbackQuery,
     state: FSMContext,
     backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
     bot: Bot,
     telegram_responder: TelegramResponder,
+    callback_data: RegistrationContactCallback,
 ) -> None:
-    method = message.text.strip().lower() if message.text else ""
-    if method not in {"telegram", "phone", "both"}:
-        await _prompt_profile(
-            message,
-            bot,
-            telegram_responder,
-            telegram_user_context,
-            "Введите telegram, phone или both",
-        )
-        return
     data = await state.get_data()
     try:
         await backend_client.update_customer_profile(
             telegram_id=telegram_user_context.telegram_id,
-            full_name=str(data["profile_full_name"]),
             phone=str(data["profile_phone"]),
-            city_id=UUID(str(data["profile_city_id"])),
-            contact_method=method,
+            contact_method=callback_data.method,
         )
     except BackendClientError:
         await _prompt_profile(
-            message,
+            callback,
             bot,
             telegram_responder,
             telegram_user_context,
@@ -163,8 +148,16 @@ async def profile_edit_contact_method(
         await state.clear()
         return
     await state.clear()
-    await _prompt_profile(
-        message, bot, telegram_responder, telegram_user_context, "Профиль обновлён"
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Профиль обновлён",
+        reply_markup=(
+            InlineKeyboardFactory()
+            .button("Главное меню", MainMenuCallback())
+            .as_markup()
+        ),
     )
 
 
@@ -227,7 +220,7 @@ async def deletion_confirm_callback(
 
 
 async def _prompt_profile(
-    message: Message,
+    message: Message | CallbackQuery,
     bot: Bot,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,

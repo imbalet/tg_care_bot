@@ -41,9 +41,7 @@ class BackendPort(Protocol):
         self,
         *,
         telegram_id: int,
-        full_name: str,
         phone: str,
-        city_id: UUID,
         contact_method: str,
     ) -> CustomerProfileDTO: ...
 

@@ -62,7 +62,7 @@ async def main_menu_callback(
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
                 text=(
-                    screen := HelpScreen(HelpView(include_main_menu=False)).build()
+                    screen := HelpScreen(HelpView(include_main_menu=True)).build()
                 ).text,
                 reply_markup=screen.reply_markup,
             )
@@ -131,12 +131,18 @@ async def help_callback(
                 },
             )
             include_main_menu = False
+    try:
+        documents = await backend_client.list_active_legal_documents()
+    except BackendClientError:
+        documents = ()
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=(
-            screen := HelpScreen(HelpView(include_main_menu=include_main_menu)).build()
+            screen := HelpScreen(
+                HelpView(include_main_menu=True, legal_documents=documents)
+            ).build()
         ).text,
         reply_markup=screen.reply_markup,
     )

@@ -332,7 +332,7 @@ async def orders_page_callback(
         telegram_id=telegram_user_context.telegram_id,
         group=callback_data.group,
         page=callback_data.page,
-        category_code=callback_data.category_code,
+        category_code=callback_data.category_code or None,
         active_category_code=category.code if category is not None else None,
     )
 
@@ -526,6 +526,11 @@ async def _show_orders_page(
                     group=group,
                     category_code=category_code,
                     active_category_code=active_category_code,
+                    active_category_name=(
+                        category_names.get(active_category_code)
+                        if active_category_code is not None
+                        else None
+                    ),
                 )
             ).build()
         ).text,

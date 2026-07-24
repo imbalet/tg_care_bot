@@ -104,18 +104,14 @@ class BackendClient(BackendPort):
         self,
         *,
         telegram_id: int,
-        full_name: str,
         phone: str,
-        city_id: UUID,
         contact_method: str,
     ) -> CustomerProfileDTO:
         response = await self._request(
             "PATCH",
             f"/api/customers/by-telegram/{telegram_id}/profile",
             json={
-                "full_name": full_name,
                 "phone": phone,
-                "city_id": str(city_id),
                 "contact_method": contact_method,
             },
         )

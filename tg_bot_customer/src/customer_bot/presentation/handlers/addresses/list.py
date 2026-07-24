@@ -23,6 +23,7 @@ from customer_bot.presentation.ui.screens import (
     AddressListScreen,
     AddressValidationScreen,
     RetryLaterScreen,
+    StaleActionScreen,
 )
 from customer_bot.presentation.view_models import (
     AddressCardView,
@@ -119,7 +120,13 @@ async def select_address(
                 "address_id": str(callback_data.address_id),
             },
         )
-        await telegram_responder.acknowledge(callback)
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := StaleActionScreen().build()).text,
+            reply_markup=screen.reply_markup,
+        )
         return
     await telegram_responder.update(
         bot=bot,
@@ -159,7 +166,13 @@ async def delete_address(
                 "address_id": str(callback_data.address_id),
             },
         )
-        await telegram_responder.acknowledge(callback)
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := StaleActionScreen().build()).text,
+            reply_markup=screen.reply_markup,
+        )
         return
     await telegram_responder.update(
         bot=bot,

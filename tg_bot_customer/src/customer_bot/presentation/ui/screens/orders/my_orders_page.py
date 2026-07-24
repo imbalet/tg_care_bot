@@ -17,6 +17,12 @@ from customer_bot.presentation.ui.screens.screen import (
 )
 from customer_bot.presentation.ui.texts.labels import MsgKey
 
+CATEGORY_EMOJIS = {
+    "nanny": "👶",
+    "care": "🧓",
+    "pet": "🐾",
+}
+
 
 def _order_status_label(status: str) -> str:
     return {
@@ -93,6 +99,9 @@ class _View(Protocol):
     @property
     def active_category_code(self) -> str | None: ...
 
+    @property
+    def active_category_name(self) -> str | None: ...
+
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
@@ -155,7 +164,10 @@ class Screen(BaseScreen[_View]):
             )
         elif self.data.active_category_code is not None:
             keyboard.button(
-                "Текущее направление",
+                "{} {}".format(
+                    CATEGORY_EMOJIS.get(self.data.active_category_code, "📌"),
+                    self.data.active_category_name or "Текущее направление",
+                ),
                 OrdersPageCallback(
                     group=self.data.group,
                     page=1,

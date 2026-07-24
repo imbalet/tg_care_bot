@@ -24,6 +24,7 @@ from customer_bot.presentation.ui.screens import (
     CareObjectDeletedScreen,
     CareObjectNameStepScreen,
     RetryLaterScreen,
+    StaleActionScreen,
 )
 from customer_bot.presentation.view_models import (
     CareObjectBlockedView,
@@ -59,7 +60,13 @@ async def edit_care_object(
                 "care_object_id": str(callback_data.care_object_id),
             },
         )
-        await telegram_responder.acknowledge(callback)
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := StaleActionScreen().build()).text,
+            reply_markup=screen.reply_markup,
+        )
         return
     object_type = str(item["object_type"])
     await state.update_data(
@@ -112,7 +119,13 @@ async def delete_care_object(
                 "care_object_id": str(callback_data.care_object_id),
             },
         )
-        await telegram_responder.acknowledge(callback)
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := StaleActionScreen().build()).text,
+            reply_markup=screen.reply_markup,
+        )
         return
     await telegram_responder.update(
         bot=bot,

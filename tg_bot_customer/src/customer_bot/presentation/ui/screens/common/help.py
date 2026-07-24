@@ -11,6 +11,9 @@ class _View(Protocol):
     @property
     def include_main_menu(self) -> bool: ...
 
+    @property
+    def legal_documents(self) -> tuple[object, ...]: ...
+
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
@@ -21,4 +24,7 @@ class Screen(BaseScreen[_View]):
         )
 
     def _build_keyboard(self) -> Markup:
-        return fallback_keyboard(include_main_menu=self.data.include_main_menu)
+        return fallback_keyboard(
+            include_main_menu=True,
+            legal_documents=self.data.legal_documents,
+        )

@@ -7,6 +7,7 @@ from uuid import UUID
 @dataclass(frozen=True, slots=True)
 class HelpView:
     include_main_menu: bool
+    legal_documents: tuple[object, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,6 +225,7 @@ class MyOrdersPageView:
     group: str
     category_code: str | None
     active_category_code: str | None
+    active_category_name: str | None
 
 
 @dataclass(frozen=True, slots=True)
