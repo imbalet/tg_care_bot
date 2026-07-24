@@ -244,7 +244,6 @@ async def publish_pool(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -261,7 +260,6 @@ async def publish_pool(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     await state.clear()
@@ -278,7 +276,6 @@ async def publish_pool(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := OrderPublishedScreen(order).build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -347,7 +344,6 @@ async def publish_direct(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -364,7 +360,6 @@ async def publish_direct(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     await state.clear()
@@ -381,7 +376,6 @@ async def publish_direct(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := OrderPublishedScreen(order).build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 

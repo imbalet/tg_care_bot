@@ -61,7 +61,6 @@ async def add_address(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := AddressValidationScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -78,7 +77,6 @@ async def add_address(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     await state.set_state(AddressManagement.city)
@@ -93,7 +91,6 @@ async def add_address(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := AddressCityStepScreen(cities).build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -129,7 +126,6 @@ async def select_city(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := AddressQueryStepScreen().build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -258,7 +254,6 @@ async def select_suggestion(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 

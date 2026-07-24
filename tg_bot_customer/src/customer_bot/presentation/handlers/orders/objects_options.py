@@ -102,7 +102,6 @@ async def select_service(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     if not objects:
@@ -123,7 +122,6 @@ async def select_service(
                 ).build()
             ).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     await state.set_state(OrderCreation.object)
@@ -154,7 +152,6 @@ async def select_service(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -232,7 +229,6 @@ async def select_object(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -356,7 +352,6 @@ async def toggle_option(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 

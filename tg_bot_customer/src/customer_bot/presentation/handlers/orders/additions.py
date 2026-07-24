@@ -63,7 +63,6 @@ async def add_order_object(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -92,7 +91,6 @@ async def add_order_address(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     await state.update_data(
@@ -108,7 +106,6 @@ async def add_order_address(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := AddressCityStepScreen(cities).build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 

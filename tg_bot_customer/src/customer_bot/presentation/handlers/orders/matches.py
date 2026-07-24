@@ -60,7 +60,6 @@ async def open_order_matches(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := OrderResponseUnavailableScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
 
         return
@@ -78,7 +77,6 @@ async def open_order_matches(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
 
@@ -88,7 +86,6 @@ async def open_order_matches(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := OrderMatchesScreen(matches).build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -121,7 +118,6 @@ async def select_order_match(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := OrderResponseUnavailableScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -138,7 +134,6 @@ async def select_order_match(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
 
@@ -156,7 +151,6 @@ async def select_order_match(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -192,7 +186,6 @@ async def refresh_payment_status(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
 
@@ -212,7 +205,6 @@ async def refresh_payment_status(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -245,7 +237,6 @@ async def reject_order_match(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := OrderResponseUnavailableScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -262,7 +253,6 @@ async def reject_order_match(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
 
@@ -272,7 +262,6 @@ async def reject_order_match(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := OrderResponseRejectedScreen().build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 

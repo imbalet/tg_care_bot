@@ -68,7 +68,6 @@ async def profile_edit_callback(
         telegram_id=telegram_user_context.telegram_id,
         text=f"Введите ФИО\n\nТекущее: {profile.full_name}",
         reply_markup=None,
-        create_new=True,
     )
     await telegram_responder.acknowledge(callback)
 
@@ -203,7 +202,6 @@ async def deletion_check_callback(
         reply_markup=InlineKeyboardFactory()
         .button("Подтвердить удаление", ProfileDeletionConfirmCallback())
         .as_markup(),
-        create_new=True,
     )
 
 

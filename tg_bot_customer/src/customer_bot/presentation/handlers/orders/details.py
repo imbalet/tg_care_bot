@@ -191,7 +191,6 @@ async def select_photo_consent(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := OrderCommentStepScreen().build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 

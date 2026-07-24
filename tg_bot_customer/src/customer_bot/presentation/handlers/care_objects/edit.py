@@ -91,7 +91,6 @@ async def edit_care_object(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -125,7 +124,6 @@ async def delete_care_object(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -173,7 +171,6 @@ async def confirm_delete_care_object(
                 ).build()
             ).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     except BackendClientError as exc:
@@ -191,7 +188,6 @@ async def confirm_delete_care_object(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     logger.info(
@@ -207,5 +203,4 @@ async def confirm_delete_care_object(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := CareObjectDeletedScreen().build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )

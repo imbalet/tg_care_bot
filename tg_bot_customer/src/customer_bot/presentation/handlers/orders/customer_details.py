@@ -43,7 +43,6 @@ async def _show_retry(
         telegram_id=telegram_id,
         text=screen.text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -88,7 +87,6 @@ async def open_order_location(
         telegram_id=telegram_user_context.telegram_id,
         text=screen.text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -133,7 +131,6 @@ async def open_order_report(
         telegram_id=telegram_user_context.telegram_id,
         text=screen.text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 

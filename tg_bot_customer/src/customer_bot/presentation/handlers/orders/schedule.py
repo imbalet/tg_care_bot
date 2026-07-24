@@ -87,7 +87,6 @@ async def _process_start_calendar_selection(
             telegram_id=telegram_user_context.telegram_id,
             text="Дата уже прошла. Выберите дату в календаре.",
             reply_markup=await start_calendar_keyboard(),
-            create_new=True,
         )
         return
     await state.update_data(order_start_date=start_date.isoformat())
@@ -101,7 +100,6 @@ async def _process_start_calendar_selection(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -132,7 +130,6 @@ async def request_manual_start(
                 telegram_id=telegram_user_context.telegram_id,
                 text=(screen := OrderStartStepScreen().build()).text,
                 reply_markup=await start_calendar_keyboard(),
-                create_new=True,
             )
             return
         await state.update_data(order_start_manual_time=True)
@@ -146,7 +143,6 @@ async def request_manual_start(
                 ).build()
             ).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     if callback_data.mode != "datetime":
@@ -159,7 +155,6 @@ async def request_manual_start(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := OrderDatetimeManualStepScreen().build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 

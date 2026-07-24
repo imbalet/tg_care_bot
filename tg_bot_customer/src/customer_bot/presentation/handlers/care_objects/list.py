@@ -126,7 +126,6 @@ async def open_care_objects(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -154,7 +153,6 @@ async def select_care_object(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     await telegram_responder.update(
@@ -189,7 +187,6 @@ async def select_care_object(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 

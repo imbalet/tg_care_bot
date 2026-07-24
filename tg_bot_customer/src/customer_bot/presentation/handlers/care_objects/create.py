@@ -78,7 +78,6 @@ async def add_care_object(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -171,7 +170,6 @@ async def enter_age(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := CareObjectSpeciesStepScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     if object_type == "ward":
@@ -182,7 +180,6 @@ async def enter_age(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := CareObjectMobilityStepScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     await state.set_state(CareObjectManagement.notes)
@@ -192,7 +189,6 @@ async def enter_age(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := CareObjectNotesStepScreen().build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -268,7 +264,6 @@ async def skip_breed(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := CareObjectSizeStepScreen().build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -296,7 +291,6 @@ async def enter_size(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := CareObjectNotesStepScreen().build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 
@@ -324,7 +318,6 @@ async def enter_mobility(
         telegram_id=telegram_user_context.telegram_id,
         text=(screen := CareObjectNotesStepScreen().build()).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
 
 

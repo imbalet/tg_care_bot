@@ -61,7 +61,6 @@ async def start_order_creation(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := RetryLaterScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
 
         return
@@ -76,7 +75,6 @@ async def start_order_creation(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := StaleActionScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     services = service_states((category,))
@@ -94,7 +92,6 @@ async def start_order_creation(
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := OrderNoServicesScreen().build()).text,
             reply_markup=screen.reply_markup,
-            create_new=True,
         )
         return
     await state.set_state(OrderCreation.service)
@@ -116,5 +113,4 @@ async def start_order_creation(
             ).build()
         ).text,
         reply_markup=screen.reply_markup,
-        create_new=True,
     )
