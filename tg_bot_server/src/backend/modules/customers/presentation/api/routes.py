@@ -163,6 +163,7 @@ async def delete_care_object(
     )
     return {"status": "deleted"}
 
+
 @router.get("/by-telegram/{telegram_id}/addresses")
 async def list_addresses(
     telegram_id: int,
