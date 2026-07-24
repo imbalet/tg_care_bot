@@ -43,6 +43,15 @@ class ExecutorOrdersOpenCallback(CallbackData, prefix="orders_list"):
     scope: OrderFilterScope = OrderFilterScope.CURRENT_CATEGORY
 
 
+class ExecutorResponsesCallback(CallbackData, prefix="responses"):
+    group: str = "active"
+
+
+class ExecutorResponseCardCallback(CallbackData, prefix="response_card"):
+    order_id: str
+    group: str = "active"
+
+
 class ExecutorOrdersPageCallback(CallbackData, prefix="my_orders_page"):
     group: str = "active"
     page: int = 1
@@ -68,6 +77,44 @@ class DirectAcceptCallback(CallbackData, prefix="direct_accept"):
 
 class DirectRejectCallback(CallbackData, prefix="direct_reject"):
     match_id: str
+
+
+class ExecutorOrderLocationCallback(CallbackData, prefix="order_location"):
+    order_id: str
+    group: str = "active"
+    page: int = 1
+
+
+class ExecutorOrderStartCallback(CallbackData, prefix="order_start"):
+    order_id: str
+
+
+class ExecutorOrderFinishCallback(CallbackData, prefix="order_finish"):
+    order_id: str
+
+
+class ExecutorOrderReportCallback(CallbackData, prefix="order_report"):
+    order_id: str
+
+
+class ExecutorOrderReportViewCallback(CallbackData, prefix="order_report_view"):
+    order_id: str
+
+
+class ExecutorOrderContactCallback(CallbackData, prefix="order_contact"):
+    order_id: str
+
+
+class ExecutorOrderCancelCallback(CallbackData, prefix="order_cancel"):
+    order_id: str
+
+
+class ExecutorOrderComplaintCallback(CallbackData, prefix="order_complaint"):
+    order_id: str
+
+
+class ExecutorOrderSupportCallback(CallbackData, prefix="order_support"):
+    order_id: str
 
 
 class RegistrationLegalAcceptCallback(CallbackData, prefix="reg_legal"):

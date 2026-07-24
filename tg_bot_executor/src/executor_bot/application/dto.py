@@ -137,6 +137,13 @@ class OrderMatchDTO:
     performer_id: UUID
     source: str
     status: str
+    starts_at: datetime
+    ends_at: datetime
+    response_expires_at: datetime
+    selected_at: datetime | None
+    closed_at: datetime | None
+    close_reason: str | None
+    timezone: str
 
 
 @dataclass(frozen=True)
@@ -151,6 +158,49 @@ class MatchActionDTO:
 class SupportContactDTO:
     label: str
     telegram_url: str | None
+
+
+@dataclass(frozen=True)
+class ContactRequestDTO:
+    id: UUID
+    order_id: UUID
+    performer_id: UUID
+    requested_method: str
+    status: str
+    failure_reason: str | None
+
+
+@dataclass(frozen=True)
+class OrderLocationDTO:
+    order_id: UUID
+    city_name: str
+    district_name: str | None
+    address_text: str | None
+    entrance: str | None
+    floor: str | None
+    apartment: str | None
+    comment: str | None
+
+
+@dataclass(frozen=True)
+class OrderReportFileDTO:
+    id: UUID
+    original_name: str | None
+    mime_type: str
+    signed_url: str
+
+
+@dataclass(frozen=True)
+class OrderReportDTO:
+    id: UUID
+    order_id: UUID
+    performer_id: UUID
+    completed_work: str
+    comment: str | None
+    problem_flag: bool
+    problem_description: str | None
+    submitted_at: datetime
+    files: tuple[OrderReportFileDTO, ...]
 
 
 @dataclass(frozen=True)
@@ -188,6 +238,7 @@ __all__ = [
     "AddressSuggestionDTO",
     "AvailableOrderDTO",
     "CityDTO",
+    "ContactRequestDTO",
     "FileDTO",
     "LegalDocumentDTO",
     "MatchActionDTO",
@@ -195,6 +246,9 @@ __all__ = [
     "MyOrderSummaryDTO",
     "MyOrdersPageDTO",
     "OrderMatchDTO",
+    "OrderLocationDTO",
+    "OrderReportDTO",
+    "OrderReportFileDTO",
     "PerformerProfileDTO",
     "PerformerScheduleDTO",
     "PerformerServiceDTO",

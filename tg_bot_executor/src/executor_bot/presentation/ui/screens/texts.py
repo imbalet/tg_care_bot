@@ -431,6 +431,19 @@ def direct_rejected_text() -> str:
     return "Direct-приглашение отклонено."
 
 
+def direct_conflict_text(error: str) -> str:
+    lowered = error.lower()
+    if "available" in lowered or "calendar" in lowered:
+        return (
+            "⚠️ <b>Заказ недоступен</b>\n\n"
+            "Время заказа пересекается с вашей занятостью или календарём. "
+            "Приглашение больше нельзя принять."
+        )
+    if "deadline" in lowered or "expired" in lowered:
+        return "⌛ <b>Приглашение истекло</b>\n\nОтветить на него уже нельзя."
+    return "⚠️ <b>Приглашение недоступно</b>\n\nЗаказ уже изменён или закрыт."
+
+
 def executor_orders_placeholder_text(scope: object) -> str:
     scope_text = _order_scope_text(scope)
     return (
@@ -487,7 +500,7 @@ def my_order_card_text(order: MyOrderCardView) -> str:
         lines.extend(
             (
                 "",
-                "Контакты и точный адрес откроются в следующем срезе contact bridge.",
+                "Точный адрес доступен кнопкой «Открыть адрес».",
             ),
         )
     return "\n".join(lines)

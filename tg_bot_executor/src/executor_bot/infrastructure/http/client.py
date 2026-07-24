@@ -10,13 +10,16 @@ from executor_bot.application.dto import (
     AddressSuggestionDTO,
     AvailableOrderDTO,
     CityDTO,
+    ContactRequestDTO,
     DeletionPreflightDTO,
     FileDTO,
     LegalDocumentDTO,
     MatchActionDTO,
     MyOrderCardDTO,
     MyOrdersPageDTO,
+    OrderLocationDTO,
     OrderMatchDTO,
+    OrderReportDTO,
     PerformerProfileDTO,
     PerformerScheduleDTO,
     PerformerServiceDTO,
@@ -38,6 +41,9 @@ from executor_bot.infrastructure.http.parsers import (
     available_order_from_json as _available_order_from_json,
 )
 from executor_bot.infrastructure.http.parsers import (
+    contact_request_from_json as _contact_request_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
     error_message as _error_message,
 )
 from executor_bot.infrastructure.http.parsers import (
@@ -50,7 +56,13 @@ from executor_bot.infrastructure.http.parsers import (
     my_orders_page_from_json as _my_orders_page_from_json,
 )
 from executor_bot.infrastructure.http.parsers import (
+    order_location_from_json as _order_location_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
     order_match_from_json as _order_match_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    order_report_from_json as _order_report_from_json,
 )
 from executor_bot.infrastructure.http.parsers import (
     performer_from_json as _performer_from_json,
@@ -318,9 +330,7 @@ class BackendClient(BackendPort):
             status=str(data["status"]),
         )
 
-    async def get_deletion_preflight(
-        self, *, telegram_id: int
-    ) -> DeletionPreflightDTO:
+    async def get_deletion_preflight(self, *, telegram_id: int) -> DeletionPreflightDTO:
         response = await self._request(
             "GET",
             f"/api/performers/by-telegram/{telegram_id}/deletion-preflight",
@@ -460,6 +470,17 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return _order_match_from_json(response.json())
 
+    async def list_performer_responses(
+        self, *, performer_id: UUID, group: str
+    ) -> tuple[OrderMatchDTO, ...]:
+        response = await self._request(
+            "GET",
+            f"/api/orders/performer/{performer_id}/responses",
+            params={"group": group},
+        )
+        self._raise_for_status(response)
+        return tuple(_order_match_from_json(item) for item in response.json())
+
     async def accept_direct_match(
         self,
         *,
@@ -516,6 +537,138 @@ class BackendClient(BackendPort):
         )
         self._raise_for_status(response)
         return _my_order_card_from_json(response.json())
+
+    async def get_performer_order_location(
+        self, *, performer_id: UUID, order_id: UUID
+    ) -> OrderLocationDTO:
+        response = await self._request(
+            "GET", f"/api/orders/performer/{performer_id}/my/{order_id}/location"
+        )
+        self._raise_for_status(response)
+        return _order_location_from_json(response.json())
+
+    async def start_order(
+        self, *, performer_id: UUID, order_id: UUID
+    ) -> MyOrderCardDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/{order_id}/start",
+            json={"performer_id": str(performer_id)},
+        )
+        self._raise_for_status(response)
+        return await self.get_performer_order_card(
+            performer_id=performer_id, order_id=order_id
+        )
+
+    async def finish_order(
+        self, *, performer_id: UUID, order_id: UUID
+    ) -> MyOrderCardDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/{order_id}/finish",
+            json={"performer_id": str(performer_id)},
+        )
+        self._raise_for_status(response)
+        return await self.get_performer_order_card(
+            performer_id=performer_id, order_id=order_id
+        )
+
+    async def submit_order_report(
+        self,
+        *,
+        performer_id: UUID,
+        order_id: UUID,
+        completed_work: str,
+        comment: str | None,
+        problem_flag: bool,
+        problem_description: str | None,
+        file_ids: tuple[UUID, ...],
+    ) -> OrderReportDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/{order_id}/report",
+            json={
+                "performer_id": str(performer_id),
+                "completed_work": completed_work,
+                "comment": comment,
+                "problem_flag": problem_flag,
+                "problem_description": problem_description,
+                "file_ids": [str(file_id) for file_id in file_ids],
+            },
+        )
+        self._raise_for_status(response)
+        return _order_report_from_json(response.json())
+
+    async def get_performer_order_report(
+        self, *, performer_id: UUID, order_id: UUID
+    ) -> OrderReportDTO:
+        response = await self._request(
+            "GET", f"/api/orders/performer/{performer_id}/my/{order_id}/report"
+        )
+        self._raise_for_status(response)
+        return _order_report_from_json(response.json())
+
+    async def cancel_order(
+        self, *, performer_id: UUID, order_id: UUID
+    ) -> MyOrderCardDTO:
+        response = await self._request(
+            "POST",
+            f"/api/orders/{order_id}/cancel",
+            json={"actor_type": "performer", "actor_id": str(performer_id)},
+        )
+        self._raise_for_status(response)
+        return await self.get_performer_order_card(
+            performer_id=performer_id, order_id=order_id
+        )
+
+    async def create_contact_request(
+        self, *, telegram_id: int, order_id: UUID
+    ) -> ContactRequestDTO:
+        response = await self._request(
+            "POST",
+            f"/api/performers/by-telegram/{telegram_id}/contact-requests",
+            json={"order_id": str(order_id)},
+        )
+        self._raise_for_status(response)
+        return _contact_request_from_json(response.json())
+
+    async def create_support_request(
+        self, *, telegram_id: int, order_id: UUID | None, request_type: str, text: str
+    ) -> object:
+        response = await self._request(
+            "POST",
+            f"/api/performers/by-telegram/{telegram_id}/support-requests",
+            json={
+                "order_id": str(order_id) if order_id else None,
+                "type": request_type,
+                "text": text,
+                "file_ids": [],
+            },
+        )
+        self._raise_for_status(response)
+        return response.json()
+
+    async def create_complaint(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID | None,
+        category: str,
+        text: str,
+        file_ids: tuple[UUID, ...] = (),
+    ) -> object:
+        response = await self._request(
+            "POST",
+            f"/api/performers/by-telegram/{telegram_id}/complaints",
+            json={
+                "order_id": str(order_id) if order_id else None,
+                "category": category,
+                "text": text,
+                "file_ids": [str(file_id) for file_id in file_ids],
+            },
+        )
+        self._raise_for_status(response)
+        return response.json()
 
     async def _request(
         self,

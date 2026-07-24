@@ -16,9 +16,20 @@ from executor_bot.presentation.callbacks import (
     CategorySelectCallback,
     DirectAcceptCallback,
     DirectRejectCallback,
+    ExecutorOrderCancelCallback,
     ExecutorOrderCardCallback,
+    ExecutorOrderComplaintCallback,
+    ExecutorOrderContactCallback,
+    ExecutorOrderFinishCallback,
+    ExecutorOrderLocationCallback,
+    ExecutorOrderReportCallback,
+    ExecutorOrderReportViewCallback,
     ExecutorOrdersOpenCallback,
     ExecutorOrdersPageCallback,
+    ExecutorOrderStartCallback,
+    ExecutorOrderSupportCallback,
+    ExecutorResponseCardCallback,
+    ExecutorResponsesCallback,
     HelpCallback,
     MainMenuCallback,
     PoolRespondCallback,
@@ -131,6 +142,7 @@ def main_menu_keyboard(category: object | None = None) -> InlineKeyboardMarkup:
         InlineKeyboardFactory()
         .button(MsgKey.AVAILABLE_ORDERS, AvailableOrdersOpenCallback())
         .button(MsgKey.MY_ORDERS, ExecutorOrdersOpenCallback())
+        .button("Мои отклики", ExecutorResponsesCallback())
         .button(MsgKey.SERVICES, ServicesOpenCallback())
         .button(MsgKey.CALENDAR, CalendarOpenCallback())
         .button(MsgKey.WORK_ADDRESS, WorkAddressesOpenCallback())
@@ -196,6 +208,23 @@ def orders_filter_keyboard(*, is_available_orders: bool) -> InlineKeyboardMarkup
     )
 
 
+def responses_keyboard(items: Sequence[object], group: str) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    for item in items:
+        order_id = str(getattr(item, "order_id", ""))
+        if not order_id:
+            continue
+        status = str(getattr(item, "status", ""))
+        keyboard.button(
+            f"Заказ {order_id[:8]} · {status}",
+            ExecutorResponseCardCallback(order_id=order_id, group=group),
+        )
+    keyboard.button("Активные", ExecutorResponsesCallback(group="active"))
+    keyboard.button("Выбранные", ExecutorResponsesCallback(group="selected"))
+    keyboard.button("Закрытые", ExecutorResponsesCallback(group="closed"))
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+
+
 def available_orders_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory()
     for item in items:
@@ -256,9 +285,54 @@ def my_orders_page_keyboard(page: object, group: str) -> InlineKeyboardMarkup:
 
 
 def my_order_card_keyboard(*, group: str, page: int) -> InlineKeyboardMarkup:
+    return my_order_card_keyboard_for_status(status=None, group=group, page=page)
+
+
+def my_order_card_keyboard_for_status(
+    *, status: str | None, order_id: str | None = None, group: str, page: int
+) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardFactory()
+    if order_id is not None and status in {
+        "confirmed",
+        "in_progress",
+        "waiting_report",
+        "report_submitted",
+    }:
+        keyboard.button(
+            "Открыть адрес",
+            ExecutorOrderLocationCallback(order_id=order_id, group=group, page=page),
+        )
+        keyboard.button(
+            "Попросить связаться", ExecutorOrderContactCallback(order_id=order_id)
+        )
+    if order_id is not None and status == "confirmed":
+        keyboard.button("Я на месте", ExecutorOrderStartCallback(order_id=order_id))
+        keyboard.button(
+            "Не могу выполнить", ExecutorOrderCancelCallback(order_id=order_id)
+        )
+    if order_id is not None and status == "in_progress":
+        keyboard.button(
+            "Завершить выполнение", ExecutorOrderFinishCallback(order_id=order_id)
+        )
+    if order_id is not None and status == "waiting_report":
+        keyboard.button(
+            "Отправить отчёт", ExecutorOrderReportCallback(order_id=order_id)
+        )
+    if order_id is not None and status in {"report_submitted", "completed"}:
+        keyboard.button(
+            "Открыть отчёт", ExecutorOrderReportViewCallback(order_id=order_id)
+        )
+    if order_id is not None and status in {
+        "waiting_report",
+        "report_submitted",
+        "completed",
+    }:
+        keyboard.button("Поддержка", ExecutorOrderSupportCallback(order_id=order_id))
+        keyboard.button(
+            "Подать жалобу", ExecutorOrderComplaintCallback(order_id=order_id)
+        )
     return (
-        InlineKeyboardFactory()
-        .button("К списку", ExecutorOrdersPageCallback(group=group, page=page))
+        keyboard.button("К списку", ExecutorOrdersPageCallback(group=group, page=page))
         .button(MsgKey.MAIN_MENU, MainMenuCallback())
         .button("Поддержка", SupportOpenCallback())
         .as_markup()
@@ -367,8 +441,10 @@ __all__ = [
     "legal_acceptance_keyboard",
     "main_menu_keyboard",
     "my_order_card_keyboard",
+    "my_order_card_keyboard_for_status",
     "my_orders_page_keyboard",
     "orders_filter_keyboard",
+    "responses_keyboard",
     "phone_contact_keyboard",
     "registration_summary_keyboard",
     "select_city_keyboard",

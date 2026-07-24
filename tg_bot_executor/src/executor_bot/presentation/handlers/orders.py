@@ -1,17 +1,33 @@
+from html import escape
+from io import BytesIO
 from uuid import UUID
 
-from aiogram import Bot, Router
-from aiogram.types import CallbackQuery
+from aiogram import Bot, F, Router
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import CallbackQuery, Message
 
+from executor_bot.application.dto import OrderMatchDTO
 from executor_bot.application.errors import BackendClientError
 from executor_bot.application.ports import BackendPort, ViewedAvailableOrdersStore
 from executor_bot.presentation.callbacks import (
     AvailableOrdersOpenCallback,
     DirectAcceptCallback,
     DirectRejectCallback,
+    ExecutorOrderCancelCallback,
     ExecutorOrderCardCallback,
+    ExecutorOrderComplaintCallback,
+    ExecutorOrderContactCallback,
+    ExecutorOrderFinishCallback,
+    ExecutorOrderLocationCallback,
+    ExecutorOrderReportCallback,
+    ExecutorOrderReportViewCallback,
     ExecutorOrdersOpenCallback,
     ExecutorOrdersPageCallback,
+    ExecutorOrderStartCallback,
+    ExecutorOrderSupportCallback,
+    ExecutorResponseCardCallback,
+    ExecutorResponsesCallback,
     NotificationOrderOpenCallback,
     PoolRespondCallback,
 )
@@ -21,18 +37,31 @@ from executor_bot.presentation.ui import (
     available_orders_keyboard,
     available_orders_text,
     direct_accept_created_text,
+    direct_conflict_text,
     direct_rejected_text,
-    my_order_card_keyboard,
+    my_order_card_keyboard_for_status,
     my_order_card_text,
     my_orders_page_keyboard,
     my_orders_page_text,
     orders_filter_keyboard,
     pool_response_created_text,
+    responses_keyboard,
     stale_action_keyboard,
     stale_action_text,
 )
 
 router = Router(name="orders")
+
+
+class OrderActionForm(StatesGroup):
+    report_work = State()
+    report_comment = State()
+    report_problem = State()
+    report_problem_description = State()
+    report_attachment = State()
+    support_text = State()
+    complaint_category = State()
+    complaint_text = State()
 
 
 @router.callback_query(AvailableOrdersOpenCallback.filter())
@@ -97,6 +126,86 @@ async def executor_orders_callback(
     )
 
 
+@router.callback_query(ExecutorResponsesCallback.filter())
+async def executor_responses_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorResponsesCallback,
+) -> None:
+    matches: tuple[OrderMatchDTO, ...] = ()
+    try:
+        matches = await backend_client.list_performer_responses(
+            performer_id=await _performer_id(
+                backend_client, telegram_user_context.telegram_id
+            ),
+            group=callback_data.group,
+        )
+        lines = ["<b>Мои отклики</b>", "", f"Раздел: {callback_data.group}"]
+        for match in matches:
+            lines.extend(
+                (
+                    "",
+                    f"<b>Заказ {escape(str(match.order_id)[:8])}</b>",
+                    f"Период: {_match_period(match)}",
+                    f"Ответить до: {_match_datetime(match.response_expires_at)}",
+                    f"Статус: {escape(match.status)}",
+                    *(
+                        (f"Причина закрытия: {escape(match.close_reason)}",)
+                        if match.close_reason
+                        else ()
+                    ),
+                ),
+            )
+        if not matches:
+            lines.append("Откликов в этом разделе нет.")
+        text = "\n".join(lines)
+    except BackendClientError, ValueError:
+        text = stale_action_text()
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=text,
+        reply_markup=responses_keyboard(matches, callback_data.group),
+    )
+
+
+@router.callback_query(ExecutorResponseCardCallback.filter())
+async def executor_response_card_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorResponseCardCallback,
+) -> None:
+    await _show_executor_order_card(
+        callback=callback,
+        bot=bot,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        order_id=callback_data.order_id,
+        group="active" if callback_data.group == "active" else "archive",
+        page=1,
+    )
+
+
+def _match_datetime(value: object) -> str:
+    if hasattr(value, "strftime"):
+        return escape(value.strftime("%d.%m.%Y %H:%M"))
+    return escape(str(value))
+
+
+def _match_period(match: object) -> str:
+    starts_at = getattr(match, "starts_at", "")
+    ends_at = getattr(match, "ends_at", "")
+    return f"{_match_datetime(starts_at)} — {_match_datetime(ends_at)}"
+
+
 @router.callback_query(ExecutorOrdersPageCallback.filter())
 async def executor_orders_page_callback(
     callback: CallbackQuery,
@@ -159,6 +268,490 @@ async def notification_order_callback(
     )
 
 
+async def _performer_id(backend_client: BackendPort, telegram_id: int) -> UUID:
+    state = await backend_client.get_registration_state(telegram_id)
+    if state.performer is None:
+        raise ValueError("Performer is not registered")
+    return state.performer.id
+
+
+@router.callback_query(ExecutorOrderLocationCallback.filter())
+async def order_location_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderLocationCallback,
+) -> None:
+    try:
+        performer_id = await _performer_id(
+            backend_client, telegram_user_context.telegram_id
+        )
+        location = await backend_client.get_performer_order_location(
+            performer_id=performer_id, order_id=UUID(callback_data.order_id)
+        )
+        lines = ["<b>Место оказания</b>", "", location.city_name]
+        if location.district_name:
+            lines.append(location.district_name)
+        if location.address_text:
+            lines.append(location.address_text)
+        for label, value in (
+            ("Подъезд", location.entrance),
+            ("Этаж", location.floor),
+            ("Квартира", location.apartment),
+            ("Комментарий", location.comment),
+        ):
+            if value:
+                lines.append(f"{label}: {value}")
+        text = "\n".join(lines)
+    except BackendClientError, ValueError:
+        text = stale_action_text()
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=text,
+        reply_markup=stale_action_keyboard() if text == stale_action_text() else None,
+    )
+
+
+async def _refresh_order_card(
+    *,
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    context: TelegramUserContext,
+    order_id: UUID,
+    group: str = "active",
+    page: int = 1,
+) -> None:
+    performer_id = await _performer_id(backend_client, context.telegram_id)
+    order = await backend_client.get_performer_order_card(
+        performer_id=performer_id, order_id=order_id
+    )
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=context.telegram_id,
+        text=my_order_card_text(order),
+        reply_markup=my_order_card_keyboard_for_status(
+            status=order.status, order_id=str(order.id), group=group, page=page
+        ),
+    )
+
+
+@router.callback_query(ExecutorOrderStartCallback.filter())
+async def order_start_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderStartCallback,
+) -> None:
+    try:
+        await backend_client.start_order(
+            performer_id=await _performer_id(
+                backend_client, telegram_user_context.telegram_id
+            ),
+            order_id=UUID(callback_data.order_id),
+        )
+        await _refresh_order_card(
+            callback=callback,
+            bot=bot,
+            backend_client=backend_client,
+            telegram_responder=telegram_responder,
+            context=telegram_user_context,
+            order_id=UUID(callback_data.order_id),
+        )
+    except BackendClientError, ValueError:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=stale_action_text(),
+            reply_markup=stale_action_keyboard(),
+        )
+
+
+@router.callback_query(ExecutorOrderFinishCallback.filter())
+async def order_finish_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderFinishCallback,
+) -> None:
+    try:
+        await backend_client.finish_order(
+            performer_id=await _performer_id(
+                backend_client, telegram_user_context.telegram_id
+            ),
+            order_id=UUID(callback_data.order_id),
+        )
+        await _refresh_order_card(
+            callback=callback,
+            bot=bot,
+            backend_client=backend_client,
+            telegram_responder=telegram_responder,
+            context=telegram_user_context,
+            order_id=UUID(callback_data.order_id),
+        )
+    except BackendClientError, ValueError:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=stale_action_text(),
+            reply_markup=stale_action_keyboard(),
+        )
+
+
+@router.callback_query(ExecutorOrderContactCallback.filter())
+async def order_contact_callback(
+    callback: CallbackQuery,
+    backend_client: BackendPort,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderContactCallback,
+) -> None:
+    try:
+        result = await backend_client.create_contact_request(
+            telegram_id=telegram_user_context.telegram_id,
+            order_id=UUID(callback_data.order_id),
+        )
+        await callback.answer(
+            "Запрос отправлен заказчику"
+            if result.status == "sent"
+            else "Связь недоступна",
+            show_alert=True,
+        )
+    except BackendClientError:
+        await callback.answer("Запрос контакта сейчас недоступен", show_alert=True)
+
+
+@router.callback_query(ExecutorOrderSupportCallback.filter())
+async def order_support_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderSupportCallback,
+) -> None:
+    await state.clear()
+    await state.set_state(OrderActionForm.support_text)
+    await state.update_data(order_id=callback_data.order_id)
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text="<b>Поддержка по заказу</b>\n\nОпишите вопрос.",
+        reply_markup=None,
+        create_new=True,
+    )
+
+
+@router.message(OrderActionForm.support_text)
+async def order_support_text(
+    message: Message,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    if not message.text or not message.text.strip():
+        await message.answer("Опишите вопрос текстом.")
+        return
+    data = await state.get_data()
+    try:
+        await backend_client.create_support_request(
+            telegram_id=telegram_user_context.telegram_id,
+            order_id=UUID(str(data["order_id"])),
+            request_type="order",
+            text=message.text.strip(),
+        )
+        await message.answer("Обращение отправлено в поддержку.")
+    except BackendClientError:
+        await message.answer("Не удалось отправить обращение. Попробуйте позже.")
+    finally:
+        await state.clear()
+
+
+@router.callback_query(ExecutorOrderComplaintCallback.filter())
+async def order_complaint_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderComplaintCallback,
+) -> None:
+    await state.clear()
+    await state.set_state(OrderActionForm.complaint_category)
+    await state.update_data(order_id=callback_data.order_id)
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text="<b>Жалоба</b>\n\nУкажите категорию жалобы.",
+        reply_markup=None,
+        create_new=True,
+    )
+
+
+@router.message(OrderActionForm.complaint_category)
+async def complaint_category(message: Message, state: FSMContext) -> None:
+    if not message.text or not message.text.strip():
+        await message.answer("Укажите категорию жалобы.")
+        return
+    await state.update_data(category=message.text.strip())
+    await state.set_state(OrderActionForm.complaint_text)
+    await message.answer("Опишите жалобу.")
+
+
+@router.message(OrderActionForm.complaint_text)
+async def complaint_text(
+    message: Message,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    if not message.text or not message.text.strip():
+        await message.answer("Опишите жалобу текстом.")
+        return
+    data = await state.get_data()
+    try:
+        await backend_client.create_complaint(
+            telegram_id=telegram_user_context.telegram_id,
+            order_id=UUID(str(data["order_id"])),
+            category="order_problem",
+            text=message.text.strip(),
+        )
+        await message.answer("Жалоба отправлена.")
+    except BackendClientError:
+        await message.answer("Не удалось отправить жалобу. Попробуйте позже.")
+    finally:
+        await state.clear()
+
+
+@router.callback_query(ExecutorOrderCancelCallback.filter())
+async def order_cancel_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderCancelCallback,
+) -> None:
+    try:
+        await backend_client.cancel_order(
+            performer_id=await _performer_id(
+                backend_client, telegram_user_context.telegram_id
+            ),
+            order_id=UUID(callback_data.order_id),
+        )
+        await callback.answer("Заказ отменён")
+    except BackendClientError, ValueError:
+        await callback.answer("Отмена недоступна", show_alert=True)
+
+
+@router.callback_query(ExecutorOrderReportCallback.filter())
+async def order_report_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderReportCallback,
+) -> None:
+    await state.clear()
+    await state.set_state(OrderActionForm.report_work)
+    await state.update_data(order_id=callback_data.order_id)
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text="<b>Отчёт</b>\n\nОпишите выполненную работу.",
+        reply_markup=None,
+        create_new=True,
+    )
+
+
+@router.callback_query(ExecutorOrderReportViewCallback.filter())
+async def order_report_view_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderReportViewCallback,
+) -> None:
+    try:
+        report = await backend_client.get_performer_order_report(
+            performer_id=await _performer_id(
+                backend_client, telegram_user_context.telegram_id
+            ),
+            order_id=UUID(callback_data.order_id),
+        )
+        lines = [
+            "<b>Отчёт по заказу</b>",
+            "",
+            f"Выполнено: {report.completed_work}",
+        ]
+        if report.comment:
+            lines.extend(("", f"Комментарий: {report.comment}"))
+        if report.problem_flag and report.problem_description:
+            lines.extend(("", f"Проблема: {report.problem_description}"))
+        for file in report.files:
+            lines.extend(("", f"Файл: {file.signed_url}"))
+        text = "\n".join(lines)
+    except BackendClientError, ValueError:
+        text = stale_action_text()
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=text,
+        reply_markup=stale_action_keyboard() if text == stale_action_text() else None,
+        create_new=True,
+    )
+
+
+@router.message(OrderActionForm.report_work)
+async def report_work(
+    message: Message,
+    state: FSMContext,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    if not message.text or not message.text.strip():
+        await message.answer("Введите описание выполненной работы текстом.")
+        return
+    await state.update_data(completed_work=message.text.strip())
+    await state.set_state(OrderActionForm.report_comment)
+    await message.answer("Добавьте комментарий или отправьте /skip.")
+
+
+@router.message(OrderActionForm.report_comment)
+async def report_comment(message: Message, state: FSMContext) -> None:
+    await state.update_data(comment=None if message.text == "/skip" else message.text)
+    await state.set_state(OrderActionForm.report_problem)
+    await message.answer("Была проблема? Ответьте да или нет.")
+
+
+@router.message(OrderActionForm.report_problem)
+async def report_problem(
+    message: Message,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    if not message.text or message.text.lower() not in {"да", "нет", "yes", "no"}:
+        await message.answer("Ответьте «да» или «нет».")
+        return
+    problem = message.text.lower() in {"да", "yes"}
+    await state.update_data(problem_flag=problem, problem_description=None)
+    if problem:
+        await state.set_state(OrderActionForm.report_problem_description)
+        await message.answer("Опишите проблему.")
+        return
+    await state.set_state(OrderActionForm.report_attachment)
+    await message.answer("Прикрепите фото или документ либо отправьте /skip.")
+
+
+@router.message(OrderActionForm.report_problem_description)
+async def report_problem_description(
+    message: Message,
+    state: FSMContext,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    if not message.text or not message.text.strip():
+        await message.answer("Опишите проблему текстом.")
+        return
+    await state.update_data(problem_description=message.text.strip())
+    await state.set_state(OrderActionForm.report_attachment)
+    await message.answer("Прикрепите фото или документ либо отправьте /skip.")
+
+
+@router.message(OrderActionForm.report_attachment, F.photo | F.document)
+async def report_attachment(
+    message: Message,
+    state: FSMContext,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    attachment = message.photo[-1] if message.photo else message.document
+    if attachment is None:
+        await message.answer("Прикрепите фото или документ либо отправьте /skip.")
+        return
+    telegram_file = await bot.get_file(attachment.file_id)
+    if telegram_file.file_path is None:
+        await message.answer("Файл недоступен. Попробуйте ещё раз.")
+        return
+    buffer = BytesIO()
+    await bot.download_file(telegram_file.file_path, destination=buffer)
+    content_type = "image/jpeg"
+    filename = "report-photo.jpg"
+    if message.document is not None:
+        content_type = message.document.mime_type or "application/octet-stream"
+        filename = message.document.file_name or "report-file"
+    try:
+        file = await backend_client.upload_file(
+            telegram_id=telegram_user_context.telegram_id,
+            filename=filename,
+            content=buffer.getvalue(),
+            content_type=content_type,
+        )
+    except BackendClientError:
+        await message.answer("Не удалось загрузить файл. Попробуйте ещё раз.")
+        return
+    data = await state.get_data()
+    file_ids = [str(item) for item in data.get("file_ids", [])]
+    file_ids.append(str(file.id))
+    await state.update_data(file_ids=file_ids)
+    await message.answer("Файл добавлен. Добавьте ещё или отправьте /skip.")
+
+
+@router.message(OrderActionForm.report_attachment, F.text == "/skip")
+async def report_attachment_skip(
+    message: Message,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    data = await state.get_data()
+    try:
+        await backend_client.submit_order_report(
+            performer_id=await _performer_id(
+                backend_client, telegram_user_context.telegram_id
+            ),
+            order_id=UUID(str(data["order_id"])),
+            completed_work=str(data["completed_work"]),
+            comment=data.get("comment")
+            if isinstance(data.get("comment"), str)
+            else None,
+            problem_flag=bool(data.get("problem_flag")),
+            problem_description=(
+                data.get("problem_description")
+                if isinstance(data.get("problem_description"), str)
+                else None
+            ),
+            file_ids=tuple(UUID(str(item)) for item in data.get("file_ids", [])),
+        )
+        await message.answer("Отчёт отправлен заказчику.")
+    except BackendClientError, ValueError:
+        await message.answer("Не удалось отправить отчёт. Попробуйте ещё раз.")
+    finally:
+        await state.clear()
+
+
 async def _show_executor_order_card(
     *,
     callback: CallbackQuery,
@@ -194,7 +787,9 @@ async def _show_executor_order_card(
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=my_order_card_text(order),
-        reply_markup=my_order_card_keyboard(
+        reply_markup=my_order_card_keyboard_for_status(
+            status=order.status,
+            order_id=str(order.id),
             group=group,
             page=page,
         ),
@@ -252,7 +847,9 @@ async def direct_accept_callback(
             performer_id=state.performer.id,
         )
         text = direct_accept_created_text()
-    except BackendClientError, ValueError:
+    except BackendClientError as exc:
+        text = direct_conflict_text(str(exc))
+    except ValueError:
         text = "Direct-приглашение уже недоступно."
     await telegram_responder.update(
         bot=bot,

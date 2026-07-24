@@ -7,13 +7,16 @@ from executor_bot.application.dto import (
     AddressSuggestionDTO,
     AvailableOrderDTO,
     CityDTO,
+    ContactRequestDTO,
     DeletionPreflightDTO,
     FileDTO,
     LegalDocumentDTO,
     MatchActionDTO,
     MyOrderCardDTO,
     MyOrdersPageDTO,
+    OrderLocationDTO,
     OrderMatchDTO,
+    OrderReportDTO,
     PerformerProfileDTO,
     PerformerScheduleDTO,
     PerformerServiceDTO,
@@ -175,6 +178,10 @@ class BackendPort(Protocol):
         performer_id: UUID,
     ) -> OrderMatchDTO: ...
 
+    async def list_performer_responses(
+        self, *, performer_id: UUID, group: str
+    ) -> tuple[OrderMatchDTO, ...]: ...
+
     async def accept_direct_match(
         self,
         *,
@@ -204,3 +211,53 @@ class BackendPort(Protocol):
         performer_id: UUID,
         order_id: UUID,
     ) -> MyOrderCardDTO: ...
+
+    async def get_performer_order_location(
+        self, *, performer_id: UUID, order_id: UUID
+    ) -> OrderLocationDTO: ...
+
+    async def start_order(
+        self, *, performer_id: UUID, order_id: UUID
+    ) -> MyOrderCardDTO: ...
+
+    async def finish_order(
+        self, *, performer_id: UUID, order_id: UUID
+    ) -> MyOrderCardDTO: ...
+
+    async def submit_order_report(
+        self,
+        *,
+        performer_id: UUID,
+        order_id: UUID,
+        completed_work: str,
+        comment: str | None,
+        problem_flag: bool,
+        problem_description: str | None,
+        file_ids: tuple[UUID, ...],
+    ) -> OrderReportDTO: ...
+
+    async def get_performer_order_report(
+        self, *, performer_id: UUID, order_id: UUID
+    ) -> OrderReportDTO: ...
+
+    async def cancel_order(
+        self, *, performer_id: UUID, order_id: UUID
+    ) -> MyOrderCardDTO: ...
+
+    async def create_contact_request(
+        self, *, telegram_id: int, order_id: UUID
+    ) -> ContactRequestDTO: ...
+
+    async def create_support_request(
+        self, *, telegram_id: int, order_id: UUID | None, request_type: str, text: str
+    ) -> object: ...
+
+    async def create_complaint(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID | None,
+        category: str,
+        text: str,
+        file_ids: tuple[UUID, ...] = (),
+    ) -> object: ...

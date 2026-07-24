@@ -7,12 +7,16 @@ from executor_bot.application.dto import (
     AddressDTO,
     AddressSuggestionDTO,
     AvailableOrderDTO,
+    ContactRequestDTO,
     FileDTO,
     MatchActionDTO,
     MyOrderCardDTO,
     MyOrdersPageDTO,
     MyOrderSummaryDTO,
+    OrderLocationDTO,
     OrderMatchDTO,
+    OrderReportDTO,
+    OrderReportFileDTO,
     PerformerProfileDTO,
     PerformerScheduleDTO,
     PerformerServiceDTO,
@@ -176,6 +180,25 @@ def order_match_from_json(data: dict[str, object]) -> OrderMatchDTO:
         performer_id=UUID(str(data["performer_id"])),
         source=str(data["source"]),
         status=str(data["status"]),
+        starts_at=datetime.fromisoformat(str(data["starts_at"])),
+        ends_at=datetime.fromisoformat(str(data["ends_at"])),
+        response_expires_at=datetime.fromisoformat(str(data["response_expires_at"])),
+        selected_at=(
+            datetime.fromisoformat(str(data["selected_at"]))
+            if data.get("selected_at") is not None
+            else None
+        ),
+        closed_at=(
+            datetime.fromisoformat(str(data["closed_at"]))
+            if data.get("closed_at") is not None
+            else None
+        ),
+        close_reason=(
+            str(data["close_reason"])
+            if isinstance(data.get("close_reason"), str)
+            else None
+        ),
+        timezone=str(data["timezone"]),
     )
 
 
@@ -255,16 +278,97 @@ def my_order_card_from_json(data: dict[str, object]) -> MyOrderCardDTO:
     )
 
 
+def contact_request_from_json(data: dict[str, object]) -> ContactRequestDTO:
+    return ContactRequestDTO(
+        id=UUID(str(data["id"])),
+        order_id=UUID(str(data["order_id"])),
+        performer_id=UUID(str(data["performer_id"])),
+        requested_method=str(data["requested_method"]),
+        status=str(data["status"]),
+        failure_reason=(
+            str(data["failure_reason"])
+            if isinstance(data.get("failure_reason"), str)
+            else None
+        ),
+    )
+
+
+def order_location_from_json(data: dict[str, object]) -> OrderLocationDTO:
+    address = data.get("address")
+    address_data = address if isinstance(address, dict) else {}
+    return OrderLocationDTO(
+        order_id=UUID(str(data["order_id"])),
+        city_name=str(data["city_name"]),
+        district_name=(
+            str(data["district_name"])
+            if isinstance(data.get("district_name"), str)
+            else None
+        ),
+        address_text=address_data.get("address_text")
+        if isinstance(address_data.get("address_text"), str)
+        else None,
+        entrance=address_data.get("entrance")
+        if isinstance(address_data.get("entrance"), str)
+        else None,
+        floor=address_data.get("floor")
+        if isinstance(address_data.get("floor"), str)
+        else None,
+        apartment=address_data.get("apartment")
+        if isinstance(address_data.get("apartment"), str)
+        else None,
+        comment=address_data.get("comment")
+        if isinstance(address_data.get("comment"), str)
+        else None,
+    )
+
+
+def order_report_from_json(data: dict[str, object]) -> OrderReportDTO:
+    files = data.get("files")
+    return OrderReportDTO(
+        id=UUID(str(data["id"])),
+        order_id=UUID(str(data["order_id"])),
+        performer_id=UUID(str(data["performer_id"])),
+        completed_work=str(data["completed_work"]),
+        comment=(
+            str(data["comment"]) if isinstance(data.get("comment"), str) else None
+        ),
+        problem_flag=bool(data["problem_flag"]),
+        problem_description=(
+            str(data["problem_description"])
+            if isinstance(data.get("problem_description"), str)
+            else None
+        ),
+        submitted_at=datetime.fromisoformat(str(data["submitted_at"])),
+        files=tuple(
+            OrderReportFileDTO(
+                id=UUID(str(item["id"])),
+                original_name=item.get("original_name")
+                if isinstance(item.get("original_name"), str)
+                else None,
+                mime_type=str(item["mime_type"]),
+                signed_url=str(item["signed_url"]),
+            )
+            for item in files
+            if isinstance(item, dict)
+        )
+        if isinstance(files, list)
+        else (),
+    )
+
+
 __all__ = [
     "address_from_json",
     "address_suggestion_from_json",
     "available_order_from_json",
+    "contact_request_from_json",
     "error_message",
     "file_from_json",
     "match_action_from_json",
     "my_order_card_from_json",
     "my_order_summary_from_json",
     "my_orders_page_from_json",
+    "order_location_from_json",
+    "order_report_from_json",
     "order_match_from_json",
     "performer_from_json",
     "performer_service_from_json",
