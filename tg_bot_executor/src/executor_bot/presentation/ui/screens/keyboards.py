@@ -352,8 +352,14 @@ def my_order_card_keyboard_for_status(
         keyboard.button(
             "Попросить связаться", ExecutorOrderContactCallback(order_id=order_id)
         )
-    if order_id is not None and status == "confirmed":
-        keyboard.button("Я на месте", ExecutorOrderStartCallback(order_id=order_id))
+    if order_id is not None and status in {
+        "confirmed",
+        "in_progress",
+        "waiting_report",
+        "report_submitted",
+    }:
+        if status == "confirmed":
+            keyboard.button("Я на месте", ExecutorOrderStartCallback(order_id=order_id))
         keyboard.button(
             "Не могу выполнить", ExecutorOrderCancelCallback(order_id=order_id)
         )
