@@ -87,6 +87,7 @@ class OrderDTO:
     platform_fee_amount: Decimal
     matching_deadline_at: datetime
     timezone: str
+    report_photo_consent: bool | None = None
 
 
 @dataclass(frozen=True)

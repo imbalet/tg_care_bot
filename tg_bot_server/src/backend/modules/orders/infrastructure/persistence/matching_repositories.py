@@ -845,6 +845,7 @@ def _order_to_dto(model: OrderModel, timezone: str) -> OrderDTO:
         platform_fee_amount=model.platform_fee_amount,
         matching_deadline_at=model.matching_deadline_at,
         timezone=timezone,
+        report_photo_consent=model.report_photo_consent,
     )
 
 

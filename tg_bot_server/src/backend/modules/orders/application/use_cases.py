@@ -284,8 +284,12 @@ class SubmitOrderReportUseCase:
             raise NotFoundError("Order not found")
         if order.photo_policy == "required" and not files:
             raise ValidationError("Report photo is required")
-        if order.photo_policy == "requires_customer_consent" and not files:
-            raise ValidationError("Report photo is required")
+        if (
+            order.photo_policy == "requires_customer_consent"
+            and files
+            and order.report_photo_consent is not True
+        ):
+            raise ValidationError("Report photo consent is not granted")
         confirmation_minutes = 24 * 60
         if self._pricing_repository is not None:
             configured_minutes = await self._pricing_repository.get_integer_setting(

@@ -182,11 +182,6 @@ class SqlAlchemyOrderRepository(OrderRepository):
             raise NotFoundError("Order not found")
         if order.status != "waiting_report":
             raise self._stale(order, "Order is not waiting for report")
-        if (
-            order.photo_policy == "requires_customer_consent"
-            and order.report_photo_consent is not True
-        ):
-            raise ValidationError("Report photo consent is not granted")
         report = OrderReportModel(
             order_id=order.id,
             performer_id=performer_id,
@@ -818,4 +813,5 @@ def _order_to_dto(model: OrderModel, timezone: str) -> OrderDTO:
         platform_fee_amount=model.platform_fee_amount,
         matching_deadline_at=model.matching_deadline_at,
         timezone=timezone,
+        report_photo_consent=model.report_photo_consent,
     )
