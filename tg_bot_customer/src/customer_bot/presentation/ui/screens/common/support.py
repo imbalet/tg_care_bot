@@ -29,7 +29,7 @@ class Screen(BaseScreen[_View]):
     def _build_keyboard(self) -> Markup:
         keyboard = InlineKeyboardFactory()
         if _is_valid_telegram_url(self.data.telegram_url):
-            keyboard.url_button(self.data.label, self.data.telegram_url)
+            keyboard.url_button(self.data.label, str(self.data.telegram_url))
         keyboard.button("Написать в поддержку", SupportRequestOpenCallback())
         keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
         return keyboard.as_markup()

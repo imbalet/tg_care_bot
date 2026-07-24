@@ -374,6 +374,9 @@ async def _create_draft_and_show_summary(
         platform_fee_amount=price.platform_fee_amount,
         total_amount=price.total_amount,
         performers_count=len(performers),
+        duration_unit=duration_unit(order_draft),
+        start_at=start_at,
+        end_at=end_at,
     )
     await state.update_data(
         order_draft=order_draft,
@@ -394,6 +397,9 @@ async def _create_draft_and_show_summary(
                     platform_fee_amount=summary.platform_fee_amount,
                     total_amount=summary.total_amount,
                     performers_count=summary.performers_count,
+                    duration_unit=summary.duration_unit,
+                    start_at=summary.start_at,
+                    end_at=summary.end_at,
                 )
             ).build()
         ).text,

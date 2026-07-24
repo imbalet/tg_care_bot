@@ -96,6 +96,9 @@ class OrderSummaryView:
     platform_fee_amount: Decimal
     total_amount: Decimal
     performers_count: int
+    duration_unit: str = "minutes"
+    start_at: datetime | None = None
+    end_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

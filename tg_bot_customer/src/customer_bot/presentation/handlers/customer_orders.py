@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 @router.callback_query(OrderContactCallback.filter())
 async def contact_order_callback(
     callback: CallbackQuery,
+    telegram_responder: TelegramResponder,
     backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
     callback_data: OrderContactCallback,
@@ -50,14 +51,19 @@ async def contact_order_callback(
             telegram_id=telegram_user_context.telegram_id,
             order_id=callback_data.order_id,
         )
-        await callback.answer("Запрос контакта отправлен исполнителю")
+        await telegram_responder.acknowledge(
+            callback, "Запрос контакта отправлен исполнителю"
+        )
     except BackendClientError:
-        await callback.answer("Запрос контакта сейчас недоступен", show_alert=True)
+        await telegram_responder.acknowledge(
+            callback, "Запрос контакта сейчас недоступен", show_alert=True
+        )
 
 
 @router.callback_query(OrderPerformerProfileCallback.filter())
 async def performer_profile_callback(
     callback: CallbackQuery,
+    telegram_responder: TelegramResponder,
     backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
     callback_data: OrderPerformerProfileCallback,
@@ -68,12 +74,15 @@ async def performer_profile_callback(
             order_id=callback_data.order_id,
         )
         about = f"\n{profile.about_text}" if profile.about_text else ""
-        await callback.answer(
+        await telegram_responder.acknowledge(
+            callback,
             f"{profile.full_name}{about}",
             show_alert=True,
         )
     except BackendClientError:
-        await callback.answer("Профиль исполнителя сейчас недоступен", show_alert=True)
+        await telegram_responder.acknowledge(
+            callback, "Профиль исполнителя сейчас недоступен", show_alert=True
+        )
 
 
 @router.callback_query(OrderStartConfirmCallback.filter())

@@ -57,6 +57,9 @@ class OrderSummarySnapshot:
     platform_fee_amount: Decimal
     total_amount: Decimal
     performers_count: int
+    duration_unit: str = "minutes"
+    start_at: datetime | None = None
+    end_at: datetime | None = None
 
     @classmethod
     def from_data(cls, data: dict[str, object]) -> OrderSummarySnapshot:
@@ -68,6 +71,17 @@ class OrderSummarySnapshot:
             platform_fee_amount=Decimal(str(data["platform_fee_amount"])),
             total_amount=Decimal(str(data["total_amount"])),
             performers_count=int(str(data["performers_count"])),
+            duration_unit=str(data.get("duration_unit", "minutes")),
+            start_at=(
+                datetime.fromisoformat(str(data["start_at"]))
+                if data.get("start_at")
+                else None
+            ),
+            end_at=(
+                datetime.fromisoformat(str(data["end_at"]))
+                if data.get("end_at")
+                else None
+            ),
         )
 
     def to_data(self) -> dict[str, object]:
@@ -79,6 +93,9 @@ class OrderSummarySnapshot:
             "platform_fee_amount": str(self.platform_fee_amount),
             "total_amount": str(self.total_amount),
             "performers_count": self.performers_count,
+            "duration_unit": self.duration_unit,
+            "start_at": self.start_at.isoformat() if self.start_at else None,
+            "end_at": self.end_at.isoformat() if self.end_at else None,
         }
 
 

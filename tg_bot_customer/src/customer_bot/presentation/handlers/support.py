@@ -10,6 +10,7 @@ from aiogram.types import CallbackQuery, Message
 from customer_bot.application.errors import BackendClientError
 from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
+    OrderComplaintOpenCallback,
     OrderDisputeOpenCallback,
     SupportRequestOpenCallback,
 )
@@ -130,6 +131,25 @@ async def dispute_callback(
     )
 
 
+@router.callback_query(OrderComplaintOpenCallback.filter())
+async def complaint_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderComplaintOpenCallback,
+) -> None:
+    await start_complaint(
+        callback=callback,
+        bot=bot,
+        state=state,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        order_id=callback_data.order_id,
+    )
+
+
 @router.message(SupportForm.dispute_text)
 async def dispute_text(
     message: Message,
@@ -170,14 +190,30 @@ async def dispute_attachment(
 ) -> None:
     attachment = message.photo[-1] if message.photo else message.document
     if attachment is None:
-        await message.answer("Прикрепите фото или документ либо отправьте /skip.")
+        await _prompt(
+            bot=bot,
+            event=message,
+            telegram_responder=telegram_responder,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Прикрепите фото или документ либо отправьте /skip.",
+        )
         return
     content_type = (
         "image/jpeg"
         if message.photo
-        else (message.document.mime_type or "application/octet-stream")
+        else (
+            message.document.mime_type or "application/octet-stream"
+            if message.document is not None
+            else "application/octet-stream"
+        )
     )
-    original_name = None if message.photo else message.document.file_name
+    original_name = (
+        None
+        if message.photo
+        else message.document.file_name
+        if message.document is not None
+        else None
+    )
     buffer = BytesIO()
     try:
         await bot.download(attachment.file_id, destination=buffer)
@@ -188,8 +224,12 @@ async def dispute_attachment(
             original_name=original_name,
         )
     except BackendClientError:
-        await message.answer(
-            "Не удалось загрузить вложение. Попробуйте ещё раз или /skip."
+        await _prompt(
+            bot=bot,
+            event=message,
+            telegram_responder=telegram_responder,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Не удалось загрузить вложение. Попробуйте ещё раз или /skip.",
         )
         return
     data = await state.get_data()

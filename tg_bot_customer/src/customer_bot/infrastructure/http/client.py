@@ -685,9 +685,7 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return _support_record_from_json(response.json())
 
-    async def get_deletion_preflight(
-        self, *, telegram_id: int
-    ) -> DeletionPreflightDTO:
+    async def get_deletion_preflight(self, *, telegram_id: int) -> DeletionPreflightDTO:
         response = await self._request(
             "GET",
             f"/api/customers/by-telegram/{telegram_id}/deletion-preflight",
@@ -699,9 +697,7 @@ class BackendClient(BackendPort):
             blockers=tuple(payload.get("blockers", [])),
         )
 
-    async def create_deletion_request(
-        self, *, telegram_id: int
-    ) -> SupportRecordDTO:
+    async def create_deletion_request(self, *, telegram_id: int) -> SupportRecordDTO:
         response = await self._request(
             "POST",
             f"/api/customers/by-telegram/{telegram_id}/deletion-requests",
