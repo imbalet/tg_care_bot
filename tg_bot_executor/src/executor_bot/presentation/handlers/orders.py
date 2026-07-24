@@ -15,6 +15,7 @@ from executor_bot.application.ports import (
     ViewedAvailableOrdersStore,
 )
 from executor_bot.presentation.callbacks import (
+    AvailableOrderCardCallback,
     AvailableOrdersOpenCallback,
     DirectAcceptCallback,
     DirectRejectCallback,
@@ -39,6 +40,7 @@ from executor_bot.presentation.contexts import TelegramUserContext
 from executor_bot.presentation.navigation import active_category
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
+    available_order_card_keyboard,
     available_orders_keyboard,
     available_orders_text,
     direct_accept_created_text,
@@ -74,6 +76,7 @@ async def available_orders_callback(
     callback: CallbackQuery,
     bot: Bot,
     backend_client: BackendPort,
+    state: FSMContext,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     active_category_store: ActiveCategoryStore,
@@ -113,6 +116,19 @@ async def available_orders_callback(
         if callback_data.show_viewed
         else tuple(order for order in orders if str(order.id) not in viewed)
     )
+    await state.update_data(
+        available_orders=[
+            {
+                "id": str(order.id),
+                "service_name": order.service_name,
+                "start_at": order.start_at.isoformat(),
+                "end_at": order.end_at.isoformat(),
+                "objects_count": order.objects_count,
+                "total_amount": str(order.total_amount),
+            }
+            for order in visible_orders
+        ],
+    )
     await telegram_responder.update(
         bot=bot,
         event=callback,
@@ -123,6 +139,53 @@ async def available_orders_callback(
             scope=callback_data.scope,
             show_viewed=callback_data.show_viewed,
         ),
+    )
+
+
+@router.callback_query(AvailableOrderCardCallback.filter())
+async def available_order_card_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    viewed_available_orders_store: ViewedAvailableOrdersStore,
+    callback_data: AvailableOrderCardCallback,
+) -> None:
+    data = await state.get_data()
+    items = data.get("available_orders")
+    item = next(
+        (
+            item
+            for item in items
+            if isinstance(item, dict) and str(item.get("id")) == callback_data.order_id
+        ),
+        None,
+    ) if isinstance(items, list) else None
+    if item is None:
+        await telegram_responder.acknowledge(callback, "Заказ уже недоступен.")
+        return
+    await viewed_available_orders_store.mark_viewed(
+        telegram_user_context.telegram_id,
+        callback_data.order_id,
+    )
+    text = "\n".join(
+        (
+            "📦 <b>Доступный заказ</b>",
+            "",
+            f"Услуга: {escape(str(item['service_name']))}",
+            "🗓 Период: "
+            f"{escape(str(item['start_at']))} — {escape(str(item['end_at']))}",
+            f"Объектов: {escape(str(item['objects_count']))}",
+            f"Сумма: {escape(str(item['total_amount']))} ₽",
+        ),
+    )
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=text,
+        reply_markup=available_order_card_keyboard(callback_data.order_id),
     )
 
 

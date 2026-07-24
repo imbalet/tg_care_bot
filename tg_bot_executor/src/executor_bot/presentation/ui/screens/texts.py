@@ -498,7 +498,7 @@ def my_order_card_text(
         else f"{minutes} мин."
     )
     lines = [
-        "<b>Заказ</b>",
+        "📦 <b>Заказ</b>",
         "",
         f"Услуга: {escape(order.service_name)}",
         *(
@@ -506,10 +506,10 @@ def my_order_card_text(
             if category_name is not None
             else ()
         ),
-        f"Статус: {_order_status_label(order.status)}",
-        f"Начало: {_datetime_label(order.start_at)}",
-        f"Окончание: {_datetime_label(order.end_at)}",
-        f"Длительность: {duration}",
+        f"🔹 Статус: {_order_status_label(order.status)}",
+        f"🗓 Начало: {_datetime_label(order.start_at)}",
+        f"🗓 Окончание: {_datetime_label(order.end_at)}",
+        f"⏱ Длительность: {duration}",
         f"Объектов: {order.objects_count}",
         f"Сумма заказа: {escape(str(order.total_amount))} ₽",
     ]

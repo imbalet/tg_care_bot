@@ -40,6 +40,10 @@ class AvailableOrdersOpenCallback(CallbackData, prefix="orders_feed"):
     show_viewed: bool = False
 
 
+class AvailableOrderCardCallback(CallbackData, prefix="available_order_card"):
+    order_id: str
+
+
 class ExecutorOrdersOpenCallback(CallbackData, prefix="orders_list"):
     scope: OrderFilterScope = OrderFilterScope.CURRENT_CATEGORY
 

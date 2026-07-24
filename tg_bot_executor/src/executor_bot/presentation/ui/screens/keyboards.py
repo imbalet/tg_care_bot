@@ -5,6 +5,7 @@ from aiogram.types import InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMar
 
 from executor_bot.presentation.callbacks import (
     AcceptingOrdersCallback,
+    AvailableOrderCardCallback,
     AvailableOrdersOpenCallback,
     AvatarDeleteCallback,
     AvatarOpenCallback,
@@ -248,8 +249,8 @@ def available_orders_keyboard(
         order_id = str(getattr(item, "id", ""))
         service_name = str(getattr(item, "service_name", "Заказ"))
         keyboard.button(
-            f"Откликнуться: {service_name}",
-            PoolRespondCallback(order_id=order_id),
+            f"Открыть: {service_name}",
+            AvailableOrderCardCallback(order_id=order_id),
         )
     return (
         keyboard.button(
@@ -269,6 +270,15 @@ def available_orders_keyboard(
             "Скрыть просмотренные" if show_viewed else "Показать просмотренные",
             AvailableOrdersOpenCallback(scope=scope, show_viewed=not show_viewed),
         )
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
+
+
+def available_order_card_keyboard(order_id: str) -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button("Откликнуться", PoolRespondCallback(order_id=order_id))
         .button(MsgKey.MAIN_MENU, MainMenuCallback())
         .as_markup()
     )

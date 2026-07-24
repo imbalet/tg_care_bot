@@ -1,4 +1,5 @@
 from .screens.keyboards import (
+    available_order_card_keyboard,
     available_orders_keyboard,
     avatar_keyboard,
     calendar_keyboard,
@@ -90,6 +91,7 @@ __all__ = [
     "avatar_uploaded_text",
     "available_orders_placeholder_text",
     "available_orders_keyboard",
+    "available_order_card_keyboard",
     "available_orders_text",
     "calendar_keyboard",
     "calendar_text",
