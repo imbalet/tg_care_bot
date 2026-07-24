@@ -169,6 +169,7 @@ class BackendPort(Protocol):
         self,
         *,
         performer_id: UUID,
+        category_code: str | None = None,
     ) -> tuple[AvailableOrderDTO, ...]: ...
 
     async def create_pool_response(

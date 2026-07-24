@@ -69,6 +69,7 @@ async def show_category_menu(
     telegram_user_context: TelegramUserContext,
     telegram_responder: TelegramResponder,
     category: ServiceCategoryDTO,
+    force_create_new: bool = False,
 ) -> None:
     await telegram_responder.update(
         bot=bot,
@@ -76,4 +77,5 @@ async def show_category_menu(
         telegram_id=telegram_user_context.telegram_id,
         text=executor_main_menu_text(category),
         reply_markup=main_menu_keyboard(category),
+        create_new=force_create_new,
     )

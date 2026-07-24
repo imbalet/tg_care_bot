@@ -9,7 +9,11 @@ from aiogram.types import CallbackQuery, Message
 
 from executor_bot.application.dto import OrderMatchDTO
 from executor_bot.application.errors import BackendClientError
-from executor_bot.application.ports import BackendPort, ViewedAvailableOrdersStore
+from executor_bot.application.ports import (
+    ActiveCategoryStore,
+    BackendPort,
+    ViewedAvailableOrdersStore,
+)
 from executor_bot.presentation.callbacks import (
     AvailableOrdersOpenCallback,
     DirectAcceptCallback,
@@ -32,6 +36,7 @@ from executor_bot.presentation.callbacks import (
     PoolRespondCallback,
 )
 from executor_bot.presentation.contexts import TelegramUserContext
+from executor_bot.presentation.navigation import active_category
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
     available_orders_keyboard,
@@ -71,6 +76,7 @@ async def available_orders_callback(
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
+    active_category_store: ActiveCategoryStore,
     viewed_available_orders_store: ViewedAvailableOrdersStore,
     callback_data: AvailableOrdersOpenCallback,
 ) -> None:
@@ -86,24 +92,37 @@ async def available_orders_callback(
             reply_markup=orders_filter_keyboard(is_available_orders=True),
         )
         return
+    category = await active_category(
+        backend_client=backend_client,
+        active_category_store=active_category_store,
+        telegram_id=telegram_user_context.telegram_id,
+    )
     orders = await backend_client.list_available_orders(
         performer_id=state.performer.id,
+        category_code=(
+            category.code
+            if callback_data.scope.value == "current_category" and category is not None
+            else None
+        ),
     )
     viewed = await viewed_available_orders_store.list_viewed(
         telegram_user_context.telegram_id,
     )
-    visible_orders = tuple(order for order in orders if str(order.id) not in viewed)
-    for order in visible_orders:
-        await viewed_available_orders_store.mark_viewed(
-            telegram_user_context.telegram_id,
-            str(order.id),
-        )
+    visible_orders = (
+        orders
+        if callback_data.show_viewed
+        else tuple(order for order in orders if str(order.id) not in viewed)
+    )
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=available_orders_text(visible_orders, callback_data.scope),
-        reply_markup=available_orders_keyboard(visible_orders),
+        reply_markup=available_orders_keyboard(
+            visible_orders,
+            scope=callback_data.scope,
+            show_viewed=callback_data.show_viewed,
+        ),
     )
 
 
@@ -275,6 +294,14 @@ async def _performer_id(backend_client: BackendPort, telegram_id: int) -> UUID:
     return state.performer.id
 
 
+async def _category_name(backend_client: BackendPort, category_code: str) -> str:
+    categories = await backend_client.list_catalog_categories()
+    return next(
+        (category.name for category in categories if category.code == category_code),
+        category_code,
+    )
+
+
 @router.callback_query(ExecutorOrderLocationCallback.filter())
 async def order_location_callback(
     callback: CallbackQuery,
@@ -331,11 +358,12 @@ async def _refresh_order_card(
     order = await backend_client.get_performer_order_card(
         performer_id=performer_id, order_id=order_id
     )
+    category_name = await _category_name(backend_client, order.category_code)
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=context.telegram_id,
-        text=my_order_card_text(order),
+        text=my_order_card_text(order, category_name=category_name),
         reply_markup=my_order_card_keyboard_for_status(
             status=order.status, order_id=str(order.id), group=group, page=page
         ),
@@ -786,7 +814,10 @@ async def _show_executor_order_card(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=my_order_card_text(order),
+        text=my_order_card_text(
+            order,
+            category_name=await _category_name(backend_client, order.category_code),
+        ),
         reply_markup=my_order_card_keyboard_for_status(
             status=order.status,
             order_id=str(order.id),
@@ -803,6 +834,7 @@ async def pool_response_callback(
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
+    viewed_available_orders_store: ViewedAvailableOrdersStore,
     callback_data: PoolRespondCallback,
 ) -> None:
     try:
@@ -814,6 +846,10 @@ async def pool_response_callback(
         await backend_client.create_pool_response(
             order_id=UUID(callback_data.order_id),
             performer_id=state.performer.id,
+        )
+        await viewed_available_orders_store.mark_viewed(
+            telegram_user_context.telegram_id,
+            callback_data.order_id,
         )
         text = pool_response_created_text()
     except BackendClientError, ValueError:

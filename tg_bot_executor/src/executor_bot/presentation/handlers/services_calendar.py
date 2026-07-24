@@ -27,7 +27,6 @@ from executor_bot.presentation.ui import (
     retry_later_text,
     services_keyboard,
     services_text,
-    services_updated_text,
     use_buttons_text,
 )
 
@@ -56,16 +55,14 @@ async def open_services(
             text=retry_later_text(),
         )
         return
-    await state.update_data(
-        performer_services=[_service_state(item) for item in services],
-    )
-    await send_step(
+    await _show_services(
+        callback=callback,
         bot=bot,
-        event=callback,
+        state=state,
+        backend_client=backend_client,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
-        text=services_text(services),
-        reply_markup=services_keyboard(services),
+        services=services,
     )
 
 
@@ -92,12 +89,13 @@ async def toggle_accepting_orders(
             text=retry_later_text(),
         )
         return
-    await send_step(
+    await _show_services(
+        callback=callback,
         bot=bot,
-        event=callback,
+        state=None,
+        backend_client=backend_client,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
-        text=services_updated_text(),
     )
 
 
@@ -130,12 +128,13 @@ async def toggle_service(
             text=retry_later_text(),
         )
         return
-    await send_step(
+    await _show_services(
+        callback=callback,
         bot=bot,
-        event=callback,
+        state=state,
+        backend_client=backend_client,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
-        text=services_updated_text(),
     )
 
 
@@ -173,12 +172,13 @@ async def reduce_service_limit(
             text=retry_later_text(),
         )
         return
-    await send_step(
+    await _show_services(
+        callback=callback,
         bot=bot,
-        event=callback,
+        state=state,
+        backend_client=backend_client,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
-        text=services_updated_text(),
     )
 
 
@@ -274,6 +274,43 @@ async def _service_by_index(
         return None
     item = services[index]
     return item if isinstance(item, dict) else None
+
+
+async def _show_services(
+    *,
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext | None,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    services: tuple[PerformerServiceDTO, ...] | None = None,
+) -> None:
+    services = services or await backend_client.list_performer_services(
+        telegram_id=telegram_user_context.telegram_id,
+    )
+    registration = await backend_client.get_registration_state(
+        telegram_user_context.telegram_id,
+    )
+    is_accepting_orders = bool(
+        registration.performer and registration.performer.is_accepting_orders
+    )
+    if state is not None:
+        await state.update_data(
+            performer_services=[_service_state(item) for item in services],
+            is_accepting_orders=is_accepting_orders,
+        )
+    await send_step(
+        bot=bot,
+        event=callback,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+        text=services_text(services, is_accepting_orders),
+        reply_markup=services_keyboard(
+            services,
+            is_accepting_orders=is_accepting_orders,
+        ),
+    )
 
 
 def _service_state(item: PerformerServiceDTO) -> dict[str, object]:

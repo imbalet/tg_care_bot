@@ -188,24 +188,36 @@ def support_keyboard(
     return keyboard.as_markup()
 
 
-def orders_filter_keyboard(*, is_available_orders: bool) -> InlineKeyboardMarkup:
+def orders_filter_keyboard(
+    *,
+    is_available_orders: bool,
+    scope: OrderFilterScope = OrderFilterScope.CURRENT_CATEGORY,
+    show_viewed: bool = False,
+) -> InlineKeyboardMarkup:
     current_callback = (
-        AvailableOrdersOpenCallback(scope=OrderFilterScope.CURRENT_CATEGORY)
+        AvailableOrdersOpenCallback(
+            scope=OrderFilterScope.CURRENT_CATEGORY,
+            show_viewed=show_viewed,
+        )
         if is_available_orders
         else ExecutorOrdersOpenCallback(scope=OrderFilterScope.CURRENT_CATEGORY)
     )
     all_callback = (
-        AvailableOrdersOpenCallback(scope=OrderFilterScope.ALL)
+        AvailableOrdersOpenCallback(scope=OrderFilterScope.ALL, show_viewed=show_viewed)
         if is_available_orders
         else ExecutorOrdersOpenCallback(scope=OrderFilterScope.ALL)
     )
-    return (
-        InlineKeyboardFactory()
-        .button(MsgKey.CURRENT_CATEGORY, current_callback)
-        .button(MsgKey.ALL_CATEGORIES, all_callback)
-        .button(MsgKey.MAIN_MENU, MainMenuCallback())
-        .as_markup()
-    )
+    keyboard = InlineKeyboardFactory()
+    if scope == OrderFilterScope.ALL:
+        keyboard.button("Только текущее направление", current_callback)
+    else:
+        keyboard.button("Все направления", all_callback)
+    if is_available_orders:
+        keyboard.button(
+            "Скрыть просмотренные" if show_viewed else "Показать просмотренные",
+            AvailableOrdersOpenCallback(scope=scope, show_viewed=not show_viewed),
+        )
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
 def responses_keyboard(items: Sequence[object], group: str) -> InlineKeyboardMarkup:
@@ -225,7 +237,12 @@ def responses_keyboard(items: Sequence[object], group: str) -> InlineKeyboardMar
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
-def available_orders_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
+def available_orders_keyboard(
+    items: Sequence[object],
+    *,
+    scope: OrderFilterScope = OrderFilterScope.CURRENT_CATEGORY,
+    show_viewed: bool = False,
+) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory()
     for item in items:
         order_id = str(getattr(item, "id", ""))
@@ -234,7 +251,27 @@ def available_orders_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
             f"Откликнуться: {service_name}",
             PoolRespondCallback(order_id=order_id),
         )
-    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+    return (
+        keyboard.button(
+            "Только текущее направление"
+            if scope == OrderFilterScope.ALL
+            else "Все направления",
+            AvailableOrdersOpenCallback(
+                scope=(
+                    OrderFilterScope.CURRENT_CATEGORY
+                    if scope == OrderFilterScope.ALL
+                    else OrderFilterScope.ALL
+                ),
+                show_viewed=show_viewed,
+            ),
+        )
+        .button(
+            "Скрыть просмотренные" if show_viewed else "Показать просмотренные",
+            AvailableOrdersOpenCallback(scope=scope, show_viewed=not show_viewed),
+        )
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
 
 
 def direct_offer_keyboard(match_id: str) -> InlineKeyboardMarkup:
@@ -398,12 +435,22 @@ def avatar_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def services_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
+def services_keyboard(
+    items: Sequence[object],
+    *,
+    is_accepting_orders: bool = False,
+) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory()
-    keyboard.button(
-        MsgKey.ACCEPTING_ORDERS,
-        AcceptingOrdersCallback(value=True),
-    ).button(MsgKey.PAUSE, AcceptingOrdersCallback(value=False))
+    if is_accepting_orders:
+        keyboard.button(
+            "Перестать принимать заказы",
+            AcceptingOrdersCallback(value=False),
+        )
+    else:
+        keyboard.button(
+            "Начать принимать заказы",
+            AcceptingOrdersCallback(value=True),
+        )
     for index, item in enumerate(items):
         enabled = bool(getattr(item, "is_enabled", False))
         name = str(getattr(item, "service_name", f"#{index + 1}"))

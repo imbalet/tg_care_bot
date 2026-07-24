@@ -447,11 +447,15 @@ class BackendClient(BackendPort):
         self,
         *,
         performer_id: UUID,
+        category_code: str | None = None,
     ) -> tuple[AvailableOrderDTO, ...]:
         response = await self._request(
             "GET",
             "/api/orders/available",
-            params={"performer_id": str(performer_id)},
+            params={
+                "performer_id": str(performer_id),
+                **({"category_code": category_code} if category_code else {}),
+            },
         )
         self._raise_for_status(response)
         return tuple(_available_order_from_json(item) for item in response.json())

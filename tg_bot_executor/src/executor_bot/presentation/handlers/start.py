@@ -147,6 +147,7 @@ async def _open_start_or_menu(
                 telegram_user_context=telegram_user_context,
                 backend_client=backend_client,
                 telegram_responder=telegram_responder,
+                force_create_new=True,
             )
             return
         await show_category_menu(
@@ -155,6 +156,7 @@ async def _open_start_or_menu(
             telegram_user_context=telegram_user_context,
             telegram_responder=telegram_responder,
             category=category,
+            force_create_new=True,
         )
         return
     if registration_state.state == "no_invitation":

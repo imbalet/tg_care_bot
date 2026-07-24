@@ -37,6 +37,7 @@ class ProfileDeletionConfirmCallback(CallbackData, prefix="profile_delete_confir
 
 class AvailableOrdersOpenCallback(CallbackData, prefix="orders_feed"):
     scope: OrderFilterScope = OrderFilterScope.CURRENT_CATEGORY
+    show_viewed: bool = False
 
 
 class ExecutorOrdersOpenCallback(CallbackData, prefix="orders_list"):

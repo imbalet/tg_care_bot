@@ -360,10 +360,15 @@ def avatar_deleted_text() -> str:
     return "Аватар удален."
 
 
-def services_text(items: Sequence[object]) -> str:
+def services_text(items: Sequence[object], is_accepting_orders: bool = False) -> str:
     if not items:
-        return "<b>Услуги</b>\n\nПока нет одобренных услуг."
-    lines = ["<b>Услуги</b>", ""]
+        accepting = "принимаю заказы" if is_accepting_orders else "не принимаю заказы"
+        return (
+            f"<b>Услуги</b>\n\nПриём заказов: {accepting}\n\n"
+            "Пока нет одобренных услуг."
+        )
+    accepting = "принимаю заказы" if is_accepting_orders else "не принимаю заказы"
+    lines = ["<b>Услуги</b>", "", f"Приём заказов: {accepting}", ""]
     for item in items:
         enabled = "включена" if getattr(item, "is_enabled", False) else "выключена"
         limit = escape(str(getattr(item, "performer_max_objects", 1)))
@@ -475,14 +480,36 @@ def my_orders_page_text(page: MyOrdersPageView, group: str) -> str:
     return "\n".join(lines)
 
 
-def my_order_card_text(order: MyOrderCardView) -> str:
+def my_order_card_text(
+    order: MyOrderCardView,
+    *,
+    category_name: str | None = None,
+) -> str:
+    duration_minutes = max(
+        0,
+        int((order.end_at - order.start_at).total_seconds() // 60),
+    )
+    hours, minutes = divmod(duration_minutes, 60)
+    duration = (
+        f"{hours} ч. {minutes} мин."
+        if hours and minutes
+        else f"{hours} ч."
+        if hours
+        else f"{minutes} мин."
+    )
     lines = [
         "<b>Заказ</b>",
         "",
         f"Услуга: {escape(order.service_name)}",
+        *(
+            (f"Направление: {escape(category_name)}",)
+            if category_name is not None
+            else ()
+        ),
         f"Статус: {_order_status_label(order.status)}",
         f"Начало: {_datetime_label(order.start_at)}",
         f"Окончание: {_datetime_label(order.end_at)}",
+        f"Длительность: {duration}",
         f"Объектов: {order.objects_count}",
         f"Сумма заказа: {escape(str(order.total_amount))} ₽",
     ]
