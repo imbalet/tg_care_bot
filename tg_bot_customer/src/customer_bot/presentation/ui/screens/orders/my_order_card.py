@@ -104,14 +104,14 @@ class _View(Protocol):
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
         lines = [
-            "<b>Заказ</b>",
+            "📦 <b>Заказ</b>",
             "",
             f"Услуга: {escape(self.data.service_name)}",
             f"Направление: {escape(self.data.category_name)}",
-            f"Статус: {_order_status_label(self.data.status)}",
-            f"Начало: {_datetime_label(self.data.start_at)}",
-            f"Окончание: {_datetime_label(self.data.end_at)}",
-            f"Длительность: {_duration_label(self.data.start_at, self.data.end_at)}",
+            f"🔹 Статус: {_order_status_label(self.data.status)}",
+            f"🗓 Начало: {_datetime_label(self.data.start_at)}",
+            f"🗓 Окончание: {_datetime_label(self.data.end_at)}",
+            f"⏱ Длительность: {_duration_label(self.data.start_at, self.data.end_at)}",
             f"Объектов: {self.data.objects_count}",
             f"Итого: {escape(str(self.data.total_amount))} ₽",
         ]
@@ -147,10 +147,11 @@ class Screen(BaseScreen[_View]):
         matching_mode = self.data.matching_mode
         if payment_url and payment_url.startswith("https://"):
             keyboard.url_button("Оплатить", payment_url)
-        if status == "waiting_payment":
-            keyboard.button(
-                "Обновить оплату", PaymentRefreshCallback(order_id=order_id)
-            )
+        if status in {"searching", "waiting_payment", "confirmed"}:
+            if status == "waiting_payment":
+                keyboard.button(
+                    "Обновить оплату", PaymentRefreshCallback(order_id=order_id)
+                )
             keyboard.button(
                 "Отменить заказ",
                 OrderCancelPreviewCallback(order_id=order_id),

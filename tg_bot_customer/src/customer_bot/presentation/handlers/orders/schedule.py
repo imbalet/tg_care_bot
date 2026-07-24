@@ -12,6 +12,7 @@ from customer_bot.presentation.callbacks import (
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.handlers.orders.creation_navigation import (
+    current_date,
     format_date,
     start_calendar,
     start_calendar_keyboard,
@@ -78,7 +79,8 @@ async def _process_start_calendar_selection(
         await telegram_responder.acknowledge(callback)
         return
     start_date = selected_date.date()
-    if start_date < date.today():
+    data = await state.get_data()
+    if start_date < current_date(str(data.get("order_timezone", "Europe/Moscow"))):
         await telegram_responder.update(
             bot=bot,
             event=callback,

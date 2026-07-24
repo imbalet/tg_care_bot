@@ -126,7 +126,12 @@ class BackendClient(BackendPort):
         response = await self._request("GET", "/api/catalog/cities")
         self._raise_for_status(response)
         return tuple(
-            CityDTO(id=UUID(item["id"]), name=item["name"]) for item in response.json()
+            CityDTO(
+                id=UUID(item["id"]),
+                name=item["name"],
+                timezone=str(item.get("timezone", "Europe/Moscow")),
+            )
+            for item in response.json()
         )
 
     async def list_active_legal_documents(self) -> tuple[LegalDocumentDTO, ...]:

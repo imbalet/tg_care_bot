@@ -8,6 +8,7 @@ from uuid import UUID
 class CityDTO:
     id: UUID
     name: str
+    timezone: str = "Europe/Moscow"
 
 
 @dataclass(frozen=True)

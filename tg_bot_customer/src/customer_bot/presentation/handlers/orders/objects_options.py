@@ -163,6 +163,7 @@ async def select_object(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: OrderObjectCallback,
@@ -199,7 +200,12 @@ async def select_object(
     await state.update_data(order_draft=order_draft)
     if max_objects <= 1 and selected:
         await _ask_options_or_start(
-            callback, bot, state, telegram_responder, telegram_user_context
+            callback,
+            bot,
+            state,
+            backend_client,
+            telegram_responder,
+            telegram_user_context,
         )
         return
     objects = data.get("order_objects")
@@ -235,6 +241,7 @@ async def finish_object_selection(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -246,6 +253,7 @@ async def finish_object_selection(
         callback,
         bot,
         state,
+        backend_client,
         telegram_responder,
         telegram_user_context,
     )
@@ -255,6 +263,7 @@ async def _ask_options_or_start(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -291,7 +300,14 @@ async def _ask_options_or_start(
         return
     order_draft["option_values"] = {}
     await state.update_data(order_draft=order_draft)
-    await _ask_start_at(callback, bot, state, telegram_responder, telegram_user_context)
+    await _ask_start_at(
+        callback,
+        bot,
+        state,
+        backend_client,
+        telegram_responder,
+        telegram_user_context,
+    )
 
 
 @router.callback_query(OrderCreation.options, OrderOptionToggleCallback.filter())
@@ -349,6 +365,7 @@ async def finish_options(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
@@ -365,20 +382,39 @@ async def finish_options(
         }
     order_draft["option_values"] = option_values
     await state.update_data(order_draft=order_draft)
-    await _ask_start_at(callback, bot, state, telegram_responder, telegram_user_context)
+    await _ask_start_at(
+        callback,
+        bot,
+        state,
+        backend_client,
+        telegram_responder,
+        telegram_user_context,
+    )
 
 
 async def _ask_start_at(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
+    profile = await backend_client.get_customer_profile(
+        telegram_user_context.telegram_id,
+    )
+    timezone = "Europe/Moscow"
+    if profile is not None:
+        cities = await backend_client.list_active_cities()
+        timezone = next(
+            (city.timezone for city in cities if city.id == profile.city_id),
+            timezone,
+        )
     await state.set_state(OrderCreation.start)
     await state.update_data(
         order_start_date=None,
         order_start_manual_time=False,
+        order_timezone=timezone,
     )
     await telegram_responder.update(
         bot=bot,
