@@ -348,33 +348,6 @@ class BackendClient(BackendPort):
         )
         self._raise_for_status(response)
 
-    async def update_address(
-        self,
-        *,
-        telegram_id: int,
-        address_id: UUID,
-        city_id: UUID,
-        unrestricted_value: str,
-        entrance: str | None,
-        floor: str | None,
-        apartment: str | None,
-        comment: str | None,
-    ) -> AddressDTO:
-        response = await self._request(
-            "PATCH",
-            f"/api/customers/by-telegram/{telegram_id}/addresses/{address_id}",
-            json={
-                "city_id": str(city_id),
-                "unrestricted_value": unrestricted_value,
-                "entrance": entrance,
-                "floor": floor,
-                "apartment": apartment,
-                "comment": comment,
-            },
-        )
-        self._raise_for_status(response)
-        return _address_from_json(response.json())
-
     async def preview_order_price(
         self,
         *,

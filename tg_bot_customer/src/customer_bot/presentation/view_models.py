@@ -198,6 +198,7 @@ class CareObjectBlockedView:
 @dataclass(frozen=True, slots=True)
 class MyOrderCardView:
     id: UUID
+    category_name: str
     service_name: str
     matching_mode: str | None
     status: str
@@ -229,6 +230,7 @@ class MyOrdersPageView:
 class OrderListItemView:
     id: UUID
     category_code: str
+    category_name: str
     service_name: str
     matching_mode: str | None
     status: str

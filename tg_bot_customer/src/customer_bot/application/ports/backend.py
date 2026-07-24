@@ -141,19 +141,6 @@ class BackendPort(Protocol):
 
     async def delete_address(self, *, telegram_id: int, address_id: UUID) -> None: ...
 
-    async def update_address(
-        self,
-        *,
-        telegram_id: int,
-        address_id: UUID,
-        city_id: UUID,
-        unrestricted_value: str,
-        entrance: str | None,
-        floor: str | None,
-        apartment: str | None,
-        comment: str | None,
-    ) -> AddressDTO: ...
-
     async def get_deletion_preflight(
         self, *, telegram_id: int
     ) -> DeletionPreflightDTO: ...

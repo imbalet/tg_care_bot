@@ -400,6 +400,11 @@ async def _show_order_card(
             customer_id=profile.id,
             order_id=order_id,
         )
+        categories = await backend_client.list_catalog_categories()
+        category_name = next(
+            (item.name for item in categories if item.code == order.category_code),
+            order.category_code,
+        )
     except BackendClientError as exc:
         logger.warning(
             "Failed to open customer order card",
@@ -424,6 +429,7 @@ async def _show_order_card(
             screen := MyOrderCardScreen(
                 MyOrderCardView(
                     id=order.id,
+                    category_name=category_name,
                     service_name=order.service_name,
                     matching_mode=order.matching_mode,
                     status=order.status,
@@ -467,6 +473,8 @@ async def _show_orders_page(
             page=page,
             category_code=category_code,
         )
+        categories = await backend_client.list_catalog_categories()
+        category_names = {item.code: item.name for item in categories}
     except BackendClientError as exc:
         logger.warning(
             "Failed to load customer orders page",
@@ -496,6 +504,10 @@ async def _show_orders_page(
                         OrderListItemView(
                             id=item.id,
                             category_code=item.category_code,
+                            category_name=category_names.get(
+                                item.category_code,
+                                item.category_code,
+                            ),
                             service_name=item.service_name,
                             matching_mode=item.matching_mode,
                             status=item.status,

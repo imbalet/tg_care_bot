@@ -1,5 +1,4 @@
 import logging
-from uuid import UUID
 
 from aiogram import Bot
 from aiogram.fsm.context import FSMContext
@@ -59,29 +58,15 @@ async def _advance_or_create(
         )
         return
     try:
-        data = await state.get_data()
-        address_edit_id = data.get("address_edit_id")
-        if address_edit_id is not None:
-            await backend_client.update_address(
-                telegram_id=telegram_user_context.telegram_id,
-                address_id=UUID(str(address_edit_id)),
-                city_id=snapshot.city_id,
-                unrestricted_value=snapshot.unrestricted_value,
-                entrance=snapshot.entrance,
-                floor=snapshot.floor,
-                apartment=snapshot.apartment,
-                comment=snapshot.comment,
-            )
-        else:
-            await backend_client.create_address(
-                telegram_id=telegram_user_context.telegram_id,
-                city_id=snapshot.city_id,
-                unrestricted_value=snapshot.unrestricted_value,
-                entrance=snapshot.entrance,
-                floor=snapshot.floor,
-                apartment=snapshot.apartment,
-                comment=snapshot.comment,
-            )
+        await backend_client.create_address(
+            telegram_id=telegram_user_context.telegram_id,
+            city_id=snapshot.city_id,
+            unrestricted_value=snapshot.unrestricted_value,
+            entrance=snapshot.entrance,
+            floor=snapshot.floor,
+            apartment=snapshot.apartment,
+            comment=snapshot.comment,
+        )
     except BackendValidationError:
         logger.warning(
             "Backend rejected address creation",

@@ -202,10 +202,6 @@ class AddressSelectCallback(CallbackData, prefix="addr_select"):
     address_id: UUID
 
 
-class AddressEditCallback(CallbackData, prefix="addr_edit"):
-    address_id: UUID
-
-
 class AddressDeleteCallback(CallbackData, prefix="addr_delete"):
     address_id: UUID
 

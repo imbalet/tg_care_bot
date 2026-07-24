@@ -109,7 +109,7 @@ class Screen(BaseScreen[_View]):
                 (
                     "",
                     f"{index}. {escape(item.service_name)}",
-                    f"Направление: {escape(item.category_code)}",
+                    f"Направление: {escape(item.category_name)}",
                     f"Статус: {_order_status_label(item.status)}",
                     f"Время: {_datetime_label(item.start_at)}",
                     f"Итого: {escape(str(item.total_amount))} ₽",

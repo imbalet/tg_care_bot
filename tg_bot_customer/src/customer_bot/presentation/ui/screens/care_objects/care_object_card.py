@@ -14,6 +14,12 @@ from customer_bot.presentation.ui.screens.screen import (
 )
 from customer_bot.presentation.ui.texts.labels import MsgKey
 
+OBJECT_CARD_TITLES = {
+    "Ребёнок": "Карточка ребёнка",
+    "Подопечный": "Карточка подопечного",
+    "Питомец": "Карточка питомца",
+}
+
 
 class _View(Protocol):
     @property
@@ -63,7 +69,7 @@ class Screen(BaseScreen[_View]):
             escape(self.data.behavior_notes) if self.data.behavior_notes else None
         )
         lines = [
-            "<b>Карточка объекта ухода</b>",
+            f"<b>{OBJECT_CARD_TITLES.get(self.data.object_type, 'Карточка')}</b>",
             "",
             f"Тип: {object_type}",
             f"Имя: {display_name}",

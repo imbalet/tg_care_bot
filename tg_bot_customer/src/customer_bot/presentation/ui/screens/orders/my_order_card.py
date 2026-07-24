@@ -44,6 +44,16 @@ def _datetime_label(value: datetime) -> str:
     return escape(value.strftime("%d.%m.%Y %H:%M"))
 
 
+def _duration_label(start_at: datetime, end_at: datetime) -> str:
+    minutes = max(0, int((end_at - start_at).total_seconds() // 60))
+    hours, remainder = divmod(minutes, 60)
+    if hours and remainder:
+        return f"{hours} ч. {remainder} мин."
+    if hours:
+        return f"{hours} ч."
+    return f"{minutes} мин."
+
+
 class _View(Protocol):
     @property
     def payment_status(self) -> str | None: ...
@@ -97,9 +107,11 @@ class Screen(BaseScreen[_View]):
             "<b>Заказ</b>",
             "",
             f"Услуга: {escape(self.data.service_name)}",
+            f"Направление: {escape(self.data.category_name)}",
             f"Статус: {_order_status_label(self.data.status)}",
             f"Начало: {_datetime_label(self.data.start_at)}",
             f"Окончание: {_datetime_label(self.data.end_at)}",
+            f"Длительность: {_duration_label(self.data.start_at, self.data.end_at)}",
             f"Объектов: {self.data.objects_count}",
             f"Итого: {escape(str(self.data.total_amount))} ₽",
         ]

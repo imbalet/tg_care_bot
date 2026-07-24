@@ -78,6 +78,16 @@ async def _process_start_calendar_selection(
         await telegram_responder.acknowledge(callback)
         return
     start_date = selected_date.date()
+    if start_date < date.today():
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Дата уже прошла. Выберите дату в календаре.",
+            reply_markup=await start_calendar_keyboard(),
+            create_new=True,
+        )
+        return
     await state.update_data(order_start_date=start_date.isoformat())
     await telegram_responder.update(
         bot=bot,
