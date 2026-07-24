@@ -15,6 +15,13 @@ from backend.modules.addresses.application.use_cases import (
     SuggestAddressCommand,
     SuggestAddressesUseCase,
 )
+from backend.modules.availability.application.use_cases import (
+    AddCalendarOverrideCommand,
+    AddCalendarOverrideUseCase,
+    CheckPerformerAvailabilityCommand,
+    CheckPerformerAvailabilityUseCase,
+    GetPerformerCalendarUseCase,
+)
 from backend.modules.care_objects.application.validation import (
     validate_care_object_fields,
 )
@@ -286,3 +293,45 @@ def test_care_object_validation_rejects_incomplete_object_data(
             pet_size=None,
             mobility_assistance_required=mobility_assistance_required,
         )
+
+
+@pytest.mark.unit
+async def test_calendar_override_and_availability_forward_valid_business_data() -> None:
+    repository = AsyncMock()
+    override = SimpleNamespace(id=uuid4())
+    repository.add_override.return_value = override
+    starts_at = datetime.now(UTC) + timedelta(hours=1)
+    ends_at = starts_at + timedelta(hours=2)
+
+    override_result = await AddCalendarOverrideUseCase(repository).execute(
+        AddCalendarOverrideCommand(1, "unavailable", starts_at, ends_at, "leave"),
+    )
+    assert override_result.id == override.id
+
+    availability = SimpleNamespace(is_available=True)
+    repository.check.return_value = availability
+    availability_result = await CheckPerformerAvailabilityUseCase(repository).execute(
+        CheckPerformerAvailabilityCommand(uuid4(), uuid4(), starts_at, ends_at),
+    )
+    assert availability_result.is_available
+    repository.check.assert_awaited_once()
+
+
+@pytest.mark.unit
+async def test_calendar_use_cases_reject_invalid_ranges_and_unknown_performer() -> None:
+    repository = AsyncMock()
+    starts_at = datetime.now(UTC) + timedelta(hours=2)
+    ends_at = starts_at - timedelta(minutes=1)
+
+    with pytest.raises(ValidationError):
+        await AddCalendarOverrideUseCase(repository).execute(
+            AddCalendarOverrideCommand(1, "invalid", starts_at, starts_at, None),
+        )
+    with pytest.raises(ValidationError):
+        await CheckPerformerAvailabilityUseCase(repository).execute(
+            CheckPerformerAvailabilityCommand(uuid4(), uuid4(), starts_at, ends_at),
+        )
+
+    repository.get_calendar_by_telegram_id.return_value = None
+    with pytest.raises(NotFoundError):
+        await GetPerformerCalendarUseCase(repository).execute(1)
