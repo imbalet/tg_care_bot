@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import utc_now
@@ -72,7 +72,7 @@ class SqlAlchemyMatchingRepository:
             .where(
                 ServiceCategoryModel.code == category_code
                 if category_code is not None
-                else True,
+                else true(),
             )
             .order_by(OrderModel.start_at)
             .limit(limit),
