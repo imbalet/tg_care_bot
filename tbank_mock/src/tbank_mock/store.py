@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime, timedelta
 import sqlite3
 from threading import RLock
@@ -59,6 +60,31 @@ class PaymentStore:
                 created_at TEXT NOT NULL,
                 UNIQUE(payment_id, status, amount),
                 FOREIGN KEY(payment_id) REFERENCES payments(id)
+            );
+            CREATE TABLE IF NOT EXISTS webhook_deliveries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                payment_id INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                payload_json TEXT NOT NULL,
+                delivery_status TEXT NOT NULL DEFAULT 'pending',
+                attempts INTEGER NOT NULL DEFAULT 0,
+                next_attempt_at TEXT NOT NULL,
+                last_error TEXT,
+                delivered_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(payment_id, status, amount),
+                FOREIGN KEY(payment_id) REFERENCES payments(id)
+            );
+            CREATE TABLE IF NOT EXISTS webhook_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                delivery_id INTEGER NOT NULL,
+                attempt_number INTEGER NOT NULL,
+                status_code INTEGER,
+                error TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(delivery_id) REFERENCES webhook_deliveries(id)
             );
             """
         )
@@ -188,6 +214,167 @@ class PaymentStore:
                 """,
                 (payment_id, status, amount),
             ).fetchone() is not None
+
+    def enqueue_webhook(
+        self,
+        payment_id: int,
+        status: str,
+        amount: int,
+        payload: dict[str, Any],
+    ) -> int | None:
+        now = _iso(utc_now())
+        with self._lock:
+            cursor = self._connection.execute(
+                """
+                INSERT OR IGNORE INTO webhook_deliveries
+                    (payment_id, status, amount, payload_json, next_attempt_at,
+                     created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    payment_id,
+                    status,
+                    amount,
+                    json.dumps(payload, ensure_ascii=False),
+                    now,
+                    now,
+                    now,
+                ),
+            )
+            self._connection.commit()
+            if cursor.rowcount == 0:
+                row = self._connection.execute(
+                    """
+                    SELECT id FROM webhook_deliveries
+                    WHERE payment_id = ? AND status = ? AND amount = ?
+                    """,
+                    (payment_id, status, amount),
+                ).fetchone()
+                return int(row["id"]) if row is not None else None
+            return int(cursor.lastrowid)
+
+    def recover_processing_webhooks(self) -> None:
+        with self._lock:
+            now = _iso(utc_now())
+            self._connection.execute(
+                """
+                UPDATE webhook_deliveries
+                SET delivery_status = 'pending', next_attempt_at = ?, updated_at = ?
+                WHERE delivery_status = 'processing'
+                """,
+                (now, now),
+            )
+            self._connection.commit()
+
+    def claim_due_webhooks(self, limit: int = 10) -> tuple[int, ...]:
+        with self._lock:
+            now = _iso(utc_now())
+            rows = self._connection.execute(
+                """
+                SELECT id FROM webhook_deliveries
+                WHERE delivery_status = 'pending' AND next_attempt_at <= ?
+                ORDER BY id LIMIT ?
+                """,
+                (now, limit),
+            ).fetchall()
+            ids = tuple(int(row["id"]) for row in rows)
+            if ids:
+                self._connection.executemany(
+                    """
+                    UPDATE webhook_deliveries
+                    SET delivery_status = 'processing', updated_at = ?
+                    WHERE id = ? AND delivery_status = 'pending'
+                    """,
+                    [(now, delivery_id) for delivery_id in ids],
+                )
+                self._connection.commit()
+            return ids
+
+    def claim_webhook(self, delivery_id: int) -> bool:
+        with self._lock:
+            now = _iso(utc_now())
+            cursor = self._connection.execute(
+                """
+                UPDATE webhook_deliveries
+                SET delivery_status = 'processing', updated_at = ?
+                WHERE id = ? AND delivery_status = 'pending' AND next_attempt_at <= ?
+                """,
+                (now, delivery_id, now),
+            )
+            self._connection.commit()
+            return cursor.rowcount == 1
+
+    def get_webhook_delivery(self, delivery_id: int) -> sqlite3.Row | None:
+        with self._lock:
+            return self._connection.execute(
+                "SELECT * FROM webhook_deliveries WHERE id = ?",
+                (delivery_id,),
+            ).fetchone()
+
+    def record_webhook_attempt(
+        self,
+        delivery_id: int,
+        attempt_number: int,
+        status_code: int | None,
+        error: str | None,
+    ) -> None:
+        with self._lock:
+            now = _iso(utc_now())
+            self._connection.execute(
+                """
+                INSERT INTO webhook_attempts
+                    (delivery_id, attempt_number, status_code, error, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (delivery_id, attempt_number, status_code, error, now),
+            )
+            self._connection.execute(
+                """
+                UPDATE webhook_deliveries
+                SET attempts = ?, last_error = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (attempt_number, error, now, delivery_id),
+            )
+            self._connection.commit()
+
+    def mark_webhook_delivered(self, delivery_id: int) -> None:
+        with self._lock:
+            now = _iso(utc_now())
+            self._connection.execute(
+                """
+                UPDATE webhook_deliveries
+                SET delivery_status = 'delivered', delivered_at = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (now, now, delivery_id),
+            )
+            self._connection.commit()
+
+    def reschedule_webhook(
+        self,
+        delivery_id: int,
+        next_attempt_at: datetime,
+        error: str,
+        permanently_failed: bool,
+    ) -> None:
+        with self._lock:
+            now = _iso(utc_now())
+            self._connection.execute(
+                """
+                UPDATE webhook_deliveries
+                SET delivery_status = ?, next_attempt_at = ?, last_error = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    "failed" if permanently_failed else "pending",
+                    _iso(next_attempt_at),
+                    error,
+                    now,
+                    delivery_id,
+                ),
+            )
+            self._connection.commit()
 
     def set_card_details(self, payment_id: int, card_mask: str, scenario: str) -> None:
         with self._lock:
