@@ -227,7 +227,7 @@ make -C tg_bot_server test-e2e
 
 ## SERVER-WORKER-001 — истечение payment deadline падает на check constraint
 
-- Status: `OPEN`
+- Status: `IN_PROGRESS`
 - Priority: `P0`
 - Area: server worker / order expiration
 
@@ -295,7 +295,7 @@ make -C tg_bot_server test-e2e
 
 ### Root cause
 
-В `src/backend/worker/jobs.py` используется строка `payment_deadline`, которая
+В `src/backend/worker/jobs.py` использовалась строка `payment_deadline`, которая
 не совпадает с допустимым значением `payment_deadline_reached` из миграции
 `20260713_0010_add_availability_order_schema.py`.
 
@@ -303,21 +303,22 @@ make -C tg_bot_server test-e2e
 
 Файл: `tests/e2e/test_payment_webhook_flow.py`
 
-- `test_worker_expiring_payment_returns_order_to_searching`;
-- `test_worker_expiring_payment_expires_order_after_matching_deadline`.
-
-Оба теста помечены строгим `xfail` с ожидаемым бизнесовым поведением.
+- `test_worker_expiring_payment_returns_order_to_searching` — `xfail` снят;
+- `test_worker_expiring_payment_expires_order_after_matching_deadline` остаётся
+  строгим `xfail` до исправления соседней matching-deadline ветки.
 
 ### Scope of fix
 
-Согласовать значение `expired_reason` между worker и PostgreSQL constraint.
-Не менять тестовые assertions на фактическое падение worker и не считать
-завершением сценария остановившийся worker.
+Согласовать значение `expired_reason` между worker и PostgreSQL constraint:
+использовать `payment_deadline_reached`. Operational reason в match и status
+history остаётся `payment_deadline`.
 
 ### Closure criteria
 
 - worker не падает при обработке обеих веток payment deadline;
-- разрешённое значение `expired_reason` соответствует утверждённому контракту;
-- оба xfail-теста становятся XPASS, после чего `xfail` снимается;
+- `expired_reason = payment_deadline_reached` соответствует constraint;
+- payment-deadline тест проходит без `xfail`;
 - payment, match, order status history и notification проверяются повторно;
-- полный `make -C tg_bot_server test-e2e` проходит.
+- повторная итерация worker не создаёт повторных бизнесовых изменений;
+- полный `make -C tg_bot_server test-e2e` проходит;
+- секция переведена в `RESOLVED`.

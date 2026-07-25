@@ -458,10 +458,6 @@ async def test_expired_payment_webhook_is_not_applied(
 
 
 @pytest.mark.e2e
-@pytest.mark.xfail(
-    strict=True,
-    reason="Known bug: worker expired_reason violates DB constraint",
-)
 async def test_worker_expiring_payment_returns_order_to_searching(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
@@ -517,7 +513,11 @@ async def test_worker_expiring_payment_returns_order_to_searching(
         "SELECT status, close_reason FROM order_matches WHERE id = $1",
         selected_match_id,
     )
-    assert match_row == {"status": "expired", "close_reason": "payment_deadline"}
+    assert match_row is not None
+    assert dict(match_row) == {
+        "status": "expired",
+        "close_reason": "payment_deadline",
+    }
     assert (
         await e2e_db.fetchval(
             """
@@ -550,7 +550,7 @@ async def test_worker_expiring_payment_returns_order_to_searching(
 @pytest.mark.e2e
 @pytest.mark.xfail(
     strict=True,
-    reason="Known bug: worker expired_reason violates DB constraint",
+    reason="Known bug: worker matching expired_reason violates DB constraint",
 )
 async def test_worker_expiring_payment_expires_order_after_matching_deadline(
     e2e_client: httpx.AsyncClient,
@@ -589,13 +589,17 @@ async def test_worker_expiring_payment_expires_order_after_matching_deadline(
         order["id"],
     )
     assert order_row
-    assert order_row["expired_reason"] == "payment_deadline"
+    assert order_row["expired_reason"] == "payment_deadline_reached"
     assert order_row["expired_at"] is not None
     match_row = await e2e_db.fetchrow(
         "SELECT status, close_reason FROM order_matches WHERE id = $1",
         selected_match_id,
     )
-    assert match_row == {"status": "expired", "close_reason": "payment_deadline"}
+    assert match_row is not None
+    assert dict(match_row) == {
+        "status": "expired",
+        "close_reason": "payment_deadline",
+    }
     assert (
         await e2e_db.fetchval(
             """

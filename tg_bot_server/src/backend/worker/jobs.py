@@ -851,7 +851,7 @@ class DeadlinesWorkerJob:
                 notification_type = "payment_expired_order_searching"
             else:
                 order.status = "expired"
-                order.expired_reason = "payment_deadline"
+                order.expired_reason = "payment_deadline_reached"
                 order.expired_at = now
                 notification_type = "payment_expired_order_expired"
             await self._cancel_pending_notifications(
