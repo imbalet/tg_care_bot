@@ -45,9 +45,7 @@ async def tbank_webhook(
         raise HTTPException(status_code=400, detail="Invalid webhook order") from exc
     amount = payload.get("Amount", 0)
     if payload.get("Success") is True and status in SUCCESS_STATUSES:
-        if not isinstance(amount, (int, str)):
-            raise HTTPException(status_code=400, detail="Invalid webhook amount")
-        parsed_amount = Decimal(int(amount)) / Decimal("100")
+        parsed_amount = _parse_success_amount(amount)
     else:
         parsed_amount = Decimal("0")
     await container.payments.apply_payment_webhook(
@@ -99,6 +97,24 @@ def _paid_at(payload: dict[str, Any]) -> datetime:
         except ValueError:
             pass
     return datetime.now(UTC)
+
+
+def _parse_success_amount(amount: object) -> Decimal:
+    if isinstance(amount, bool):
+        raise HTTPException(status_code=400, detail="Invalid webhook amount")
+    if isinstance(amount, int):
+        raw_amount = str(amount)
+    elif (
+        isinstance(amount, str)
+        and amount
+        and all("0" <= character <= "9" for character in amount)
+    ):
+        raw_amount = amount
+    else:
+        raise HTTPException(status_code=400, detail="Invalid webhook amount")
+    if int(raw_amount) <= 0:
+        raise HTTPException(status_code=400, detail="Invalid webhook amount")
+    return Decimal(int(raw_amount)) / Decimal("100")
 
 
 def _safe_payload(payload: dict[str, Any]) -> dict[str, object]:

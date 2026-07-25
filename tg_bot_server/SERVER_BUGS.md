@@ -37,7 +37,7 @@
 
 ## SERVER-PAYMENT-001 — нечисловой `Amount` webhook приводит к HTTP 500
 
-- Status: `OPEN`
+- Status: `RESOLVED`
 - Priority: `P0`
 - Area: server payment webhook
 
@@ -115,16 +115,8 @@ make -C tg_bot_server test-e2e
 
 Файл: `tests/e2e/test_payment_webhook_flow.py`
 
-Тест: `test_payment_webhook_rejects_invalid_payload[<Amount>-400]`
-
-Маркер:
-
-```python
-pytest.mark.xfail(
-    strict=True,
-    reason="Known server bug: non-numeric webhook amount returns 500",
-)
-```
+Тест: `test_payment_webhook_rejects_invalid_payload[<Amount>-400]` — `xfail`
+снят после исправления.
 
 ### Scope of fix
 
@@ -136,12 +128,10 @@ pytest.mark.xfail(
 
 ### Closure criteria
 
-- xfail-тест становится XPASS;
-- `xfail` снят;
-- HTTP 500 для нечислового `Amount` больше не воспроизводится;
+- HTTP 400 для нечислового `Amount` подтверждён;
 - заказ остаётся `waiting_payment`;
 - payment, status history и notifications не изменяются;
-- unit/API/E2E проверки проходят;
+- unit, lint, type-check и E2E проверки выполнены;
 - status секции обновлён на `RESOLVED`.
 
 ---

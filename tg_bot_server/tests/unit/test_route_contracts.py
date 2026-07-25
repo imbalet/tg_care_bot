@@ -777,6 +777,50 @@ async def test_payment_webhook_route_validates_signature_and_dispatches_command(
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("amount", ["not-an-integer", 0, True, " 100", "+100"])
+async def test_payment_webhook_route_rejects_invalid_amount(amount: object) -> None:
+    from fastapi import HTTPException
+
+    password = str(uuid4())
+    payload: dict[str, object] = {
+        "TerminalKey": "terminal",
+        "OrderId": str(uuid4()),
+        "Success": True,
+        "Status": "CONFIRMED",
+        "PaymentId": "provider-payment",
+        "Amount": amount,
+    }
+    payload["Token"] = _sign_payload(payload, password)
+
+    async def receive() -> dict[str, object]:
+        return {"type": "http.request", "body": json.dumps(payload).encode()}
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/payments/webhooks/tbank",
+            "headers": [],
+            "query_string": b"",
+        },
+        receive,
+    )
+    container: Any = SimpleNamespace(
+        settings=SimpleNamespace(
+            tbank_terminal_key="terminal",
+            tbank_password=password,
+        ),
+        payments=SimpleNamespace(apply_payment_webhook=AsyncMock()),
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await tbank_webhook(request, container)
+
+    assert error.value.status_code == 400
+    container.payments.apply_payment_webhook.assert_not_awaited()
+
+
+@pytest.mark.unit
 async def test_payment_webhook_route_rejects_invalid_terminal() -> None:
     from fastapi import HTTPException
 

@@ -279,10 +279,6 @@ async def test_payment_webhook_rejects_invalid_signature_and_terminal(
         pytest.param(
             {"Amount": "not-an-integer"},
             400,
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Known server bug: non-numeric webhook amount returns 500",
-            ),
         ),
     ],
 )
@@ -309,11 +305,46 @@ async def test_payment_webhook_rejects_invalid_payload(
     if payload.get("PaymentId") is not None or payload.get("OrderId") != "not-a-uuid":
         payload["Token"] = _sign_payload(payload, test_settings.tbank_password)
 
+    payment_before = await e2e_db.fetchrow(
+        "SELECT status, provider_status FROM payments WHERE id = $1",
+        payment["payment_id"],
+    )
+    history_before = await e2e_db.fetchval(
+        "SELECT count(*) FROM order_status_history WHERE order_id = $1",
+        order["id"],
+    )
+    notifications_before = await e2e_db.fetchval(
+        "SELECT count(*) FROM notifications WHERE entity_id = $1",
+        order["id"],
+    )
+
     response = await e2e_client.post(
         "/api/payments/webhooks/tbank",
         json=payload,
     )
     assert response.status_code == expected_status, response.text
+
+    assert (
+        await e2e_db.fetchrow(
+            "SELECT status, provider_status FROM payments WHERE id = $1",
+            payment["payment_id"],
+        )
+        == payment_before
+    )
+    assert (
+        await e2e_db.fetchval(
+            "SELECT count(*) FROM order_status_history WHERE order_id = $1",
+            order["id"],
+        )
+        == history_before
+    )
+    assert (
+        await e2e_db.fetchval(
+            "SELECT count(*) FROM notifications WHERE entity_id = $1",
+            order["id"],
+        )
+        == notifications_before
+    )
 
 
 @pytest.mark.e2e

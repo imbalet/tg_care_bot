@@ -280,6 +280,7 @@ async def pool_order_factory(
 @pytest_asyncio.fixture
 async def direct_order_factory(
     e2e_client: httpx.AsyncClient,
+    e2e_db: asyncpg.Connection,
     e2e_catalog: dict[str, Any],
     customer_factory: Callable[[], Awaitable[E2EActor]],
     performer_factory: Callable[[], Awaitable[E2EActor]],
@@ -303,6 +304,10 @@ async def direct_order_factory(
             for category in e2e_catalog["catalog"]["categories"]
             for service in category["services"]
             if service["code"] == "pet_boarding"
+        )
+        await e2e_db.execute(
+            "UPDATE services SET base_price = 100 WHERE id = $1",
+            service["id"],
         )
         start = datetime.now(UTC) + timedelta(days=1)
         order_response = await e2e_client.post(
