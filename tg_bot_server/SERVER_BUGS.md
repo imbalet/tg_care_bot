@@ -295,8 +295,9 @@ make -C tg_bot_server test-e2e
 
 ### Root cause
 
-В `src/backend/worker/jobs.py` использовалась строка `payment_deadline`, которая
-не совпадает с допустимым значением `payment_deadline_reached` из миграции
+В `src/backend/worker/jobs.py` использовались строки `payment_deadline` и
+`matching_deadline`, которые не совпадали с допустимыми значениями
+`payment_deadline_reached` и `matching_deadline_reached` из миграции
 `20260713_0010_add_availability_order_schema.py`.
 
 ### Related xfail tests
@@ -304,20 +305,20 @@ make -C tg_bot_server test-e2e
 Файл: `tests/e2e/test_payment_webhook_flow.py`
 
 - `test_worker_expiring_payment_returns_order_to_searching` — `xfail` снят;
-- `test_worker_expiring_payment_expires_order_after_matching_deadline` остаётся
-  строгим `xfail` до исправления соседней matching-deadline ветки.
+- `test_worker_expiring_payment_expires_order_after_matching_deadline` — `xfail`
+  снят; E2E-подтверждение ожидает восстановления места в Docker.
 
 ### Scope of fix
 
-Согласовать значение `expired_reason` между worker и PostgreSQL constraint:
-использовать `payment_deadline_reached`. Operational reason в match и status
-history остаётся `payment_deadline`.
+Согласовать оба значения `expired_reason` между worker и PostgreSQL constraint:
+использовать `payment_deadline_reached` и `matching_deadline_reached`.
+Operational reason в match и status history остаётся `payment_deadline`.
 
 ### Closure criteria
 
 - worker не падает при обработке обеих веток payment deadline;
 - `expired_reason = payment_deadline_reached` соответствует constraint;
-- payment-deadline тест проходит без `xfail`;
+- оба теста проходят без `xfail`;
 - payment, match, order status history и notification проверяются повторно;
 - повторная итерация worker не создаёт повторных бизнесовых изменений;
 - полный `make -C tg_bot_server test-e2e` проходит;

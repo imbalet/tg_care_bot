@@ -779,7 +779,7 @@ class DeadlinesWorkerJob:
                 else "order_matching_expired"
             )
             order.status = "expired"
-            order.expired_reason = "matching_deadline"
+            order.expired_reason = "matching_deadline_reached"
             order.expired_at = now
             await self._cancel_pending_notifications(
                 session=session,

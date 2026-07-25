@@ -548,10 +548,6 @@ async def test_worker_expiring_payment_returns_order_to_searching(
 
 
 @pytest.mark.e2e
-@pytest.mark.xfail(
-    strict=True,
-    reason="Known bug: worker matching expired_reason violates DB constraint",
-)
 async def test_worker_expiring_payment_expires_order_after_matching_deadline(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
