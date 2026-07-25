@@ -185,7 +185,14 @@ class PaymentView(OperationalModelView):
         "paid_at",
         "expires_at",
     ]
-    sortable_fields = ["created_at", "expires_at", "paid_at", "amount", "status"]
+    sortable_fields = [
+        "id",
+        "created_at",
+        "expires_at",
+        "paid_at",
+        "amount",
+        "status",
+    ]
 
     def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
         super().__init__(model, **kwargs)
@@ -235,7 +242,7 @@ class PaymentView(OperationalModelView):
 
 class AuditLogView(OperationalModelView):
     searchable_fields = ["admin_id", "action", "entity_type", "entity_id"]
-    sortable_fields = ["created_at", "action", "entity_type"]
+    sortable_fields = ["id", "created_at", "action", "entity_type"]
 
 
 class RefundView(OperationalModelView):
@@ -248,7 +255,7 @@ class RefundView(OperationalModelView):
         "created_at",
         "completed_at",
     ]
-    sortable_fields = ["created_at", "completed_at", "amount", "status"]
+    sortable_fields = ["id", "created_at", "completed_at", "amount", "status"]
 
 
 class ReportView(OperationalModelView):
@@ -259,7 +266,7 @@ class ReportView(OperationalModelView):
         "problem_flag",
         "submitted_at",
     ]
-    sortable_fields = ["submitted_at", "problem_flag"]
+    sortable_fields = ["id", "submitted_at", "problem_flag"]
 
     def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
         super().__init__(model, **kwargs)
@@ -347,7 +354,7 @@ class BusinessSettingView(OperationalModelView):
 class PerformerView(ReadOnlyModelView):
     actions = ["activate_performer", "reject_performer"]
     searchable_fields = ["id", "telegram_id", "full_name", "status", "city_id"]
-    sortable_fields = ["created_at", "updated_at", "status"]
+    sortable_fields = ["id", "created_at", "updated_at", "status"]
 
     def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
         super().__init__(model, **kwargs)
@@ -505,7 +512,14 @@ class OrderView(OperationalModelView):
         "start_at",
         "end_at",
     ]
-    sortable_fields = ["created_at", "start_at", "end_at", "status", "total_amount"]
+    sortable_fields = [
+        "id",
+        "created_at",
+        "start_at",
+        "end_at",
+        "status",
+        "total_amount",
+    ]
 
     def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
         super().__init__(model, **kwargs)
@@ -638,7 +652,7 @@ class SupportRecordView(OperationalModelView):
         "created_at",
         "updated_at",
     ]
-    sortable_fields = ["created_at", "updated_at", "status"]
+    sortable_fields = ["id", "created_at", "updated_at", "status"]
 
     def __init__(
         self, model: type[Any], container: Container, record_kind: str, **kwargs: Any
