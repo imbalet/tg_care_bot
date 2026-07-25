@@ -81,6 +81,22 @@ async def test_avatar_upload_stores_file_and_replaces_previous_link() -> None:
         created_at=datetime.now(UTC),
         deleted_at=None,
     )
+    previous_file_id = uuid4()
+    previous_storage_key = "avatars/old.png"
+    file_repository.get_avatar_for_entity.return_value = FileDTO(
+        id=previous_file_id,
+        telegram_file_id=None,
+        bucket="test-bucket",
+        storage_key=previous_storage_key,
+        original_name="old.png",
+        mime_type="image/png",
+        size_bytes=15,
+        checksum="old-checksum",
+        status="uploaded",
+        created_at=datetime.now(UTC),
+        deleted_at=None,
+    )
+    storage.objects[previous_storage_key] = (b"old", "image/png")
 
     result = await UploadPerformerAvatarUseCase(
         performer_repository,
@@ -98,6 +114,16 @@ async def test_avatar_upload_stores_file_and_replaces_previous_link() -> None:
 
     assert result.id == file_id
     assert len(storage.objects) == 1
+    assert previous_storage_key not in storage.objects
+    file_repository.get_avatar_for_entity.assert_awaited_once_with(
+        entity_type="performer",
+        entity_id=performer_id,
+    )
+    file_repository.delete_avatar_link.assert_awaited_once_with(
+        entity_type="performer",
+        entity_id=performer_id,
+    )
+    file_repository.mark_deleted.assert_awaited_once_with(previous_file_id)
     file_repository.replace_avatar_link.assert_awaited_once_with(
         file_id=file_id,
         entity_type="performer",

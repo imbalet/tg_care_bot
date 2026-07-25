@@ -14,6 +14,14 @@ class FileRepository(Protocol):
     async def add_link(self, command: CreateFileLinkCommand) -> FileLinkDTO:
         pass
 
+    async def get_avatar_for_entity(
+        self,
+        *,
+        entity_type: str,
+        entity_id: UUID,
+    ) -> FileDTO | None:
+        pass
+
     async def replace_avatar_link(
         self,
         *,
@@ -24,6 +32,14 @@ class FileRepository(Protocol):
         pass
 
     async def mark_deleted(self, file_id: UUID) -> None:
+        pass
+
+    async def delete_avatar_link(
+        self,
+        *,
+        entity_type: str,
+        entity_id: UUID,
+    ) -> None:
         pass
 
 

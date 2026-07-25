@@ -58,6 +58,18 @@ class UploadPerformerAvatarUseCase:
                 checksum=sha256(command.content).hexdigest(),
             ),
         )
+        previous_file = await self._file_repository.get_avatar_for_entity(
+            entity_type="performer",
+            entity_id=performer.id,
+        )
+        if previous_file is not None:
+            if previous_file.storage_key is not None:
+                await self._storage.delete(previous_file.storage_key)
+            await self._file_repository.delete_avatar_link(
+                entity_type="performer",
+                entity_id=performer.id,
+            )
+            await self._file_repository.mark_deleted(previous_file.id)
         await self._file_repository.replace_avatar_link(
             file_id=file.id,
             entity_type="performer",
