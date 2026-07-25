@@ -32,7 +32,6 @@ from customer_bot.presentation.ui.screens import (
     FullNameStepScreen,
     InvalidTextInputScreen,
     PhoneStepScreen,
-    RegistrationCompleteScreen,
     RegistrationUnavailableScreen,
     RetryLaterScreen,
     SelectCityScreen,
@@ -474,15 +473,6 @@ async def confirm_registration(
     logger.info(
         "Customer registration completed",
         extra={"telegram_id": telegram_user_context.telegram_id},
-    )
-
-    screen = RegistrationCompleteScreen().build()
-    await telegram_responder.send_notice(
-        bot=bot,
-        event=callback,
-        telegram_id=telegram_user_context.telegram_id,
-        text=screen.text,
-        reply_markup=screen.reply_markup,
     )
     await show_category_select(
         bot=bot,
