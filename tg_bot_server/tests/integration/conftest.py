@@ -33,11 +33,11 @@ def integration_environment(
     apply_test_environment(
         monkeypatch,
         {
-            "DB_HOST": integration_database.db_host,
-            "DB_PORT": str(integration_database.db_port),
+            "DB_HOST": integration_database.settings.db_host,
+            "DB_PORT": str(integration_database.settings.db_port),
             "DB_NAME": integration_database.database_name,
-            "DB_USER": integration_database.db_user,
-            "DB_PASS": integration_database.db_password,
+            "DB_USER": integration_database.settings.db_user,
+            "DB_PASS": integration_database.settings.db_pass,
             "REDIS_DB": str(_redis_database_number(integration_database.worker_id)),
             "S3_BUCKET": f"we-are-close-test-{integration_database.worker_id}",
         },

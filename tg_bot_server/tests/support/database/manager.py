@@ -10,7 +10,7 @@ from pathlib import Path
 
 import asyncpg
 
-from tests.support.settings import DEFAULT_TEST_ENVIRONMENT
+from tests.support.settings import TestSettings, get_test_settings
 
 _DATABASE_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
@@ -22,59 +22,35 @@ def _identifier(value: str) -> str:
 
 
 def _run_id() -> str:
-    value = os.environ.get("PYTEST_XDIST_TESTRUNUID") or os.environ.get(
-        "TEST_RUN_ID",
-        "local",
-    )
-    return re.sub(r"[^a-zA-Z0-9_]", "", value)[-20:] or "local"
+    value = re.sub(r"[^a-zA-Z0-9_]", "", get_test_settings().test_run_id)
+    return value[-20:] or "local"
 
 
 @dataclass
 class IntegrationDatabase:
     worker_id: str
-    db_host: str = field(default_factory=lambda: os.getenv("DB_HOST", "127.0.0.1"))
-    db_port: int = field(default_factory=lambda: int(os.getenv("DB_PORT", "15432")))
-    db_user: str = field(default_factory=lambda: os.getenv("DB_USER", "postgres"))
-    db_password: str = field(
-        default_factory=lambda: os.getenv("DB_PASS", "postgres"),
-    )
-    admin_database: str = field(
-        default_factory=lambda: os.getenv("TEST_ADMIN_DATABASE", "postgres"),
-    )
-    name_prefix: str = field(
-        default_factory=lambda: os.getenv("TEST_DATABASE_PREFIX", "we_are_close"),
-    )
+    settings: TestSettings = field(default_factory=get_test_settings)
 
     def __post_init__(self) -> None:
+        self.name_prefix = self.settings.test_database_prefix
         token = _run_id()
         self.template_name = self._name("template", token)
         self.database_name = self._name("db", token, self.worker_id)
         self._root = Path(__file__).resolve().parents[3]
 
     def setup(self) -> None:
-        for key, value in DEFAULT_TEST_ENVIRONMENT.items():
-            os.environ.setdefault(key, value)
         asyncio.run(self._ensure_template())
         asyncio.run(self._create_worker_database())
         self.apply_environment(self.database_name)
 
     def cleanup(self) -> None:
-        if os.getenv("KEEP_TEST_DATABASES") == "1":
+        if self.settings.keep_test_databases:
             return
         asyncio.run(self._drop_database(self.database_name))
         asyncio.run(self._drop_template_if_last_worker())
 
     def apply_environment(self, database_name: str) -> None:
-        os.environ.update(
-            {
-                "APP_ENV": "test",
-                "DB_HOST": self.db_host,
-                "DB_PORT": str(self.db_port),
-                "DB_NAME": database_name,
-                "DB_USER": self.db_user,
-                "DB_PASS": self.db_password,
-            },
-        )
+        os.environ.update(self.settings.as_environment(database_name=database_name))
 
     def _name(self, *parts: str) -> str:
         value = "_".join((self.name_prefix, *parts))
@@ -82,11 +58,11 @@ class IntegrationDatabase:
 
     async def _connect_admin(self) -> asyncpg.Connection:
         return await asyncpg.connect(
-            host=self.db_host,
-            port=self.db_port,
-            user=self.db_user,
-            password=self.db_password,
-            database=self.admin_database,
+            host=self.settings.db_host,
+            port=self.settings.db_port,
+            user=self.settings.db_user,
+            password=self.settings.db_pass,
+            database=self.settings.test_admin_database,
         )
 
     async def _ensure_template(self) -> None:

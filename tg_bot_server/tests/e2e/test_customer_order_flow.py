@@ -1,21 +1,26 @@
-import os
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import httpx
 import pytest
 
+from tests.support.settings import TestSettings
 
-def _headers() -> dict[str, str]:
-    return {"X-Service-Key": os.getenv("SERVICE_KEY", "test-service-key")}
+
+def _headers(settings: TestSettings) -> dict[str, str]:
+    return {"X-Service-Key": settings.service_key}
 
 
 @pytest.mark.e2e
-async def test_customer_can_register_create_object_and_publish_boarding_order() -> None:
-    base_url = os.getenv("E2E_BASE_URL", "http://api:8000")
-    headers = _headers()
+async def test_customer_can_register_create_object_and_publish_boarding_order(
+    test_settings: TestSettings,
+) -> None:
+    headers = _headers(test_settings)
     telegram_id = 900000001
-    async with httpx.AsyncClient(base_url=base_url, timeout=10) as client:
+    async with httpx.AsyncClient(
+        base_url=test_settings.e2e_base_url,
+        timeout=test_settings.e2e_request_timeout_seconds,
+    ) as client:
         cities_response = await client.get("/api/catalog/cities", headers=headers)
         assert cities_response.status_code == 200
         city = next(item for item in cities_response.json() if item["is_active"])
@@ -97,11 +102,13 @@ async def test_customer_can_register_create_object_and_publish_boarding_order() 
 
 
 @pytest.mark.e2e
-async def test_business_api_rejects_missing_service_key_without_touching_state() -> (
-    None
-):
-    base_url = os.getenv("E2E_BASE_URL", "http://api:8000")
-    async with httpx.AsyncClient(base_url=base_url, timeout=10) as client:
+async def test_business_api_rejects_missing_service_key_without_touching_state(
+    test_settings: TestSettings,
+) -> None:
+    async with httpx.AsyncClient(
+        base_url=test_settings.e2e_base_url,
+        timeout=test_settings.e2e_request_timeout_seconds,
+    ) as client:
         response = await client.get(f"/api/orders/customer/{uuid4()}/my")
 
     assert response.status_code == 401
