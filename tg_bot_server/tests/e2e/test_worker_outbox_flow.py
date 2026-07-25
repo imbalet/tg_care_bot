@@ -1,4 +1,5 @@
 import asyncio
+import json
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -38,6 +39,23 @@ async def _insert_invitation_notification(
         now + timedelta(days=1),
     )
     return str(notification_id)
+
+
+async def _insert_invitation_notifications(
+    e2e_db: asyncpg.Connection,
+    *,
+    count: int,
+) -> tuple[str, ...]:
+    return tuple(
+        [
+            await _insert_invitation_notification(
+                e2e_db,
+                recipient_telegram_id=940000000 + index,
+                deduplication_key=f"e2e-worker-concurrent-{uuid4().hex}",
+            )
+            for index in range(count)
+        ]
+    )
 
 
 async def _wait_for_notification(
@@ -131,3 +149,57 @@ async def test_worker_does_not_reprocess_terminal_outbox_failure(
     assert notification is not None
     assert dict(notification) == {"status": "failed", "attempts": 3}
     assert after == before
+
+
+@pytest.mark.e2e
+async def test_two_workers_claim_outbox_batch_without_duplicate_delivery(
+    e2e_db: asyncpg.Connection,
+    test_settings: TestSettings,
+) -> None:
+    notification_ids = await _insert_invitation_notifications(e2e_db, count=100)
+
+    for _ in range(120):
+        completed = await e2e_db.fetchval(
+            """
+            SELECT count(*)
+            FROM notifications
+            WHERE id = ANY($1::uuid[]) AND status = 'sent'
+            """,
+            list(notification_ids),
+        )
+        if completed == len(notification_ids):
+            break
+        with suppress(TimeoutError):
+            await asyncio.wait_for(asyncio.Event().wait(), timeout=0.25)
+    else:
+        pytest.fail(f"Only {completed} of {len(notification_ids)} notifications sent")
+
+    rows = await e2e_db.fetch(
+        """
+        SELECT status, attempts, sent_at, claimed_at
+        FROM notifications
+        WHERE id = ANY($1::uuid[])
+        """,
+        list(notification_ids),
+    )
+    assert len(rows) == len(notification_ids)
+    assert all(
+        row["status"] == "sent"
+        and row["attempts"] == 1
+        and row["sent_at"] is not None
+        and row["claimed_at"] is None
+        for row in rows
+    )
+
+    async with httpx.AsyncClient(
+        base_url=test_settings.telegram_api_base_url,
+        timeout=test_settings.e2e_request_timeout_seconds,
+    ) as client:
+        requests = (await client.get("/__mock__/requests")).json()["requests"]
+    delivered_chats = [
+        json.loads(request["body"])["chat_id"]
+        for request in requests
+        if request["path"] == "/bottest-executor-token/sendMessage"
+        and 940000000 <= json.loads(request["body"])["chat_id"] < 940000100
+    ]
+    assert sorted(delivered_chats) == list(range(940000000, 940000100))

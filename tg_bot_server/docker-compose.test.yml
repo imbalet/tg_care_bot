@@ -115,6 +115,10 @@ services:
         condition: service_healthy
     command: ["python", "-m", "backend.worker.main"]
 
+  worker-2:
+    extends:
+      service: worker
+
   test-runner:
     build:
       context: .

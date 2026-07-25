@@ -57,7 +57,7 @@ test-e2e:
 	trap cleanup EXIT INT TERM; \
 	docker compose -f docker-compose.test.yml build test-runner e2e-runner mock-external; \
 	docker compose -f docker-compose.test.yml up --build -d \
-		postgres redis minio mock-external migrate api worker; \
+		postgres redis minio mock-external migrate api worker worker-2; \
 	docker compose -f docker-compose.test.yml up \
 		--abort-on-container-exit --exit-code-from e2e-runner e2e-runner || status=$$?; \
 	exit $$status
