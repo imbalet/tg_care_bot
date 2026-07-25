@@ -39,6 +39,17 @@ class MockExternalHandler(BaseHTTPRequestHandler):
                     "body": body.decode("utf-8", errors="replace"),
                 },
             )
+        if self.path == "/GetState":
+            self._respond(
+                {
+                    "Success": True,
+                    "PaymentId": request_payload.get("PaymentId", "unknown"),
+                    "Status": "REJECTED",
+                    "Amount": 0,
+                    "Date": "2026-01-01T10:00:00Z",
+                },
+            )
+            return
         if self.path == "/suggestions/api/4_1/rs/suggest/address":
             self._respond(
                 {

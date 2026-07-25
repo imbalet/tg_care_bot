@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from itertools import count
 from typing import Any
 
+import asyncpg
 import httpx
 import pytest_asyncio
 
@@ -30,6 +31,21 @@ async def e2e_client(test_settings: TestSettings) -> AsyncIterator[httpx.AsyncCl
         timeout=test_settings.e2e_request_timeout_seconds,
     ) as client:
         yield client
+
+
+@pytest_asyncio.fixture
+async def e2e_db(test_settings: TestSettings) -> AsyncIterator[asyncpg.Connection]:
+    connection = await asyncpg.connect(
+        host=test_settings.db_host,
+        port=test_settings.db_port,
+        user=test_settings.db_user,
+        password=test_settings.db_pass,
+        database=test_settings.db_name,
+    )
+    try:
+        yield connection
+    finally:
+        await connection.close()
 
 
 @pytest_asyncio.fixture
