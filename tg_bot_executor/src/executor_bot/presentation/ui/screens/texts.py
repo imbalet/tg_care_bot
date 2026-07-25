@@ -364,8 +364,7 @@ def services_text(items: Sequence[object], is_accepting_orders: bool = False) ->
     if not items:
         accepting = "принимаю заказы" if is_accepting_orders else "не принимаю заказы"
         return (
-            f"<b>Услуги</b>\n\nПриём заказов: {accepting}\n\n"
-            "Пока нет одобренных услуг."
+            f"<b>Услуги</b>\n\nПриём заказов: {accepting}\n\nПока нет одобренных услуг."
         )
     accepting = "принимаю заказы" if is_accepting_orders else "не принимаю заказы"
     lines = ["<b>Услуги</b>", "", f"Приём заказов: {accepting}", ""]

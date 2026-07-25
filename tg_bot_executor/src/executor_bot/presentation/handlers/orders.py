@@ -83,10 +83,10 @@ async def available_orders_callback(
     viewed_available_orders_store: ViewedAvailableOrdersStore,
     callback_data: AvailableOrdersOpenCallback,
 ) -> None:
-    state = await backend_client.get_registration_state(
+    registration_state = await backend_client.get_registration_state(
         telegram_user_context.telegram_id,
     )
-    if state.performer is None:
+    if registration_state.performer is None:
         await telegram_responder.update(
             bot=bot,
             event=callback,
@@ -101,7 +101,7 @@ async def available_orders_callback(
         telegram_id=telegram_user_context.telegram_id,
     )
     orders = await backend_client.list_available_orders(
-        performer_id=state.performer.id,
+        performer_id=registration_state.performer.id,
         category_code=(
             category.code
             if callback_data.scope.value == "current_category" and category is not None
@@ -154,14 +154,19 @@ async def available_order_card_callback(
 ) -> None:
     data = await state.get_data()
     items = data.get("available_orders")
-    item = next(
-        (
-            item
-            for item in items
-            if isinstance(item, dict) and str(item.get("id")) == callback_data.order_id
-        ),
-        None,
-    ) if isinstance(items, list) else None
+    item = (
+        next(
+            (
+                item
+                for item in items
+                if isinstance(item, dict)
+                and str(item.get("id")) == callback_data.order_id
+            ),
+            None,
+        )
+        if isinstance(items, list)
+        else None
+    )
     if item is None:
         await telegram_responder.acknowledge(callback, "Заказ уже недоступен.")
         return
@@ -357,14 +362,6 @@ async def _performer_id(backend_client: BackendPort, telegram_id: int) -> UUID:
     return state.performer.id
 
 
-async def _category_name(backend_client: BackendPort, category_code: str) -> str:
-    categories = await backend_client.list_catalog_categories()
-    return next(
-        (category.name for category in categories if category.code == category_code),
-        category_code,
-    )
-
-
 @router.callback_query(ExecutorOrderLocationCallback.filter())
 async def order_location_callback(
     callback: CallbackQuery,
@@ -421,12 +418,11 @@ async def _refresh_order_card(
     order = await backend_client.get_performer_order_card(
         performer_id=performer_id, order_id=order_id
     )
-    category_name = await _category_name(backend_client, order.category_code)
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=context.telegram_id,
-        text=my_order_card_text(order, category_name=category_name),
+        text=my_order_card_text(order),
         reply_markup=my_order_card_keyboard_for_status(
             status=order.status, order_id=str(order.id), group=group, page=page
         ),
@@ -879,7 +875,6 @@ async def _show_executor_order_card(
         telegram_id=telegram_user_context.telegram_id,
         text=my_order_card_text(
             order,
-            category_name=await _category_name(backend_client, order.category_code),
         ),
         reply_markup=my_order_card_keyboard_for_status(
             status=order.status,
