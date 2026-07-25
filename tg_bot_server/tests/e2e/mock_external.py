@@ -41,6 +41,9 @@ class MockExternalHandler(BaseHTTPRequestHandler):
                 },
             )
         if self.path.endswith("/sendMessage"):
+            if request_payload.get("chat_id") == 999999999:
+                self._respond({"ok": False, "description": "deterministic failure"})
+                return
             self._respond(
                 {
                     "ok": True,

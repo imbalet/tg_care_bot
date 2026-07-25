@@ -38,3 +38,23 @@ async def test_deterministic_external_mock_supports_telegram_send_message(
     assert response.status_code == 200
     assert response.json()["ok"] is True
     assert response.json()["result"]["message_id"] > 0
+
+
+@pytest.mark.e2e
+async def test_deterministic_external_mock_can_fail_telegram_delivery(
+    test_settings: TestSettings,
+) -> None:
+    async with httpx.AsyncClient(
+        base_url=test_settings.telegram_api_base_url,
+        timeout=test_settings.e2e_request_timeout_seconds,
+    ) as client:
+        response = await client.post(
+            "/bottest-token/sendMessage",
+            json={"chat_id": 999999999, "text": "test"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": False,
+        "description": "deterministic failure",
+    }
