@@ -64,11 +64,12 @@ async def profile_edit_callback(
         )
         return
     await state.set_state(ProfileEditForm.phone)
+    screen = PhoneStepScreen().build()
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := PhoneStepScreen()).build().text,
+        text=screen.text,
         reply_markup=screen.reply_markup,
     )
     await telegram_responder.acknowledge(callback)
@@ -89,10 +90,7 @@ async def profile_edit_phone(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=(
-                f"{screen.text}\n\n"
-                "Можно передать только свой контакт."
-            ),
+            text=(f"{screen.text}\n\nМожно передать только свой контакт."),
             reply_markup=screen.reply_markup,
             create_new=True,
         )
@@ -111,7 +109,7 @@ async def profile_edit_phone(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=(screen := SelectContactMethodScreen()).build().text,
+        text=(screen := SelectContactMethodScreen().build()).text,
         reply_markup=screen.reply_markup,
         create_new=True,
     )

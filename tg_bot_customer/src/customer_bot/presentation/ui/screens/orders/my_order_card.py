@@ -68,6 +68,9 @@ class _View(Protocol):
     def service_name(self) -> str: ...
 
     @property
+    def category_name(self) -> str: ...
+
+    @property
     def group(self) -> str: ...
 
     @property

@@ -120,9 +120,7 @@ async def help_command(
         documents = await backend_client.list_active_legal_documents()
     except BackendClientError:
         documents = ()
-    screen = HelpScreen(
-        IncludeMainMenu(include_main_menu, documents)
-    ).build()
+    screen = HelpScreen(IncludeMainMenu(include_main_menu, documents)).build()
     await telegram_responder.update(
         bot=bot,
         event=message,

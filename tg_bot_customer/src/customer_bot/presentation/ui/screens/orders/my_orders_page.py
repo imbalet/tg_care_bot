@@ -50,6 +50,9 @@ class MyOrderSummaryView(Protocol):
     def category_code(self) -> str: ...
 
     @property
+    def category_name(self) -> str: ...
+
+    @property
     def service_name(self) -> str: ...
 
     @property
