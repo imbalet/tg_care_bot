@@ -146,6 +146,101 @@ pytest.mark.xfail(
 
 ---
 
+## SERVER-GEO-001 — неоднозначный ответ геокодера сохраняется как адрес
+
+- Status: `OPEN`
+- Priority: `P1`
+- Area: server geocoding / performer addresses
+
+### Summary
+
+При создании адреса исполнителя backend сохраняет первый результат DaData,
+даже если геокодер вернул несколько подсказок. Пользовательский flow требует
+выбора конкретной подсказки до сохранения адреса.
+
+### Expected behavior
+
+При неоднозначном ответе геокодера backend должен вернуть контролируемую ошибку
+валидации или потребовать явного выбора подсказки. Новая запись в `addresses` не
+должна создаваться, а текущий адрес исполнителя не должен изменяться.
+
+### Actual behavior
+
+При ответе mock DaData с двумя подсказками backend возвращает HTTP `201 Created`
+и сохраняет первую подсказку как новый адрес исполнителя.
+
+### Endpoint and payload
+
+```http
+POST /api/performers/by-telegram/{telegram_id}/addresses
+Content-Type: application/json
+X-Service-Key: test-service-key
+```
+
+```json
+{
+  "city_id": "<active-city-id>",
+  "unrestricted_value": "E2E_AMBIGUOUS"
+}
+```
+
+Mock DaData отвечает двумя подсказками на
+`POST /suggestions/api/4_1/rs/suggest/address`.
+
+### Reproduction steps
+
+1. Поднять server E2E Compose stack.
+2. Создать и активировать performer с исходным рабочим адресом.
+3. Запросить `/api/geocoding/address-suggestions` с query `E2E_AMBIGUOUS`.
+4. Убедиться, что backend возвращает две подсказки.
+5. Отправить `POST /api/performers/by-telegram/{telegram_id}/addresses` с
+   `unrestricted_value: E2E_AMBIGUOUS`.
+6. Наблюдать HTTP `201` и новую запись вместо HTTP `422` без изменения БД.
+
+Команда:
+
+```bash
+make -C tg_bot_server test-e2e
+```
+
+### Root cause
+
+`DaDataGeocoder.normalize()` вызывает `suggest(..., limit=1)` и без проверки
+берёт первую подсказку. Use case создания адреса не требует подтверждения того,
+что результат был однозначным.
+
+### Related xfail tests
+
+Файл: `tests/e2e/test_geocoding_negative.py`
+
+Тест: `test_ambiguous_geocoding_result_is_not_saved`
+
+Маркер:
+
+```python
+pytest.mark.xfail(
+    strict=True,
+    reason="Known server bug: ambiguous geocoding result is saved",
+)
+```
+
+### Scope of fix
+
+Согласовать normalize/create-address flow с user flow: неоднозначный результат
+не должен автоматически превращаться в сохранённый адрес. Не менять assertion
+на фактический HTTP `201` и не удалять проверку отсутствия записи.
+
+### Closure criteria
+
+- тест становится XPASS;
+- `xfail` снят;
+- неоднозначный результат больше не создаёт запись адреса;
+- текущий адрес исполнителя не изменяется;
+- пустой, timeout и HTTP 5xx сценарии продолжают проходить;
+- секция переведена в `RESOLVED` или удалена после закрытия задачи.
+
+---
+
 ## SERVER-WORKER-001 — истечение payment deadline падает на check constraint
 
 - Status: `OPEN`

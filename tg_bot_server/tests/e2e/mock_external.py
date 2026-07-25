@@ -4,6 +4,7 @@ import json
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Lock
+from time import sleep
 
 
 class MockExternalHandler(BaseHTTPRequestHandler):
@@ -59,22 +60,26 @@ class MockExternalHandler(BaseHTTPRequestHandler):
             )
             return
         if self.path == "/suggestions/api/4_1/rs/suggest/address":
-            self._respond(
-                {
-                    "suggestions": [
-                        {
-                            "value": "г. Москва, ул. Тестовая, д. 1",
-                            "unrestricted_value": "г. Москва, ул. Тестовая, д. 1",
-                            "data": {
-                                "fias_id": "test-fias-id",
-                                "geo_lat": "55.751244",
-                                "geo_lon": "37.618423",
-                                "qc_geo": "0",
-                            },
-                        },
-                    ],
-                },
-            )
+            query = request_payload.get("query")
+            if query == "E2E_TIMEOUT":
+                sleep(3)
+            if query == "E2E_5XX":
+                self._respond({"error": "mock geocoder failure"}, status_code=503)
+                return
+            if query == "E2E_EMPTY":
+                self._respond({"suggestions": []})
+                return
+            if query == "E2E_AMBIGUOUS":
+                self._respond(
+                    {
+                        "suggestions": [
+                            self._suggestion("г. Москва, ул. Тестовая, д. 1"),
+                            self._suggestion("г. Москва, ул. Тестовая, д. 2"),
+                        ],
+                    },
+                )
+                return
+            self._respond({"suggestions": [self._suggestion()]})
             return
         order_id = request_payload.get("OrderId")
         payment_id = f"test-payment-{order_id}" if order_id else "test-payment"
@@ -89,9 +94,29 @@ class MockExternalHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
         del format, args
 
-    def _respond(self, payload: dict[str, object]) -> None:
+    @staticmethod
+    def _suggestion(
+        address: str = "г. Москва, ул. Тестовая, д. 1",
+    ) -> dict[str, object]:
+        return {
+            "value": address,
+            "unrestricted_value": address,
+            "data": {
+                "fias_id": "test-fias-id",
+                "geo_lat": "55.751244",
+                "geo_lon": "37.618423",
+                "qc_geo": "0",
+            },
+        }
+
+    def _respond(
+        self,
+        payload: dict[str, object],
+        *,
+        status_code: int = 200,
+    ) -> None:
         body = json.dumps(payload).encode()
-        self.send_response(200)
+        self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
