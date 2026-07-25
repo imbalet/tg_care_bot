@@ -15,7 +15,6 @@ from executor_bot.presentation.callbacks import (
     RegistrationContactCallback,
     SupportOpenCallback,
 )
-from executor_bot.presentation.handlers.responses import send_step
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.navigation import (
     active_category,
@@ -59,11 +58,10 @@ async def profile_edit_callback(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.set_state(ProfileEditForm.phone)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=phone_step_text(),
         reply_markup=phone_contact_keyboard(),
     )
@@ -79,11 +77,10 @@ async def profile_edit_phone(
 ) -> None:
     contact = message.contact
     if contact is None or contact.user_id != telegram_user_context.telegram_id:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=invalid_phone_contact_text(),
             reply_markup=phone_contact_keyboard(),
             create_new=True,
@@ -91,19 +88,17 @@ async def profile_edit_phone(
         return
     await state.update_data(profile_phone=contact.phone_number)
     await state.set_state(ProfileEditForm.contact_method)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text="Телефон получен.",
         reply_markup=ReplyKeyboardRemove(),
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=select_contact_method_text(),
         reply_markup=contact_methods_keyboard(),
         create_new=True,
@@ -131,22 +126,20 @@ async def profile_edit_contact_method(
             contact_method=callback_data.method.value,
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=unavailable_action_text(),
             reply_markup=fallback_keyboard(),
         )
         await state.clear()
         return
     await state.clear()
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text="Профиль обновлён",
         reply_markup=fallback_keyboard(),
     )
@@ -155,43 +148,57 @@ async def profile_edit_contact_method(
 @router.callback_query(ProfileDeletionCheckCallback.filter())
 async def deletion_check_callback(
     callback: CallbackQuery,
+    bot: Bot,
     backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
 ) -> None:
     try:
         preflight = await backend_client.get_deletion_preflight(
             telegram_id=callback.from_user.id,
         )
     except BackendClientError:
-        await callback.answer("Не удалось проверить аккаунт", show_alert=True)
+        await telegram_responder.acknowledge(
+            callback, "Не удалось проверить аккаунт", show_alert=True
+        )
         return
     if preflight.blockers:
-        await callback.answer(
-            "Удаление пока недоступно: есть активные обязательства", show_alert=True
+        await telegram_responder.acknowledge(
+            callback,
+            "Удаление пока недоступно: есть активные обязательства",
+            show_alert=True,
         )
         return
     if not isinstance(callback.message, Message):
-        await callback.answer("Сообщение недоступно", show_alert=True)
+        await telegram_responder.acknowledge(
+            callback, "Сообщение недоступно", show_alert=True
+        )
         return
-    await callback.message.answer(
-        "Активных обязательств нет. Подтвердить удаление аккаунта?",
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=callback.from_user.id,
+        text="Активных обязательств нет. Подтвердить удаление аккаунта?",
         reply_markup=InlineKeyboardFactory()
         .button("Подтвердить удаление", ProfileDeletionConfirmCallback())
         .as_markup(),
+        create_new=True,
     )
-    await callback.answer()
 
 
 @router.callback_query(ProfileDeletionConfirmCallback.filter())
 async def deletion_confirm_callback(
     callback: CallbackQuery,
+    telegram_responder: TelegramResponder,
     backend_client: BackendPort,
 ) -> None:
     try:
         await backend_client.create_deletion_request(telegram_id=callback.from_user.id)
     except BackendClientError:
-        await callback.answer("Удаление сейчас недоступно", show_alert=True)
+        await telegram_responder.acknowledge(
+            callback, "Удаление сейчас недоступно", show_alert=True
+        )
         return
-    await callback.answer("Запрос на удаление отправлен")
+    await telegram_responder.acknowledge(callback, "Запрос на удаление отправлен")
 
 
 @router.callback_query(MainMenuCallback.filter())
@@ -205,7 +212,9 @@ async def main_menu_callback(
 ) -> None:
     message = callback.message
     if not isinstance(message, Message):
-        await callback.answer("Сообщение недоступно", show_alert=True)
+        await telegram_responder.acknowledge(
+            callback, "Сообщение недоступно", show_alert=True
+        )
         return
     try:
         registration_state = await backend_client.get_registration_state(
@@ -278,7 +287,9 @@ async def help_callback(
             ),
         )
         return
-    await callback.answer("Сообщение недоступно", show_alert=True)
+    await telegram_responder.acknowledge(
+        callback, "Сообщение недоступно", show_alert=True
+    )
 
 
 @router.callback_query(SupportOpenCallback.filter())
@@ -322,7 +333,9 @@ async def profile_callback(
 ) -> None:
     message = callback.message
     if not isinstance(message, Message):
-        await callback.answer("Сообщение недоступно", show_alert=True)
+        await telegram_responder.acknowledge(
+            callback, "Сообщение недоступно", show_alert=True
+        )
         return
     try:
         state = await backend_client.get_registration_state(

@@ -17,7 +17,6 @@ from executor_bot.presentation.callbacks import (
     ServicesOpenCallback,
     ServiceToggleCallback,
 )
-from executor_bot.presentation.handlers.responses import send_step
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
@@ -47,11 +46,10 @@ async def open_services(
             telegram_id=telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
@@ -81,11 +79,10 @@ async def toggle_accepting_orders(
             is_accepting_orders=callback_data.value,
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
@@ -120,11 +117,10 @@ async def toggle_service(
             is_enabled=not bool(item["is_enabled"]),
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
@@ -164,11 +160,10 @@ async def reduce_service_limit(
             performer_max_objects=next_limit,
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
@@ -189,11 +184,10 @@ async def open_calendar(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=calendar_text(),
         reply_markup=calendar_keyboard(),
     )
@@ -217,19 +211,17 @@ async def set_schedule(
             work_end_time=time(18),
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=calendar_updated_text(),
     )
 
@@ -247,19 +239,17 @@ async def add_unavailable_tomorrow(
             telegram_id=telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=calendar_updated_text(),
     )
 
@@ -300,11 +290,10 @@ async def _show_services(
             performer_services=[_service_state(item) for item in services],
             is_accepting_orders=is_accepting_orders,
         )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=services_text(services, is_accepting_orders),
         reply_markup=services_keyboard(
             services,

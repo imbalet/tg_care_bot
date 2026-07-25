@@ -31,12 +31,15 @@ class TelegramResponder:
         *,
         bot: Bot,
         event: Message | CallbackQuery,
-        telegram_id: int,
         text: str,
+        telegram_id: int,
         reply_markup: ReplyMarkupUnion | None = None,
         create_new: bool = False,
         delete_event_message: bool = False,
     ) -> Message | None:
+        if isinstance(event, Message):
+            create_new = True
+            create_new = True
         message = event if isinstance(event, Message) else event.message
         if not isinstance(message, Message):
             if isinstance(event, CallbackQuery):

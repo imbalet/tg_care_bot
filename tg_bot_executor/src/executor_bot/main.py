@@ -43,7 +43,7 @@ from executor_bot.presentation.services import TelegramResponder
 logger = logging.getLogger(__name__)
 
 
-async def amain() -> None:
+async def main() -> None:
     settings = get_settings()
 
     setup_logger(level=settings.log_level)
@@ -122,9 +122,5 @@ async def amain() -> None:
         logger.info("Executor bot shutdown complete")
 
 
-def main() -> None:
-    asyncio.run(amain())
-
-
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

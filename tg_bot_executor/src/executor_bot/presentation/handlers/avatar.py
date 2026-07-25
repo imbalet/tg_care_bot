@@ -12,7 +12,6 @@ from executor_bot.presentation.callbacks import (
     AvatarOpenCallback,
     AvatarUploadCallback,
 )
-from executor_bot.presentation.handlers.responses import send_step
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
@@ -38,11 +37,10 @@ async def open_avatar(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=avatar_menu_text(),
         reply_markup=avatar_keyboard(),
     )
@@ -57,11 +55,10 @@ async def start_upload(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     await state.set_state(AvatarManagement.waiting_file)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=avatar_upload_step_text(),
     )
 
@@ -79,19 +76,17 @@ async def delete_avatar(
             telegram_id=telegram_user_context.telegram_id,
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=avatar_deleted_text(),
     )
 
@@ -168,20 +163,18 @@ async def _upload(
             content_type=content_type,
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
     await state.clear()
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=avatar_uploaded_text(),
     )
 

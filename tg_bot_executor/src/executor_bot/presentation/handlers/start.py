@@ -8,7 +8,6 @@ from aiogram.types import Message
 from executor_bot.application.errors import BackendClientError
 from executor_bot.application.ports import ActiveCategoryStore, BackendPort
 from executor_bot.presentation.handlers.registration import start_registration
-from executor_bot.presentation.handlers.responses import send_screen, send_step
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.navigation import (
     active_category,
@@ -120,11 +119,10 @@ async def _open_start_or_menu(
                 "exception_type": type(exc).__name__,
             },
         )
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
@@ -158,11 +156,10 @@ async def _open_start_or_menu(
         )
         return
     if registration_state.state == "no_invitation":
-        await send_screen(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=no_invitation_text(),
         )
         return
@@ -180,11 +177,10 @@ async def _open_start_or_menu(
             telegram_user_context,
         )
         return
-    await send_screen(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=True),
     )

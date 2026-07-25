@@ -500,6 +500,8 @@ async def order_finish_callback(
 @router.callback_query(ExecutorOrderContactCallback.filter())
 async def order_contact_callback(
     callback: CallbackQuery,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
     backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
     callback_data: ExecutorOrderContactCallback,
@@ -509,14 +511,17 @@ async def order_contact_callback(
             telegram_id=telegram_user_context.telegram_id,
             order_id=UUID(callback_data.order_id),
         )
-        await callback.answer(
+        await telegram_responder.acknowledge(
+            callback,
             "Запрос отправлен заказчику"
             if result.status == "sent"
             else "Связь недоступна",
             show_alert=True,
         )
     except BackendClientError:
-        await callback.answer("Запрос контакта сейчас недоступен", show_alert=True)
+        await telegram_responder.acknowledge(
+            callback, "Запрос контакта сейчас недоступен", show_alert=True
+        )
 
 
 @router.callback_query(ExecutorOrderSupportCallback.filter())
@@ -544,12 +549,20 @@ async def order_support_callback(
 @router.message(OrderActionForm.support_text)
 async def order_support_text(
     message: Message,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
-        await message.answer("Опишите вопрос текстом.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Опишите вопрос текстом.",
+            create_new=True,
+        )
         return
     data = await state.get_data()
     try:
@@ -559,9 +572,21 @@ async def order_support_text(
             request_type="order",
             text=message.text.strip(),
         )
-        await message.answer("Обращение отправлено в поддержку.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Обращение отправлено в поддержку.",
+            create_new=True,
+        )
     except BackendClientError:
-        await message.answer("Не удалось отправить обращение. Попробуйте позже.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Не удалось отправить обращение. Попробуйте позже.",
+            create_new=True,
+        )
     finally:
         await state.clear()
 
@@ -589,24 +614,50 @@ async def order_complaint_callback(
 
 
 @router.message(OrderActionForm.complaint_category)
-async def complaint_category(message: Message, state: FSMContext) -> None:
+async def complaint_category(
+    message: Message,
+    state: FSMContext,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     if not message.text or not message.text.strip():
-        await message.answer("Укажите категорию жалобы.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Укажите категорию жалобы.",
+            create_new=True,
+        )
         return
     await state.update_data(category=message.text.strip())
     await state.set_state(OrderActionForm.complaint_text)
-    await message.answer("Опишите жалобу.")
+    await telegram_responder.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Опишите жалобу.",
+        create_new=True,
+    )
 
 
 @router.message(OrderActionForm.complaint_text)
 async def complaint_text(
     message: Message,
+    bot: Bot,
     state: FSMContext,
     backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
-        await message.answer("Опишите жалобу текстом.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Опишите жалобу текстом.",
+            create_new=True,
+        )
         return
     data = await state.get_data()
     try:
@@ -616,9 +667,21 @@ async def complaint_text(
             category="order_problem",
             text=message.text.strip(),
         )
-        await message.answer("Жалоба отправлена.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Жалоба отправлена.",
+            create_new=True,
+        )
     except BackendClientError:
-        await message.answer("Не удалось отправить жалобу. Попробуйте позже.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Не удалось отправить жалобу. Попробуйте позже.",
+            create_new=True,
+        )
     finally:
         await state.clear()
 
@@ -639,9 +702,11 @@ async def order_cancel_callback(
             ),
             order_id=UUID(callback_data.order_id),
         )
-        await callback.answer("Заказ отменён")
+        await telegram_responder.acknowledge(callback, "Заказ отменён")
     except BackendClientError, ValueError:
-        await callback.answer("Отмена недоступна", show_alert=True)
+        await telegram_responder.acknowledge(
+            callback, "Отмена недоступна", show_alert=True
+        )
 
 
 @router.callback_query(ExecutorOrderReportCallback.filter())
@@ -715,18 +780,42 @@ async def report_work(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
-        await message.answer("Введите описание выполненной работы текстом.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Введите описание выполненной работы текстом.",
+            create_new=True,
+        )
         return
     await state.update_data(completed_work=message.text.strip())
     await state.set_state(OrderActionForm.report_comment)
-    await message.answer("Добавьте комментарий или отправьте /skip.")
+    await telegram_responder.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Добавьте комментарий или отправьте /skip.",
+        create_new=True,
+    )
 
 
 @router.message(OrderActionForm.report_comment)
-async def report_comment(message: Message, state: FSMContext) -> None:
+async def report_comment(
+    message: Message,
+    state: FSMContext,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     await state.update_data(comment=None if message.text == "/skip" else message.text)
     await state.set_state(OrderActionForm.report_problem)
-    await message.answer("Была проблема? Ответьте да или нет.")
+    await telegram_responder.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Была проблема? Ответьте да или нет.",
+        create_new=True,
+    )
 
 
 @router.message(OrderActionForm.report_problem)
@@ -734,19 +823,39 @@ async def report_problem(
     message: Message,
     state: FSMContext,
     backend_client: BackendPort,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or message.text.lower() not in {"да", "нет", "yes", "no"}:
-        await message.answer("Ответьте «да» или «нет».")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Ответьте «да» или «нет».",
+            create_new=True,
+        )
         return
     problem = message.text.lower() in {"да", "yes"}
     await state.update_data(problem_flag=problem, problem_description=None)
     if problem:
         await state.set_state(OrderActionForm.report_problem_description)
-        await message.answer("Опишите проблему.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Опишите проблему.",
+            create_new=True,
+        )
         return
     await state.set_state(OrderActionForm.report_attachment)
-    await message.answer("Прикрепите фото или документ либо отправьте /skip.")
+    await telegram_responder.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Прикрепите фото или документ либо отправьте /skip.",
+        create_new=True,
+    )
 
 
 @router.message(OrderActionForm.report_problem_description)
@@ -759,11 +868,23 @@ async def report_problem_description(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
-        await message.answer("Опишите проблему текстом.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Опишите проблему текстом.",
+            create_new=True,
+        )
         return
     await state.update_data(problem_description=message.text.strip())
     await state.set_state(OrderActionForm.report_attachment)
-    await message.answer("Прикрепите фото или документ либо отправьте /skip.")
+    await telegram_responder.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Прикрепите фото или документ либо отправьте /skip.",
+        create_new=True,
+    )
 
 
 @router.message(OrderActionForm.report_attachment, F.photo | F.document)
@@ -772,15 +893,28 @@ async def report_attachment(
     state: FSMContext,
     bot: Bot,
     backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     attachment = message.photo[-1] if message.photo else message.document
     if attachment is None:
-        await message.answer("Прикрепите фото или документ либо отправьте /skip.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Прикрепите фото или документ либо отправьте /skip.",
+            create_new=True,
+        )
         return
     telegram_file = await bot.get_file(attachment.file_id)
     if telegram_file.file_path is None:
-        await message.answer("Файл недоступен. Попробуйте ещё раз.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Файл недоступен. Попробуйте ещё раз.",
+            create_new=True,
+        )
         return
     buffer = BytesIO()
     await bot.download_file(telegram_file.file_path, destination=buffer)
@@ -797,20 +931,34 @@ async def report_attachment(
             content_type=content_type,
         )
     except BackendClientError:
-        await message.answer("Не удалось загрузить файл. Попробуйте ещё раз.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Не удалось загрузить файл. Попробуйте ещё раз.",
+            create_new=True,
+        )
         return
     data = await state.get_data()
     file_ids = [str(item) for item in data.get("file_ids", [])]
     file_ids.append(str(file.id))
     await state.update_data(file_ids=file_ids)
-    await message.answer("Файл добавлен. Добавьте ещё или отправьте /skip.")
+    await telegram_responder.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Файл добавлен. Добавьте ещё или отправьте /skip.",
+        create_new=True,
+    )
 
 
 @router.message(OrderActionForm.report_attachment, F.text == "/skip")
 async def report_attachment_skip(
     message: Message,
     state: FSMContext,
+    bot: Bot,
     backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
     data = await state.get_data()
@@ -832,9 +980,21 @@ async def report_attachment_skip(
             ),
             file_ids=tuple(UUID(str(item)) for item in data.get("file_ids", [])),
         )
-        await message.answer("Отчёт отправлен заказчику.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Отчёт отправлен заказчику.",
+            create_new=True,
+        )
     except BackendClientError, ValueError:
-        await message.answer("Не удалось отправить отчёт. Попробуйте ещё раз.")
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Не удалось отправить отчёт. Попробуйте ещё раз.",
+            create_new=True,
+        )
     finally:
         await state.clear()
 

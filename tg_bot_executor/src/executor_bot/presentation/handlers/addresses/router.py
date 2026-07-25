@@ -18,7 +18,6 @@ from executor_bot.presentation.callbacks import (
     WorkAddressSkipCallback,
     WorkAddressSuggestionCallback,
 )
-from executor_bot.presentation.handlers.responses import send_step
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
@@ -71,29 +70,26 @@ async def open_work_addresses(
             telegram_id=telegram_user_context.telegram_id,
         )
     except BackendValidationError as exc:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=work_address_validation_error_text(str(exc)),
         )
         return
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
     await state.update_data(work_addresses=[_address_state(item) for item in items])
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=work_addresses_list_text(items),
         reply_markup=work_addresses_keyboard(items),
     )
@@ -111,20 +107,18 @@ async def add_work_address(
     try:
         cities = await backend_client.list_active_cities()
     except BackendValidationError as exc:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=work_address_validation_error_text(str(exc)),
         )
         return
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
@@ -133,11 +127,10 @@ async def add_work_address(
         city_ids=[str(city.id) for city in cities],
         work_address_draft={},
     )
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=work_address_city_step_text(),
         reply_markup=work_address_city_keyboard(cities),
     )
@@ -165,11 +158,10 @@ async def select_city(
     draft["city_id"] = city_ids[index]
     await state.update_data(work_address_draft=draft)
     await state.set_state(WorkAddressManagement.query)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=work_address_query_step_text(),
     )
 
@@ -184,11 +176,10 @@ async def enter_query(
     telegram_user_context: TelegramUserContext,
 ) -> None:
     if not message.text or not message.text.strip():
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text="Введите адрес текстом.",
         )
         return
@@ -200,20 +191,18 @@ async def enter_query(
             query=message.text.strip(),
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
     if not suggestions:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=message,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text="Адрес не найден. Уточните строку.",
         )
         return
@@ -224,11 +213,10 @@ async def enter_query(
         ],
     )
     await state.set_state(WorkAddressManagement.suggestion)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=message,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=work_address_suggestion_step_text(suggestions),
         reply_markup=work_address_suggestions_keyboard(suggestions),
     )
@@ -264,11 +252,10 @@ async def select_suggestion(
     draft["extra_index"] = 0
     await state.update_data(work_address_draft=draft)
     await state.set_state(WorkAddressManagement.extra)
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=work_address_extra_step_text(EXTRA_FIELDS[0][1]),
         reply_markup=work_address_skip_keyboard(),
     )
@@ -337,11 +324,10 @@ async def select_address(
     if not isinstance(index, int):
         await telegram_responder.acknowledge(callback, "Выберите действие кнопкой.")
         return
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=work_address_card_text(item),
         reply_markup=work_address_card_keyboard(index),
     )
@@ -367,19 +353,17 @@ async def set_current_address(
             address_id=UUID(str(item["id"])),
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=work_address_current_text(),
     )
 
@@ -404,19 +388,17 @@ async def delete_address(
             address_id=UUID(str(item["id"])),
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=callback,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=callback,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=work_address_deleted_text(),
     )
 
@@ -434,11 +416,10 @@ async def _advance_or_create(
     if index < len(EXTRA_FIELDS):
         draft["extra_index"] = index
         await state.update_data(work_address_draft=draft)
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=work_address_extra_step_text(EXTRA_FIELDS[index][1]),
             reply_markup=work_address_skip_keyboard(),
         )
@@ -454,20 +435,18 @@ async def _advance_or_create(
             comment=_optional_str(draft.get("comment")),
         )
     except BackendClientError:
-        await send_step(
+        await telegram_responder.update(
             bot=bot,
             event=event,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
+            telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
         )
         return
     await state.clear()
-    await send_step(
+    await telegram_responder.update(
         bot=bot,
         event=event,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
+        telegram_id=telegram_user_context.telegram_id,
         text=work_address_created_text(),
     )
 
