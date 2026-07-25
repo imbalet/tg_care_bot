@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -32,6 +33,7 @@ from backend.modules.orders.infrastructure.exports import (
 )
 from backend.modules.payments.application import (
     PaymentGateway,
+    PaymentGatewayConfirmCommand,
     PaymentGatewayRefundCommand,
 )
 from backend.modules.payments.infrastructure import (
@@ -42,6 +44,7 @@ from backend.modules.payments.infrastructure import (
 from backend.modules.performers.infrastructure import PerformerModel
 
 _ADMIN_TABLE = AdminModel.__table__
+logger = logging.getLogger(__name__)
 
 
 class WorkerJob(Protocol):
@@ -367,6 +370,63 @@ class RefundWorkerJob:
                 for refund, provider_payment_id in rows
                 if provider_payment_id is not None
             )
+
+
+class ConfirmPaymentWorkerJob:
+    name = "payment-confirms"
+
+    def __init__(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        batch_limit: int,
+        gateway_factory: Callable[[], PaymentGateway],
+    ) -> None:
+        self._session_factory = session_factory
+        self._batch_limit = batch_limit
+        self._gateway_factory = gateway_factory
+
+    async def run_once(self) -> None:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(PaymentModel)
+                .join(OrderModel, OrderModel.active_payment_id == PaymentModel.id)
+                .where(
+                    OrderModel.status == "completed",
+                    PaymentModel.status == "succeeded",
+                    PaymentModel.provider_status == "AUTHORIZED",
+                    PaymentModel.provider_payment_id.is_not(None),
+                )
+                .order_by(PaymentModel.created_at)
+                .limit(self._batch_limit),
+            )
+            payments = tuple(result.scalars())
+
+        for payment in payments:
+            if payment.provider_payment_id is None:
+                continue
+            confirmation = None
+            try:
+                confirmation = await self._gateway_factory().confirm_payment(
+                    PaymentGatewayConfirmCommand(
+                        provider_payment_id=payment.provider_payment_id,
+                        amount=payment.amount,
+                    ),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "payment_confirm_failed",
+                    extra={
+                        "payment_id": str(payment.id),
+                        "error": type(exc).__name__,
+                    },
+                )
+            if confirmation is None:
+                continue
+            async with self._session_factory() as session:
+                current = await session.get(PaymentModel, payment.id)
+                if current is not None and current.provider_status == "AUTHORIZED":
+                    current.provider_status = confirmation.status
+                    await session.commit()
 
 
 class DeadlinesWorkerJob:
