@@ -28,6 +28,30 @@ services:
       timeout: 3s
       retries: 10
 
+  tbank_mock:
+    profiles: ["payment-mock"]
+    build:
+      context: tbank_mock
+    environment:
+      TBANK_MOCK_TERMINAL_KEY: ${TBANK_TERMINAL_KEY:-mock-terminal}
+      TBANK_MOCK_PASSWORD: ${TBANK_PASSWORD:-mock-password}
+      TBANK_MOCK_DATABASE_PATH: /data/tbank-mock.db
+      TBANK_MOCK_PUBLIC_BASE_URL: ${TBANK_MOCK_PUBLIC_BASE_URL:-http://localhost:18080}
+      TBANK_MOCK_HOST: 0.0.0.0
+      TBANK_MOCK_PORT: "8080"
+      TBANK_MOCK_WEBHOOK_TIMEOUT_SECONDS: ${TBANK_MOCK_WEBHOOK_TIMEOUT_SECONDS:-3}
+      TBANK_MOCK_WEBHOOK_RETRY_COUNT: ${TBANK_MOCK_WEBHOOK_RETRY_COUNT:-5}
+      TBANK_MOCK_WEBHOOK_RETRY_DELAY_SECONDS: ${TBANK_MOCK_WEBHOOK_RETRY_DELAY_SECONDS:-1}
+    ports:
+      - "18080:8080"
+    volumes:
+      - tbank_mock_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     command: server /data --console-address ":9001"
@@ -226,3 +250,4 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  tbank_mock_data:
