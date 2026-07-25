@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -74,7 +76,10 @@ async def test_direct_invitation_notification_uses_match_id(
     )
     assert notification is not None
     assert str(notification["entity_id"]) == invited_match["id"]
-    assert notification["payload"]["match_id"] == invited_match["id"]
+    payload = notification["payload"]
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    assert payload["match_id"] == invited_match["id"]
     assert notification["deduplication_key"] == (
         f"direct-invitation-created:{invited_match['id']}"
     )

@@ -75,6 +75,70 @@ async def _prepare_payment(
     return customer, order, payment
 
 
+async def _force_payment_deadline(
+    e2e_db: asyncpg.Connection,
+    order_id: str,
+    *,
+    matching_deadline_in_future: bool,
+) -> str:
+    row = await e2e_db.fetchrow(
+        "SELECT selected_match_id FROM orders WHERE id = $1",
+        order_id,
+    )
+    assert row and row["selected_match_id"]
+    now = datetime.now(UTC)
+    matching_deadline = now + timedelta(minutes=5)
+    if not matching_deadline_in_future:
+        matching_deadline = now - timedelta(seconds=5)
+    await e2e_db.execute(
+        """
+        UPDATE orders
+        SET payment_deadline_at = $2, matching_deadline_at = $3
+        WHERE id = $1
+        """,
+        order_id,
+        now - timedelta(seconds=5),
+        matching_deadline,
+    )
+    return str(row["selected_match_id"])
+
+
+async def _wait_for_payment_deadline_transition(
+    e2e_client: httpx.AsyncClient,
+    e2e_db: asyncpg.Connection,
+    *,
+    order_id: str,
+    customer_id: str,
+    expected_order_status: str,
+) -> dict[str, Any]:
+    for _ in range(40):
+        status_response = await e2e_client.get(
+            f"/api/payments/orders/{order_id}/status",
+            params={"customer_id": customer_id},
+        )
+        assert status_response.status_code == 200, status_response.text
+        status = status_response.json()
+        payment_status = await e2e_db.fetchval(
+            """
+            SELECT status
+            FROM payments
+            WHERE order_id = $1
+            ORDER BY attempt_number DESC
+            LIMIT 1
+            """,
+            order_id,
+        )
+        if (
+            status["order_status"] == expected_order_status
+            and payment_status == "expired"
+        ):
+            return status
+    pytest.fail(
+        f"Worker did not expire payment for order {order_id}; "
+        f"last status={status_response.json()} payment_status={payment_status}"
+    )
+
+
 @pytest.mark.e2e
 async def test_successful_payment_webhook_confirms_order_and_is_idempotent(
     e2e_client: httpx.AsyncClient,
@@ -360,6 +424,174 @@ async def test_expired_payment_webhook_is_not_applied(
     status = status_response.json()
     assert status["order_status"] == "waiting_payment"
     assert status["payment_status"] == "succeeded_unapplied"
+
+
+@pytest.mark.e2e
+@pytest.mark.xfail(
+    strict=True,
+    reason="Known bug: worker expired_reason violates DB constraint",
+)
+async def test_worker_expiring_payment_returns_order_to_searching(
+    e2e_client: httpx.AsyncClient,
+    e2e_db: asyncpg.Connection,
+    direct_order_factory,
+) -> None:
+    customer, _, order = await direct_order_factory()
+    matches_response = await e2e_client.get(
+        f"/api/orders/{order['id']}/matches",
+        params={"customer_id": customer.entity_id},
+    )
+    assert matches_response.status_code == 200, matches_response.text
+    match = matches_response.json()[0]
+    accept_response = await e2e_client.post(
+        f"/api/orders/matches/{match['id']}/direct/accept",
+        json={"performer_id": match["performer_id"]},
+    )
+    assert accept_response.status_code == 200, accept_response.text
+
+    selected_match_id = await _force_payment_deadline(
+        e2e_db,
+        order["id"],
+        matching_deadline_in_future=True,
+    )
+    status = await _wait_for_payment_deadline_transition(
+        e2e_client,
+        e2e_db,
+        order_id=order["id"],
+        customer_id=customer.entity_id,
+        expected_order_status="searching",
+    )
+
+    assert status["payment_id"] is None
+    assert status["payment_status"] is None
+    order_row = await e2e_db.fetchrow(
+        """
+        SELECT active_payment_id, selected_match_id, payment_deadline_at
+        FROM orders
+        WHERE id = $1
+        """,
+        order["id"],
+    )
+    assert order_row
+    assert order_row["active_payment_id"] is None
+    assert order_row["selected_match_id"] is None
+    assert order_row["payment_deadline_at"] is None
+
+    payment_row = await e2e_db.fetchrow(
+        "SELECT status FROM payments WHERE order_id = $1",
+        order["id"],
+    )
+    assert payment_row and payment_row["status"] == "expired"
+    match_row = await e2e_db.fetchrow(
+        "SELECT status, close_reason FROM order_matches WHERE id = $1",
+        selected_match_id,
+    )
+    assert match_row == {"status": "expired", "close_reason": "payment_deadline"}
+    assert (
+        await e2e_db.fetchval(
+            """
+            SELECT count(*)
+            FROM order_status_history
+            WHERE order_id = $1
+              AND from_status = 'waiting_payment'
+              AND to_status = 'searching'
+              AND reason = 'payment_deadline'
+            """,
+            order["id"],
+        )
+        == 1
+    )
+    notification = await e2e_db.fetchrow(
+        """
+        SELECT type, deduplication_key
+        FROM notifications
+        WHERE entity_type = 'order' AND entity_id = $1
+          AND type = 'payment_expired_order_searching'
+        """,
+        order["id"],
+    )
+    assert notification == {
+        "type": "payment_expired_order_searching",
+        "deduplication_key": f"payment_expired_order_searching:{order['id']}",
+    }
+
+
+@pytest.mark.e2e
+@pytest.mark.xfail(
+    strict=True,
+    reason="Known bug: worker expired_reason violates DB constraint",
+)
+async def test_worker_expiring_payment_expires_order_after_matching_deadline(
+    e2e_client: httpx.AsyncClient,
+    e2e_db: asyncpg.Connection,
+    direct_order_factory,
+) -> None:
+    customer, _, order = await direct_order_factory()
+    matches_response = await e2e_client.get(
+        f"/api/orders/{order['id']}/matches",
+        params={"customer_id": customer.entity_id},
+    )
+    assert matches_response.status_code == 200, matches_response.text
+    match = matches_response.json()[0]
+    accept_response = await e2e_client.post(
+        f"/api/orders/matches/{match['id']}/direct/accept",
+        json={"performer_id": match["performer_id"]},
+    )
+    assert accept_response.status_code == 200, accept_response.text
+
+    selected_match_id = await _force_payment_deadline(
+        e2e_db,
+        order["id"],
+        matching_deadline_in_future=False,
+    )
+    status = await _wait_for_payment_deadline_transition(
+        e2e_client,
+        e2e_db,
+        order_id=order["id"],
+        customer_id=customer.entity_id,
+        expected_order_status="expired",
+    )
+
+    assert status["payment_status"] == "expired"
+    order_row = await e2e_db.fetchrow(
+        "SELECT expired_reason, expired_at FROM orders WHERE id = $1",
+        order["id"],
+    )
+    assert order_row
+    assert order_row["expired_reason"] == "payment_deadline"
+    assert order_row["expired_at"] is not None
+    match_row = await e2e_db.fetchrow(
+        "SELECT status, close_reason FROM order_matches WHERE id = $1",
+        selected_match_id,
+    )
+    assert match_row == {"status": "expired", "close_reason": "payment_deadline"}
+    assert (
+        await e2e_db.fetchval(
+            """
+            SELECT count(*)
+            FROM order_status_history
+            WHERE order_id = $1
+              AND from_status = 'waiting_payment'
+              AND to_status = 'expired'
+              AND reason = 'payment_deadline'
+            """,
+            order["id"],
+        )
+        == 1
+    )
+    notification = await e2e_db.fetchrow(
+        """
+        SELECT type, deduplication_key
+        FROM notifications
+        WHERE entity_type = 'order' AND entity_id = $1
+          AND type = 'payment_expired_order_expired'
+        """,
+        order["id"],
+    )
+    assert notification == {
+        "type": "payment_expired_order_expired",
+        "deduplication_key": f"payment_expired_order_expired:{order['id']}",
+    }
 
 
 @pytest.mark.e2e

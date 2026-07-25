@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -7,8 +8,10 @@ from itertools import count
 from typing import Any
 
 import asyncpg
+import boto3
 import httpx
 import pytest_asyncio
+from botocore.exceptions import ClientError
 
 from tests.support.settings import TestSettings
 
@@ -24,13 +27,37 @@ class E2EActor:
 
 
 @pytest_asyncio.fixture
-async def e2e_client(test_settings: TestSettings) -> AsyncIterator[httpx.AsyncClient]:
+async def e2e_client(
+    e2e_s3: None,
+    test_settings: TestSettings,
+) -> AsyncIterator[httpx.AsyncClient]:
     async with httpx.AsyncClient(
         base_url=test_settings.e2e_base_url,
         headers={"X-Service-Key": test_settings.service_key},
         timeout=test_settings.e2e_request_timeout_seconds,
     ) as client:
         yield client
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def e2e_s3(test_settings: TestSettings) -> AsyncIterator[None]:
+    client = boto3.client(
+        "s3",
+        endpoint_url=test_settings.s3_endpoint_url,
+        aws_access_key_id=test_settings.s3_access_key_id,
+        aws_secret_access_key=test_settings.s3_secret_access_key,
+        region_name=test_settings.s3_region,
+    )
+    try:
+        await asyncio.to_thread(client.head_bucket, Bucket=test_settings.s3_bucket)
+    except ClientError as error:
+        if error.response["Error"]["Code"] not in {"404", "NoSuchBucket"}:
+            raise
+        await asyncio.to_thread(
+            client.create_bucket,
+            Bucket=test_settings.s3_bucket,
+        )
+    yield None
 
 
 @pytest_asyncio.fixture

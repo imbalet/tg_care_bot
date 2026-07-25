@@ -143,3 +143,102 @@ pytest.mark.xfail(
 - payment, status history и notifications не изменяются;
 - unit/API/E2E проверки проходят;
 - status секции обновлён на `RESOLVED`.
+
+---
+
+## SERVER-WORKER-001 — истечение payment deadline падает на check constraint
+
+- Status: `OPEN`
+- Priority: `P0`
+- Area: server worker / order expiration
+
+### Summary
+
+`DeadlinesWorkerJob._expire_waiting_payments` не может завершить обработку
+просроченного заказа, потому что записывает значение `payment_deadline` в
+`orders.expired_reason`, а PostgreSQL constraint разрешает другое значение.
+После исключения worker завершается, транзакция откатывается, а заказ и payment
+остаются в исходном состоянии.
+
+### Expected behavior
+
+Worker должен атомарно обработать просроченный `waiting_payment` заказ:
+
+- payment переводится из `pending` в `expired`;
+- selected match закрывается со статусом `expired` и причиной `payment_deadline`;
+- при ещё действующем matching deadline заказ возвращается в `searching`;
+- при истёкшем matching deadline заказ переходит в `expired` с допустимой
+  причиной истечения;
+- создаётся одна status history запись и одно уведомление;
+- повторная итерация worker не создаёт повторных бизнесовых изменений.
+
+### Actual behavior
+
+Worker падает с `asyncpg.exceptions.CheckViolationError`:
+
+```text
+new row for relation "orders" violates check constraint "ck_orders_expired_reason"
+```
+
+В SQLAlchemy flush виден конфликт:
+
+```text
+expired_reason = 'payment_deadline'
+```
+
+Миграция разрешает только:
+
+```text
+matching_deadline_reached
+no_performer_selected
+payment_deadline_reached
+no_direct_response
+system_error
+```
+
+Из-за исключения worker process завершается. Тест наблюдает `waiting_payment` и
+`pending` вместо ожидаемого перехода.
+
+### Reproduction steps
+
+1. Поднять Compose E2E stack.
+2. Создать direct-заказ и принять match.
+3. В тестовой подготовке выставить `orders.payment_deadline_at` в прошлое.
+4. Для первой ветки выставить `matching_deadline_at` в будущее, для второй — в прошлое.
+5. Дождаться итерации worker.
+6. Наблюдать падение worker и отсутствие изменения состояния заказа.
+
+Команда:
+
+```bash
+make -C tg_bot_server test-e2e
+```
+
+### Root cause
+
+В `src/backend/worker/jobs.py` используется строка `payment_deadline`, которая
+не совпадает с допустимым значением `payment_deadline_reached` из миграции
+`20260713_0010_add_availability_order_schema.py`.
+
+### Related xfail tests
+
+Файл: `tests/e2e/test_payment_webhook_flow.py`
+
+- `test_worker_expiring_payment_returns_order_to_searching`;
+- `test_worker_expiring_payment_expires_order_after_matching_deadline`.
+
+Оба теста помечены строгим `xfail` с ожидаемым бизнесовым поведением.
+
+### Scope of fix
+
+Согласовать значение `expired_reason` между worker и PostgreSQL constraint.
+Не менять тестовые assertions на фактическое падение worker и не считать
+завершением сценария остановившийся worker.
+
+### Closure criteria
+
+- worker не падает при обработке обеих веток payment deadline;
+- разрешённое значение `expired_reason` соответствует утверждённому контракту;
+- оба xfail-теста становятся XPASS, после чего `xfail` снимается;
+- payment, match, order status history и notification проверяются повторно;
+- полный `make -C tg_bot_server test-e2e` проходит.

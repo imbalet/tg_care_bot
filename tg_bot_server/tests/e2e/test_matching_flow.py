@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -38,7 +40,10 @@ async def test_performer_can_respond_and_customer_can_select_pool_order(
     )
     assert notification is not None
     assert str(notification["entity_id"]) == match["id"]
-    assert notification["payload"]["match_id"] == match["id"]
+    payload = notification["payload"]
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    assert payload["match_id"] == match["id"]
     assert notification["deduplication_key"] == (f"pool-response-created:{match['id']}")
 
     _, second_order = await pool_order_factory()
