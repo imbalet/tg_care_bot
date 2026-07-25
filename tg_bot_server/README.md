@@ -61,6 +61,35 @@ required:
 docker compose --profile bots up --build
 ```
 
+### T-Bank CA certificates
+
+The server image installs the Russian Trusted Root CA and Russian Trusted Sub
+CA during the image build. The certificates are downloaded from the official
+Gosuslugi certificate endpoints, verified by pinned SHA-256 hashes, and added
+to Alpine's system trust store. `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE` point
+to the resulting bundle so Python HTTP clients use the same trust store.
+
+The download uses `curl --insecure` only for this bootstrap step because the
+certificate source is itself served with the Russian CA chain. The pinned
+hashes and certificate subject/issuer checks remain mandatory; TLS verification
+is not disabled for application traffic.
+
+When T-Bank rotates either certificate, update the corresponding URL/hash in
+`Dockerfile` and rebuild the server image. Do not mount certificates at
+runtime or disable TLS verification.
+
+To manually verify the built image without creating a payment, run a shell in
+the image and check the bundle and TLS connection to the configured T-Bank
+endpoint:
+
+```bash
+docker run --rm --entrypoint sh tg_care_bot-api -c \
+  'test -s /etc/ssl/certs/ca-certificates.crt && \
+   test "$SSL_CERT_FILE" = /etc/ssl/certs/ca-certificates.crt && \
+   python -c "import socket, ssl; sock = socket.create_connection((\"rest-api-test.tinkoff.ru\", 443), timeout=10); \
+ssl.create_default_context().wrap_socket(sock, server_hostname=\"rest-api-test.tinkoff.ru\").close()"'
+```
+
 Published development ports:
 
 - API: `http://localhost:18000`
