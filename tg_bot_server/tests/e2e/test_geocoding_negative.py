@@ -46,10 +46,6 @@ async def test_empty_geocoding_result_is_not_saved(
 
 
 @pytest.mark.e2e
-@pytest.mark.xfail(
-    strict=True,
-    reason="Known server bug: ambiguous geocoding result is saved",
-)
 async def test_ambiguous_geocoding_result_is_not_saved(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,

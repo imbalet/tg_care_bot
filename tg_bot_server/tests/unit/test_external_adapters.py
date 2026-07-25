@@ -157,3 +157,35 @@ async def test_dadata_adapter_rejects_missing_key_and_empty_normalization() -> N
     )
     with pytest.raises(ValidationError, match="API key"):
         await geocoder.suggest(query="Main")
+
+
+@pytest.mark.unit
+async def test_dadata_adapter_rejects_ambiguous_normalization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _Client()
+    client.response = _Response(
+        {
+            "suggestions": [
+                {
+                    "value": "Moscow, Main street, 1",
+                    "unrestricted_value": "Moscow, Main street, 1",
+                },
+                {
+                    "value": "Moscow, Main street, 2",
+                    "unrestricted_value": "Moscow, Main street, 2",
+                },
+            ],
+        },
+    )
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **_: client)
+    geocoder = DaDataGeocoder(
+        api_key="api-key",
+        secret_key="",
+        base_url="https://dadata.test",
+        timeout_seconds=1,
+        retry_count=0,
+    )
+
+    with pytest.raises(ValidationError, match="ambiguous"):
+        await geocoder.normalize(unrestricted_value="Main street")

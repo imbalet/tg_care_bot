@@ -138,7 +138,7 @@ make -C tg_bot_server test-e2e
 
 ## SERVER-GEO-001 — неоднозначный ответ геокодера сохраняется как адрес
 
-- Status: `OPEN`
+- Status: `RESOLVED`
 - Priority: `P1`
 - Area: server geocoding / performer addresses
 
@@ -195,39 +195,33 @@ make -C tg_bot_server test-e2e
 
 ### Root cause
 
-`DaDataGeocoder.normalize()` вызывает `suggest(..., limit=1)` и без проверки
-берёт первую подсказку. Use case создания адреса не требует подтверждения того,
-что результат был однозначным.
+`DaDataGeocoder.normalize()` запрашивал только одну подсказку через
+`suggest(..., limit=1)` и без проверки брал первый результат. Use case создания
+адреса не проверял, что `unrestricted_value` действительно соответствует
+выбранной подсказке.
 
 ### Related xfail tests
 
 Файл: `tests/e2e/test_geocoding_negative.py`
 
-Тест: `test_ambiguous_geocoding_result_is_not_saved`
-
-Маркер:
-
-```python
-pytest.mark.xfail(
-    strict=True,
-    reason="Known server bug: ambiguous geocoding result is saved",
-)
-```
+Тест: `test_ambiguous_geocoding_result_is_not_saved` — `xfail` снят после
+исправления.
 
 ### Scope of fix
 
-Согласовать normalize/create-address flow с user flow: неоднозначный результат
-не должен автоматически превращаться в сохранённый адрес. Не менять assertion
-на фактический HTTP `201` и не удалять проверку отсутствия записи.
+`normalize()` запрашивает до пяти подсказок и принимает только единственную
+подсказку с точным совпадением выбранного `unrestricted_value`. Пустой,
+неоднозначный или не совпадающий результат приводит к контролируемому HTTP 422.
+Правило применяется к общему DaData flow адресов заказчика и исполнителя.
 
 ### Closure criteria
 
-- тест становится XPASS;
-- `xfail` снят;
+- E2E-тест проходит без `xfail`;
 - неоднозначный результат больше не создаёт запись адреса;
 - текущий адрес исполнителя не изменяется;
 - пустой, timeout и HTTP 5xx сценарии продолжают проходить;
-- секция переведена в `RESOLVED` или удалена после закрытия задачи.
+- unit, lint, type-check и E2E проверки проходят;
+- секция переведена в `RESOLVED`.
 
 ---
 

@@ -79,7 +79,15 @@ class MockExternalHandler(BaseHTTPRequestHandler):
                     },
                 )
                 return
-            self._respond({"suggestions": [self._suggestion()]})
+            self._respond(
+                {
+                    "suggestions": [
+                        self._suggestion(
+                            query if isinstance(query, str) else None,
+                        ),
+                    ],
+                },
+            )
             return
         order_id = request_payload.get("OrderId")
         payment_id = f"test-payment-{order_id}" if order_id else "test-payment"
@@ -96,8 +104,9 @@ class MockExternalHandler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _suggestion(
-        address: str = "г. Москва, ул. Тестовая, д. 1",
+        address: str | None = None,
     ) -> dict[str, object]:
+        address = address or "г. Москва, ул. Тестовая, д. 1"
         return {
             "value": address,
             "unrestricted_value": address,

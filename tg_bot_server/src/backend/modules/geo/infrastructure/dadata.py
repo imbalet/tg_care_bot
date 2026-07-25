@@ -49,10 +49,15 @@ class DaDataGeocoder(Geocoder):
         )
 
     async def normalize(self, *, unrestricted_value: str) -> NormalizedAddressDTO:
-        suggestions = await self.suggest(query=unrestricted_value, limit=1)
-        if not suggestions:
-            raise ValidationError("Address was not normalized")
-        suggestion = suggestions[0]
+        suggestions = await self.suggest(query=unrestricted_value, limit=5)
+        matches = tuple(
+            suggestion
+            for suggestion in suggestions
+            if suggestion.unrestricted_value == unrestricted_value
+        )
+        if len(matches) != 1:
+            raise ValidationError("Address selection is invalid or ambiguous")
+        suggestion = matches[0]
         return NormalizedAddressDTO(
             address_text=suggestion.value,
             fias_id=suggestion.fias_id,
