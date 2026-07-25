@@ -204,3 +204,76 @@ async def test_non_selected_performer_cannot_start_confirmed_order(
     assert status_response.json()["order_status"] == "confirmed"
     assert status_response.json()["payment_status"] == "succeeded"
     assert performer["entity_id"] != other_performer.entity_id
+
+
+@pytest.mark.e2e
+async def test_performer_cannot_submit_order_report_twice(
+    e2e_client: httpx.AsyncClient,
+    e2e_db: asyncpg.Connection,
+    direct_order_factory,
+    test_settings: TestSettings,
+) -> None:
+    _customer, performer, order = await _confirm_direct_order(
+        direct_order_factory,
+        e2e_client,
+        e2e_db,
+        test_settings,
+    )
+
+    start_response = await e2e_client.post(
+        f"/api/orders/{order['id']}/start",
+        json={"performer_id": performer["entity_id"]},
+    )
+    assert start_response.status_code == 200, start_response.text
+    finish_response = await e2e_client.post(
+        f"/api/orders/{order['id']}/finish",
+        json={"performer_id": performer["entity_id"]},
+    )
+    assert finish_response.status_code == 200, finish_response.text
+
+    upload_response = await e2e_client.post(
+        f"/api/performers/by-telegram/{performer['telegram_id']}/files",
+        files={
+            "file": (
+                "repeat-report.png",
+                base64.b64decode(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+                ),
+                "image/png",
+            )
+        },
+    )
+    assert upload_response.status_code == 201, upload_response.text
+
+    report_payload = {
+        "performer_id": performer["entity_id"],
+        "completed_work": "Повторная проверка ухода",
+        "comment": "Отчёт отправлен один раз",
+        "problem_flag": False,
+        "file_ids": [upload_response.json()["id"]],
+    }
+    first_report = await e2e_client.post(
+        f"/api/orders/{order['id']}/report",
+        json=report_payload,
+    )
+    assert first_report.status_code == 200, first_report.text
+
+    second_report = await e2e_client.post(
+        f"/api/orders/{order['id']}/report",
+        json=report_payload,
+    )
+    assert second_report.status_code == 409, second_report.text
+
+    state = await e2e_db.fetchrow(
+        "SELECT status FROM orders WHERE id = $1",
+        order["id"],
+    )
+    assert state is not None
+    assert state["status"] == "report_submitted"
+    assert (
+        await e2e_db.fetchval(
+            "SELECT count(*) FROM order_reports WHERE order_id = $1",
+            order["id"],
+        )
+        == 1
+    )
