@@ -80,7 +80,8 @@ class OrderServices(Service):
                 ),
             )
             await uow.commit()
-            return order
+        await self.payments.confirm_payment_for_order(order_id)
+        return order
 
     async def start_customer_order(
         self,

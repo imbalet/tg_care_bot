@@ -1,5 +1,7 @@
 from .dto import (
     PaymentAttemptDTO,
+    PaymentGatewayConfirmCommand,
+    PaymentGatewayConfirmResult,
     PaymentGatewayInitCommand,
     PaymentGatewayInitResult,
     PaymentGatewayRefundCommand,
@@ -39,6 +41,8 @@ __all__ = [
     "RetryPaymentOperationUseCase",
     "PaymentAttemptDTO",
     "PaymentGateway",
+    "PaymentGatewayConfirmCommand",
+    "PaymentGatewayConfirmResult",
     "PaymentGatewayInitCommand",
     "PaymentGatewayInitResult",
     "PaymentGatewayRefundCommand",

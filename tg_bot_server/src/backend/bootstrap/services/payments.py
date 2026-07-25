@@ -8,6 +8,7 @@ from ._shared import (
     GetCustomerPaymentStatusCommand,
     GetCustomerPaymentStatusUseCase,
     NotFoundError,
+    PaymentGatewayConfirmCommand,
     PaymentGatewayInitCommand,
     PaymentGatewayRefundCommand,
     PaymentWebhookCommand,
@@ -20,6 +21,22 @@ from .context import Service
 
 
 class PaymentServices(Service):
+    async def confirm_payment_for_order(self, order_id: UUID) -> None:
+        async with self._uow() as uow:
+            payment = await SqlAlchemyPaymentRepository(
+                uow.session,
+            ).get_current_payment_for_order(order_id)
+        if payment is None or payment.provider_payment_id is None:
+            return
+        if payment.status != "succeeded" or payment.provider_status != "AUTHORIZED":
+            return
+        await self._payment_gateway().confirm_payment(
+            PaymentGatewayConfirmCommand(
+                provider_payment_id=payment.provider_payment_id,
+                amount=payment.amount,
+            ),
+        )
+
     async def initialize_payment(self, payment_id: UUID) -> None:
         async with self._uow() as uow:
             repository = SqlAlchemyPaymentRepository(uow.session)

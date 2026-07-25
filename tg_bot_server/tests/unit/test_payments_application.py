@@ -43,6 +43,7 @@ def _initialization_data(*, status: str = "created") -> PaymentInitializationDat
             idempotency_key=f"payment:{payment_id}",
             amount=Decimal("1500.00"),
             status=status,
+            provider_status="NEW",
             confirmation_url=None,
             expires_at=datetime.now(UTC) + timedelta(minutes=30),
         ),

@@ -3,6 +3,9 @@ from typing import Protocol
 from uuid import UUID
 
 from backend.modules.payments.application.dto import (
+    PaymentAttemptDTO,
+    PaymentGatewayConfirmCommand,
+    PaymentGatewayConfirmResult,
     PaymentGatewayInitCommand,
     PaymentGatewayInitResult,
     PaymentGatewayRefundCommand,
@@ -30,6 +33,12 @@ class PaymentGateway(Protocol):
     ) -> PaymentGatewayRefundResult:
         pass
 
+    async def confirm_payment(
+        self,
+        command: PaymentGatewayConfirmCommand,
+    ) -> PaymentGatewayConfirmResult:
+        pass
+
     async def get_payment_state(
         self,
         command: PaymentGatewayStateCommand,
@@ -38,6 +47,12 @@ class PaymentGateway(Protocol):
 
 
 class PaymentRepository(Protocol):
+    async def get_current_payment_for_order(
+        self,
+        order_id: UUID,
+    ) -> PaymentAttemptDTO | None:
+        pass
+
     async def get_initialization_data(
         self,
         payment_id: UUID,

@@ -16,6 +16,7 @@ class PaymentAttemptDTO:
     idempotency_key: str
     amount: Decimal
     status: str
+    provider_status: str
     confirmation_url: str | None
     expires_at: datetime
 
@@ -90,6 +91,18 @@ class PaymentGatewayRefundCommand:
 @dataclass(frozen=True)
 class PaymentGatewayRefundResult:
     provider_refund_id: str
+
+
+@dataclass(frozen=True)
+class PaymentGatewayConfirmCommand:
+    provider_payment_id: str
+    amount: Decimal
+
+
+@dataclass(frozen=True)
+class PaymentGatewayConfirmResult:
+    provider_payment_id: str
+    status: str
 
 
 @dataclass(frozen=True)

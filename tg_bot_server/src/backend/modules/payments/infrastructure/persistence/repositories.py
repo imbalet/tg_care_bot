@@ -41,6 +41,18 @@ class SqlAlchemyPaymentRepository:
         )
         return int(result.scalar_one()) + 1
 
+    async def get_current_payment_for_order(
+        self,
+        order_id: UUID,
+    ) -> PaymentAttemptDTO | None:
+        result = await self._session.execute(
+            select(PaymentModel)
+            .join(OrderModel, OrderModel.active_payment_id == PaymentModel.id)
+            .where(OrderModel.id == order_id),
+        )
+        payment = result.scalar_one_or_none()
+        return _payment_to_dto(payment) if payment is not None else None
+
     async def add(self, payment: PaymentModel) -> PaymentModel:
         self._session.add(payment)
         await self._session.flush()
@@ -82,6 +94,7 @@ class SqlAlchemyPaymentRepository:
         payment.provider_deal_id = provider_deal_id
         payment.confirmation_url = confirmation_url
         payment.status = "pending"
+        payment.provider_status = "NEW"
         payment.failure_code = None
 
     async def mark_provider_initialization_failed(
@@ -115,6 +128,9 @@ class SqlAlchemyPaymentRepository:
             else None
         )
         if payment.status == "succeeded":
+            if command.status == "CONFIRMED":
+                payment.provider_status = "CONFIRMED"
+                await self._session.flush()
             return PaymentWebhookResult(
                 payment_id=payment.id,
                 order_id=order.id,
@@ -140,6 +156,7 @@ class SqlAlchemyPaymentRepository:
             )
         if command.status not in {"CONFIRMED", "AUTHORIZED"}:
             payment.status = "failed"
+            payment.provider_status = command.status
             payment.failure_code = f"provider_{command.status.lower()}"
             await self._session.flush()
             return PaymentWebhookResult(
@@ -150,6 +167,7 @@ class SqlAlchemyPaymentRepository:
                 unapplied_reason=payment.failure_code,
             )
         payment.paid_at = command.paid_at
+        payment.provider_status = command.status
         unapplied_reason = _unapplied_reason(
             order=order,
             payment=payment,
@@ -496,6 +514,7 @@ def _payment_to_dto(model: PaymentModel) -> PaymentAttemptDTO:
         idempotency_key=model.idempotency_key,
         amount=model.amount,
         status=model.status,
+        provider_status=model.provider_status,
         confirmation_url=model.confirmation_url,
         expires_at=model.expires_at,
     )

@@ -8,6 +8,8 @@ import httpx
 
 from backend.common.domain import ValidationError
 from backend.modules.payments.application import (
+    PaymentGatewayConfirmCommand,
+    PaymentGatewayConfirmResult,
     PaymentGatewayInitCommand,
     PaymentGatewayInitResult,
     PaymentGatewayRefundCommand,
@@ -51,6 +53,7 @@ class TBankPaymentGateway:
             "TerminalKey": self._terminal_key,
             "Amount": _amount_to_kopecks(command.amount),
             "OrderId": str(command.payment_id),
+            "PayType": "T",
             "Description": command.description[:250],
             "DATA": {
                 "order_id": str(command.order_id),
@@ -123,6 +126,35 @@ class TBankPaymentGateway:
             raise ValidationError(f"T-Bank refund failed: {details}")
         refund_id = data.get("PaymentId") or command.provider_payment_id
         return PaymentGatewayRefundResult(provider_refund_id=str(refund_id))
+
+    async def confirm_payment(
+        self,
+        command: PaymentGatewayConfirmCommand,
+    ) -> PaymentGatewayConfirmResult:
+        payload: dict[str, Any] = {
+            "TerminalKey": self._terminal_key,
+            "PaymentId": command.provider_payment_id,
+            "Amount": _amount_to_kopecks(command.amount),
+        }
+        payload["Token"] = _sign_payload(payload, self._password)
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=self._timeout_seconds,
+        ) as client:
+            response = await client.post("/Confirm", json=payload)
+            response.raise_for_status()
+        data = response.json()
+        if data.get("Success") is not True:
+            details = data.get("Details") or data.get("Message") or "unknown"
+            raise ValidationError(f"T-Bank confirm failed: {details}")
+        payment_id = data.get("PaymentId")
+        status = data.get("Status")
+        if payment_id is None or status is None:
+            raise ValidationError("T-Bank confirm response is incomplete")
+        return PaymentGatewayConfirmResult(
+            provider_payment_id=str(payment_id),
+            status=str(status),
+        )
 
     async def get_payment_state(
         self,

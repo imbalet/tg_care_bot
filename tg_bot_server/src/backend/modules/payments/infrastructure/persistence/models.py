@@ -27,6 +27,11 @@ class PaymentModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     idempotency_key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="created")
+    provider_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="NEW",
+    )
     confirmation_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
