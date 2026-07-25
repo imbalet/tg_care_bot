@@ -655,9 +655,9 @@ async def test_old_payment_attempt_is_not_applied_to_active_order_payment(
         INSERT INTO payments (
             id, order_id, performer_id, attempt_number, provider,
             provider_payment_id, idempotency_key, amount, status,
-            confirmation_url, expires_at, created_at, updated_at
+            provider_status, confirmation_url, expires_at, created_at, updated_at
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13
         )
         """,
         old_payment_id,
@@ -669,6 +669,7 @@ async def test_old_payment_attempt_is_not_applied_to_active_order_payment(
         f"stale-payment:{old_payment_id}",
         current_payment["amount"],
         "expired",
+        "DEADLINE_EXPIRED",
         "https://pay.test/stale",
         current_payment["expires_at"],
         datetime.now(UTC),

@@ -39,6 +39,14 @@ class MockExternalHandler(BaseHTTPRequestHandler):
                     "body": body.decode("utf-8", errors="replace"),
                 },
             )
+        if self.path.endswith("/sendMessage"):
+            self._respond(
+                {
+                    "ok": True,
+                    "result": {"message_id": len(self.requests)},
+                }
+            )
+            return
         if self.path == "/GetState":
             self._respond(
                 {
