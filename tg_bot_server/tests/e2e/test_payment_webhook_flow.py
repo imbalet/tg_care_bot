@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -133,6 +134,7 @@ async def _wait_for_payment_deadline_transition(
             and payment_status == "expired"
         ):
             return status
+        await asyncio.sleep(0.25)
     pytest.fail(
         f"Worker did not expire payment for order {order_id}; "
         f"last status={status_response.json()} payment_status={payment_status}"
@@ -541,7 +543,8 @@ async def test_worker_expiring_payment_returns_order_to_searching(
         """,
         order["id"],
     )
-    assert notification == {
+    assert notification is not None
+    assert dict(notification) == {
         "type": "payment_expired_order_searching",
         "deduplication_key": f"payment_expired_order_searching:{order['id']}",
     }
@@ -619,7 +622,8 @@ async def test_worker_expiring_payment_expires_order_after_matching_deadline(
         """,
         order["id"],
     )
-    assert notification == {
+    assert notification is not None
+    assert dict(notification) == {
         "type": "payment_expired_order_expired",
         "deduplication_key": f"payment_expired_order_expired:{order['id']}",
     }

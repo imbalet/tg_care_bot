@@ -227,7 +227,7 @@ make -C tg_bot_server test-e2e
 
 ## SERVER-WORKER-001 — истечение payment deadline падает на check constraint
 
-- Status: `IN_PROGRESS`
+- Status: `RESOLVED`
 - Priority: `P0`
 - Area: server worker / order expiration
 
@@ -306,7 +306,7 @@ make -C tg_bot_server test-e2e
 
 - `test_worker_expiring_payment_returns_order_to_searching` — `xfail` снят;
 - `test_worker_expiring_payment_expires_order_after_matching_deadline` — `xfail`
-  снят; E2E-подтверждение ожидает восстановления места в Docker.
+  снят.
 
 ### Scope of fix
 
