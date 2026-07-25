@@ -20,6 +20,8 @@ from ._shared import (
     PerformerModel,
     RegisterPerformerCommand,
     RegisterPerformerUseCase,
+    RevokePerformerServiceCommand,
+    RevokePerformerServiceUseCase,
     SetPerformerAcceptingOrdersCommand,
     SetPerformerAcceptingOrdersUseCase,
     SetPerformerCurrentAddressUseCase,
@@ -200,6 +202,35 @@ class PerformerServices(Service):
             return await ListPerformerServicesUseCase(
                 SqlAlchemyPerformerRepository(uow.session),
             ).execute_for_performer(performer_id)
+
+    async def revoke_performer_service(
+        self,
+        *,
+        performer_id: UUID,
+        service_id: UUID,
+        audit_admin_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            service = await RevokePerformerServiceUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(
+                RevokePerformerServiceCommand(
+                    performer_id=performer_id,
+                    service_id=service_id,
+                ),
+            )
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=audit_admin_id,
+                action="revoke_performer_service",
+                entity_type="performer_service",
+                entity_id=service.id,
+                audit_metadata={
+                    "performer_id": str(performer_id),
+                    "service_id": str(service_id),
+                },
+            )
+            await uow.commit()
+            return service
 
     async def list_performer_services_by_telegram(self, telegram_id: int) -> Any:
         async with self._uow() as uow:

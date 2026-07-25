@@ -103,6 +103,14 @@ class PerformerRepository(Protocol):
     ) -> PerformerServiceDTO | None:
         pass
 
+    async def revoke_service(
+        self,
+        *,
+        performer_id: UUID,
+        service_id: UUID,
+    ) -> PerformerServiceDTO | None:
+        pass
+
     async def set_service_enabled_by_telegram_id(
         self,
         *,

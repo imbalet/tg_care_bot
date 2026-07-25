@@ -232,6 +232,29 @@ class ApprovePerformerServiceUseCase:
         return service
 
 
+@dataclass(frozen=True)
+class RevokePerformerServiceCommand:
+    performer_id: UUID
+    service_id: UUID
+
+
+class RevokePerformerServiceUseCase:
+    def __init__(self, repository: PerformerRepository) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        command: RevokePerformerServiceCommand,
+    ) -> PerformerServiceDTO:
+        service = await self._repository.revoke_service(
+            performer_id=command.performer_id,
+            service_id=command.service_id,
+        )
+        if service is None:
+            raise NotFoundError("Performer service not found")
+        return service
+
+
 class ListPerformerServicesUseCase:
     def __init__(self, repository: PerformerRepository) -> None:
         self._repository = repository

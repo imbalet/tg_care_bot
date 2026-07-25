@@ -33,6 +33,8 @@ from backend.modules.performers.application.use_cases import (
     GetRegistrationStateUseCase,
     RegisterPerformerCommand,
     RegisterPerformerUseCase,
+    RevokePerformerServiceCommand,
+    RevokePerformerServiceUseCase,
     SetPerformerServiceEnabledCommand,
     SetPerformerServiceEnabledUseCase,
     SetPerformerServiceMaxObjectsCommand,
@@ -217,6 +219,38 @@ async def test_service_max_objects_cannot_exceed_admin_limit() -> None:
             SetPerformerServiceMaxObjectsCommand(1, service.service_id, 2),
         )
     repository.set_service_max_objects_by_telegram_id.assert_not_awaited()
+
+
+@pytest.mark.unit
+async def test_service_revoke_preserves_assignment_and_delegates_to_repository() -> (
+    None
+):
+    repository = AsyncMock()
+    service = SimpleNamespace(id=uuid4(), is_approved=False, is_enabled=False)
+    repository.revoke_service.return_value = service
+    performer_id = uuid4()
+    service_id = uuid4()
+
+    result = await RevokePerformerServiceUseCase(repository).execute(
+        RevokePerformerServiceCommand(performer_id, service_id),
+    )
+
+    assert result is service
+    repository.revoke_service.assert_awaited_once_with(
+        performer_id=performer_id,
+        service_id=service_id,
+    )
+
+
+@pytest.mark.unit
+async def test_service_revoke_rejects_unknown_assignment() -> None:
+    repository = AsyncMock()
+    repository.revoke_service.return_value = None
+
+    with pytest.raises(NotFoundError, match="Performer service"):
+        await RevokePerformerServiceUseCase(repository).execute(
+            RevokePerformerServiceCommand(uuid4(), uuid4()),
+        )
 
 
 @pytest.mark.unit

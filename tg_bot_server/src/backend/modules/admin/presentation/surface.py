@@ -28,6 +28,7 @@ from backend.modules.admin.application import (
 )
 from backend.modules.admin.infrastructure import (
     AdminAuditLogModel,
+    SqlAlchemyAdminAuditRepository,
 )
 from backend.modules.admin.presentation.api.routes import ADMIN_SESSION_COOKIE
 from backend.modules.care_objects.infrastructure import CareObjectModel
@@ -58,7 +59,10 @@ from backend.modules.orders.infrastructure.exports import (
 )
 from backend.modules.payments.application import CreateManualRefundCommand
 from backend.modules.payments.infrastructure import PaymentModel, RefundModel
-from backend.modules.performers.application import CreateInvitationCommand
+from backend.modules.performers.application import (
+    ApprovePerformerServiceCommand,
+    CreateInvitationCommand,
+)
 from backend.modules.performers.infrastructure import (
     PerformerCalendarOverrideModel,
     PerformerInvitationModel,
@@ -139,6 +143,26 @@ class CatalogModelView(ModelView):
 
     def is_accessible(self, request: Request) -> bool:
         return getattr(request.state, "admin_user", None) is not None
+
+    async def after_create(self, request: Request, obj: Any) -> None:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is not None:
+            await SqlAlchemyAdminAuditRepository(request.state.session).add(
+                admin_id=admin.id,
+                action="create_catalog_entity",
+                entity_type=type(obj).__name__,
+                entity_id=obj.id,
+            )
+
+    async def after_edit(self, request: Request, obj: Any) -> None:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is not None:
+            await SqlAlchemyAdminAuditRepository(request.state.session).add(
+                admin_id=admin.id,
+                action="update_catalog_entity",
+                entity_type=type(obj).__name__,
+                entity_id=obj.id,
+            )
 
 
 class LegalDocumentView(CatalogModelView):
@@ -352,7 +376,7 @@ class BusinessSettingView(OperationalModelView):
 
 
 class PerformerView(ReadOnlyModelView):
-    actions = ["activate_performer", "reject_performer"]
+    actions = ["activate_performer", "reject_performer", "approve_service"]
     searchable_fields = ["id", "telegram_id", "full_name", "status", "city_id"]
     sortable_fields = ["id", "created_at", "updated_at", "status"]
 
@@ -417,6 +441,148 @@ class PerformerView(ReadOnlyModelView):
             except (ConflictError, NotFoundError) as exc:
                 raise FormValidationError({str(raw_pk): str(exc)}) from exc
         return f"Rejected performers: {len(pks)}"
+
+    @action(
+        name="approve_service",
+        text="Approve performer service",
+        confirmation="Approve this service for selected performers?",
+        submit_btn_text="Approve",
+        form=(
+            '<input name="service_id" required placeholder="Service UUID">'
+            '<input name="admin_max_objects" type="number" min="1" required>'
+            '<textarea name="constraints">{}</textarea>'
+        ),
+    )
+    async def approve_service_action(self, request: Request, pks: list[Any]) -> str:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"id": "Admin session is required"})
+        data = await request.form()
+        try:
+            service_id = UUID(str(data.get("service_id", "")).strip())
+            admin_max_objects = int(str(data.get("admin_max_objects", "")))
+            constraints = json.loads(str(data.get("constraints", "{}")))
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise FormValidationError(
+                {
+                    "service_id": (
+                        "Service UUID, positive limit and valid JSON are required"
+                    ),
+                },
+            ) from exc
+        if not isinstance(constraints, dict):
+            raise FormValidationError(
+                {"constraints": "Constraints must be a JSON object"},
+            )
+        approved = 0
+        for raw_pk in pks:
+            try:
+                await self._container.performers.approve_performer_service(
+                    ApprovePerformerServiceCommand(
+                        performer_id=UUID(str(raw_pk)),
+                        service_id=service_id,
+                        admin_max_objects=admin_max_objects,
+                        constraints=constraints,
+                        approved_by_admin_id=admin.id,
+                    ),
+                    audit_admin_id=admin.id,
+                )
+            except (NotFoundError, ValidationError) as exc:
+                raise FormValidationError({str(raw_pk): str(exc)}) from exc
+            approved += 1
+        return f"Approved service for performers: {approved}"
+
+
+class PerformerServiceView(ReadOnlyModelView):
+    actions = ["update_assignment", "revoke_assignment"]
+    searchable_fields = ["performer_id", "service_id", "is_approved", "is_enabled"]
+
+    def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
+        super().__init__(model, **kwargs)
+        self._container = container
+
+    @action(
+        name="update_assignment",
+        text="Update assignment",
+        confirmation="Update selected performer services?",
+        submit_btn_text="Save",
+        form=(
+            '<input name="admin_max_objects" type="number" min="1" required>'
+            '<textarea name="constraints">{}</textarea>'
+        ),
+    )
+    async def update_assignment_action(
+        self,
+        request: Request,
+        pks: list[Any],
+    ) -> str:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"id": "Admin session is required"})
+        data = await request.form()
+        try:
+            admin_max_objects = int(str(data.get("admin_max_objects", "")))
+            constraints = json.loads(str(data.get("constraints", "{}")))
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise FormValidationError(
+                {"admin_max_objects": "Positive limit and valid JSON are required"},
+            ) from exc
+        if not isinstance(constraints, dict):
+            raise FormValidationError(
+                {"constraints": "Constraints must be a JSON object"},
+            )
+        updated = 0
+        for raw_pk in pks:
+            model = await request.state.session.get(
+                PerformerServiceModel,
+                UUID(str(raw_pk)),
+            )
+            if model is None:
+                raise FormValidationError({str(raw_pk): "Performer service not found"})
+            try:
+                await self._container.performers.approve_performer_service(
+                    ApprovePerformerServiceCommand(
+                        performer_id=model.performer_id,
+                        service_id=model.service_id,
+                        admin_max_objects=admin_max_objects,
+                        constraints=constraints,
+                        approved_by_admin_id=admin.id,
+                    ),
+                    audit_admin_id=admin.id,
+                )
+            except (NotFoundError, ValidationError) as exc:
+                raise FormValidationError({str(raw_pk): str(exc)}) from exc
+            updated += 1
+        return f"Updated performer services: {updated}"
+
+    @action(
+        name="revoke_assignment",
+        text="Revoke assignment",
+        confirmation="Revoke selected performer services?",
+        submit_btn_text="Revoke",
+    )
+    async def revoke_assignment_action(self, request: Request, pks: list[Any]) -> str:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"id": "Admin session is required"})
+        revoked = 0
+        for raw_pk in pks:
+            model = await request.state.session.get(
+                PerformerServiceModel,
+                UUID(str(raw_pk)),
+            )
+            if model is None:
+                raise FormValidationError({str(raw_pk): "Performer service not found"})
+            try:
+                await self._container.performers.revoke_performer_service(
+                    performer_id=model.performer_id,
+                    service_id=model.service_id,
+                    audit_admin_id=admin.id,
+                )
+            except NotFoundError as exc:
+                raise FormValidationError({str(raw_pk): str(exc)}) from exc
+            revoked += 1
+        return f"Revoked performer services: {revoked}"
 
 
 class PerformerInvitationView(ReadOnlyModelView):
@@ -753,7 +919,11 @@ def create_admin_surface(container: Container) -> Admin:
         ),
     )
     admin.add_view(
-        UseCaseManagedModelView(PerformerServiceModel, label="Performer services")
+        PerformerServiceView(
+            PerformerServiceModel,
+            container,
+            label="Performer services",
+        ),
     )
     admin.add_view(
         ReadOnlyModelView(PerformerScheduleModel, label="Performer schedules"),

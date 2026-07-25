@@ -306,6 +306,26 @@ class SqlAlchemyPerformerRepository(PerformerRepository):
         await self._session.flush()
         return await self._get_performer_service_dto(model.id)
 
+    async def revoke_service(
+        self,
+        *,
+        performer_id: UUID,
+        service_id: UUID,
+    ) -> PerformerServiceDTO | None:
+        model = await self._get_performer_service_model(
+            performer_id=performer_id,
+            service_id=service_id,
+        )
+        if model is None:
+            return None
+        model.is_approved = False
+        model.is_enabled = False
+        model.approved_by_admin_id = None
+        model.approved_at = None
+        model.updated_at = utc_now()
+        await self._session.flush()
+        return await self._get_performer_service_dto(model.id)
+
     async def set_service_enabled_by_telegram_id(
         self,
         *,
