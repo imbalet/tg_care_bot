@@ -61,6 +61,21 @@ async def e2e_s3(test_settings: TestSettings) -> AsyncIterator[None]:
 
 
 @pytest_asyncio.fixture
+async def e2e_s3_client(
+    e2e_s3: None,
+    test_settings: TestSettings,
+) -> AsyncIterator[Any]:
+    client = boto3.client(
+        "s3",
+        endpoint_url=test_settings.s3_endpoint_url,
+        aws_access_key_id=test_settings.s3_access_key_id,
+        aws_secret_access_key=test_settings.s3_secret_access_key,
+        region_name=test_settings.s3_region,
+    )
+    yield client
+
+
+@pytest_asyncio.fixture
 async def e2e_db(test_settings: TestSettings) -> AsyncIterator[asyncpg.Connection]:
     connection = await asyncpg.connect(
         host=test_settings.db_host,
