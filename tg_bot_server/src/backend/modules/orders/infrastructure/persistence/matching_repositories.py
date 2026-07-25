@@ -169,6 +169,7 @@ class SqlAlchemyMatchingRepository:
             responded_at=now,
         )
         self._session.add(match)
+        await self._session.flush()
         await self._add_notification(
             recipient_type="customer",
             customer_id=order.customer_id,
@@ -178,7 +179,6 @@ class SqlAlchemyMatchingRepository:
             payload={"order_id": str(order.id), "match_id": str(match.id)},
             deduplication_key=f"pool-response-created:{match.id}",
         )
-        await self._session.flush()
         return _match_to_dto(match, await self._order_timezone(order))
 
     async def invite_direct_performer(
@@ -224,6 +224,7 @@ class SqlAlchemyMatchingRepository:
             response_expires_at=now + timedelta(minutes=response_window),
         )
         self._session.add(match)
+        await self._session.flush()
         await self._add_notification(
             recipient_type="performer",
             performer_id=performer_id,
@@ -233,7 +234,6 @@ class SqlAlchemyMatchingRepository:
             payload={"order_id": str(order.id), "match_id": str(match.id)},
             deduplication_key=f"direct-invitation-created:{match.id}",
         )
-        await self._session.flush()
         return _match_to_dto(match, await self._order_timezone(order))
 
     async def publish_pool(
