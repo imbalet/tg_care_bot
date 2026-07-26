@@ -307,7 +307,7 @@ class SqlAlchemyMyOrdersQueryService:
             statement = statement.where(
                 OrderModel.status.in_(_statuses_for_group(group)),
             )
-        if category_code is not None:
+        if category_code:
             statement = statement.where(ServiceCategoryModel.code == category_code)
         return statement
 
