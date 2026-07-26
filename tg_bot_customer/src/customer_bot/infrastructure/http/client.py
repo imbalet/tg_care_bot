@@ -560,15 +560,17 @@ class BackendClient(BackendPort):
         page_size: int = 5,
         category_code: str | None = None,
     ) -> MyOrdersPageDTO:
+        params: dict[str, str | int] = {
+            "group": group,
+            "page": page,
+            "page_size": page_size,
+        }
+        if category_code is not None:
+            params["category_code"] = category_code
         response = await self._request(
             "GET",
             f"/api/orders/customer/{customer_id}/my",
-            params={
-                "group": group,
-                "page": page,
-                "page_size": page_size,
-                "category_code": category_code,
-            },
+            params=params,
         )
         self._raise_for_status(response)
         return _my_orders_page_from_json(response.json())

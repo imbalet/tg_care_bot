@@ -111,6 +111,44 @@ async def test_get_customer_profile_returns_none_on_404() -> None:
 
 
 @pytest.mark.asyncio
+async def test_list_customer_orders_omits_empty_category_filter() -> None:
+    customer_id = uuid4()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == f"/api/orders/customer/{customer_id}/my"
+        assert dict(request.url.params) == {
+            "group": "archive",
+            "page": "1",
+            "page_size": "5",
+        }
+        return httpx.Response(
+            200,
+            json={
+                "items": [],
+                "page": 1,
+                "page_size": 5,
+                "total_items": 0,
+                "total_pages": 0,
+            },
+        )
+
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(handler),
+    )
+
+    await client.list_customer_orders(
+        customer_id=customer_id,
+        group="archive",
+        page=1,
+        category_code=None,
+    )
+    await client.close()
+
+
+@pytest.mark.asyncio
 async def test_update_customer_profile_sends_only_editable_fields() -> None:
     city_id = uuid4()
 
