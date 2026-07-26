@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -134,7 +135,8 @@ async def _wait_for_payment_deadline_transition(
             and payment_status == "expired"
         ):
             return status
-        await asyncio.sleep(0.25)
+        with suppress(TimeoutError):
+            await asyncio.wait_for(asyncio.Event().wait(), timeout=0.25)
     pytest.fail(
         f"Worker did not expire payment for order {order_id}; "
         f"last status={status_response.json()} payment_status={payment_status}"
