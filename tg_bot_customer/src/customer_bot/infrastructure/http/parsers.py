@@ -288,6 +288,12 @@ def _payment_status_from_json(data: dict[str, object]) -> PaymentStatusDTO:
         expires_at=datetime.fromisoformat(expires_at)
         if expires_at is not None
         else None,
+        failure_code=data.get("failure_code")
+        if isinstance(data.get("failure_code"), str)
+        else None,
+        attempts_used=int(cast(str | int, data.get("attempts_used", 0))),
+        max_attempts=int(cast(str | int, data.get("max_attempts", 3))),
+        retry_available=bool(data.get("retry_available", False)),
     )
 
 
@@ -342,6 +348,13 @@ def _my_order_card_from_json(data: dict[str, object]) -> MyOrderCardDTO:
         if isinstance(data["payment_confirmation_url"], str)
         else None,
         payment_expires_at=payment_expires_at,
+        payment_attempts_used=int(
+            cast(str | int, data.get("payment_attempts_used", 0))
+        ),
+        payment_max_attempts=int(
+            cast(str | int, data.get("payment_max_attempts", 3))
+        ),
+        payment_retry_available=bool(data.get("payment_retry_available", False)),
     )
 
 

@@ -524,6 +524,20 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return _payment_status_from_json(response.json())
 
+    async def retry_payment(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> PaymentStatusDTO:
+        response = await self._request(
+            "POST",
+            f"/api/payments/orders/{order_id}/retry",
+            params={"customer_id": str(customer_id)},
+        )
+        self._raise_for_status(response)
+        return _payment_status_from_json(response.json())
+
     async def cancel_customer_order(
         self,
         *,

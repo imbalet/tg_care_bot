@@ -151,6 +151,10 @@ class PaymentStatusDTO:
     payment_status: str | None
     confirmation_url: str | None
     expires_at: datetime | None
+    failure_code: str | None = None
+    attempts_used: int = 0
+    max_attempts: int = 3
+    retry_available: bool = False
 
 
 @dataclass(frozen=True)
@@ -180,6 +184,9 @@ class MyOrderCardDTO(MyOrderSummaryDTO):
     payment_status: str | None
     payment_confirmation_url: str | None
     payment_expires_at: datetime | None
+    payment_attempts_used: int = 0
+    payment_max_attempts: int = 3
+    payment_retry_available: bool = False
 
 
 @dataclass(frozen=True)

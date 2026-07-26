@@ -6,6 +6,7 @@ from uuid import UUID
 from customer_bot.presentation.callbacks import (
     MainMenuCallback,
     PaymentRefreshCallback,
+    PaymentRetryCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.screen import (
@@ -31,6 +32,18 @@ class _View(Protocol):
     @property
     def expires_at(self) -> datetime | None: ...
 
+    @property
+    def failure_code(self) -> str | None: ...
+
+    @property
+    def attempts_used(self) -> int: ...
+
+    @property
+    def max_attempts(self) -> int: ...
+
+    @property
+    def retry_available(self) -> bool: ...
+
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
@@ -45,6 +58,11 @@ class Screen(BaseScreen[_View]):
         ]
         if payment_status is not None:
             lines.append(f"Статус платежа: {escape(str(payment_status))}")
+        if self.data.failure_code:
+            lines.append("Платеж не выполнен. Можно попробовать оплатить снова.")
+        lines.append(
+            f"Попытки оплаты: {self.data.attempts_used} из {self.data.max_attempts}"
+        )
         if expires_at is not None:
             lines.append(f"Оплатить до: {escape(str(expires_at))}")
         if confirmation_url:
@@ -54,6 +72,11 @@ class Screen(BaseScreen[_View]):
     def _build_keyboard(self) -> Markup:
         keyboard = InlineKeyboardFactory()
         if self.data.id is not None:
+            if self.data.retry_available:
+                keyboard.button(
+                    "Повторить оплату",
+                    PaymentRetryCallback(order_id=self.data.id),
+                )
             keyboard.button(
                 "Обновить статус оплаты",
                 PaymentRefreshCallback(order_id=self.data.id),

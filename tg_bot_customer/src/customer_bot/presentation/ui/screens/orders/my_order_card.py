@@ -16,6 +16,7 @@ from customer_bot.presentation.callbacks import (
     OrdersPageCallback,
     OrderStartConfirmCallback,
     PaymentRefreshCallback,
+    PaymentRetryCallback,
     SupportOpenCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
@@ -103,6 +104,15 @@ class _View(Protocol):
     @property
     def payment_confirmation_url(self) -> str | None: ...
 
+    @property
+    def payment_attempts_used(self) -> int: ...
+
+    @property
+    def payment_max_attempts(self) -> int: ...
+
+    @property
+    def payment_retry_available(self) -> bool: ...
+
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
@@ -130,6 +140,16 @@ class Screen(BaseScreen[_View]):
             )
         if self.data.payment_status is not None:
             lines.append(f"Платеж: {escape(self.data.payment_status)}")
+        if self.data.payment_status == "failed":
+            lines.append(
+                f"Попытки оплаты: {self.data.payment_attempts_used} "
+                f"из {self.data.payment_max_attempts}"
+            )
+        if self.data.payment_status == "failed":
+            lines.append(
+                f"Попытки оплаты: {self.data.payment_attempts_used} "
+                f"из {self.data.payment_max_attempts}"
+            )
         if self.data.status in {"confirmed", "in_progress", "waiting_report"}:
             lines.extend(
                 (
@@ -150,6 +170,11 @@ class Screen(BaseScreen[_View]):
         matching_mode = self.data.matching_mode
         if payment_url and payment_url.startswith("https://"):
             keyboard.url_button("Оплатить", payment_url)
+        if self.data.payment_retry_available:
+            keyboard.button(
+                "Повторить оплату",
+                PaymentRetryCallback(order_id=order_id),
+            )
         if status in {
             "searching",
             "waiting_payment",

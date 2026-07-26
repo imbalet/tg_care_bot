@@ -111,6 +111,46 @@ async def test_get_customer_profile_returns_none_on_404() -> None:
 
 
 @pytest.mark.asyncio
+async def test_retry_payment_posts_customer_and_parses_retry_metadata() -> None:
+    order_id = uuid4()
+    customer_id = uuid4()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == f"/api/payments/orders/{order_id}/retry"
+        assert request.url.params["customer_id"] == str(customer_id)
+        return httpx.Response(
+            200,
+            json={
+                "order_id": str(order_id),
+                "order_status": "waiting_payment",
+                "payment_id": str(uuid4()),
+                "payment_status": "pending",
+                "confirmation_url": "https://pay.test/2",
+                "expires_at": "2026-07-26T12:00:00+00:00",
+                "failure_code": None,
+                "attempts_used": 2,
+                "max_attempts": 3,
+                "retry_available": False,
+            },
+        )
+
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = await client.retry_payment(order_id=order_id, customer_id=customer_id)
+
+    assert result.order_status == "waiting_payment"
+    assert result.attempts_used == 2
+    assert result.confirmation_url == "https://pay.test/2"
+    await client.close()
+
+
+@pytest.mark.asyncio
 async def test_list_customer_orders_omits_empty_category_filter() -> None:
     customer_id = uuid4()
 

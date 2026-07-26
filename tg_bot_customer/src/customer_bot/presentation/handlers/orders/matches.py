@@ -11,6 +11,7 @@ from customer_bot.presentation.callbacks import (
     OrderResponseSelectCallback,
     OrderResponsesOpenCallback,
     PaymentRefreshCallback,
+    PaymentRetryCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import TelegramResponder
@@ -201,6 +202,68 @@ async def refresh_payment_status(
                     payment_status=status.payment_status,
                     confirmation_url=status.confirmation_url,
                     expires_at=status.expires_at,
+                    failure_code=status.failure_code,
+                    attempts_used=status.attempts_used,
+                    max_attempts=status.max_attempts,
+                    retry_available=status.retry_available,
+                )
+            ).build()
+        ).text,
+        reply_markup=screen.reply_markup,
+    )
+
+
+@router.callback_query(PaymentRetryCallback.filter())
+async def retry_payment(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: PaymentRetryCallback,
+) -> None:
+    try:
+        customer_id = await _customer_id(
+            backend_client=backend_client,
+            telegram_id=telegram_user_context.telegram_id,
+        )
+        status = await backend_client.retry_payment(
+            order_id=callback_data.order_id,
+            customer_id=customer_id,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to retry payment",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
+        )
+        return
+
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=(
+            screen := PaymentStatusScreen(
+                PaymentStatusView(
+                    id=status.order_id,
+                    order_status=status.order_status,
+                    payment_status=status.payment_status,
+                    confirmation_url=status.confirmation_url,
+                    expires_at=status.expires_at,
+                    failure_code=status.failure_code,
+                    attempts_used=status.attempts_used,
+                    max_attempts=status.max_attempts,
+                    retry_available=status.retry_available,
                 )
             ).build()
         ).text,

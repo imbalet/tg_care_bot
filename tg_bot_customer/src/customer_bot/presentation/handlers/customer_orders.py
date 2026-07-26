@@ -442,6 +442,9 @@ async def _show_order_card(
                     payment_status=order.payment_status,
                     payment_confirmation_url=order.payment_confirmation_url,
                     payment_expires_at=order.payment_expires_at,
+                    payment_attempts_used=order.payment_attempts_used,
+                    payment_max_attempts=order.payment_max_attempts,
+                    payment_retry_available=order.payment_retry_available,
                     group=group,
                     page=page,
                 )
