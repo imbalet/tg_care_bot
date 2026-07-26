@@ -24,6 +24,8 @@ from .use_cases import (
     GetCustomerPaymentStatusUseCase,
     InitializePaymentCommand,
     InitializePaymentUseCase,
+    RetryCustomerPaymentCommand,
+    RetryCustomerPaymentUseCase,
     RetryPaymentOperationCommand,
     RetryPaymentOperationUseCase,
 )
@@ -39,6 +41,8 @@ __all__ = [
     "InitializePaymentUseCase",
     "RetryPaymentOperationCommand",
     "RetryPaymentOperationUseCase",
+    "RetryCustomerPaymentCommand",
+    "RetryCustomerPaymentUseCase",
     "PaymentAttemptDTO",
     "PaymentGateway",
     "PaymentGatewayConfirmCommand",

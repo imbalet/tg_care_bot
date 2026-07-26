@@ -130,6 +130,8 @@ from backend.modules.payments.application import (
     PaymentGatewayInitCommand,
     PaymentGatewayRefundCommand,
     PaymentWebhookCommand,
+    RetryCustomerPaymentCommand,
+    RetryCustomerPaymentUseCase,
     RetryPaymentOperationCommand,
     RetryPaymentOperationUseCase,
 )
@@ -262,6 +264,8 @@ __all__ = [
     "RevokePerformerServiceUseCase",
     "RetryPaymentOperationCommand",
     "RetryPaymentOperationUseCase",
+    "RetryCustomerPaymentCommand",
+    "RetryCustomerPaymentUseCase",
     "S3ObjectStorage",
     "SetPerformerAcceptingOrdersCommand",
     "SetPerformerAcceptingOrdersUseCase",

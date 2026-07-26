@@ -85,6 +85,39 @@ async def get_customer_payment_status(
         expires_at=result.expires_at.isoformat()
         if result.expires_at is not None
         else None,
+        failure_code=result.failure_code,
+        attempts_used=result.attempts_used,
+        max_attempts=result.max_attempts,
+        retry_available=result.retry_available,
+    )
+
+
+@router.post(
+    "/orders/{order_id}/retry",
+    dependencies=[Depends(require_service_key)],
+)
+async def retry_customer_payment(
+    order_id: UUID,
+    customer_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> PaymentStatusResponse:
+    result = await container.payments.retry_customer_payment(
+        order_id=order_id,
+        customer_id=customer_id,
+    )
+    return PaymentStatusResponse(
+        order_id=str(result.order_id),
+        order_status=result.order_status,
+        payment_id=str(result.payment_id) if result.payment_id is not None else None,
+        payment_status=result.payment_status,
+        confirmation_url=result.confirmation_url,
+        expires_at=result.expires_at.isoformat()
+        if result.expires_at is not None
+        else None,
+        failure_code=result.failure_code,
+        attempts_used=result.attempts_used,
+        max_attempts=result.max_attempts,
+        retry_available=result.retry_available,
     )
 
 

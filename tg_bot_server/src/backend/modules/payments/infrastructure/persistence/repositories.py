@@ -41,6 +41,51 @@ class SqlAlchemyPaymentRepository:
         )
         return int(result.scalar_one()) + 1
 
+    async def create_customer_retry_payment(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+        max_attempts: int,
+    ) -> PaymentAttemptDTO:
+        order = await self._lock_order(order_id)
+        if order.customer_id != customer_id:
+            raise ValidationError("Order is not available for this customer")
+        if order.status != "waiting_payment":
+            raise ConflictError("Order is not waiting for payment")
+        if order.selected_performer_id is None or order.selected_match_id is None:
+            raise ConflictError("Order has no selected performer")
+        if order.payment_deadline_at is None or order.payment_deadline_at <= utc_now():
+            raise ConflictError("Payment deadline has expired")
+        if order.active_payment_id is None:
+            raise ConflictError("Order has no active payment")
+        current = await self._lock_payment(order.active_payment_id)
+        if current.status not in {"failed", "expired", "cancelled"}:
+            raise ConflictError("Current payment is not retryable")
+        attempt_number = await self.next_attempt_number(order.id)
+        if attempt_number > max_attempts:
+            raise ConflictError("Payment retry limit has been reached")
+        expires_at = min(
+            utc_now() + timedelta(minutes=30),
+            order.payment_deadline_at,
+        )
+        payment = PaymentModel(
+            order_id=order.id,
+            performer_id=order.selected_performer_id,
+            attempt_number=attempt_number,
+            provider="tbank_test",
+            idempotency_key=f"payment:{order.id}:{attempt_number}",
+            amount=order.total_amount,
+            status="created",
+            confirmation_url=None,
+            expires_at=expires_at,
+        )
+        self._session.add(payment)
+        await self._session.flush()
+        order.active_payment_id = payment.id
+        await self._session.flush()
+        return _payment_to_dto(payment)
+
     async def get_current_payment_for_order(
         self,
         order_id: UUID,
@@ -479,6 +524,7 @@ class SqlAlchemyPaymentRepository:
         if row is None:
             return None
         order, payment = row
+        attempts_used = await self._attempt_count(order.id)
         return PaymentStatusDTO(
             order_id=order.id,
             order_status=order.status,
@@ -486,7 +532,25 @@ class SqlAlchemyPaymentRepository:
             payment_status=payment.status if payment is not None else None,
             confirmation_url=payment.confirmation_url if payment is not None else None,
             expires_at=payment.expires_at if payment is not None else None,
+            failure_code=payment.failure_code if payment is not None else None,
+            attempts_used=attempts_used,
+            retry_available=(
+                order.status == "waiting_payment"
+                and payment is not None
+                and payment.status in {"failed", "expired", "cancelled"}
+                and attempts_used < 3
+                and order.payment_deadline_at is not None
+                and order.payment_deadline_at > utc_now()
+            ),
         )
+
+    async def _attempt_count(self, order_id: UUID) -> int:
+        result = await self._session.execute(
+            select(func.count(PaymentModel.id)).where(
+                PaymentModel.order_id == order_id,
+            ),
+        )
+        return int(result.scalar_one())
 
     async def mark_provider_status(
         self,
@@ -517,6 +581,7 @@ def _payment_to_dto(model: PaymentModel) -> PaymentAttemptDTO:
         provider_status=model.provider_status,
         confirmation_url=model.confirmation_url,
         expires_at=model.expires_at,
+        failure_code=model.failure_code,
     )
 
 

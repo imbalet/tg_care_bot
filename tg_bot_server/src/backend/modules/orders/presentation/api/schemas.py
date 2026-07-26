@@ -210,6 +210,9 @@ class MyOrderCardResponse(MyOrderSummaryResponse):
     payment_status: str | None
     payment_confirmation_url: str | None
     payment_expires_at: str | None
+    payment_attempts_used: int
+    payment_max_attempts: int
+    payment_retry_available: bool
 
 
 class CancellationPreviewResponse(BaseModel):

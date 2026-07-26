@@ -19,6 +19,7 @@ class PaymentAttemptDTO:
     provider_status: str
     confirmation_url: str | None
     expires_at: datetime
+    failure_code: str | None = None
 
 
 @dataclass(frozen=True)
@@ -126,3 +127,7 @@ class PaymentStatusDTO:
     payment_status: str | None
     confirmation_url: str | None
     expires_at: datetime | None
+    failure_code: str | None = None
+    attempts_used: int = 0
+    max_attempts: int = 3
+    retry_available: bool = False

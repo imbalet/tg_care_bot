@@ -366,11 +366,25 @@ class SqlAlchemyMyOrdersQueryService:
             confirmation_url,
             payment_expires_at,
         ) = row
+        attempts_result = await self._session.execute(
+            select(func.count(PaymentModel.id)).where(
+                PaymentModel.order_id == order.id,
+            ),
+        )
+        attempts_used = int(attempts_result.scalar_one())
         return MyOrderCardDTO(
             **_summary_dto(order, timezone, category_code).__dict__,
             payment_status=payment_status,
             payment_confirmation_url=confirmation_url if include_payment_url else None,
             payment_expires_at=payment_expires_at,
+            payment_attempts_used=attempts_used,
+            payment_retry_available=(
+                order.status == "waiting_payment"
+                and payment_status in {"failed", "expired", "cancelled"}
+                and attempts_used < 3
+                and order.payment_deadline_at is not None
+                and order.payment_deadline_at > utc_now()
+            ),
         )
 
 

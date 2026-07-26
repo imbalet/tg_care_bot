@@ -389,6 +389,163 @@ async def test_rejected_payment_webhook_does_not_confirm_order(
 
 
 @pytest.mark.e2e
+async def test_customer_can_retry_failed_payment_and_old_webhook_is_ignored(
+    e2e_client: httpx.AsyncClient,
+    e2e_db: asyncpg.Connection,
+    direct_order_factory,
+    test_settings: TestSettings,
+) -> None:
+    customer, order, payment = await _prepare_payment(
+        direct_order_factory,
+        e2e_client,
+        e2e_db,
+    )
+    amount = Decimal(str(order["total_amount"]))
+    rejected_payload = _webhook_payload(
+        payment_id=payment["provider_payment_id"],
+        amount=amount,
+        settings=test_settings,
+        order_id=payment["payment_id"],
+        status="REJECTED",
+        success=False,
+    )
+    rejected_response = await e2e_client.post(
+        "/api/payments/webhooks/tbank",
+        json=rejected_payload,
+    )
+    assert rejected_response.status_code == 200, rejected_response.text
+
+    retry_response = await e2e_client.post(
+        f"/api/payments/orders/{order['id']}/retry",
+        params={"customer_id": customer.entity_id},
+    )
+    assert retry_response.status_code == 200, retry_response.text
+    retry_status = retry_response.json()
+    assert retry_status["order_status"] == "waiting_payment"
+    assert retry_status["payment_status"] == "pending"
+    assert retry_status["attempts_used"] == 2
+    assert retry_status["retry_available"] is False
+    assert retry_status["payment_id"] != payment["payment_id"]
+
+    order_row = await e2e_db.fetchrow(
+        "SELECT selected_match_id, active_payment_id FROM orders WHERE id = $1",
+        order["id"],
+    )
+    assert order_row
+    assert str(order_row["active_payment_id"]) == retry_status["payment_id"]
+    assert order_row["selected_match_id"] is not None
+
+    old_success_payload = _webhook_payload(
+        payment_id=payment["provider_payment_id"],
+        amount=amount,
+        settings=test_settings,
+        order_id=payment["payment_id"],
+    )
+    old_success_response = await e2e_client.post(
+        "/api/payments/webhooks/tbank",
+        json=old_success_payload,
+    )
+    assert old_success_response.status_code == 200, old_success_response.text
+    status_response = await e2e_client.get(
+        f"/api/payments/orders/{order['id']}/status",
+        params={"customer_id": customer.entity_id},
+    )
+    assert status_response.status_code == 200, status_response.text
+    assert status_response.json()["order_status"] == "waiting_payment"
+
+    new_provider_payment_id = await e2e_db.fetchval(
+        "SELECT provider_payment_id FROM payments WHERE id = $1",
+        retry_status["payment_id"],
+    )
+    assert new_provider_payment_id
+    success_response = await e2e_client.post(
+        "/api/payments/webhooks/tbank",
+        json=_webhook_payload(
+            payment_id=new_provider_payment_id,
+            amount=amount,
+            settings=test_settings,
+            order_id=retry_status["payment_id"],
+        ),
+    )
+    assert success_response.status_code == 200, success_response.text
+    final_status = await e2e_client.get(
+        f"/api/payments/orders/{order['id']}/status",
+        params={"customer_id": customer.entity_id},
+    )
+    assert final_status.status_code == 200, final_status.text
+    assert final_status.json()["order_status"] == "confirmed"
+    assert final_status.json()["payment_id"] == retry_status["payment_id"]
+
+
+@pytest.mark.e2e
+async def test_customer_payment_retry_is_limited_to_three_attempts(
+    e2e_client: httpx.AsyncClient,
+    e2e_db: asyncpg.Connection,
+    direct_order_factory,
+    test_settings: TestSettings,
+) -> None:
+    customer, order, payment = await _prepare_payment(
+        direct_order_factory,
+        e2e_client,
+        e2e_db,
+    )
+    amount = Decimal(str(order["total_amount"]))
+    current_payment_id = payment["payment_id"]
+    current_provider_payment_id = payment["provider_payment_id"]
+
+    for expected_attempt_number in (1, 2, 3):
+        rejected_response = await e2e_client.post(
+            "/api/payments/webhooks/tbank",
+            json=_webhook_payload(
+                payment_id=current_provider_payment_id,
+                amount=amount,
+                settings=test_settings,
+                order_id=current_payment_id,
+                status="REJECTED",
+                success=False,
+            ),
+        )
+        assert rejected_response.status_code == 200, rejected_response.text
+
+        status_response = await e2e_client.get(
+            f"/api/payments/orders/{order['id']}/status",
+            params={"customer_id": customer.entity_id},
+        )
+        assert status_response.status_code == 200, status_response.text
+        status = status_response.json()
+        assert status["order_status"] == "waiting_payment"
+        assert status["attempts_used"] == expected_attempt_number
+
+        if expected_attempt_number == 3:
+            assert status["retry_available"] is False
+            retry_response = await e2e_client.post(
+                f"/api/payments/orders/{order['id']}/retry",
+                params={"customer_id": customer.entity_id},
+            )
+            assert retry_response.status_code == 409, retry_response.text
+            continue
+
+        retry_response = await e2e_client.post(
+            f"/api/payments/orders/{order['id']}/retry",
+            params={"customer_id": customer.entity_id},
+        )
+        assert retry_response.status_code == 200, retry_response.text
+        retry_status = retry_response.json()
+        assert retry_status["attempts_used"] == expected_attempt_number + 1
+        current_payment_id = retry_status["payment_id"]
+        current_provider_payment_id = await e2e_db.fetchval(
+            "SELECT provider_payment_id FROM payments WHERE id = $1",
+            current_payment_id,
+        )
+        assert current_provider_payment_id
+
+    assert await e2e_db.fetchval(
+        "SELECT count(*) FROM payments WHERE order_id = $1",
+        order["id"],
+    ) == 3
+
+
+@pytest.mark.e2e
 async def test_payment_webhook_with_mismatched_amount_is_not_applied(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,

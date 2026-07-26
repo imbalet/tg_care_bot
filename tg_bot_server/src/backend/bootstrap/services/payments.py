@@ -1,3 +1,5 @@
+import logging
+
 from ._shared import (
     UUID,
     AdminAuditLogModel,
@@ -12,6 +14,8 @@ from ._shared import (
     PaymentGatewayInitCommand,
     PaymentGatewayRefundCommand,
     PaymentWebhookCommand,
+    RetryCustomerPaymentCommand,
+    RetryCustomerPaymentUseCase,
     RetryPaymentOperationCommand,
     RetryPaymentOperationUseCase,
     SqlAlchemyPaymentRepository,
@@ -19,8 +23,41 @@ from ._shared import (
 )
 from .context import Service
 
+logger = logging.getLogger(__name__)
+
 
 class PaymentServices(Service):
+    async def retry_customer_payment(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            payment = await RetryCustomerPaymentUseCase(
+                SqlAlchemyPaymentRepository(uow.session),
+            ).execute(
+                RetryCustomerPaymentCommand(
+                    order_id=order_id,
+                    customer_id=customer_id,
+                ),
+            )
+            await uow.commit()
+        try:
+            await self.initialize_payment(payment.id)
+        except Exception:
+            logger.warning(
+                "Payment retry initialization failed",
+                extra={"payment_id": str(payment.id)},
+                exc_info=True,
+            )
+        return await self.get_customer_payment_status(
+            GetCustomerPaymentStatusCommand(
+                order_id=order_id,
+                customer_id=customer_id,
+            ),
+        )
+
     async def confirm_payment_for_order(self, order_id: UUID) -> None:
         async with self._uow() as uow:
             payment = await SqlAlchemyPaymentRepository(

@@ -282,6 +282,9 @@ def my_order_card_response(order: MyOrderCardDTO) -> MyOrderCardResponse:
         payment_expires_at=payment_expires_at.isoformat()
         if payment_expires_at is not None
         else None,
+        payment_attempts_used=order.payment_attempts_used,
+        payment_max_attempts=order.payment_max_attempts,
+        payment_retry_available=order.payment_retry_available,
     )
 
 

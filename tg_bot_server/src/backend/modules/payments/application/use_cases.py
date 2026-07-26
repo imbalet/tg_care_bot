@@ -4,6 +4,7 @@ from uuid import UUID
 
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.payments.application.dto import (
+    PaymentAttemptDTO,
     PaymentGatewayInitCommand,
     PaymentGatewayRefundCommand,
     PaymentGatewayStateCommand,
@@ -137,6 +138,28 @@ class CompleteManualRefundUseCase:
 class GetCustomerPaymentStatusCommand:
     order_id: UUID
     customer_id: UUID
+
+
+@dataclass(frozen=True)
+class RetryCustomerPaymentCommand:
+    order_id: UUID
+    customer_id: UUID
+    max_attempts: int = 3
+
+
+class RetryCustomerPaymentUseCase:
+    def __init__(self, repository: PaymentRepository) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        command: RetryCustomerPaymentCommand,
+    ) -> PaymentAttemptDTO:
+        return await self._repository.create_customer_retry_payment(
+            order_id=command.order_id,
+            customer_id=command.customer_id,
+            max_attempts=command.max_attempts,
+        )
 
 
 class GetCustomerPaymentStatusUseCase:

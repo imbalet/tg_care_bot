@@ -47,6 +47,15 @@ class PaymentGateway(Protocol):
 
 
 class PaymentRepository(Protocol):
+    async def create_customer_retry_payment(
+        self,
+        *,
+        order_id: UUID,
+        customer_id: UUID,
+        max_attempts: int,
+    ) -> PaymentAttemptDTO:
+        pass
+
     async def get_current_payment_for_order(
         self,
         order_id: UUID,

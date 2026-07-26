@@ -23,6 +23,8 @@ from backend.modules.payments.application.use_cases import (
     GetCustomerPaymentStatusUseCase,
     InitializePaymentCommand,
     InitializePaymentUseCase,
+    RetryCustomerPaymentCommand,
+    RetryCustomerPaymentUseCase,
     RetryPaymentOperationCommand,
     RetryPaymentOperationUseCase,
 )
@@ -270,6 +272,23 @@ async def test_retry_payment_rejects_non_created_attempt_without_provider_id() -
         )
 
     gateway.get_payment_state.assert_not_awaited()
+
+
+@pytest.mark.unit
+async def test_customer_retry_creates_a_new_attempt() -> None:
+    repository = AsyncMock()
+    expected = _initialization_data().payment
+    repository.create_customer_retry_payment.return_value = expected
+    command = RetryCustomerPaymentCommand(uuid4(), uuid4())
+
+    result = await RetryCustomerPaymentUseCase(repository).execute(command)
+
+    assert result == expected
+    repository.create_customer_retry_payment.assert_awaited_once_with(
+        order_id=command.order_id,
+        customer_id=command.customer_id,
+        max_attempts=3,
+    )
 
 
 @pytest.mark.unit
