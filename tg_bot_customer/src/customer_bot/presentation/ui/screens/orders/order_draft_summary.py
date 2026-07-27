@@ -47,20 +47,25 @@ class _View(Protocol):
     def end_at(self) -> datetime | None: ...
 
 
+def duration_label(duration_minutes: int) -> str:
+    minutes = max(0, duration_minutes)
+    hours, remainder = divmod(minutes, 60)
+    if hours and remainder:
+        return f"{hours} ч. {remainder} мин."
+    if hours:
+        return f"{hours} ч."
+    return f"{minutes} мин."
+
+
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
-        unit = {
-            "days": "суток",
-            "hours": "часов",
-            "minutes": "минут",
-        }.get(self.data.duration_unit, "минут")
         period = (
             f"{self.data.start_at.strftime('%d.%m.%Y %H:%M')} — "
             f"{self.data.end_at.strftime('%d.%m.%Y %H:%M')}"
             if self.data.start_at is not None and self.data.end_at is not None
             else None
         )
-        duration_line = f"Длительность: {self.data.duration_minutes} {unit}."
+        duration_line = f"Длительность: {duration_label(self.data.duration_minutes)}"
         return "\n".join(
             (
                 "<b>Проверьте заказ</b>",
