@@ -222,6 +222,11 @@ def available_order_from_json(data: dict[str, object]) -> AvailableOrderDTO:
         end_at=datetime.fromisoformat(str(data["end_at"])),
         objects_count=int(cast(str | int, data["objects_count"])),
         total_amount=Decimal(str(data["total_amount"])),
+        distance_km=(
+            Decimal(str(data["distance_km"]))
+            if data.get("distance_km") is not None
+            else None
+        ),
     )
 
 

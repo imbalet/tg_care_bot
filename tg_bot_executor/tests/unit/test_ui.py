@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from uuid import uuid4
 
 from executor_bot.infrastructure.http import PerformerProfileDTO
@@ -17,7 +18,10 @@ from executor_bot.presentation.ui import (
     work_addresses_keyboard,
 )
 from executor_bot.presentation.ui.screens.keyboards import my_order_card_keyboard_for_status
-from executor_bot.presentation.ui.screens.texts import my_orders_page_text
+from executor_bot.presentation.ui.screens.texts import (
+    available_orders_text,
+    my_orders_page_text,
+)
 from executor_bot.presentation.ui.keyboards import (
     AVATAR_UPLOAD,
     REGISTRATION_ACCEPT_LEGAL,
@@ -78,6 +82,24 @@ def test_executor_setup_hint_lists_only_missing_setup_steps() -> None:
 
     assert "выберите рабочие дни" in text
     assert "Начать принимать заказы" in text
+
+
+def test_available_orders_text_shows_distance_or_missing_coordinates() -> None:
+    item = type("Order", (), {
+        "service_name": "Уход",
+        "start_at": "28.07.2026 10:00",
+        "end_at": "28.07.2026 11:00",
+        "objects_count": 1,
+        "total_amount": Decimal("600.00"),
+        "distance_km": Decimal("3.125"),
+    })()
+    text = available_orders_text([item], "all")
+    assert "Расстояние: 3.125 км" in text
+
+    item.distance_km = None
+    assert "Расстояние: недоступно (нет координат)" in available_orders_text(
+        [item], "all"
+    )
     assert "включите хотя бы одну одобренную услугу" not in text
 
 

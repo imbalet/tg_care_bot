@@ -463,6 +463,7 @@ def available_orders_text(items: Sequence[object], scope: object) -> str:
         start_at = escape(str(getattr(item, "start_at", "")))
         end_at = escape(str(getattr(item, "end_at", "")))
         amount = escape(str(getattr(item, "total_amount", "")))
+        distance = getattr(item, "distance_km", None)
         objects_count = escape(str(getattr(item, "objects_count", "")))
         lines.extend(
             (
@@ -471,6 +472,11 @@ def available_orders_text(items: Sequence[object], scope: object) -> str:
                 f"{start_at} - {end_at}",
                 f"Объектов: {objects_count}",
                 f"Сумма: {amount}",
+                (
+                    f"Расстояние: {escape(str(distance))} км"
+                    if distance is not None
+                    else "Расстояние: недоступно (нет координат)"
+                ),
             ),
         )
     return "\n".join(lines)

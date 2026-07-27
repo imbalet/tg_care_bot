@@ -155,6 +155,7 @@ class AvailableOrderDTO:
     end_at: datetime
     objects_count: int
     total_amount: Decimal
+    distance_km: Decimal | None = None
 
 
 @dataclass(frozen=True)
