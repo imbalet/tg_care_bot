@@ -121,6 +121,8 @@ async def available_orders_callback(
             if "unavailable" in error_text
             else "schedule"
             if "schedule" in error_text
+            else "address"
+            if "address" in error_text or "адрес" in error_text
             else "service"
             if "service" in error_text
             else "accepting"

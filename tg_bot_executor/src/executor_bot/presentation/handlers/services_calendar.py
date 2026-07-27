@@ -93,10 +93,15 @@ async def toggle_accepting_orders(
             telegram_id=telegram_user_context.telegram_id,
             is_accepting_orders=callback_data.value,
         )
-    except BackendValidationError:
+    except BackendValidationError as exc:
+        error_text = (
+            "Сначала добавьте и выберите рабочий адрес."
+            if "address" in str(exc).lower() or "адрес" in str(exc).lower()
+            else "Сначала включите хотя бы одну одобренную услугу"
+        )
         await telegram_responder.acknowledge(
             callback,
-            "Сначала включите хотя бы одну одобренную услугу",
+            error_text,
             show_alert=True,
         )
         return
