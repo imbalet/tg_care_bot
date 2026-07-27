@@ -391,6 +391,15 @@ class SetPerformerAcceptingOrdersUseCase:
         self, command: SetPerformerAcceptingOrdersCommand
     ) -> PerformerDTO:
         if command.is_accepting_orders:
+            performer = await self._repository.get_performer_by_telegram_id(
+                command.telegram_id,
+            )
+            if performer is None:
+                raise NotFoundError("Active performer not found")
+            if performer.current_address_id is None:
+                raise ValidationError(
+                    "Current performer address is required before accepting orders"
+                )
             services = await self._repository.list_services_by_telegram_id(
                 command.telegram_id,
             )

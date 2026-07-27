@@ -40,6 +40,7 @@ class OrderCommand:
     customer_comment: str | None
     report_photo_consent: bool | None
     option_values: dict[UUID, Any]
+    location_source: str | None
 
 
 @dataclass(frozen=True)
@@ -393,7 +394,21 @@ async def _prepare_order(
         snapshot.object_type != service.category_object_type for snapshot in snapshots
     ):
         raise ValidationError("Care object category does not match service")
-    if service.location_policy == "customer_address":
+    if service.location_policy == "customer_or_performer_address":
+        if command.location_source not in {"customer_address", "performer_address"}:
+            raise ValidationError("Order location source is required")
+        location_source = command.location_source
+    elif service.location_policy in {"customer_address", "performer_address"}:
+        location_source = service.location_policy
+        if (
+            command.location_source is not None
+            and command.location_source != location_source
+        ):
+            raise ValidationError("Order location source is not allowed")
+    else:
+        raise ValidationError("Service location policy is invalid")
+
+    if location_source == "customer_address":
         if command.address_id is None:
             raise ValidationError("Customer address is required")
         if not await order_repository.customer_address_is_active(
@@ -401,11 +416,11 @@ async def _prepare_order(
             address_id=command.address_id,
         ):
             raise ValidationError("Customer address is inactive or unknown")
-    elif service.location_policy == "performer_address":
+    elif location_source == "performer_address":
         if command.address_id is not None:
-            raise ValidationError("Boarding order must not use customer address")
-    else:
-        raise ValidationError("Service location policy is invalid")
+            raise ValidationError(
+                "Performer address order must not use customer address"
+            )
     if service.photo_policy == "requires_customer_consent":
         if command.report_photo_consent is None:
             raise ValidationError("Report photo consent is required")
@@ -441,5 +456,6 @@ async def _prepare_order(
         report_photo_consent=command.report_photo_consent,
         option_values=command.option_values,
         timezone=timezone,
+        location_source=location_source,
     )
     return data, service, price, snapshots, matching_deadline_minutes

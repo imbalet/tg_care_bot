@@ -21,6 +21,7 @@ class OrderRequest(BaseModel):
     end_at: datetime
     care_object_ids: list[UUID] = Field(min_length=1)
     address_id: UUID | None = None
+    location_source: str | None = None
     customer_comment: str | None = Field(default=None, max_length=2000)
     report_photo_consent: bool | None = None
     option_values: dict[UUID, Any] = Field(default_factory=dict)

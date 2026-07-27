@@ -461,7 +461,7 @@ async def test_address_suggestions_and_current_address_update() -> None:
 @pytest.mark.unit
 async def test_performer_registration_state_and_service_limits() -> None:
     repository = AsyncMock()
-    performer = SimpleNamespace(id=uuid4())
+    performer = SimpleNamespace(id=uuid4(), current_address_id=uuid4())
     repository.get_performer_by_telegram_id.return_value = performer
     state = await GetRegistrationStateUseCase(repository).execute(1)
     assert state.state == "registered"

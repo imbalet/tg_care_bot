@@ -64,6 +64,7 @@ class OrderData:
     report_photo_consent: bool | None
     option_values: dict[UUID, Any]
     timezone: str
+    location_source: str = "customer_address"
 
 
 @dataclass(frozen=True)

@@ -338,10 +338,7 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
         suitable: list[SuitablePerformerDTO] = []
         for performer, performer_service, service, current_address in result.tuples():
             current_address_model = cast(AddressModel | None, current_address)
-            if (
-                service.location_policy == "performer_address"
-                and current_address_model is None
-            ):
+            if current_address_model is None:
                 continue
             if not _constraints_match(performer_service.constraints, care_objects):
                 continue

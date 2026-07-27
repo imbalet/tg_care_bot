@@ -55,6 +55,8 @@ class SqlAlchemyMatchingRepository:
             raise NotFoundError("Performer not found")
         if not performer.is_accepting_orders:
             raise ValidationError("Performer is not accepting orders")
+        if performer.current_address_id is None:
+            raise ValidationError("Performer work address is required")
         has_schedule = await self._session.scalar(
             select(PerformerScheduleModel.id).where(
                 PerformerScheduleModel.performer_id == performer_id,
@@ -165,6 +167,8 @@ class SqlAlchemyMatchingRepository:
             raise ConflictError("Order matching deadline has passed")
         if performer.status != "active" or not performer.is_accepting_orders:
             raise ValidationError("Performer cannot respond to orders")
+        if performer.current_address_id is None:
+            raise ValidationError("Performer work address is required")
         await self._ensure_no_historical_match(order.id, performer.id)
         await self._lock_overlapping_resources(
             performer_id=performer.id,
@@ -231,6 +235,8 @@ class SqlAlchemyMatchingRepository:
         await self._ensure_no_historical_match(order.id, performer_id)
         if performer.status != "active" or not performer.is_accepting_orders:
             raise ValidationError("Performer cannot receive direct order")
+        if performer.current_address_id is None:
+            raise ValidationError("Performer work address is required")
         if not await self._performer_can_receive_order(order, performer_id):
             raise ConflictError("Performer is not suitable for direct order")
         await self._lock_overlapping_resources(

@@ -835,7 +835,7 @@ def _apply_order_data(
     model.matching_mode = None
     model.status = "searching"
     model.address_id = data.address_id
-    model.location_source = service.location_policy
+    model.location_source = data.location_source
     model.start_at = data.start_at
     model.end_at = data.end_at
     model.objects_count = len(data.care_object_ids)

@@ -77,6 +77,7 @@ def _command(service: ServicePricingDTO) -> CreatePoolOrderCommand:
         customer_comment=None,
         report_photo_consent=None,
         option_values={},
+        location_source=None,
     )
 
 
@@ -142,6 +143,103 @@ async def test_create_boarding_order_rejects_customer_address() -> None:
         await CreatePoolOrderUseCase(repository, repository).execute(
             _command(service),
         )
+
+
+@pytest.mark.unit
+async def test_create_selectable_location_order_accepts_performer_address() -> None:
+    service = _service(location_policy="customer_or_performer_address")
+    repository = _order_repository(service, _snapshot())
+    expected = SimpleNamespace(id=uuid4())
+    repository.create_pool.return_value = expected
+    command = replace(
+        _command(service),
+        address_id=None,
+        location_source="performer_address",
+    )
+
+    result = await CreatePoolOrderUseCase(repository, repository).execute(command)
+
+    assert result.id == expected.id
+    assert repository.create_pool.await_args.kwargs["data"].location_source == (
+        "performer_address"
+    )
+
+
+@pytest.mark.unit
+async def test_create_selectable_location_order_accepts_customer_address() -> None:
+    service = _service(location_policy="customer_or_performer_address")
+    repository = _order_repository(service, _snapshot())
+    expected = SimpleNamespace(id=uuid4())
+    repository.create_pool.return_value = expected
+    command = replace(_command(service), location_source="customer_address")
+
+    await CreatePoolOrderUseCase(repository, repository).execute(command)
+
+    assert repository.customer_address_is_active.await_count == 1
+    assert repository.create_pool.await_args.kwargs["data"].location_source == (
+        "customer_address"
+    )
+
+
+@pytest.mark.unit
+async def test_create_selectable_location_order_requires_location_source() -> None:
+    service = _service(location_policy="customer_or_performer_address")
+    repository = _order_repository(service, _snapshot())
+
+    with pytest.raises(ValidationError, match="location source"):
+        await CreatePoolOrderUseCase(repository, repository).execute(
+            replace(_command(service), address_id=None, location_source=None),
+        )
+
+
+@pytest.mark.unit
+async def test_selectable_location_rejects_customer_address_for_performer():
+    service = _service(location_policy="customer_or_performer_address")
+    repository = _order_repository(service, _snapshot())
+
+    with pytest.raises(ValidationError, match="must not use customer address"):
+        await CreatePoolOrderUseCase(repository, repository).execute(
+            replace(_command(service), location_source="performer_address"),
+        )
+
+
+@pytest.mark.unit
+async def test_create_fixed_location_order_rejects_conflicting_source() -> None:
+    service = _service(location_policy="customer_address")
+    repository = _order_repository(service, _snapshot())
+
+    with pytest.raises(ValidationError, match="not allowed"):
+        await CreatePoolOrderUseCase(repository, repository).execute(
+            replace(_command(service), location_source="performer_address"),
+        )
+
+
+@pytest.mark.unit
+async def test_create_direct_selectable_location_order_uses_selected_source() -> None:
+    service = _service(location_policy="customer_or_performer_address")
+    repository = _order_repository(service, _snapshot())
+    repository.get_customer_city_id.return_value = uuid4()
+    performer_id = uuid4()
+    availability = AsyncMock()
+    availability.find_suitable_performers.return_value = [
+        SimpleNamespace(performer_id=performer_id),
+    ]
+    repository.create_direct.return_value = SimpleNamespace(id=uuid4())
+    command = _command(service)
+    direct = CreateDirectOrderCommand(
+        **replace(
+            command,
+            address_id=None,
+            location_source="performer_address",
+        ).__dict__,
+        performer_id=performer_id,
+    )
+
+    await CreateDirectOrderUseCase(repository, repository, availability).execute(direct)
+
+    assert repository.create_direct.await_args.kwargs["data"].location_source == (
+        "performer_address"
+    )
 
 
 @pytest.mark.unit
