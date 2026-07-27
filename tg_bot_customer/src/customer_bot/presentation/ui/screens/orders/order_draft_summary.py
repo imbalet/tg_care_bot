@@ -46,6 +46,9 @@ class _View(Protocol):
     @property
     def end_at(self) -> datetime | None: ...
 
+    @property
+    def location_label(self) -> str: ...
+
 
 def duration_label(duration_minutes: int) -> str:
     minutes = max(0, duration_minutes)
@@ -73,6 +76,7 @@ class Screen(BaseScreen[_View]):
                 f"Услуга: {escape(self.data.service_name)}",
                 duration_line,
                 *((f"Период передачи и возврата: {escape(period)}",) if period else ()),
+                f"Место: {escape(self.data.location_label)}",
                 f"Объектов: {self.data.objects_count}",
                 "Опции: учтены в заказе",
                 f"Услуга: {escape(str(self.data.service_amount))}",

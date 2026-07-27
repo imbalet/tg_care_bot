@@ -407,6 +407,7 @@ class BackendClient(BackendPort):
         customer_comment: str | None,
         report_photo_consent: bool | None,
         option_values: dict[UUID, object],
+        location_source: str | None = None,
     ) -> OrderDTO:
         response = await self._request(
             "POST",
@@ -421,6 +422,7 @@ class BackendClient(BackendPort):
                 customer_comment=customer_comment,
                 report_photo_consent=report_photo_consent,
                 option_values=option_values,
+                location_source=location_source,
             ),
         )
         self._raise_for_status(response)
@@ -439,6 +441,7 @@ class BackendClient(BackendPort):
         report_photo_consent: bool | None,
         option_values: dict[UUID, object],
         performer_id: UUID,
+        location_source: str | None = None,
     ) -> OrderDTO:
         payload = _order_request_json(
             customer_id=customer_id,
@@ -450,6 +453,7 @@ class BackendClient(BackendPort):
             customer_comment=customer_comment,
             report_photo_consent=report_photo_consent,
             option_values=option_values,
+            location_source=location_source,
         )
         payload["performer_id"] = str(performer_id)
         response = await self._request(

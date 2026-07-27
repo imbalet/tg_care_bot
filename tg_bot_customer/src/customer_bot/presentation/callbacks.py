@@ -274,6 +274,10 @@ class OrderAddressCallback(CallbackData, prefix="order_address"):
     address_id: UUID
 
 
+class OrderLocationChoiceCallback(CallbackData, prefix="order_location_choice"):
+    source: str
+
+
 class OrderPhotoConsentCallback(CallbackData, prefix="order_photo"):
     value: YesNoValue
 

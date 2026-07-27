@@ -100,6 +100,7 @@ class OrderSummaryView:
     duration_unit: str = "minutes"
     start_at: datetime | None = None
     end_at: datetime | None = None
+    location_label: str = "По адресу заказчика"
 
 
 @dataclass(frozen=True, slots=True)

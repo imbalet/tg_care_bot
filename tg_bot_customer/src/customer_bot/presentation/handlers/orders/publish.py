@@ -217,6 +217,7 @@ async def back_from_direct_selection(
                     platform_fee_amount=summary_view.platform_fee_amount,
                     total_amount=summary_view.total_amount,
                     performers_count=summary_view.performers_count,
+                    location_label=summary_view.location_label,
                 )
             ).build()
         ).text,
@@ -261,6 +262,7 @@ async def publish_pool(
             end_at=order_request.end_at,
             care_object_ids=order_request.care_object_ids,
             address_id=order_request.address_id,
+            location_source=order_request.location_source,
             customer_comment=order_request.customer_comment,
             report_photo_consent=order_request.report_photo_consent,
             option_values=order_request.option_values,
@@ -360,6 +362,7 @@ async def publish_direct(
             end_at=order_request.end_at,
             care_object_ids=order_request.care_object_ids,
             address_id=order_request.address_id,
+            location_source=order_request.location_source,
             customer_comment=order_request.customer_comment,
             report_photo_consent=order_request.report_photo_consent,
             option_values=order_request.option_values,
@@ -418,6 +421,7 @@ class _OrderRequest:
     end_at: datetime
     care_object_ids: tuple[UUID, ...]
     address_id: UUID | None
+    location_source: str | None
     customer_comment: str | None
     report_photo_consent: bool | None
     option_values: dict[UUID, object]
@@ -430,6 +434,7 @@ def _order_request(snapshot: OrderDraftSnapshot) -> _OrderRequest:
         end_at=snapshot.end_at,
         care_object_ids=snapshot.care_object_ids,
         address_id=snapshot.address_id,
+        location_source=snapshot.location_source,
         customer_comment=snapshot.customer_comment,
         report_photo_consent=snapshot.report_photo_consent,
         option_values=snapshot.option_values,

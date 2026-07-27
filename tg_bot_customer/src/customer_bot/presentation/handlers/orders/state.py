@@ -21,6 +21,7 @@ class OrderDraftSnapshot:
     end_at: datetime
     care_object_ids: tuple[UUID, ...]
     address_id: UUID | None
+    location_source: str | None
     customer_comment: str | None
     report_photo_consent: bool | None
     option_values: dict[UUID, object]
@@ -39,6 +40,9 @@ class OrderDraftSnapshot:
             care_object_ids=tuple(UUID(str(item)) for item in object_ids),
             address_id=(
                 UUID(str(data["address_id"])) if data.get("address_id") else None
+            ),
+            location_source=(
+                str(data["location_source"]) if data.get("location_source") else None
             ),
             customer_comment=(
                 str(data["customer_comment"]) if data.get("customer_comment") else None
@@ -60,6 +64,7 @@ class OrderSummarySnapshot:
     duration_unit: str = "minutes"
     start_at: datetime | None = None
     end_at: datetime | None = None
+    location_label: str = "По адресу заказчика"
 
     @classmethod
     def from_data(cls, data: dict[str, object]) -> OrderSummarySnapshot:
@@ -82,6 +87,7 @@ class OrderSummarySnapshot:
                 if data.get("end_at")
                 else None
             ),
+            location_label=str(data.get("location_label", "По адресу заказчика")),
         )
 
     def to_data(self) -> dict[str, object]:
@@ -96,6 +102,7 @@ class OrderSummarySnapshot:
             "duration_unit": self.duration_unit,
             "start_at": self.start_at.isoformat() if self.start_at else None,
             "end_at": self.end_at.isoformat() if self.end_at else None,
+            "location_label": self.location_label,
         }
 
 

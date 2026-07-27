@@ -11,6 +11,7 @@ from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
     OrderAddressCallback,
     OrderCommentSkipCallback,
+    OrderLocationChoiceCallback,
     OrderPhotoConsentCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
@@ -31,6 +32,7 @@ from customer_bot.presentation.ui.screens import (
     OrderAddressStepScreen,
     OrderCommentStepScreen,
     OrderDraftSummaryScreen,
+    OrderLocationChoiceScreen,
     OrderNoAddressesScreen,
     OrderPhotoConsentStepScreen,
     RetryLaterScreen,
@@ -70,7 +72,22 @@ async def enter_duration(
     end_at = start_at + duration
     order_draft["end_at"] = end_at.isoformat()
     await state.update_data(order_draft=order_draft)
-    if order_draft.get("location_policy") != "customer_address":
+    location_policy = order_draft.get("location_policy")
+    if location_policy == "customer_or_performer_address":
+        await state.set_state(OrderCreation.address)
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := OrderLocationChoiceScreen(None).build()).text,
+            reply_markup=screen.reply_markup,
+            create_new=True,
+        )
+        return
+    if location_policy == "performer_address":
+        order_draft["location_source"] = "performer_address"
+        order_draft["address_id"] = None
+        await state.update_data(order_draft=order_draft)
         await _ask_photo_or_comment(
             message,
             bot,
@@ -134,6 +151,83 @@ async def enter_duration(
     )
 
 
+@router.callback_query(
+    OrderCreation.address,
+    OrderLocationChoiceCallback.filter(),
+)
+async def select_location_choice(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderLocationChoiceCallback,
+) -> None:
+    if callback_data.source not in {"customer_address", "performer_address"}:
+        await telegram_responder.acknowledge(callback)
+        return
+    data = await state.get_data()
+    order_draft = draft(data)
+    order_draft["location_source"] = callback_data.source
+    order_draft["address_id"] = None
+    await state.update_data(order_draft=order_draft)
+    if callback_data.source == "performer_address":
+        await _ask_photo_or_comment(
+            callback,
+            bot,
+            state,
+            telegram_responder,
+            telegram_user_context,
+        )
+        return
+    try:
+        addresses = await backend_client.list_addresses(
+            telegram_id=telegram_user_context.telegram_id,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to load addresses for order",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
+            create_new=True,
+        )
+        return
+    if not addresses:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := OrderNoAddressesScreen().build()).text,
+            reply_markup=screen.reply_markup,
+            create_new=True,
+        )
+        return
+    await state.update_data(
+        order_addresses=[
+            {"id": str(address.id), "address_text": address.address_text}
+            for address in addresses
+        ],
+    )
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=(screen := OrderAddressStepScreen(addresses).build()).text,
+        reply_markup=screen.reply_markup,
+        create_new=True,
+    )
+
+
 @router.callback_query(OrderCreation.address, OrderAddressCallback.filter())
 async def select_address(
     callback: CallbackQuery,
@@ -157,6 +251,7 @@ async def select_address(
     data = await state.get_data()
     order_draft = draft(data)
     order_draft["address_id"] = item["id"]
+    order_draft["location_source"] = "customer_address"
     await state.update_data(order_draft=order_draft)
     await _ask_photo_or_comment(
         callback,
@@ -376,6 +471,11 @@ async def _create_draft_and_show_summary(
         duration_unit=duration_unit(order_draft),
         start_at=start_at,
         end_at=end_at,
+        location_label=(
+            "У исполнителя"
+            if order_draft.get("location_source") == "performer_address"
+            else "По адресу заказчика"
+        ),
     )
     await state.update_data(
         order_draft=order_draft,
@@ -399,6 +499,7 @@ async def _create_draft_and_show_summary(
                     duration_unit=summary.duration_unit,
                     start_at=summary.start_at,
                     end_at=summary.end_at,
+                    location_label=summary.location_label,
                 )
             ).build()
         ).text,

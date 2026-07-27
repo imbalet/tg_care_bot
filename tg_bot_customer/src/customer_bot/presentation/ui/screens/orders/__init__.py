@@ -9,6 +9,7 @@ from .order_direct_unavailable import Screen as OrderDirectUnavailableScreen
 from .order_draft_summary import Screen as OrderDraftSummaryScreen
 from .order_duration_step import Screen as OrderDurationStepScreen
 from .order_location import Screen as OrderLocationScreen
+from .order_location_choice import Screen as OrderLocationChoiceScreen
 from .order_matches import Screen as OrderMatchesScreen
 from .order_no_addresses import Screen as OrderNoAddressesScreen
 from .order_no_objects import Screen as OrderNoObjectsScreen
@@ -31,6 +32,7 @@ from .performer_profile import Screen as PerformerProfileScreen
 __all__ = [
     "MyOrderCardScreen",
     "OrderLocationScreen",
+    "OrderLocationChoiceScreen",
     "OrderReportScreen",
     "MyOrdersPageScreen",
     "OrderCancellationPreviewScreen",

@@ -181,6 +181,7 @@ def _order_request_json(
     customer_comment: str | None,
     report_photo_consent: bool | None,
     option_values: dict[UUID, object],
+    location_source: str | None = None,
 ) -> dict[str, object]:
     return {
         "customer_id": str(customer_id),
@@ -192,6 +193,7 @@ def _order_request_json(
         "customer_comment": customer_comment,
         "report_photo_consent": report_photo_consent,
         "option_values": {str(key): value for key, value in option_values.items()},
+        "location_source": location_source,
     }
 
 

@@ -21,6 +21,7 @@ def _location_policy_label(policy: str) -> str:
     return {
         "customer_address": "по адресу заказчика",
         "performer_address": "по адресу исполнителя",
+        "customer_or_performer_address": "по адресу заказчика или исполнителя",
     }.get(policy, escape(policy))
 
 
