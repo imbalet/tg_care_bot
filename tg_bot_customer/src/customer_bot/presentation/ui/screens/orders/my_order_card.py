@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from html import escape
 from typing import Protocol
 from uuid import UUID
@@ -220,7 +220,11 @@ class Screen(BaseScreen[_View]):
                 "Подтвердить выполнение",
                 OrderReportConfirmCallback(order_id=order_id),
             )
-        if status == "confirmed":
+        start_window_open = (
+            datetime.now(UTC) >= (self.data.start_at - timedelta(minutes=30))
+            and datetime.now(UTC) < self.data.end_at
+        )
+        if status == "confirmed" and start_window_open:
             keyboard.button(
                 "Подтвердить начало",
                 OrderStartConfirmCallback(order_id=order_id),
