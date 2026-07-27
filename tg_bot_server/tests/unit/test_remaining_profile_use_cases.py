@@ -35,6 +35,8 @@ from backend.modules.performers.application.use_cases import (
     RegisterPerformerUseCase,
     RevokePerformerServiceCommand,
     RevokePerformerServiceUseCase,
+    SetPerformerAcceptingOrdersCommand,
+    SetPerformerAcceptingOrdersUseCase,
     SetPerformerServiceEnabledCommand,
     SetPerformerServiceEnabledUseCase,
     SetPerformerServiceMaxObjectsCommand,
@@ -219,6 +221,19 @@ async def test_service_max_objects_cannot_exceed_admin_limit() -> None:
             SetPerformerServiceMaxObjectsCommand(1, service.service_id, 2),
         )
     repository.set_service_max_objects_by_telegram_id.assert_not_awaited()
+
+
+@pytest.mark.unit
+async def test_accepting_orders_requires_an_enabled_approved_service() -> None:
+    repository = AsyncMock()
+    repository.list_services_by_telegram_id.return_value = []
+
+    with pytest.raises(ValidationError, match="approved service"):
+        await SetPerformerAcceptingOrdersUseCase(repository).execute(
+            SetPerformerAcceptingOrdersCommand(1, True),
+        )
+
+    repository.set_accepting_orders_by_telegram_id.assert_not_awaited()
 
 
 @pytest.mark.unit

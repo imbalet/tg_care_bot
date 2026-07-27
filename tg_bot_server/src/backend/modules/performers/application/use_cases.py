@@ -390,6 +390,19 @@ class SetPerformerAcceptingOrdersUseCase:
     async def execute(
         self, command: SetPerformerAcceptingOrdersCommand
     ) -> PerformerDTO:
+        if command.is_accepting_orders:
+            services = await self._repository.list_services_by_telegram_id(
+                command.telegram_id,
+            )
+            if services is None:
+                raise NotFoundError("Active performer not found")
+            if not any(
+                service.is_approved and service.is_enabled for service in services
+            ):
+                raise ValidationError(
+                    "At least one approved service must be enabled "
+                    "before accepting orders"
+                )
         performer = await self._repository.set_accepting_orders_by_telegram_id(
             telegram_id=command.telegram_id,
             is_accepting_orders=command.is_accepting_orders,

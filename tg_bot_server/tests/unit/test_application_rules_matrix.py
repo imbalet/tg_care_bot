@@ -471,6 +471,7 @@ async def test_performer_registration_state_and_service_limits() -> None:
         service_id=service_id,
         admin_max_objects=2,
         is_approved=True,
+        is_enabled=True,
         service_location_policy="customer_address",
     )
     repository.get_performer_by_telegram_id.return_value = performer
