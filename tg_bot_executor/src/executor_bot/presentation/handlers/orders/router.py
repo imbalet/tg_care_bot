@@ -56,6 +56,7 @@ from executor_bot.presentation.ui import (
     stale_action_keyboard,
     stale_action_text,
 )
+from executor_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 
 router = Router(name="orders")
 
@@ -518,6 +519,26 @@ async def order_contact_callback(
             else "Связь недоступна",
             show_alert=True,
         )
+        if result.contact_phone:
+            await telegram_responder.send_contact(
+                bot=bot,
+                event=callback,
+                phone_number=result.contact_phone,
+                first_name=result.contact_name,
+            )
+        if result.contact_telegram_username:
+            username = result.contact_telegram_username.lstrip("@")
+            await telegram_responder.send_notice(
+                bot=bot,
+                event=callback,
+                telegram_id=telegram_user_context.telegram_id,
+                text=f"Telegram заказчика: @{username}",
+                reply_markup=(
+                    InlineKeyboardFactory()
+                    .url_button("Открыть Telegram", f"https://t.me/{username}")
+                    .as_markup()
+                ),
+            )
     except BackendClientError:
         await telegram_responder.acknowledge(
             callback, "Запрос контакта сейчас недоступен", show_alert=True

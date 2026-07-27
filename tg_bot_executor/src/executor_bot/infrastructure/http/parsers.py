@@ -290,6 +290,17 @@ def contact_request_from_json(data: dict[str, object]) -> ContactRequestDTO:
             if isinstance(data.get("failure_reason"), str)
             else None
         ),
+        contact_name=str(data["contact_name"]),
+        contact_phone=(
+            str(data["contact_phone"])
+            if data.get("contact_phone") is not None
+            else None
+        ),
+        contact_telegram_username=(
+            str(data["contact_telegram_username"])
+            if data.get("contact_telegram_username") is not None
+            else None
+        ),
     )
 
 
