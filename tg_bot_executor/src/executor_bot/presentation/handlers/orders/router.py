@@ -218,6 +218,7 @@ async def available_order_card_callback(
         (
             "📦 <b>Доступный заказ</b>",
             "",
+            f"ID: #{escape(str(item['id'])[:8])}",
             f"Услуга: {escape(str(item['service_name']))}",
             "🗓 Период: "
             f"{escape(str(item['start_at']))} — {escape(str(item['end_at']))}",
@@ -275,7 +276,7 @@ async def executor_responses_callback(
             lines.extend(
                 (
                     "",
-                    f"<b>Заказ {escape(str(match.order_id)[:8])}</b>",
+                    f"<b>Заказ #{escape(str(match.order_id)[:8])}</b>",
                     f"Период: {_match_period(match)}",
                     f"Ответить до: {_match_datetime(match.response_expires_at)}",
                     f"Статус: {escape(match.status)}",

@@ -240,7 +240,7 @@ def responses_keyboard(items: Sequence[object], group: str) -> InlineKeyboardMar
             continue
         status = str(getattr(item, "status", ""))
         keyboard.button(
-            f"Заказ {order_id[:8]} · {status}",
+            f"Заказ #{order_id[:8]} · {status}",
             ExecutorResponseCardCallback(order_id=order_id, group=group),
         )
     keyboard.button("Активные", ExecutorResponsesCallback(group="active"))
@@ -260,7 +260,7 @@ def available_orders_keyboard(
         order_id = str(getattr(item, "id", ""))
         service_name = str(getattr(item, "service_name", "Заказ"))
         keyboard.button(
-            f"Открыть: {service_name}",
+            f"Открыть #{order_id[:8]}: {service_name}",
             AvailableOrderCardCallback(order_id=order_id),
         )
     return (

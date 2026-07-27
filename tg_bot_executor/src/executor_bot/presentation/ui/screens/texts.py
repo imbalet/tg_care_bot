@@ -58,6 +58,10 @@ class ExecutorProfileView(Protocol):
 
 class MyOrderSummaryView(Protocol):
     @property
+    def id(self) -> object:
+        pass
+
+    @property
     def service_name(self) -> str:
         pass
 
@@ -511,6 +515,7 @@ def my_orders_page_text(page: MyOrdersPageView, group: str) -> str:
         lines.extend(
             (
                 "",
+                f"ID: #{str(item.id)[:8]}",
                 f"{index}. {escape(item.service_name)}",
                 f"Статус: {_order_status_label(item.status)}",
                 f"Время: {_datetime_label(item.start_at)}",
@@ -540,6 +545,7 @@ def my_order_card_text(
     lines = [
         "📦 <b>Заказ</b>",
         "",
+        f"ID: #{str(order.id)[:8]}",
         f"Услуга: {escape(order.service_name)}",
         *(
             (f"Направление: {escape(category_name)}",)

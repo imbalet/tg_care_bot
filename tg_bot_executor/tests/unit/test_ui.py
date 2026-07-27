@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import uuid4
 
 from executor_bot.infrastructure.http import PerformerProfileDTO
@@ -14,6 +15,7 @@ from executor_bot.presentation.ui import (
     work_address_card_text,
     work_addresses_keyboard,
 )
+from executor_bot.presentation.ui.screens.texts import my_orders_page_text
 from executor_bot.presentation.ui.keyboards import (
     AVATAR_UPLOAD,
     REGISTRATION_ACCEPT_LEGAL,
@@ -130,3 +132,28 @@ def test_executor_profile_text_escapes_user_values() -> None:
 
     assert "Иван &lt;script&gt;" in text
     assert "Опыт &lt;5 лет&gt;" in text
+
+
+def test_my_orders_page_text_shows_short_order_id() -> None:
+    order_id = uuid4()
+    item = type(
+        "Order",
+        (),
+        {
+            "id": order_id,
+            "service_name": "Прогулка",
+            "status": "confirmed",
+            "start_at": datetime(2026, 7, 28, 10, 0),
+            "end_at": datetime(2026, 7, 28, 11, 0),
+            "total_amount": "500",
+        },
+    )()
+    page = type(
+        "Page",
+        (),
+        {"items": (item,), "page": 1, "total_pages": 1, "total_items": 1},
+    )()
+
+    text = my_orders_page_text(page, "active")
+
+    assert f"ID: #{str(order_id)[:8]}" in text
