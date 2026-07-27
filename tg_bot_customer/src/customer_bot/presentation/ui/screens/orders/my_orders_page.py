@@ -11,6 +11,7 @@ from customer_bot.presentation.callbacks import (
     SupportOpenCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
+from customer_bot.presentation.ui.screens.orders.status_labels import short_order_id
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreen,
     Markup,
@@ -120,6 +121,7 @@ class Screen(BaseScreen[_View]):
             lines.extend(
                 (
                     "",
+                    f"ID: {short_order_id(item.id)}",
                     f"{index}. {escape(item.service_name)}",
                     f"Направление: {escape(item.category_name)}",
                     f"Статус: {_order_status_label(item.status)}",

@@ -1,4 +1,9 @@
 from html import escape
+from uuid import UUID
+
+
+def short_order_id(order_id: UUID | str) -> str:
+    return f"#{str(order_id)[:8]}"
 
 
 def order_status_label(status: str) -> str:

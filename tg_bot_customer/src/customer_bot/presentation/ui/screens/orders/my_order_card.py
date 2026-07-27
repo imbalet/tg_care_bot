@@ -23,6 +23,7 @@ from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.orders.status_labels import (
     matching_mode_label,
     payment_status_label,
+    short_order_id,
 )
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreen,
@@ -123,6 +124,7 @@ class Screen(BaseScreen[_View]):
         lines = [
             "📦 <b>Заказ</b>",
             "",
+            f"ID: {short_order_id(self.data.id)}",
             f"Услуга: {escape(self.data.service_name)}",
             f"Направление: {escape(self.data.category_name)}",
             f"🔹 Статус: {_order_status_label(self.data.status)}",
