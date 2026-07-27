@@ -1,9 +1,14 @@
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
+from executor_bot.application.dto import AddressDTO
 from executor_bot.infrastructure.http import PerformerProfileDTO
+from executor_bot.presentation.callbacks import WorkAddressSelectCallback
+from executor_bot.presentation.handlers.addresses.router import select_address
+from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.ui import (
     avatar_keyboard,
     cancel_confirmation_keyboard,
@@ -206,3 +211,51 @@ def test_in_progress_order_has_no_cancel_action() -> None:
     ]
 
     assert not any("order_cancel" in value for value in callback_data)
+
+
+async def test_work_address_selection_reloads_backend_after_stale_fsm_state() -> None:
+    address = AddressDTO(
+        id=uuid4(),
+        city_id=uuid4(),
+        address_text="Ростов-на-Дону, ул. Тестовая, 1",
+        entrance=None,
+        floor=None,
+        apartment=None,
+        comment=None,
+    )
+    backend_client = AsyncMock()
+    backend_client.list_work_addresses.return_value = (address,)
+    state = AsyncMock()
+    state.get_data.return_value = {
+        "work_addresses": [
+            {
+                "id": str(address.id),
+                "city_id": str(address.city_id),
+                "address_text": address.address_text,
+                "entrance": None,
+                "floor": None,
+                "apartment": None,
+                "comment": None,
+            },
+        ],
+    }
+    responder = AsyncMock()
+
+    await select_address(
+        callback=object(),
+        bot=object(),
+        state=state,
+        backend_client=backend_client,
+        telegram_responder=responder,
+        telegram_user_context=TelegramUserContext(
+            telegram_id=100,
+            username=None,
+            chat_id=100,
+        ),
+        callback_data=WorkAddressSelectCallback(index=0),
+    )
+
+    backend_client.list_work_addresses.assert_awaited_once_with(telegram_id=100)
+    state.update_data.assert_awaited_once()
+    update_call = responder.update.await_args.kwargs
+    assert address.address_text in update_call["text"]

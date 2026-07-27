@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from html import escape
 from typing import Protocol
@@ -303,11 +303,16 @@ def work_addresses_list_text(items: Sequence[object]) -> str:
 
 
 def work_address_card_text(item: object) -> str:
-    address_text = escape(str(getattr(item, "address_text", "")))
-    entrance = getattr(item, "entrance", None)
-    floor = getattr(item, "floor", None)
-    apartment = getattr(item, "apartment", None)
-    comment = getattr(item, "comment", None)
+    def value(name: str) -> object:
+        if isinstance(item, Mapping):
+            return item.get(name)
+        return getattr(item, name, None)
+
+    address_text = escape(str(value("address_text") or ""))
+    entrance = value("entrance")
+    floor = value("floor")
+    apartment = value("apartment")
+    comment = value("comment")
     lines = ["<b>Рабочий адрес</b>", "", address_text]
     if isinstance(entrance, str):
         lines.append(f"Подъезд: {escape(entrance)}")
