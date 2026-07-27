@@ -242,13 +242,25 @@ def responses_keyboard(items: Sequence[object], group: str) -> InlineKeyboardMar
             continue
         status = str(getattr(item, "status", ""))
         keyboard.button(
-            f"Заказ #{order_id[:8]} · {status}",
+            f"Заказ #{order_id[:8]} · {_response_status_label(status)}",
             ExecutorResponseCardCallback(order_id=order_id, group=group),
         )
     keyboard.button("Активные", ExecutorResponsesCallback(group="active"))
     keyboard.button("Выбранные", ExecutorResponsesCallback(group="selected"))
     keyboard.button("Закрытые", ExecutorResponsesCallback(group="closed"))
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+
+
+def _response_status_label(status: str) -> str:
+    return {
+        "pending": "ожидает решения",
+        "active": "активен",
+        "selected": "выбран",
+        "confirmed": "подтверждён",
+        "rejected": "отклонён",
+        "expired": "истёк",
+        "cancelled": "отменён",
+    }.get(status, status)
 
 
 def available_orders_keyboard(
