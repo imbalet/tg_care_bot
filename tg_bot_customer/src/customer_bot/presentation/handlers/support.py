@@ -482,8 +482,18 @@ async def _show_submitted(
         event=event,
         telegram_responder=telegram_responder,
         telegram_id=telegram_id,
-        text=f"<b>{kind} отправлена</b>\n\nСтатус: {status}.",
+        text=(f"<b>{kind} отправлена</b>\n\nСтатус: {_support_status_label(status)}."),
     )
+
+
+def _support_status_label(status: str) -> str:
+    return {
+        "open": "открыто",
+        "in_progress": "в работе",
+        "waiting_customer": "нужен ваш ответ",
+        "resolved": "решено",
+        "closed": "закрыто",
+    }.get(status, "принято")
 
 
 def _uuid_or_none(value: object) -> UUID | None:
