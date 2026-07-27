@@ -26,6 +26,7 @@ from executor_bot.presentation.callbacks import (
     ExecutorOrderFinishCallback,
     ExecutorOrderLocationCallback,
     ExecutorOrderReportCallback,
+    ExecutorOrderReportSkipCallback,
     ExecutorOrderReportViewCallback,
     ExecutorOrdersOpenCallback,
     ExecutorOrdersPageCallback,
@@ -53,6 +54,7 @@ from executor_bot.presentation.ui import (
     my_orders_page_text,
     orders_filter_keyboard,
     pool_response_created_text,
+    report_skip_keyboard,
     responses_keyboard,
     stale_action_keyboard,
     stale_action_text,
@@ -850,7 +852,8 @@ async def report_work(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text="Добавьте комментарий или отправьте /skip.",
+        text="Добавьте комментарий или пропустите этот шаг.",
+        reply_markup=report_skip_keyboard("comment"),
         create_new=True,
     )
 
@@ -900,7 +903,8 @@ async def report_problem(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text="Опишите проблему.",
+            text="Опишите проблему или пропустите описание.",
+            reply_markup=report_skip_keyboard("problem_description"),
             create_new=True,
         )
         return
@@ -909,7 +913,8 @@ async def report_problem(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text="Прикрепите фото или документ либо отправьте /skip.",
+        text="Прикрепите фото или документ либо пропустите этот шаг.",
+        reply_markup=report_skip_keyboard("attachment"),
         create_new=True,
     )
 
@@ -938,7 +943,8 @@ async def report_problem_description(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text="Прикрепите фото или документ либо отправьте /skip.",
+        text="Прикрепите фото или документ либо пропустите этот шаг.",
+        reply_markup=report_skip_keyboard("attachment"),
         create_new=True,
     )
 
@@ -1003,14 +1009,15 @@ async def report_attachment(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text="Файл добавлен. Добавьте ещё или отправьте /skip.",
+        text="Файл добавлен. Добавьте ещё или пропустите этот шаг.",
+        reply_markup=report_skip_keyboard("attachment"),
         create_new=True,
     )
 
 
 @router.message(OrderActionForm.report_attachment, F.text == "/skip")
 async def report_attachment_skip(
-    message: Message,
+    event: Message | CallbackQuery,
     state: FSMContext,
     bot: Bot,
     backend_client: BackendPort,
@@ -1038,7 +1045,7 @@ async def report_attachment_skip(
         )
         await telegram_responder.update(
             bot=bot,
-            event=message,
+            event=event,
             telegram_id=telegram_user_context.telegram_id,
             text="Отчёт отправлен заказчику.",
             create_new=True,
@@ -1046,13 +1053,62 @@ async def report_attachment_skip(
     except BackendClientError, ValueError:
         await telegram_responder.update(
             bot=bot,
-            event=message,
+            event=event,
             telegram_id=telegram_user_context.telegram_id,
             text="Не удалось отправить отчёт. Попробуйте ещё раз.",
             create_new=True,
         )
     finally:
         await state.clear()
+
+
+@router.callback_query(ExecutorOrderReportSkipCallback.filter())
+async def report_skip_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderReportSkipCallback,
+) -> None:
+    await telegram_responder.acknowledge(callback)
+    if callback_data.step == "comment":
+        await state.update_data(comment=None)
+        await state.set_state(OrderActionForm.report_problem)
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Была проблема? Ответьте да или нет.",
+            create_new=True,
+        )
+        return
+    if callback_data.step == "attachment":
+        await report_attachment_skip(
+            callback,
+            state,
+            bot,
+            backend_client,
+            telegram_responder,
+            telegram_user_context,
+        )
+        return
+    if callback_data.step == "problem_description":
+        await state.update_data(problem_description=None)
+        await state.set_state(OrderActionForm.report_attachment)
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Прикрепите фото или документ либо пропустите этот шаг.",
+            reply_markup=report_skip_keyboard("attachment"),
+            create_new=True,
+        )
+        return
+    await telegram_responder.acknowledge(
+        callback, "Шаг уже недоступен", show_alert=True
+    )
 
 
 async def _show_executor_order_card(

@@ -27,6 +27,7 @@ from executor_bot.presentation.callbacks import (
     ExecutorOrderFinishCallback,
     ExecutorOrderLocationCallback,
     ExecutorOrderReportCallback,
+    ExecutorOrderReportSkipCallback,
     ExecutorOrderReportViewCallback,
     ExecutorOrdersOpenCallback,
     ExecutorOrdersPageCallback,
@@ -343,6 +344,17 @@ def my_orders_page_keyboard(page: object, group: str) -> InlineKeyboardMarkup:
 
 def my_order_card_keyboard(*, group: str, page: int) -> InlineKeyboardMarkup:
     return my_order_card_keyboard_for_status(status=None, group=group, page=page)
+
+
+def report_skip_keyboard(step: str) -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button(
+            "Пропустить",
+            ExecutorOrderReportSkipCallback(step=step),
+        )
+        .as_markup()
+    )
 
 
 def my_order_card_keyboard_for_status(

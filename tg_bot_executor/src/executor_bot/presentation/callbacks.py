@@ -110,6 +110,10 @@ class ExecutorOrderReportViewCallback(CallbackData, prefix="order_report_view"):
     order_id: str
 
 
+class ExecutorOrderReportSkipCallback(CallbackData, prefix="order_report_skip"):
+    step: str
+
+
 class ExecutorOrderContactCallback(CallbackData, prefix="order_contact"):
     order_id: str
 
