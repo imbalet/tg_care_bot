@@ -24,6 +24,7 @@ from backend.modules.orders.infrastructure.persistence.order_queries import (
 from backend.modules.orders.infrastructure.persistence.order_repositories import (
     SqlAlchemyOrderRepository,
 )
+from backend.modules.payments.infrastructure import PaymentModel
 from backend.modules.performers.infrastructure import PerformerModel
 
 
@@ -86,9 +87,34 @@ async def test_order_repository_enforces_execution_lifecycle(
     await session.flush()
 
     repository = SqlAlchemyOrderRepository(session)
+    with pytest.raises(ConflictError, match="payment is not confirmed"):
+        await repository.start_order(
+            order_id=order.id,
+            performer_id=performer.id,
+            start_button_before_minutes=180,
+        )
+
+    payment = PaymentModel(
+        order_id=order.id,
+        performer_id=performer.id,
+        attempt_number=1,
+        provider="test",
+        idempotency_key=f"lifecycle-{order.id}",
+        amount=Decimal("600.00"),
+        status="succeeded",
+        provider_status="CONFIRMED",
+        expires_at=start_at + timedelta(hours=1),
+        paid_at=datetime.now(UTC),
+        applied_at=datetime.now(UTC),
+    )
+    session.add(payment)
+    await session.flush()
+    order.active_payment_id = payment.id
+
     started = await repository.start_order(
         order_id=order.id,
         performer_id=performer.id,
+        start_button_before_minutes=180,
     )
     assert started.status == "in_progress"
 
@@ -114,6 +140,7 @@ async def test_order_repository_enforces_execution_lifecycle(
         await repository.start_order(
             order_id=order.id,
             performer_id=performer.id,
+            start_button_before_minutes=180,
         )
 
     history = (
