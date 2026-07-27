@@ -151,6 +151,54 @@ async def test_retry_payment_posts_customer_and_parses_retry_metadata() -> None:
 
 
 @pytest.mark.asyncio
+async def test_select_pool_response_parses_nested_match_action() -> None:
+    match_id = uuid4()
+    order_id = uuid4()
+    customer_id = uuid4()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == f"/api/orders/matches/{match_id}/pool/select"
+        assert (
+            request.content == ('{"customer_id":"' + str(customer_id) + '"}').encode()
+        )
+        return httpx.Response(
+            200,
+            json={
+                "order": {
+                    "id": str(order_id),
+                    "status": "waiting_payment",
+                },
+                "match": {"id": str(match_id)},
+                "payment": {
+                    "payment_id": str(uuid4()),
+                    "confirmation_url": "http://localhost:18080/pay/5",
+                    "expires_at": "2026-07-27T12:00:00+03:00",
+                    "timezone": "Europe/Moscow",
+                },
+            },
+        )
+
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = await client.select_pool_response(
+        match_id=match_id,
+        customer_id=customer_id,
+    )
+
+    assert result.order_id == order_id
+    assert result.order_status == "waiting_payment"
+    assert result.match_id == match_id
+    assert result.payment_confirmation_url == "http://localhost:18080/pay/5"
+    await client.close()
+
+
+@pytest.mark.asyncio
 async def test_list_customer_orders_omits_empty_category_filter() -> None:
     customer_id = uuid4()
 

@@ -124,6 +124,10 @@ class PaymentStatusView:
     payment_status: str | None
     confirmation_url: str | None
     expires_at: datetime | None
+    failure_code: str | None
+    attempts_used: int
+    max_attempts: int
+    retry_available: bool
 
 
 @dataclass(frozen=True, slots=True)

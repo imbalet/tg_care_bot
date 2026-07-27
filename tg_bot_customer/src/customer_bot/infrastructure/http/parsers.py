@@ -238,6 +238,8 @@ def _order_match_from_json(data: dict[str, object]) -> OrderMatchDTO:
 
 
 def _match_action_from_json(data: dict[str, object]) -> MatchActionDTO:
+    order = data["order"] if isinstance(data["order"], dict) else {}
+    match = data["match"] if isinstance(data["match"], dict) else {}
     payment = data["payment"] if isinstance(data["payment"], dict) else None
     confirmation_url = (
         str(payment["confirmation_url"])
@@ -245,9 +247,9 @@ def _match_action_from_json(data: dict[str, object]) -> MatchActionDTO:
         else None
     )
     return MatchActionDTO(
-        order_id=UUID(str(data["order_id"])),
-        order_status=str(data["order_status"]),
-        match_id=UUID(str(data["match_id"])),
+        order_id=UUID(str(order["id"])),
+        order_status=str(order["status"]),
+        match_id=UUID(str(match["id"])),
         payment_confirmation_url=confirmation_url,
     )
 
@@ -273,6 +275,7 @@ def _cancellation_preview_from_json(
 
 def _payment_status_from_json(data: dict[str, object]) -> PaymentStatusDTO:
     expires_at = data["expires_at"] if isinstance(data["expires_at"], str) else None
+    failure_code = data.get("failure_code")
     return PaymentStatusDTO(
         order_id=UUID(str(data["order_id"])),
         order_status=str(data["order_status"]),
@@ -288,9 +291,7 @@ def _payment_status_from_json(data: dict[str, object]) -> PaymentStatusDTO:
         expires_at=datetime.fromisoformat(expires_at)
         if expires_at is not None
         else None,
-        failure_code=data.get("failure_code")
-        if isinstance(data.get("failure_code"), str)
-        else None,
+        failure_code=failure_code if isinstance(failure_code, str) else None,
         attempts_used=int(cast(str | int, data.get("attempts_used", 0))),
         max_attempts=int(cast(str | int, data.get("max_attempts", 3))),
         retry_available=bool(data.get("retry_available", False)),
@@ -351,9 +352,7 @@ def _my_order_card_from_json(data: dict[str, object]) -> MyOrderCardDTO:
         payment_attempts_used=int(
             cast(str | int, data.get("payment_attempts_used", 0))
         ),
-        payment_max_attempts=int(
-            cast(str | int, data.get("payment_max_attempts", 3))
-        ),
+        payment_max_attempts=int(cast(str | int, data.get("payment_max_attempts", 3))),
         payment_retry_available=bool(data.get("payment_retry_available", False)),
     )
 
