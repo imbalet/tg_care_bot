@@ -17,6 +17,16 @@ def _price_type_label(price_type: str) -> str:
     }.get(price_type, "")
 
 
+def _price_formula_label(price_type: str) -> str:
+    return {
+        "hourly": (
+            "Формула: базовая ставка × оплачиваемые часы × коэффициент объектов"
+        ),
+        "fixed": "Формула: базовая цена × коэффициент объектов",
+        "started_24h": ("Формула: базовая цена × начатые сутки × коэффициент объектов"),
+    }.get(price_type, "Формула рассчитывается по параметрам заказа")
+
+
 def _location_policy_label(policy: str) -> str:
     return {
         "customer_address": "по адресу заказчика",
@@ -120,6 +130,7 @@ class Screen(BaseScreen[_View]):
                     f"<b>{escape(service.name)}</b>",
                     f"Цена: {escape(str(service.base_price))} ₽ "
                     f"{_price_type_label(service.price_type)}",
+                    _price_formula_label(service.price_type),
                     f"Длительность: {_duration_limits_text(service)}",
                     f"Место: {_location_policy_label(service.location_policy)}",
                     f"Расписание: {_schedule_policy_label(service.schedule_policy)}",
