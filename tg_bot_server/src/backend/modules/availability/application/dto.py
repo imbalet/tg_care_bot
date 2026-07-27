@@ -24,6 +24,17 @@ class CalendarOverrideDTO:
     ends_at: datetime
     comment: str | None
     timezone: str
+    is_active: bool
+
+
+@dataclass(frozen=True)
+class BusyIntervalDTO:
+    id: UUID
+    kind: str
+    status: str
+    starts_at: datetime
+    ends_at: datetime
+    timezone: str
 
 
 @dataclass(frozen=True)

@@ -1,7 +1,11 @@
+from uuid import UUID
+
 from ._shared import (
     AddCalendarOverrideCommand,
     AddCalendarOverrideUseCase,
     Any,
+    CancelCalendarOverrideCommand,
+    CancelCalendarOverrideUseCase,
     CheckPerformerAvailabilityCommand,
     CheckPerformerAvailabilityUseCase,
     FindSuitablePerformersCommand,
@@ -60,6 +64,24 @@ class AvailabilityServices(Service):
             return await GetPerformerCalendarUseCase(
                 SqlAlchemyAvailabilityRepository(uow.session),
             ).execute(telegram_id)
+
+    async def cancel_calendar_override(
+        self,
+        *,
+        telegram_id: int,
+        override_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            override = await CancelCalendarOverrideUseCase(
+                SqlAlchemyAvailabilityRepository(uow.session),
+            ).execute(
+                CancelCalendarOverrideCommand(
+                    telegram_id=telegram_id,
+                    override_id=override_id,
+                ),
+            )
+            await uow.commit()
+            return override
 
     async def check_performer_availability(
         self,

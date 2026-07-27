@@ -5,6 +5,7 @@ from uuid import UUID
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.availability.application.dto import (
     AvailabilityCheckDTO,
+    BusyIntervalDTO,
     CalendarOverrideDTO,
     PerformerScheduleDTO,
     SuitablePerformerDTO,
@@ -88,6 +89,29 @@ class AddCalendarOverrideUseCase:
         return override
 
 
+@dataclass(frozen=True)
+class CancelCalendarOverrideCommand:
+    telegram_id: int
+    override_id: UUID
+
+
+class CancelCalendarOverrideUseCase:
+    def __init__(self, repository: AvailabilityRepository) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        command: CancelCalendarOverrideCommand,
+    ) -> CalendarOverrideDTO:
+        override = await self._repository.cancel_override(
+            telegram_id=command.telegram_id,
+            override_id=command.override_id,
+        )
+        if override is None:
+            raise NotFoundError("Active calendar override not found")
+        return override
+
+
 class GetPerformerCalendarUseCase:
     def __init__(self, repository: AvailabilityRepository) -> None:
         self._repository = repository
@@ -95,7 +119,11 @@ class GetPerformerCalendarUseCase:
     async def execute(
         self,
         telegram_id: int,
-    ) -> tuple[PerformerScheduleDTO | None, tuple[CalendarOverrideDTO, ...]]:
+    ) -> tuple[
+        PerformerScheduleDTO | None,
+        tuple[CalendarOverrideDTO, ...],
+        tuple[BusyIntervalDTO, ...],
+    ]:
         calendar = await self._repository.get_calendar_by_telegram_id(telegram_id)
         if calendar is None:
             raise NotFoundError("Performer not found")

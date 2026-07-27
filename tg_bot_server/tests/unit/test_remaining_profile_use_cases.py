@@ -18,6 +18,8 @@ from backend.modules.addresses.application.use_cases import (
 from backend.modules.availability.application.use_cases import (
     AddCalendarOverrideCommand,
     AddCalendarOverrideUseCase,
+    CancelCalendarOverrideCommand,
+    CancelCalendarOverrideUseCase,
     CheckPerformerAvailabilityCommand,
     CheckPerformerAvailabilityUseCase,
     GetPerformerCalendarUseCase,
@@ -364,6 +366,34 @@ async def test_calendar_override_and_availability_forward_valid_business_data() 
     )
     assert availability_result.is_available
     repository.check.assert_awaited_once()
+
+
+@pytest.mark.unit
+async def test_calendar_override_can_be_cancelled_by_owner() -> None:
+    repository = AsyncMock()
+    override = SimpleNamespace(id=uuid4())
+    repository.cancel_override.return_value = override
+
+    result = await CancelCalendarOverrideUseCase(repository).execute(
+        CancelCalendarOverrideCommand(telegram_id=1, override_id=override.id),
+    )
+
+    assert result.id == override.id
+    repository.cancel_override.assert_awaited_once_with(
+        telegram_id=1,
+        override_id=override.id,
+    )
+
+
+@pytest.mark.unit
+async def test_calendar_override_cancel_requires_existing_active_override() -> None:
+    repository = AsyncMock()
+    repository.cancel_override.return_value = None
+
+    with pytest.raises(NotFoundError, match="Active calendar override"):
+        await CancelCalendarOverrideUseCase(repository).execute(
+            CancelCalendarOverrideCommand(telegram_id=1, override_id=uuid4()),
+        )
 
 
 @pytest.mark.unit

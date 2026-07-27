@@ -79,15 +79,32 @@ async def add_override(
     return override_response(override)
 
 
+@router.delete("/performers/by-telegram/{telegram_id}/calendar-overrides/{override_id}")
+async def cancel_override(
+    telegram_id: int,
+    override_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> CalendarOverrideResponse:
+    override = await container.availability.cancel_calendar_override(
+        telegram_id=telegram_id,
+        override_id=override_id,
+    )
+    return override_response(override)
+
+
 @router.get("/performers/by-telegram/{telegram_id}/calendar")
 async def get_calendar(
     telegram_id: int,
     container: Annotated[Container, Depends(get_container)],
 ) -> CalendarResponse:
-    schedule, overrides = await container.availability.get_performer_calendar(
+    (
+        schedule,
+        overrides,
+        busy_intervals,
+    ) = await container.availability.get_performer_calendar(
         telegram_id,
     )
-    return calendar_response(schedule, overrides)
+    return calendar_response(schedule, overrides, busy_intervals)
 
 
 @router.get("/availability/performers/{performer_id}/check")

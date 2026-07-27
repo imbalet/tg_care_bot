@@ -1,5 +1,6 @@
 from .dto import (
     AvailabilityCheckDTO,
+    BusyIntervalDTO,
     CalendarOverrideDTO,
     PerformerScheduleDTO,
     SuitablePerformerDTO,
@@ -8,6 +9,8 @@ from .interfaces import AvailabilityRepository, ConflictChecker
 from .use_cases import (
     AddCalendarOverrideCommand,
     AddCalendarOverrideUseCase,
+    CancelCalendarOverrideCommand,
+    CancelCalendarOverrideUseCase,
     CheckPerformerAvailabilityCommand,
     CheckPerformerAvailabilityUseCase,
     FindSuitablePerformersCommand,
@@ -23,6 +26,9 @@ __all__ = [
     "AvailabilityCheckDTO",
     "AvailabilityRepository",
     "CalendarOverrideDTO",
+    "BusyIntervalDTO",
+    "CancelCalendarOverrideCommand",
+    "CancelCalendarOverrideUseCase",
     "CheckPerformerAvailabilityCommand",
     "CheckPerformerAvailabilityUseCase",
     "ConflictChecker",

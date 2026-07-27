@@ -31,6 +31,7 @@ from backend.modules.orders.infrastructure.persistence.models import (
 )
 from backend.modules.payments.infrastructure import PaymentModel
 from backend.modules.performers.infrastructure import (
+    PerformerCalendarOverrideModel,
     PerformerModel,
     PerformerServiceModel,
 )
@@ -51,6 +52,17 @@ class SqlAlchemyMatchingRepository:
         if performer is None or performer.status != "active":
             raise NotFoundError("Performer not found")
         now = utc_now()
+        is_currently_unavailable = await self._session.scalar(
+            select(PerformerCalendarOverrideModel.id).where(
+                PerformerCalendarOverrideModel.performer_id == performer_id,
+                PerformerCalendarOverrideModel.override_type == "unavailable",
+                PerformerCalendarOverrideModel.is_active.is_(True),
+                PerformerCalendarOverrideModel.starts_at <= now,
+                PerformerCalendarOverrideModel.ends_at > now,
+            )
+        )
+        if is_currently_unavailable is not None:
+            raise ValidationError("Performer is currently unavailable")
         result = await self._session.execute(
             select(OrderModel)
             .join(ServiceModel, ServiceModel.id == OrderModel.service_id)

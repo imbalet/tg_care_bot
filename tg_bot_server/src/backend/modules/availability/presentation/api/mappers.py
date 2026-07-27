@@ -1,6 +1,7 @@
 from backend.common.application import to_timezone
 from backend.modules.availability.application import (
     AvailabilityCheckDTO,
+    BusyIntervalDTO,
     CalendarOverrideDTO,
     PerformerScheduleDTO,
     SuitablePerformerDTO,
@@ -8,6 +9,7 @@ from backend.modules.availability.application import (
 
 from .schemas import (
     AvailabilityCheckResponse,
+    BusyIntervalResponse,
     CalendarOverrideResponse,
     CalendarResponse,
     ScheduleResponse,
@@ -38,16 +40,28 @@ def override_response(override: CalendarOverrideDTO) -> CalendarOverrideResponse
         ends_at=ends_at.isoformat(),
         comment=override.comment,
         timezone=override.timezone,
+        is_active=override.is_active,
     )
 
 
 def calendar_response(
     schedule: PerformerScheduleDTO | None,
     overrides: tuple[CalendarOverrideDTO, ...],
+    busy_intervals: tuple[BusyIntervalDTO, ...],
 ) -> CalendarResponse:
     return CalendarResponse(
         schedule=schedule_response(schedule) if schedule is not None else None,
         overrides=[override_response(override) for override in overrides],
+        busy_intervals=[
+            BusyIntervalResponse(
+                id=str(interval.id),
+                kind=interval.kind,
+                status=interval.status,
+                starts_at=interval.starts_at.isoformat(),
+                ends_at=interval.ends_at.isoformat(),
+            )
+            for interval in busy_intervals
+        ],
     )
 
 

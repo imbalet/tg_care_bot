@@ -44,6 +44,8 @@ from backend.modules.admin.presentation.api.schemas import BusinessSettingRespon
 from backend.modules.availability.application import (
     AddCalendarOverrideCommand,
     AddCalendarOverrideUseCase,
+    CancelCalendarOverrideCommand,
+    CancelCalendarOverrideUseCase,
     CheckPerformerAvailabilityCommand,
     CheckPerformerAvailabilityUseCase,
     FindSuitablePerformersCommand,
@@ -186,6 +188,8 @@ __all__ = [
     "ActivatePerformerUseCase",
     "AddCalendarOverrideCommand",
     "AddCalendarOverrideUseCase",
+    "CancelCalendarOverrideCommand",
+    "CancelCalendarOverrideUseCase",
     "AdminAuditLogModel",
     "Any",
     "ApplyPaymentWebhookUseCase",

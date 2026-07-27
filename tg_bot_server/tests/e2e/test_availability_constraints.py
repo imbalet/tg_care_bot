@@ -126,6 +126,20 @@ async def test_unavailable_override_and_selected_order_block_pool_response(
         },
     )
     assert override_response.status_code == 201, override_response.text
+    assert override_response.json()["is_active"] is True
+
+    duplicate_override_response = await e2e_client.post(
+        f"/api/performers/by-telegram/{performer.telegram_id}/calendar-overrides",
+        json={
+            "override_type": "unavailable",
+            "starts_at": order["start_at"],
+            "ends_at": order["ends_at"],
+            "comment": "Duplicate unavailable interval",
+        },
+    )
+    assert duplicate_override_response.status_code == 422, (
+        duplicate_override_response.text
+    )
 
     availability_response = await e2e_client.get(
         f"/api/availability/performers/{performer.entity_id}/check",
@@ -153,6 +167,13 @@ async def test_unavailable_override_and_selected_order_block_pool_response(
         )
         == 0
     )
+
+    cancel_response = await e2e_client.delete(
+        f"/api/performers/by-telegram/{performer.telegram_id}"
+        f"/calendar-overrides/{override_response.json()['id']}"
+    )
+    assert cancel_response.status_code == 200, cancel_response.text
+    assert cancel_response.json()["is_active"] is False
 
     (
         confirmed_customer,

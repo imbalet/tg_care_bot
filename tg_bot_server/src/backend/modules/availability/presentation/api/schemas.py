@@ -36,11 +36,21 @@ class CalendarOverrideResponse(BaseModel):
     ends_at: str
     comment: str | None
     timezone: str
+    is_active: bool
+
+
+class BusyIntervalResponse(BaseModel):
+    id: str
+    kind: str
+    status: str
+    starts_at: str
+    ends_at: str
 
 
 class CalendarResponse(BaseModel):
     schedule: ScheduleResponse | None
     overrides: list[CalendarOverrideResponse]
+    busy_intervals: list[BusyIntervalResponse]
 
 
 class AvailabilityCheckResponse(BaseModel):

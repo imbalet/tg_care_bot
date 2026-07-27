@@ -675,6 +675,7 @@ async def test_catalog_and_availability_routes_map_service_results() -> None:
         ends_at=datetime(2026, 1, 3, tzinfo=UTC),
         comment="holiday",
         timezone="UTC",
+        is_active=True,
     )
     suitable = SuitablePerformerDTO(
         performer_id=performer_id,
@@ -689,7 +690,7 @@ async def test_catalog_and_availability_routes_map_service_results() -> None:
     container.availability.set_performer_schedule = AsyncMock(return_value=schedule)
     container.availability.add_calendar_override = AsyncMock(return_value=override)
     container.availability.get_performer_calendar = AsyncMock(
-        return_value=(schedule, (override,)),
+        return_value=(schedule, (override,), ()),
     )
     container.availability.check_performer_availability = AsyncMock(
         return_value=AvailabilityCheckDTO(performer_id, True, ()),

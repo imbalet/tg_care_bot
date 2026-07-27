@@ -4,6 +4,7 @@ from uuid import UUID
 
 from backend.modules.availability.application.dto import (
     AvailabilityCheckDTO,
+    BusyIntervalDTO,
     CalendarOverrideDTO,
     PerformerScheduleDTO,
     SuitablePerformerDTO,
@@ -56,10 +57,25 @@ class AvailabilityRepository(ConflictChecker, Protocol):
     ) -> CalendarOverrideDTO | None:
         pass
 
+    async def cancel_override(
+        self,
+        *,
+        telegram_id: int,
+        override_id: UUID,
+    ) -> CalendarOverrideDTO | None:
+        pass
+
     async def get_calendar_by_telegram_id(
         self,
         telegram_id: int,
-    ) -> tuple[PerformerScheduleDTO | None, tuple[CalendarOverrideDTO, ...]] | None:
+    ) -> (
+        tuple[
+            PerformerScheduleDTO | None,
+            tuple[CalendarOverrideDTO, ...],
+            tuple[BusyIntervalDTO, ...],
+        ]
+        | None
+    ):
         pass
 
     async def find_suitable_performers(

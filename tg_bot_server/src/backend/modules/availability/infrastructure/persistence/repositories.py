@@ -7,10 +7,12 @@ from sqlalchemy import Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.common.application import to_timezone, utc_now
+from backend.common.domain import ValidationError
 from backend.modules.addresses.infrastructure.persistence.models import AddressModel
 from backend.modules.availability.application import (
     AvailabilityCheckDTO,
     AvailabilityRepository,
+    BusyIntervalDTO,
     CalendarOverrideDTO,
     PerformerScheduleDTO,
     SuitablePerformerDTO,
@@ -109,12 +111,25 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
         performer = await self._get_performer_by_telegram_id(telegram_id)
         if performer is None:
             return None
+        if override_type == "unavailable":
+            existing = await self._session.scalar(
+                select(PerformerCalendarOverrideModel.id).where(
+                    PerformerCalendarOverrideModel.performer_id == performer.id,
+                    PerformerCalendarOverrideModel.override_type == "unavailable",
+                    PerformerCalendarOverrideModel.is_active.is_(True),
+                )
+            )
+            if existing is not None:
+                raise ValidationError(
+                    "Only one active unavailable period can be scheduled"
+                )
         model = PerformerCalendarOverrideModel(
             performer_id=performer.id,
             override_type=override_type,
             starts_at=starts_at,
             ends_at=ends_at,
             comment=comment,
+            is_active=True,
         )
         self._session.add(model)
         await self._session.flush()
@@ -123,10 +138,42 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
             return None
         return _override_to_dto(model, timezone)
 
+    async def cancel_override(
+        self,
+        *,
+        telegram_id: int,
+        override_id: UUID,
+    ) -> CalendarOverrideDTO | None:
+        performer = await self._get_performer_by_telegram_id(telegram_id)
+        if performer is None:
+            return None
+        model = await self._session.scalar(
+            select(PerformerCalendarOverrideModel).where(
+                PerformerCalendarOverrideModel.id == override_id,
+                PerformerCalendarOverrideModel.performer_id == performer.id,
+                PerformerCalendarOverrideModel.override_type == "unavailable",
+                PerformerCalendarOverrideModel.is_active.is_(True),
+            )
+        )
+        if model is None:
+            return None
+        model.is_active = False
+        model.updated_at = utc_now()
+        await self._session.flush()
+        timezone = await self.get_performer_timezone(performer.id)
+        return _override_to_dto(model, timezone) if timezone is not None else None
+
     async def get_calendar_by_telegram_id(
         self,
         telegram_id: int,
-    ) -> tuple[PerformerScheduleDTO | None, tuple[CalendarOverrideDTO, ...]] | None:
+    ) -> (
+        tuple[
+            PerformerScheduleDTO | None,
+            tuple[CalendarOverrideDTO, ...],
+            tuple[BusyIntervalDTO, ...],
+        ]
+        | None
+    ):
         performer = await self._get_performer_by_telegram_id(telegram_id)
         if performer is None:
             return None
@@ -143,7 +190,65 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
             _override_to_dto(model, performer_timezone)
             for model in overrides_result.scalars()
         )
-        return _schedule_to_dto(schedule) if schedule is not None else None, overrides
+        return (
+            _schedule_to_dto(schedule) if schedule is not None else None,
+            overrides,
+            await self._busy_intervals(performer.id, performer_timezone),
+        )
+
+    async def _busy_intervals(
+        self,
+        performer_id: UUID,
+        timezone: str,
+    ) -> tuple[BusyIntervalDTO, ...]:
+        matches = await self._session.scalars(
+            select(OrderMatchModel).where(
+                OrderMatchModel.performer_id == performer_id,
+                (
+                    OrderMatchModel.status.in_(("active", "selected"))
+                    | (
+                        (OrderMatchModel.source == "direct")
+                        & (OrderMatchModel.status == "pending")
+                    )
+                ),
+            )
+        )
+        orders = await self._session.scalars(
+            select(OrderModel).where(
+                OrderModel.selected_performer_id == performer_id,
+                OrderModel.status.in_(
+                    (
+                        "confirmed",
+                        "in_progress",
+                        "waiting_report",
+                        "report_submitted",
+                    )
+                ),
+            )
+        )
+        intervals = [
+            BusyIntervalDTO(
+                id=match.id,
+                kind="direct" if match.source == "direct" else "response",
+                status=match.status,
+                starts_at=to_timezone(match.starts_at, timezone),
+                ends_at=to_timezone(match.ends_at, timezone),
+                timezone=timezone,
+            )
+            for match in matches
+        ]
+        intervals.extend(
+            BusyIntervalDTO(
+                id=order.id,
+                kind="order",
+                status=order.status,
+                starts_at=to_timezone(order.start_at, timezone),
+                ends_at=to_timezone(order.end_at, timezone),
+                timezone=timezone,
+            )
+            for order in orders
+        )
+        return tuple(sorted(intervals, key=lambda item: item.starts_at))
 
     async def check(
         self,
@@ -363,6 +468,7 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
             .where(
                 PerformerCalendarOverrideModel.performer_id == performer_id,
                 PerformerCalendarOverrideModel.override_type == "available",
+                PerformerCalendarOverrideModel.is_active.is_(True),
                 PerformerCalendarOverrideModel.starts_at <= starts_at,
                 PerformerCalendarOverrideModel.ends_at >= ends_at,
             ),
@@ -434,6 +540,7 @@ def _override_to_dto(
         ends_at=model.ends_at,
         comment=model.comment,
         timezone=timezone,
+        is_active=model.is_active,
     )
 
 
@@ -450,6 +557,7 @@ def _overlap_override_statement(
         .where(
             PerformerCalendarOverrideModel.performer_id == performer_id,
             PerformerCalendarOverrideModel.override_type == override_type,
+            PerformerCalendarOverrideModel.is_active.is_(True),
             PerformerCalendarOverrideModel.starts_at < ends_at,
             PerformerCalendarOverrideModel.ends_at > starts_at,
         )
