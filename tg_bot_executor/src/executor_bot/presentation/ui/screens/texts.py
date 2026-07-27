@@ -553,7 +553,7 @@ def my_order_card_text(
         f"Сумма заказа: {escape(str(order.total_amount))} ₽",
     ]
     if order.matching_mode is not None:
-        lines.append(f"Подбор: {escape(order.matching_mode)}")
+        lines.append(f"Подбор: {_matching_mode_label(order.matching_mode)}")
     if order.status == "searching":
         lines.append(f"Подбор до: {_datetime_label(order.matching_deadline_at)}")
     if order.payment_deadline_at is not None:
@@ -652,6 +652,13 @@ def _order_status_label(status: str) -> str:
         "cancelled": "отменен",
         "expired": "истек",
     }.get(status, escape(status))
+
+
+def _matching_mode_label(mode: str) -> str:
+    return {"pool": "общий подбор", "direct": "прямой заказ"}.get(
+        mode,
+        escape(mode),
+    )
 
 
 def _datetime_label(value: datetime) -> str:
