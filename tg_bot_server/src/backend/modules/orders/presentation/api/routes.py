@@ -187,8 +187,49 @@ async def get_customer_performer_profile(
         performer_id=profile.performer_id,
         full_name=profile.full_name,
         about_text=profile.about_text,
-        contact_method=profile.contact_method,
-        telegram_username=profile.telegram_username,
+        city_name=profile.city_name,
+        avatar_url=profile.avatar_url,
+        services=[
+            {
+                "service_id": service.service_id,
+                "service_name": service.service_name,
+                "price_type": service.price_type,
+                "base_price": service.base_price,
+                "performer_max_objects": service.performer_max_objects,
+            }
+            for service in profile.services
+        ],
+    )
+
+
+@router.get(
+    "/customer/{customer_id}/performers/{performer_id}/profile",
+)
+async def get_customer_public_performer_profile(
+    customer_id: UUID,
+    performer_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> CustomerPerformerProfileResponse:
+    profile = await container.orders.get_public_performer_profile(
+        customer_id=customer_id,
+        performer_id=performer_id,
+    )
+    return CustomerPerformerProfileResponse(
+        performer_id=profile.performer_id,
+        full_name=profile.full_name,
+        about_text=profile.about_text,
+        city_name=profile.city_name,
+        avatar_url=profile.avatar_url,
+        services=[
+            {
+                "service_id": service.service_id,
+                "service_name": service.service_name,
+                "price_type": service.price_type,
+                "base_price": service.base_price,
+                "performer_max_objects": service.performer_max_objects,
+            }
+            for service in profile.services
+        ],
     )
 
 

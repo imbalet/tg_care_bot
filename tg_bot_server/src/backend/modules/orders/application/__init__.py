@@ -15,6 +15,7 @@ from .dto import (
     OrderReportDTO,
     OrderReportFileDTO,
     PaymentPromptDTO,
+    PerformerServiceProfileDTO,
     PricePreviewDTO,
     ServicePricingDTO,
 )
@@ -44,6 +45,7 @@ __all__ = [
     "CalculatePricePreviewUseCase",
     "CancellationPreviewDTO",
     "CustomerPerformerProfileDTO",
+    "PerformerServiceProfileDTO",
     "CancelOrderCommand",
     "CancelOrderUseCase",
     "ConfirmReportCommand",

@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from ._shared import (
     UUID,
     Any,
@@ -56,12 +58,44 @@ class OrderServices(Service):
         customer_id: UUID,
     ) -> CustomerPerformerProfileDTO:
         async with self._uow() as uow:
-            return await SqlAlchemyOrderRepository(
+            profile = await SqlAlchemyOrderRepository(
                 uow.session
             ).get_customer_performer_profile(
                 order_id=order_id,
                 customer_id=customer_id,
             )
+            return await self._with_avatar(uow.session, profile)
+
+    async def get_public_performer_profile(
+        self,
+        *,
+        customer_id: UUID,
+        performer_id: UUID,
+    ) -> CustomerPerformerProfileDTO:
+        async with self._uow() as uow:
+            profile = await SqlAlchemyOrderRepository(
+                uow.session
+            ).get_public_performer_profile(
+                customer_id=customer_id,
+                performer_id=performer_id,
+            )
+            return await self._with_avatar(uow.session, profile)
+
+    async def _with_avatar(
+        self, session: Any, profile: CustomerPerformerProfileDTO
+    ) -> CustomerPerformerProfileDTO:
+        avatar = await SqlAlchemyFileRepository(session).get_avatar_for_entity(
+            entity_type="performer",
+            entity_id=profile.performer_id,
+        )
+        return replace(
+            profile,
+            avatar_url=(
+                await self._storage().create_download_url(avatar.storage_key)
+                if avatar is not None and avatar.storage_key is not None
+                else None
+            ),
+        )
 
     async def confirm_customer_report(
         self,

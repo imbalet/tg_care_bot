@@ -38,6 +38,11 @@ class PricingRepository(Protocol):
 
 
 class OrderRepository(Protocol):
+    async def get_public_performer_profile(
+        self, *, customer_id: UUID, performer_id: UUID
+    ) -> CustomerPerformerProfileDTO:
+        pass
+
     async def get_customer_performer_profile(
         self, *, order_id: UUID, customer_id: UUID
     ) -> CustomerPerformerProfileDTO:

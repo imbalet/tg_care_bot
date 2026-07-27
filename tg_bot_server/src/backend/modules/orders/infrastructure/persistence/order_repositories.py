@@ -13,6 +13,7 @@ from backend.modules.care_objects.infrastructure import CareObjectModel
 from backend.modules.catalog.infrastructure import (
     CityModel,
     DistrictModel,
+    ServiceModel,
     ServiceOptionModel,
 )
 from backend.modules.customers.infrastructure import CustomerModel
@@ -24,6 +25,7 @@ from backend.modules.orders.application import (
     OrderDTO,
     OrderReportDTO,
     OrderRepository,
+    PerformerServiceProfileDTO,
     PricePreviewDTO,
     ServicePricingDTO,
 )
@@ -57,10 +59,8 @@ class SqlAlchemyOrderRepository(OrderRepository):
         order_id: UUID,
         customer_id: UUID,
     ) -> CustomerPerformerProfileDTO:
-        result = await self._session.execute(
-            select(PerformerModel)
-            .join(OrderModel, OrderModel.selected_performer_id == PerformerModel.id)
-            .where(
+        performer_id = await self._session.scalar(
+            select(OrderModel.selected_performer_id).where(
                 OrderModel.id == order_id,
                 OrderModel.customer_id == customer_id,
                 OrderModel.status.in_(
@@ -74,15 +74,66 @@ class SqlAlchemyOrderRepository(OrderRepository):
                 ),
             )
         )
-        performer = result.scalar_one_or_none()
-        if performer is None:
+        if performer_id is None:
             raise NotFoundError("Performer profile is not available")
+        return await self._public_performer_profile(performer_id)
+
+    async def get_public_performer_profile(
+        self,
+        *,
+        customer_id: UUID,
+        performer_id: UUID,
+    ) -> CustomerPerformerProfileDTO:
+        customer_exists = await self._session.scalar(
+            select(CustomerModel.id).where(CustomerModel.id == customer_id)
+        )
+        if customer_exists is None:
+            raise NotFoundError("Customer not found")
+        return await self._public_performer_profile(performer_id)
+
+    async def _public_performer_profile(
+        self, performer_id: UUID
+    ) -> CustomerPerformerProfileDTO:
+        performer, city = (
+            await self._session.execute(
+                select(PerformerModel, CityModel)
+                .join(CityModel, CityModel.id == PerformerModel.city_id)
+                .where(
+                    PerformerModel.id == performer_id,
+                    PerformerModel.status == "active",
+                    PerformerModel.deleted_at.is_(None),
+                )
+            )
+        ).one_or_none() or (None, None)
+        if performer is None or city is None:
+            raise NotFoundError("Performer profile is not available")
+        service_rows = await self._session.execute(
+            select(PerformerServiceModel, ServiceModel)
+            .join(ServiceModel, ServiceModel.id == PerformerServiceModel.service_id)
+            .where(
+                PerformerServiceModel.performer_id == performer_id,
+                PerformerServiceModel.is_approved.is_(True),
+                PerformerServiceModel.is_enabled.is_(True),
+                ServiceModel.is_active.is_(True),
+            )
+            .order_by(ServiceModel.sort_order, ServiceModel.name)
+        )
         return CustomerPerformerProfileDTO(
             performer_id=performer.id,
             full_name=performer.full_name,
             about_text=performer.about_text,
-            contact_method=performer.contact_method,
-            telegram_username=performer.telegram_username,
+            city_name=city.name,
+            avatar_url=None,
+            services=tuple(
+                PerformerServiceProfileDTO(
+                    service_id=service.id,
+                    service_name=service.name,
+                    price_type=service.price_type,
+                    base_price=service.base_price,
+                    performer_max_objects=performer_service.performer_max_objects,
+                )
+                for performer_service, service in service_rows.all()
+            ),
         )
 
     async def start_order(self, *, order_id: UUID, performer_id: UUID) -> OrderDTO:
