@@ -269,7 +269,9 @@ def executor_profile_text(
         "active": "Активен",
         "blocked": "Заблокирован",
         "pending": "На проверке",
-    }.get(profile.status, profile.status)
+        "profile_pending": "Профиль на проверке",
+        "deletion_pending": "Удаление запрошено",
+    }.get(profile.status, escape(profile.status))
     current_address = "не выбран" if profile.current_address_id is None else "выбран"
     return "\n".join(
         (
