@@ -732,6 +732,17 @@ class BackendClient(BackendPort):
             requested_method=str(payload["requested_method"]),
             status=str(payload["status"]),
             failure_reason=payload.get("failure_reason"),
+            contact_name=str(payload["contact_name"]),
+            contact_phone=(
+                str(payload["contact_phone"])
+                if payload.get("contact_phone") is not None
+                else None
+            ),
+            contact_telegram_username=(
+                str(payload["contact_telegram_username"])
+                if payload.get("contact_telegram_username") is not None
+                else None
+            ),
         )
 
     async def get_performer_profile(

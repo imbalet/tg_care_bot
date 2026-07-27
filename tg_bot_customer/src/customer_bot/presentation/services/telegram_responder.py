@@ -121,6 +121,23 @@ class TelegramResponder:
             store_message=False,
         )
 
+    async def send_contact(
+        self,
+        *,
+        bot: Bot,
+        event: Message | CallbackQuery,
+        phone_number: str,
+        first_name: str,
+    ) -> Message | None:
+        message = event if isinstance(event, Message) else event.message
+        if not isinstance(message, Message):
+            return None
+        return await bot.send_contact(
+            chat_id=message.chat.id,
+            phone_number=phone_number,
+            first_name=first_name,
+        )
+
     async def delete_clicked_message(self, callback: CallbackQuery) -> None:
         if isinstance(callback.message, Message):
             await _delete_message(callback.message)

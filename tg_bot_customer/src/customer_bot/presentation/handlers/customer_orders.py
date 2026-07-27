@@ -21,6 +21,7 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.navigation import active_category
 from customer_bot.presentation.services import TelegramResponder
+from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens import (
     MyOrderCardScreen,
     MyOrdersPageScreen,
@@ -41,19 +42,40 @@ logger = logging.getLogger(__name__)
 @router.callback_query(OrderContactCallback.filter())
 async def contact_order_callback(
     callback: CallbackQuery,
+    bot: Bot,
     telegram_responder: TelegramResponder,
     backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
     callback_data: OrderContactCallback,
 ) -> None:
     try:
-        await backend_client.create_contact_request(
+        result = await backend_client.create_contact_request(
             telegram_id=telegram_user_context.telegram_id,
             order_id=callback_data.order_id,
         )
         await telegram_responder.acknowledge(
             callback, "Запрос контакта отправлен исполнителю"
         )
+        if result.contact_phone:
+            await telegram_responder.send_contact(
+                bot=bot,
+                event=callback,
+                phone_number=result.contact_phone,
+                first_name=result.contact_name,
+            )
+        if result.contact_telegram_username:
+            username = result.contact_telegram_username.lstrip("@")
+            await telegram_responder.send_notice(
+                bot=bot,
+                event=callback,
+                telegram_id=telegram_user_context.telegram_id,
+                text=f"Telegram исполнителя: @{username}",
+                reply_markup=(
+                    InlineKeyboardFactory()
+                    .url_button("Открыть Telegram", f"https://t.me/{username}")
+                    .as_markup()
+                ),
+            )
     except BackendClientError:
         await telegram_responder.acknowledge(
             callback, "Запрос контакта сейчас недоступен", show_alert=True
