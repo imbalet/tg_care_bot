@@ -242,6 +242,8 @@ def test_notification_registry_and_timezone_rules_are_deterministic() -> None:
         == entity_id
     )
     assert notification_body("unknown_event") == "unknown_event"
+    assert "не выполнен автоматически" in notification_body("refund_failed")
+    assert "администратору" in notification_body("refund_failed")
     assert parse_timezone("Europe/Moscow").key == "Europe/Moscow"
     naive = datetime(2026, 1, 1, 10)
     assert to_utc(naive, "Europe/Moscow").tzinfo == UTC
