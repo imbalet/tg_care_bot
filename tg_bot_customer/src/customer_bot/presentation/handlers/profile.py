@@ -178,7 +178,8 @@ async def deletion_check_callback(
         return
     if preflight.blockers:
         blockers = ", ".join(
-            f"{item.get('kind', 'обязательство')}: {item.get('status', '')}"
+            f"{_blocker_kind_label(item.get('kind'))}: "
+            f"{_blocker_status_label(item.get('status'))}"
             for item in preflight.blockers[:5]
         )
         await telegram_responder.acknowledge(
@@ -194,6 +195,30 @@ async def deletion_check_callback(
         .button("Подтвердить удаление", ProfileDeletionConfirmCallback())
         .as_markup(),
     )
+
+
+def _blocker_kind_label(kind: object) -> str:
+    return {
+        "order": "заказ",
+        "payment": "платёж",
+        "refund": "возврат",
+        "payout": "выплата",
+        "dispute": "спор",
+    }.get(str(kind), "обязательство")
+
+
+def _blocker_status_label(status: object) -> str:
+    return {
+        "searching": "идёт подбор",
+        "waiting_payment": "ожидает оплаты",
+        "confirmed": "подтверждён",
+        "in_progress": "выполняется",
+        "waiting_report": "ожидает отчёт",
+        "report_submitted": "отчёт отправлен",
+        "pending": "ожидает обработки",
+        "processing": "обрабатывается",
+        "failed": "ошибка",
+    }.get(str(status), "неизвестен")
 
 
 @router.callback_query(ProfileDeletionConfirmCallback.filter())
