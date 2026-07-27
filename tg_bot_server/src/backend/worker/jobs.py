@@ -939,7 +939,7 @@ def _notification_text(notification: NotificationModel) -> str:
     lines = [f"<b>{escape(title)}</b>", escape(body)]
     order_id = notification.payload.get("order_id")
     if order_id is not None:
-        lines.append(f"Заказ: {escape(str(order_id))}")
+        lines.append(f"Заказ: #{escape(str(order_id)[:8])}")
     return "\n".join(lines)
 
 

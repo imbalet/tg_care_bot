@@ -83,3 +83,17 @@ def test_notification_rendering_supports_invitation_and_unknown_action() -> None
 
     assert "/start" in _notification_text(invitation)
     assert _notification_keyboard(unknown) is None
+
+
+@pytest.mark.unit
+def test_notification_rendering_shows_short_order_id() -> None:
+    notification = NotificationModel(
+        recipient_type="customer",
+        type="order_started",
+        payload={"order_id": "12345678-1234-1234-1234-123456789abc"},
+    )
+
+    text = _notification_text(notification)
+
+    assert "Заказ: #12345678" in text
+    assert "12345678-1234" not in text
