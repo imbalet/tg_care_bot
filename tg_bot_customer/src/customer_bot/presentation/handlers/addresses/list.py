@@ -107,11 +107,45 @@ async def select_address(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: AddressSelectCallback,
 ) -> None:
-    item = await _address_by_id(state, callback_data.address_id)
+    try:
+        addresses = await backend_client.list_addresses(
+            telegram_id=telegram_user_context.telegram_id,
+        )
+    except BackendValidationError:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := AddressValidationScreen().build()).text,
+            reply_markup=screen.reply_markup,
+        )
+        return
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to reload addresses before selection",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "address_id": str(callback_data.address_id),
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
+        )
+        return
+    item = next(
+        (address for address in addresses if address.id == callback_data.address_id),
+        None,
+    )
     if item is None:
         logger.warning(
             "Stale address select callback",
@@ -128,6 +162,9 @@ async def select_address(
             reply_markup=screen.reply_markup,
         )
         return
+    await state.update_data(
+        addresses=[_address_state(address) for address in addresses]
+    )
     await telegram_responder.update(
         bot=bot,
         event=callback,
@@ -135,12 +172,12 @@ async def select_address(
         text=(
             screen := AddressCardScreen(
                 AddressCardView(
-                    id=str(item["id"]),
-                    address_text=str(item["address_text"]),
-                    entrance=str(item.get("entrance") or ""),
-                    floor=str(item.get("floor") or ""),
-                    apartment=str(item.get("apartment") or ""),
-                    comment=str(item.get("comment") or ""),
+                    id=str(item.id),
+                    address_text=item.address_text,
+                    entrance=str(item.entrance or ""),
+                    floor=str(item.floor or ""),
+                    apartment=str(item.apartment or ""),
+                    comment=str(item.comment or ""),
                 )
             ).build()
         ).text,
