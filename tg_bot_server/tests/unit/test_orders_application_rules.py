@@ -102,6 +102,7 @@ def _order_repository(
         "report_deadline_minutes": 30,
         "customer_cancel_before_start_minutes": 360,
         "performer_cancel_before_start_minutes": 180,
+        "start_button_before_minutes": 30,
     }.get(key)
     return repository
 
@@ -325,11 +326,12 @@ async def test_start_finish_and_cancel_delegate_policy_to_repository() -> None:
         "report_deadline_minutes": 30,
         "customer_cancel_before_start_minutes": 360,
         "performer_cancel_before_start_minutes": 180,
+        "start_button_before_minutes": 30,
     }.get(key)
     order_id = uuid4()
     performer_id = uuid4()
 
-    await StartOrderUseCase(repository).execute(
+    await StartOrderUseCase(repository, pricing).execute(
         StartOrderCommand(order_id, performer_id),
     )
     await FinishOrderUseCase(repository, pricing).execute(
@@ -342,6 +344,7 @@ async def test_start_finish_and_cancel_delegate_policy_to_repository() -> None:
     repository.start_order.assert_awaited_once_with(
         order_id=order_id,
         performer_id=performer_id,
+        start_button_before_minutes=30,
     )
     repository.finish_order.assert_awaited_once()
     repository.cancel_order.assert_awaited_once_with(

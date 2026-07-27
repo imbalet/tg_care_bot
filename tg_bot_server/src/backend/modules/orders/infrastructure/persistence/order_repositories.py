@@ -136,13 +136,23 @@ class SqlAlchemyOrderRepository(OrderRepository):
             ),
         )
 
-    async def start_order(self, *, order_id: UUID, performer_id: UUID) -> OrderDTO:
+    async def start_order(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+        start_button_before_minutes: int,
+    ) -> OrderDTO:
         order = await self._lock_order(order_id)
         if order.selected_performer_id != performer_id:
             raise NotFoundError("Order not found")
         if order.status != "confirmed":
             raise self._stale(order, "Order is not ready to start")
         now = utc_now()
+        if now < order.start_at - timedelta(minutes=start_button_before_minutes):
+            raise ConflictError("Order start window has not opened")
+        if now >= order.end_at:
+            raise ConflictError("Order start window has ended")
         order.status = "in_progress"
         order.actual_started_at = now
         self._add_status_history(
@@ -168,6 +178,7 @@ class SqlAlchemyOrderRepository(OrderRepository):
         *,
         order_id: UUID,
         customer_id: UUID,
+        start_button_before_minutes: int,
     ) -> OrderDTO:
         order = await self._lock_order(order_id)
         if order.customer_id != customer_id:
@@ -175,6 +186,10 @@ class SqlAlchemyOrderRepository(OrderRepository):
         if order.status != "confirmed":
             raise self._stale(order, "Order is not ready to start")
         now = utc_now()
+        if now < order.start_at - timedelta(minutes=start_button_before_minutes):
+            raise ConflictError("Order start window has not opened")
+        if now >= order.end_at:
+            raise ConflictError("Order start window has ended")
         order.status = "in_progress"
         order.actual_started_at = now
         self._add_status_history(

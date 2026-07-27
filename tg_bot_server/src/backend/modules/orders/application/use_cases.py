@@ -142,13 +142,24 @@ class CreatePoolOrderUseCase:
 
 
 class StartOrderByCustomerUseCase:
-    def __init__(self, repository: OrderRepository) -> None:
+    def __init__(
+        self,
+        repository: OrderRepository,
+        pricing_repository: PricingRepository,
+    ) -> None:
         self._repository = repository
+        self._pricing_repository = pricing_repository
 
     async def execute(self, command: StartOrderByCustomerCommand) -> OrderDTO:
+        start_window = await self._pricing_repository.get_integer_setting(
+            "start_button_before_minutes",
+        )
+        if start_window is None:
+            raise ValidationError("Start button policy is not configured")
         return await self._repository.start_order_by_customer(
             order_id=command.order_id,
             customer_id=command.customer_id,
+            start_button_before_minutes=start_window,
         )
 
 
@@ -214,13 +225,22 @@ class CreateDirectOrderUseCase:
 
 
 class StartOrderUseCase:
-    def __init__(self, repository: OrderRepository) -> None:
+    def __init__(
+        self, repository: OrderRepository, pricing_repository: PricingRepository
+    ) -> None:
         self._repository = repository
+        self._pricing_repository = pricing_repository
 
     async def execute(self, command: StartOrderCommand) -> OrderDTO:
+        start_window = await self._pricing_repository.get_integer_setting(
+            "start_button_before_minutes",
+        )
+        if start_window is None:
+            raise ValidationError("Start button policy is not configured")
         return await self._repository.start_order(
             order_id=command.order_id,
             performer_id=command.performer_id,
+            start_button_before_minutes=start_window,
         )
 
 

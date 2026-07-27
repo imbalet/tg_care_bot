@@ -125,6 +125,7 @@ class OrderServices(Service):
         async with self._uow() as uow:
             order = await StartOrderByCustomerUseCase(
                 SqlAlchemyOrderRepository(uow.session),
+                SqlAlchemyPricingRepository(uow.session),
             ).execute(
                 StartOrderByCustomerCommand(
                     order_id=order_id,
@@ -175,6 +176,7 @@ class OrderServices(Service):
         async with self._uow() as uow:
             order = await StartOrderUseCase(
                 SqlAlchemyOrderRepository(uow.session),
+                SqlAlchemyPricingRepository(uow.session),
             ).execute(
                 StartOrderCommand(order_id=order_id, performer_id=performer_id),
             )
