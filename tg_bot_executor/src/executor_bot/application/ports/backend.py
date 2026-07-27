@@ -163,6 +163,15 @@ class BackendPort(Protocol):
         is_accepting_orders: bool,
     ) -> PerformerProfileDTO: ...
 
+    async def get_nearby_order_notifications(self, *, telegram_id: int) -> bool: ...
+
+    async def set_nearby_order_notifications(
+        self,
+        *,
+        telegram_id: int,
+        is_enabled: bool,
+    ) -> bool: ...
+
     async def set_schedule(
         self,
         *,

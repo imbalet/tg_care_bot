@@ -36,6 +36,7 @@ from executor_bot.presentation.callbacks import (
     ExecutorResponsesCallback,
     HelpCallback,
     MainMenuCallback,
+    NearbyOrderNotificationsCallback,
     PoolRespondCallback,
     ProfileOpenCallback,
     RegistrationCityCallback,
@@ -464,6 +465,7 @@ def services_keyboard(
     items: Sequence[object],
     *,
     is_accepting_orders: bool = False,
+    nearby_notifications_enabled: bool = False,
 ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory()
     if is_accepting_orders:
@@ -476,6 +478,14 @@ def services_keyboard(
             "Начать принимать заказы",
             AcceptingOrdersCallback(value=True),
         )
+    keyboard.button(
+        (
+            "Выключить уведомления о ближайших заказах"
+            if nearby_notifications_enabled
+            else "Включить уведомления о ближайших заказах"
+        ),
+        NearbyOrderNotificationsCallback(value=not nearby_notifications_enabled),
+    )
     for index, item in enumerate(items):
         enabled = bool(getattr(item, "is_enabled", False))
         name = str(getattr(item, "service_name", f"#{index + 1}"))

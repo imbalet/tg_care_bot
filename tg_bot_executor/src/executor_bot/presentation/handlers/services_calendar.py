@@ -20,6 +20,7 @@ from executor_bot.presentation.callbacks import (
     CalendarOpenCallback,
     CalendarScheduleCallback,
     CalendarUnavailableCallback,
+    NearbyOrderNotificationsCallback,
     ServiceLimitCallback,
     ServicesOpenCallback,
     ServiceToggleCallback,
@@ -111,6 +112,39 @@ async def toggle_accepting_orders(
         callback=callback,
         bot=bot,
         state=None,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        telegram_user_context=telegram_user_context,
+    )
+
+
+@router.callback_query(NearbyOrderNotificationsCallback.filter())
+async def toggle_nearby_order_notifications(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: NearbyOrderNotificationsCallback,
+) -> None:
+    try:
+        await backend_client.set_nearby_order_notifications(
+            telegram_id=telegram_user_context.telegram_id,
+            is_enabled=callback_data.value,
+        )
+    except BackendClientError:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=retry_later_text(),
+        )
+        return
+    await _show_services(
+        callback=callback,
+        bot=bot,
+        state=state,
         backend_client=backend_client,
         telegram_responder=telegram_responder,
         telegram_user_context=telegram_user_context,
@@ -518,6 +552,9 @@ async def _show_services(
     registration = await backend_client.get_registration_state(
         telegram_user_context.telegram_id,
     )
+    nearby_notifications_enabled = await backend_client.get_nearby_order_notifications(
+        telegram_id=telegram_user_context.telegram_id,
+    )
     is_accepting_orders = bool(
         registration.performer and registration.performer.is_accepting_orders
     )
@@ -525,15 +562,21 @@ async def _show_services(
         await state.update_data(
             performer_services=[_service_state(item) for item in services],
             is_accepting_orders=is_accepting_orders,
+            nearby_notifications_enabled=nearby_notifications_enabled,
         )
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=services_text(services, is_accepting_orders),
+        text=services_text(
+            services,
+            is_accepting_orders,
+            nearby_notifications_enabled,
+        ),
         reply_markup=services_keyboard(
             services,
             is_accepting_orders=is_accepting_orders,
+            nearby_notifications_enabled=nearby_notifications_enabled,
         ),
     )
 

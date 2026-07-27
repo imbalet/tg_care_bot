@@ -198,6 +198,13 @@ class AcceptingOrdersCallback(CallbackData, prefix="accepting_orders"):
     value: bool
 
 
+class NearbyOrderNotificationsCallback(
+    CallbackData,
+    prefix="nearby_order_notifications",
+):
+    value: bool
+
+
 class ServiceToggleCallback(CallbackData, prefix="service_toggle"):
     index: int
 

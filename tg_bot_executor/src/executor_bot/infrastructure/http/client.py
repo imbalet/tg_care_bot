@@ -428,6 +428,28 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return _performer_from_json(response.json())
 
+    async def get_nearby_order_notifications(self, *, telegram_id: int) -> bool:
+        response = await self._request(
+            "GET",
+            f"/api/performers/by-telegram/{telegram_id}/nearby-order-notifications",
+        )
+        self._raise_for_status(response)
+        return bool(response.json()["is_enabled"])
+
+    async def set_nearby_order_notifications(
+        self,
+        *,
+        telegram_id: int,
+        is_enabled: bool,
+    ) -> bool:
+        response = await self._request(
+            "PATCH",
+            f"/api/performers/by-telegram/{telegram_id}/nearby-order-notifications",
+            json={"is_enabled": is_enabled},
+        )
+        self._raise_for_status(response)
+        return bool(response.json()["is_enabled"])
+
     async def set_schedule(
         self,
         *,

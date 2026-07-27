@@ -372,14 +372,27 @@ def avatar_deleted_text() -> str:
     return "Аватар удален."
 
 
-def services_text(items: Sequence[object], is_accepting_orders: bool = False) -> str:
+def services_text(
+    items: Sequence[object],
+    is_accepting_orders: bool = False,
+    nearby_notifications_enabled: bool = False,
+) -> str:
+    notifications = "включены" if nearby_notifications_enabled else "выключены"
     if not items:
         accepting = "принимаю заказы" if is_accepting_orders else "не принимаю заказы"
         return (
-            f"<b>Услуги</b>\n\nПриём заказов: {accepting}\n\nПока нет одобренных услуг."
+            f"<b>Услуги</b>\n\nПриём заказов: {accepting}\n"
+            f"Уведомления о ближайших заказах: {notifications}\n\n"
+            "Пока нет одобренных услуг."
         )
     accepting = "принимаю заказы" if is_accepting_orders else "не принимаю заказы"
-    lines = ["<b>Услуги</b>", "", f"Приём заказов: {accepting}", ""]
+    lines = [
+        "<b>Услуги</b>",
+        "",
+        f"Приём заказов: {accepting}",
+        f"Уведомления о ближайших заказах: {notifications}",
+        "",
+    ]
     for item in items:
         enabled = "включена" if getattr(item, "is_enabled", False) else "выключена"
         limit = escape(str(getattr(item, "performer_max_objects", 1)))
