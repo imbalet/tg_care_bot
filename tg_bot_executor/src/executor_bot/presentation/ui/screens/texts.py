@@ -446,6 +446,14 @@ def available_orders_setup_text(reason: str) -> str:
     return f"<b>Доступные заказы</b>\n\n{messages[reason]}"
 
 
+def cancel_confirmation_text() -> str:
+    return (
+        "<b>Отменить заказ?</b>\n\n"
+        "Подтвердите, что не сможете выполнить этот заказ. "
+        "После отмены заказ будет передан в дальнейшую обработку."
+    )
+
+
 def available_orders_text(items: Sequence[object], scope: object) -> str:
     if not items:
         return available_orders_placeholder_text(scope)

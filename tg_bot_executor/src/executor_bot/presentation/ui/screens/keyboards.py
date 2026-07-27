@@ -21,6 +21,7 @@ from executor_bot.presentation.callbacks import (
     DirectAcceptCallback,
     DirectRejectCallback,
     ExecutorOrderCancelCallback,
+    ExecutorOrderCancelConfirmCallback,
     ExecutorOrderCardCallback,
     ExecutorOrderComplaintCallback,
     ExecutorOrderContactCallback,
@@ -291,6 +292,21 @@ def available_order_card_keyboard(order_id: str) -> InlineKeyboardMarkup:
         InlineKeyboardFactory()
         .button("Откликнуться", PoolRespondCallback(order_id=order_id))
         .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
+
+
+def cancel_confirmation_keyboard(order_id: str) -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button(
+            "Да, отменить заказ",
+            ExecutorOrderCancelConfirmCallback(order_id=order_id),
+        )
+        .button(
+            "Нет, вернуться к заказу",
+            ExecutorOrderCardCallback(order_id=order_id),
+        )
         .as_markup()
     )
 

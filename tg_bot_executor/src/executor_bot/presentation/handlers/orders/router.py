@@ -20,6 +20,7 @@ from executor_bot.presentation.callbacks import (
     DirectAcceptCallback,
     DirectRejectCallback,
     ExecutorOrderCancelCallback,
+    ExecutorOrderCancelConfirmCallback,
     ExecutorOrderCardCallback,
     ExecutorOrderComplaintCallback,
     ExecutorOrderContactCallback,
@@ -45,6 +46,8 @@ from executor_bot.presentation.ui import (
     available_orders_keyboard,
     available_orders_setup_text,
     available_orders_text,
+    cancel_confirmation_keyboard,
+    cancel_confirmation_text,
     direct_accept_created_text,
     direct_conflict_text,
     direct_rejected_text,
@@ -748,13 +751,32 @@ async def complaint_text(
 
 
 @router.callback_query(ExecutorOrderCancelCallback.filter())
+async def order_cancel_preview_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderCancelCallback,
+) -> None:
+    await telegram_responder.acknowledge(callback)
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=cancel_confirmation_text(),
+        reply_markup=cancel_confirmation_keyboard(callback_data.order_id),
+        create_new=False,
+    )
+
+
+@router.callback_query(ExecutorOrderCancelConfirmCallback.filter())
 async def order_cancel_callback(
     callback: CallbackQuery,
     bot: Bot,
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
-    callback_data: ExecutorOrderCancelCallback,
+    callback_data: ExecutorOrderCancelConfirmCallback,
 ) -> None:
     try:
         await backend_client.cancel_order(

@@ -122,6 +122,10 @@ class ExecutorOrderCancelCallback(CallbackData, prefix="order_cancel"):
     order_id: str
 
 
+class ExecutorOrderCancelConfirmCallback(CallbackData, prefix="order_cancel_confirm"):
+    order_id: str
+
+
 class ExecutorOrderComplaintCallback(CallbackData, prefix="order_complaint"):
     order_id: str
 

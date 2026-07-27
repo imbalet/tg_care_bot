@@ -5,6 +5,7 @@ from uuid import uuid4
 from executor_bot.infrastructure.http import PerformerProfileDTO
 from executor_bot.presentation.ui import (
     avatar_keyboard,
+    cancel_confirmation_keyboard,
     contact_methods_keyboard,
     executor_profile_text,
     executor_setup_hint_text,
@@ -157,3 +158,10 @@ def test_my_orders_page_text_shows_short_order_id() -> None:
     text = my_orders_page_text(page, "active")
 
     assert f"ID: #{str(order_id)[:8]}" in text
+
+
+def test_cancel_confirmation_keyboard_has_confirm_and_back_actions() -> None:
+    keyboard = cancel_confirmation_keyboard("12345678-1234-1234-1234-123456789abc")
+
+    assert "order_cancel_confirm" in str(keyboard.inline_keyboard[0][0].callback_data)
+    assert "my_order_card" in str(keyboard.inline_keyboard[1][0].callback_data)
