@@ -9,6 +9,10 @@ from customer_bot.presentation.callbacks import (
     PaymentRetryCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
+from customer_bot.presentation.ui.screens.orders.status_labels import (
+    order_status_label,
+    payment_status_label,
+)
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreen,
     Markup,
@@ -47,7 +51,7 @@ class _View(Protocol):
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
-        order_status = escape(str(self.data.order_status))
+        order_status = order_status_label(self.data.order_status)
         payment_status = self.data.payment_status
         confirmation_url = self.data.confirmation_url
         expires_at = self.data.expires_at
@@ -57,7 +61,7 @@ class Screen(BaseScreen[_View]):
             f"Статус заказа: {order_status}",
         ]
         if payment_status is not None:
-            lines.append(f"Статус платежа: {escape(str(payment_status))}")
+            lines.append(f"Статус платежа: {payment_status_label(payment_status)}")
         if self.data.failure_code:
             lines.append("Платеж не выполнен. Можно попробовать оплатить снова.")
         lines.append(

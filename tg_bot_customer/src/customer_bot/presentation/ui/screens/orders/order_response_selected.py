@@ -7,6 +7,7 @@ from customer_bot.presentation.callbacks import (
     PaymentRefreshCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
+from customer_bot.presentation.ui.screens.orders.status_labels import order_status_label
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreen,
     Markup,
@@ -30,7 +31,7 @@ class Screen(BaseScreen[_View]):
         lines = [
             "<b>Исполнитель выбран</b>",
             "",
-            f"Статус заказа: {escape(self.data.order_status)}",
+            f"Статус заказа: {order_status_label(self.data.order_status)}",
         ]
         if self.data.payment_confirmation_url:
             lines.extend(("", f"Оплата: {escape(self.data.payment_confirmation_url)}"))

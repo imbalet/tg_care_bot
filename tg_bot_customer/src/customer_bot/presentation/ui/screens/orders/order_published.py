@@ -7,6 +7,10 @@ from customer_bot.presentation.callbacks import (
     OrderResponsesOpenCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
+from customer_bot.presentation.ui.screens.orders.status_labels import (
+    matching_mode_label,
+    order_status_label,
+)
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreen,
     Markup,
@@ -41,8 +45,8 @@ class Screen(BaseScreen[_View]):
                 "",
                 f"ID: {escape(str(self.data.id))}",
                 f"Услуга: {escape(self.data.service_name)}",
-                f"Статус: {escape(self.data.status)}",
-                f"Подбор: {escape(mode)}",
+                f"Статус: {order_status_label(self.data.status)}",
+                f"Подбор: {matching_mode_label(mode)}",
                 f"Итого: {escape(str(self.data.total_amount))}",
             ),
         )

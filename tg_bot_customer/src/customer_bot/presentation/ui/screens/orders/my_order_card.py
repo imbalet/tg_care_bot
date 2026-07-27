@@ -20,6 +20,10 @@ from customer_bot.presentation.callbacks import (
     SupportOpenCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
+from customer_bot.presentation.ui.screens.orders.status_labels import (
+    matching_mode_label,
+    payment_status_label,
+)
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreen,
     Markup,
@@ -129,7 +133,7 @@ class Screen(BaseScreen[_View]):
             f"Итого: {escape(str(self.data.total_amount))} ₽",
         ]
         if self.data.matching_mode is not None:
-            lines.append(f"Подбор: {escape(self.data.matching_mode)}")
+            lines.append(f"Подбор: {matching_mode_label(self.data.matching_mode)}")
         if self.data.status == "searching":
             lines.append(
                 f"Подбор до: {_datetime_label(self.data.matching_deadline_at)}"
@@ -139,7 +143,7 @@ class Screen(BaseScreen[_View]):
                 f"Оплатить до: {_datetime_label(self.data.payment_deadline_at)}"
             )
         if self.data.payment_status is not None:
-            lines.append(f"Платеж: {escape(self.data.payment_status)}")
+            lines.append(f"Платеж: {payment_status_label(self.data.payment_status)}")
         if self.data.payment_status == "failed":
             lines.append(
                 f"Попытки оплаты: {self.data.payment_attempts_used} "
