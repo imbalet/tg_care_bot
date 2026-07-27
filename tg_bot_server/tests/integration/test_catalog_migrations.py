@@ -38,7 +38,8 @@ async def test_catalog_query_service_returns_seeded_active_cities(
     cities = await SqlAlchemyCatalogQueryService(session).list_cities(active_only=True)
 
     assert len(cities) == 1
-    assert cities[0].slug == "moscow"
+    assert cities[0].name == "Ростов-на-Дону"
+    assert cities[0].slug == "rostov-on-don"
 
 
 @pytest.mark.integration
