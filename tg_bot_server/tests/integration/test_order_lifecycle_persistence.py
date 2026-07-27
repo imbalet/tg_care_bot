@@ -93,6 +93,12 @@ async def test_order_repository_enforces_execution_lifecycle(
             performer_id=performer.id,
             start_button_before_minutes=180,
         )
+    with pytest.raises(ConflictError, match="payment is not confirmed"):
+        await repository.start_order_by_customer(
+            order_id=order.id,
+            customer_id=customer.id,
+            start_button_before_minutes=180,
+        )
 
     payment = PaymentModel(
         order_id=order.id,

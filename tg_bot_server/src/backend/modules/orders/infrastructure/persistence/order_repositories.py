@@ -190,6 +190,13 @@ class SqlAlchemyOrderRepository(OrderRepository):
             raise NotFoundError("Order not found")
         if order.status != "confirmed":
             raise self._stale(order, "Order is not ready to start")
+        if order.selected_performer_id is None:
+            raise ConflictError("Order has no assigned performer")
+        if order.active_payment_id is None:
+            raise ConflictError("Order payment is not confirmed")
+        payment = await self._session.get(PaymentModel, order.active_payment_id)
+        if payment is None or payment.status != "succeeded":
+            raise ConflictError("Order payment is not confirmed")
         now = utc_now()
         if now < order.start_at - timedelta(minutes=start_button_before_minutes):
             raise ConflictError("Order start window has not opened")
