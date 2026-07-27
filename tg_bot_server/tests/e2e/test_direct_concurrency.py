@@ -36,6 +36,7 @@ async def _create_direct_order_for_existing_performer(
             "start_at": template_order["start_at"],
             "end_at": template_order["end_at"],
             "care_object_ids": [care_object_response.json()["id"]],
+            "location_source": "performer_address",
             "address_id": None,
             "report_photo_consent": None,
             "option_values": {},

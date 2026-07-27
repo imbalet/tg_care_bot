@@ -72,6 +72,7 @@ async def test_customer_cancellation_after_payment_creates_idempotent_full_refun
         e2e_client,
         e2e_db,
         test_settings,
+        start_in_minutes=24 * 60,
     )
 
     preview_response = await e2e_client.get(

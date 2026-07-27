@@ -1,6 +1,6 @@
 import base64
 import hashlib
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -27,8 +27,35 @@ async def _confirm_direct_order(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
     test_settings: TestSettings,
+    start_in_minutes: int = 10,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     customer, performer, order = await direct_order_factory()
+    start_at = datetime.now(UTC) + timedelta(minutes=start_in_minutes)
+    end_at = start_at + timedelta(days=1)
+    matching_deadline_at = datetime.now(UTC) + timedelta(minutes=5)
+    await e2e_db.execute(
+        """
+        UPDATE orders
+        SET start_at = $1,
+            end_at = $2,
+            matching_deadline_at = $3,
+            payment_deadline_at = NULL
+        WHERE id = $4
+        """,
+        start_at,
+        end_at,
+        matching_deadline_at,
+        order["id"],
+    )
+    await e2e_db.execute(
+        """
+        UPDATE business_settings
+        SET value = '0'::jsonb
+        WHERE key = 'payment_close_before_start_minutes'
+        """,
+    )
+    order["start_at"] = start_at.isoformat()
+    order["end_at"] = end_at.isoformat()
     matches_response = await e2e_client.get(
         f"/api/orders/{order['id']}/matches",
         params={"customer_id": customer.entity_id},

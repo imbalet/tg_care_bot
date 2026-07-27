@@ -81,6 +81,7 @@ async def test_customer_can_register_create_object_and_publish_boarding_order(
                 "start_at": start.isoformat(),
                 "end_at": (start + timedelta(days=1)).isoformat(),
                 "care_object_ids": [care_object_id],
+                "location_source": "performer_address",
                 "address_id": None,
                 "report_photo_consent": None,
                 "option_values": {},

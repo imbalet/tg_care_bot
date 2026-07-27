@@ -133,7 +133,7 @@ async def test_unavailable_override_and_selected_order_block_pool_response(
         json={
             "override_type": "unavailable",
             "starts_at": order["start_at"],
-            "ends_at": order["ends_at"],
+            "ends_at": order["end_at"],
             "comment": "Duplicate unavailable interval",
         },
     )
