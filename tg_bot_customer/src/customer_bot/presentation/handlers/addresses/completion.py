@@ -15,16 +15,15 @@ from customer_bot.presentation.handlers.addresses.state import (
 from customer_bot.presentation.handlers.orders.state import OrderCreation
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
+    AddressCardScreen,
     AddressExtraStepScreen,
-    AddressListScreen,
     AddressValidationScreen,
     OrderAddressStepScreen,
     RetryLaterScreen,
 )
 from customer_bot.presentation.view_models import (
+    AddressCardView,
     AddressExtraView,
-    AddressListItemView,
-    AddressListView,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,7 +57,7 @@ async def _advance_or_create(
         )
         return
     try:
-        await backend_client.create_address(
+        created_address = await backend_client.create_address(
             telegram_id=telegram_user_context.telegram_id,
             city_id=snapshot.city_id,
             unrestricted_value=snapshot.unrestricted_value,
@@ -110,46 +109,35 @@ async def _advance_or_create(
         )
         return
     await state.clear()
+    await state.update_data(
+        addresses=[
+            {
+                "id": str(created_address.id),
+                "address_text": created_address.address_text,
+                "entrance": created_address.entrance,
+                "floor": created_address.floor,
+                "apartment": created_address.apartment,
+                "comment": created_address.comment,
+            }
+        ],
+    )
     logger.info(
         "Address created",
         extra={"telegram_id": telegram_user_context.telegram_id},
     )
-    try:
-        addresses = await backend_client.list_addresses(
-            telegram_id=telegram_user_context.telegram_id,
-        )
-    except BackendClientError as exc:
-        logger.warning(
-            "Address created but failed to reload address list",
-            extra={
-                "telegram_id": telegram_user_context.telegram_id,
-                "exception_type": type(exc).__name__,
-            },
-        )
-        await telegram_responder.update(
-            bot=bot,
-            event=event,
-            telegram_id=telegram_user_context.telegram_id,
-            text="Адрес сохранен. Откройте список адресов, чтобы увидеть его.",
-            reply_markup=None,
-            create_new=True,
-        )
-        return
     await telegram_responder.update(
         bot=bot,
         event=event,
         telegram_id=telegram_user_context.telegram_id,
         text=(
-            screen := AddressListScreen(
-                AddressListView(
-                    count=len(addresses),
-                    items=tuple(
-                        AddressListItemView(
-                            id=address.id,
-                            address_text=address.address_text,
-                        )
-                        for address in addresses
-                    ),
+            screen := AddressCardScreen(
+                AddressCardView(
+                    id=str(created_address.id),
+                    address_text=created_address.address_text,
+                    entrance=str(created_address.entrance or ""),
+                    floor=str(created_address.floor or ""),
+                    apartment=str(created_address.apartment or ""),
+                    comment=str(created_address.comment or ""),
                 )
             ).build()
         ).text,
