@@ -28,6 +28,7 @@ from .keyboards import (
 from .texts import (
     about_step_text,
     available_orders_placeholder_text,
+    available_orders_setup_text,
     available_orders_text,
     avatar_deleted_text,
     avatar_menu_text,
@@ -90,6 +91,7 @@ __all__ = [
     "avatar_upload_step_text",
     "avatar_uploaded_text",
     "available_orders_placeholder_text",
+    "available_orders_setup_text",
     "available_orders_keyboard",
     "available_order_card_keyboard",
     "available_orders_text",

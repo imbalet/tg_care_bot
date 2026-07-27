@@ -42,6 +42,7 @@ from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
     available_order_card_keyboard,
     available_orders_keyboard,
+    available_orders_setup_text,
     available_orders_text,
     direct_accept_created_text,
     direct_conflict_text,
@@ -112,16 +113,25 @@ async def available_orders_callback(
             ),
         )
     except BackendValidationError as error:
-        if "unavailable" not in str(error).lower():
+        error_text = str(error).lower()
+        reason = (
+            "unavailable"
+            if "unavailable" in error_text
+            else "schedule"
+            if "schedule" in error_text
+            else "service"
+            if "service" in error_text
+            else "accepting"
+            if "accepting" in error_text
+            else None
+        )
+        if reason is None:
             raise
         await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=(
-                "Сейчас вы отмечены как недоступный исполнитель. "
-                "Доступные заказы появятся после окончания периода или его отмены."
-            ),
+            text=available_orders_setup_text(reason),
             reply_markup=orders_filter_keyboard(is_available_orders=True),
         )
         return

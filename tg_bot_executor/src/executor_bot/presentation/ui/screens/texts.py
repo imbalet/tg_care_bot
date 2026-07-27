@@ -413,6 +413,21 @@ def available_orders_placeholder_text(scope: object) -> str:
     )
 
 
+def available_orders_setup_text(reason: str) -> str:
+    messages = {
+        "schedule": "Сначала выберите рабочие дни и время в разделе «Календарь».",
+        "service": (
+            "Сначала включите хотя бы одну одобренную услугу в разделе «Услуги»."
+        ),
+        "accepting": "Сначала включите «Принимать заказы» в разделе «Услуги».",
+        "unavailable": (
+            "Сейчас вы отмечены как недоступный исполнитель. Доступные заказы "
+            "появятся после окончания периода или его отмены."
+        ),
+    }
+    return f"<b>Доступные заказы</b>\n\n{messages[reason]}"
+
+
 def available_orders_text(items: Sequence[object], scope: object) -> str:
     if not items:
         return available_orders_placeholder_text(scope)
