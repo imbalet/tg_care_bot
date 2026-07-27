@@ -10,7 +10,11 @@ from backend.common.application import utc_now
 from backend.common.domain import ConflictError, NotFoundError, ValidationError
 from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.care_objects.infrastructure import CareObjectModel
-from backend.modules.catalog.infrastructure import CityModel, ServiceOptionModel
+from backend.modules.catalog.infrastructure import (
+    CityModel,
+    DistrictModel,
+    ServiceOptionModel,
+)
 from backend.modules.customers.infrastructure import CustomerModel
 from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.application import (
@@ -24,6 +28,7 @@ from backend.modules.orders.application import (
     ServicePricingDTO,
 )
 from backend.modules.orders.infrastructure.persistence.models import (
+    OrderAddressSnapshotModel,
     OrderCareObjectModel,
     OrderMatchModel,
     OrderModel,
@@ -487,6 +492,8 @@ class SqlAlchemyOrderRepository(OrderRepository):
         model.matching_mode = "pool"
         self._session.add(model)
         await self._session.flush()
+        if model.location_source == "customer_address":
+            await self._save_address_snapshot(model.id, model.address_id)
         self._replace_children(model.id, object_snapshots, data.option_values)
         self._add_status_history(model.id, None, "searching")
         await self._session.flush()
@@ -512,6 +519,8 @@ class SqlAlchemyOrderRepository(OrderRepository):
         model.matching_mode = "direct"
         self._session.add(model)
         await self._session.flush()
+        if model.location_source == "customer_address":
+            await self._save_address_snapshot(model.id, model.address_id)
         await self._lock_performer(performer_id)
         await self._lock_overlapping_resources(
             performer_id=performer_id,
@@ -536,6 +545,46 @@ class SqlAlchemyOrderRepository(OrderRepository):
         self._add_status_history(model.id, None, "searching")
         await self._session.flush()
         return _order_to_dto(model, data.timezone)
+
+    async def _save_address_snapshot(
+        self,
+        order_id: UUID,
+        address_id: UUID | None,
+    ) -> None:
+        if address_id is None:
+            raise ValidationError("Customer address is required")
+        result = await self._session.execute(
+            select(AddressModel, CityModel.name, DistrictModel.name)
+            .join(CityModel, CityModel.id == AddressModel.city_id)
+            .outerjoin(DistrictModel, DistrictModel.id == AddressModel.district_id)
+            .where(
+                AddressModel.id == address_id,
+                AddressModel.owner_type == "customer",
+                AddressModel.deleted_at.is_(None),
+            ),
+        )
+        row = result.one_or_none()
+        if row is None:
+            raise ValidationError("Customer address is unavailable")
+        address, city_name, district_name = row
+        self._session.add(
+            OrderAddressSnapshotModel(
+                order_id=order_id,
+                source_address_id=address.id,
+                city_name=city_name,
+                district_name=district_name,
+                address_text=address.address_text,
+                fias_id=address.fias_id,
+                latitude=address.latitude,
+                longitude=address.longitude,
+                geocoding_provider=address.geocoding_provider,
+                geocoding_quality=address.geocoding_quality,
+                entrance=address.entrance,
+                floor=address.floor,
+                apartment=address.apartment,
+                comment=address.comment,
+            ),
+        )
 
     async def _performer_can_receive_direct(
         self,
