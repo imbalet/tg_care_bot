@@ -168,9 +168,9 @@ class Screen(BaseScreen[_View]):
         order_id = self.data.id
         status = self.data.status
         matching_mode = self.data.matching_mode
-        if payment_url and payment_url.startswith("https://"):
+        if self.data.payment_status == "pending" and payment_url:
             keyboard.url_button("Оплатить", payment_url)
-        if self.data.payment_retry_available:
+        if self.data.payment_status == "failed" and self.data.payment_retry_available:
             keyboard.button(
                 "Повторить оплату",
                 PaymentRetryCallback(order_id=order_id),
