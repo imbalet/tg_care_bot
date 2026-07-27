@@ -16,6 +16,7 @@ from executor_bot.presentation.ui import (
     work_address_card_text,
     work_addresses_keyboard,
 )
+from executor_bot.presentation.ui.screens.keyboards import my_order_card_keyboard_for_status
 from executor_bot.presentation.ui.screens.texts import my_orders_page_text
 from executor_bot.presentation.ui.keyboards import (
     AVATAR_UPLOAD,
@@ -165,3 +166,21 @@ def test_cancel_confirmation_keyboard_has_confirm_and_back_actions() -> None:
 
     assert "order_cancel_confirm" in str(keyboard.inline_keyboard[0][0].callback_data)
     assert "my_order_card" in str(keyboard.inline_keyboard[1][0].callback_data)
+
+
+def test_in_progress_order_has_no_cancel_action() -> None:
+    keyboard = my_order_card_keyboard_for_status(
+        status="in_progress",
+        order_id="12345678-1234-1234-1234-123456789abc",
+        group="active",
+        page=1,
+    )
+
+    callback_data = [
+        button.callback_data
+        for row in keyboard.inline_keyboard
+        for button in row
+        if button.callback_data is not None
+    ]
+
+    assert not any("order_cancel" in value for value in callback_data)
