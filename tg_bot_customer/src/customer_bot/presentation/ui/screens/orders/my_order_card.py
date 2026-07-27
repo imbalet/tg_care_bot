@@ -149,11 +149,6 @@ class Screen(BaseScreen[_View]):
                 f"Попытки оплаты: {self.data.payment_attempts_used} "
                 f"из {self.data.payment_max_attempts}"
             )
-        if self.data.payment_status == "failed":
-            lines.append(
-                f"Попытки оплаты: {self.data.payment_attempts_used} "
-                f"из {self.data.payment_max_attempts}"
-            )
         if self.data.status in {"confirmed", "in_progress", "waiting_report"}:
             lines.extend(
                 (
