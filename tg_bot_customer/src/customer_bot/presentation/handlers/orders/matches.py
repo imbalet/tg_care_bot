@@ -7,6 +7,7 @@ from aiogram.types import CallbackQuery
 from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
+    OrderResponsePerformerProfileCallback,
     OrderResponseRejectCallback,
     OrderResponseSelectCallback,
     OrderResponsesOpenCallback,
@@ -14,7 +15,7 @@ from customer_bot.presentation.callbacks import (
     PaymentRetryCallback,
 )
 from customer_bot.presentation.contexts import TelegramUserContext
-from customer_bot.presentation.services import TelegramResponder
+from customer_bot.presentation.services import TelegramResponder, show_performer_profile
 from customer_bot.presentation.ui.screens import (
     OrderMatchesScreen,
     OrderResponseRejectedScreen,
@@ -30,6 +31,35 @@ from customer_bot.presentation.view_models import (
 
 router = Router(name="orders_matches")
 logger = logging.getLogger(__name__)
+
+
+@router.callback_query(OrderResponsePerformerProfileCallback.filter())
+async def response_performer_profile(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderResponsePerformerProfileCallback,
+) -> None:
+    try:
+        profile = await backend_client.get_public_performer_profile(
+            telegram_id=telegram_user_context.telegram_id,
+            performer_id=callback_data.performer_id,
+        )
+    except BackendClientError:
+        await telegram_responder.acknowledge(
+            callback, "Профиль исполнителя сейчас недоступен", show_alert=True
+        )
+        return
+    await telegram_responder.acknowledge(callback)
+    await show_performer_profile(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        profile=profile,
+        telegram_responder=telegram_responder,
+    )
 
 
 @router.callback_query(OrderResponsesOpenCallback.filter())

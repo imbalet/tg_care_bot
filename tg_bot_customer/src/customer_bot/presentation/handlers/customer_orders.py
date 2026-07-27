@@ -20,7 +20,7 @@ from customer_bot.presentation.callbacks import (
 )
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.navigation import active_category
-from customer_bot.presentation.services import TelegramResponder
+from customer_bot.presentation.services import TelegramResponder, show_performer_profile
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens import (
     MyOrderCardScreen,
@@ -85,6 +85,7 @@ async def contact_order_callback(
 @router.callback_query(OrderPerformerProfileCallback.filter())
 async def performer_profile_callback(
     callback: CallbackQuery,
+    bot: Bot,
     telegram_responder: TelegramResponder,
     backend_client: BackendPort,
     telegram_user_context: TelegramUserContext,
@@ -95,11 +96,13 @@ async def performer_profile_callback(
             telegram_id=telegram_user_context.telegram_id,
             order_id=callback_data.order_id,
         )
-        about = f"\n{profile.about_text}" if profile.about_text else ""
-        await telegram_responder.acknowledge(
-            callback,
-            f"{profile.full_name}{about}",
-            show_alert=True,
+        await telegram_responder.acknowledge(callback)
+        await show_performer_profile(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            profile=profile,
+            telegram_responder=telegram_responder,
         )
     except BackendClientError:
         await telegram_responder.acknowledge(

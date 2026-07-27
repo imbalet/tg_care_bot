@@ -6,6 +6,7 @@ from customer_bot.presentation.callbacks import (
     MainMenuCallback,
     OrderDirectBackCallback,
     OrderDirectNextCallback,
+    OrderDirectPerformerProfileCallback,
     OrderDirectPreviousCallback,
     OrderPublishDirectCallback,
 )
@@ -60,6 +61,12 @@ class Screen(BaseScreen[_View]):
     def _build_keyboard(self) -> Markup:
         performer = self.data.performer
         keyboard = InlineKeyboardFactory()
+        keyboard.button(
+            "Открыть профиль",
+            OrderDirectPerformerProfileCallback(
+                performer_id=performer.performer_id,
+            ),
+        )
         keyboard.button(
             "Выбрать исполнителя",
             OrderPublishDirectCallback(performer_id=performer.performer_id),

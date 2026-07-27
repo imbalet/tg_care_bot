@@ -13,6 +13,7 @@ from customer_bot.presentation.callbacks import (
     OrderDirectBackCallback,
     OrderDirectNextCallback,
     OrderDirectOpenCallback,
+    OrderDirectPerformerProfileCallback,
     OrderDirectPreviousCallback,
     OrderPublishDirectCallback,
     OrderPublishPoolCallback,
@@ -26,7 +27,7 @@ from customer_bot.presentation.handlers.orders.state import (
     item_by_id,
     performer_view,
 )
-from customer_bot.presentation.services import TelegramResponder
+from customer_bot.presentation.services import TelegramResponder, show_performer_profile
 from customer_bot.presentation.ui.screens import (
     OrderDirectSelectionScreen,
     OrderDirectUnavailableScreen,
@@ -119,6 +120,37 @@ async def next_direct_performer(
     await state.update_data(order_performer_index=current + 1)
     await _show_direct_performer(
         callback, bot, state, telegram_responder, telegram_user_context, current + 1
+    )
+
+
+@router.callback_query(
+    OrderCreation.publish, OrderDirectPerformerProfileCallback.filter()
+)
+async def direct_performer_profile(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderDirectPerformerProfileCallback,
+) -> None:
+    try:
+        profile = await backend_client.get_public_performer_profile(
+            telegram_id=telegram_user_context.telegram_id,
+            performer_id=callback_data.performer_id,
+        )
+    except BackendClientError:
+        await telegram_responder.acknowledge(
+            callback, "Профиль исполнителя сейчас недоступен", show_alert=True
+        )
+        return
+    await telegram_responder.acknowledge(callback)
+    await show_performer_profile(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        profile=profile,
+        telegram_responder=telegram_responder,
     )
 
 

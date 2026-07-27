@@ -272,12 +272,22 @@ class ContactRequestDTO:
 
 
 @dataclass(frozen=True)
+class PerformerServiceProfileDTO:
+    service_id: UUID
+    service_name: str
+    price_type: str
+    base_price: Decimal
+    performer_max_objects: int
+
+
+@dataclass(frozen=True)
 class PerformerProfileDTO:
     performer_id: UUID
     full_name: str
     about_text: str | None
-    contact_method: str
-    telegram_username: str | None
+    city_name: str
+    avatar_url: str | None
+    services: tuple[PerformerServiceProfileDTO, ...]
 
 
 @dataclass(frozen=True)

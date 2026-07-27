@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -24,6 +25,7 @@ from customer_bot.application.dto import (
     OrderReportDTO,
     PaymentStatusDTO,
     PerformerProfileDTO,
+    PerformerServiceProfileDTO,
     PricePreviewDTO,
     ServiceCategoryDTO,
     SuitablePerformerDTO,
@@ -62,6 +64,27 @@ from .parsers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _performer_services_from_json(
+    value: object,
+) -> tuple[PerformerServiceProfileDTO, ...]:
+    if not isinstance(value, list):
+        return ()
+    services: list[PerformerServiceProfileDTO] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        services.append(
+            PerformerServiceProfileDTO(
+                service_id=UUID(str(item["service_id"])),
+                service_name=str(item["service_name"]),
+                price_type=str(item["price_type"]),
+                base_price=Decimal(str(item["base_price"])),
+                performer_max_objects=int(item["performer_max_objects"]),
+            )
+        )
+    return tuple(services)
 
 
 class BackendClient(BackendPort):
@@ -761,8 +784,38 @@ class BackendClient(BackendPort):
             performer_id=UUID(payload["performer_id"]),
             full_name=str(payload["full_name"]),
             about_text=payload.get("about_text"),
-            contact_method=str(payload["contact_method"]),
-            telegram_username=payload.get("telegram_username"),
+            city_name=str(payload["city_name"]),
+            avatar_url=(
+                str(payload["avatar_url"])
+                if payload.get("avatar_url") is not None
+                else None
+            ),
+            services=_performer_services_from_json(payload.get("services")),
+        )
+
+    async def get_public_performer_profile(
+        self, *, telegram_id: int, performer_id: UUID
+    ) -> PerformerProfileDTO:
+        profile = await self.get_customer_profile(telegram_id)
+        if profile is None:
+            raise BackendClientError("Customer profile is missing")
+        response = await self._request(
+            "GET",
+            f"/api/orders/customer/{profile.id}/performers/{performer_id}/profile",
+        )
+        self._raise_for_status(response)
+        payload = response.json()
+        return PerformerProfileDTO(
+            performer_id=UUID(payload["performer_id"]),
+            full_name=str(payload["full_name"]),
+            about_text=payload.get("about_text"),
+            city_name=str(payload["city_name"]),
+            avatar_url=(
+                str(payload["avatar_url"])
+                if payload.get("avatar_url") is not None
+                else None
+            ),
+            services=_performer_services_from_json(payload.get("services")),
         )
 
     async def upload_file(

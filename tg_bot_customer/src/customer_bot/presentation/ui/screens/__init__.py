@@ -67,6 +67,7 @@ from .orders import (
     OrderStartTimeStepScreen,
     OrderTimeManualStepScreen,
     PaymentStatusScreen,
+    PerformerProfileScreen,
 )
 from .profile import ProfileScreen
 from .registration import (
@@ -129,6 +130,7 @@ __all__ = [
     "OrderDraftSummaryScreen",
     "OrderDirectSelectionScreen",
     "OrderDirectUnavailableScreen",
+    "PerformerProfileScreen",
     "OrderDurationStepScreen",
     "OrderMatchesScreen",
     "OrderNoAddressesScreen",

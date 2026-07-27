@@ -26,6 +26,7 @@ from .order_start_step import Screen as OrderStartStepScreen
 from .order_start_time_step import Screen as OrderStartTimeStepScreen
 from .order_time_manual_step import Screen as OrderTimeManualStepScreen
 from .payment_status import Screen as PaymentStatusScreen
+from .performer_profile import Screen as PerformerProfileScreen
 
 __all__ = [
     "MyOrderCardScreen",
@@ -51,6 +52,7 @@ __all__ = [
     "OrderResponseRejectedScreen",
     "OrderResponseSelectedScreen",
     "OrderResponseUnavailableScreen",
+    "PerformerProfileScreen",
     "OrderServicesStepScreen",
     "OrderStartStepScreen",
     "OrderStartTimeStepScreen",

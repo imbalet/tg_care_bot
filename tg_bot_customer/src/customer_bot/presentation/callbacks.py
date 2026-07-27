@@ -78,6 +78,10 @@ class OrderResponseRejectCallback(CallbackData, prefix="order_resp_reject"):
     match_id: UUID
 
 
+class OrderResponsePerformerProfileCallback(CallbackData, prefix="order_resp_profile"):
+    performer_id: UUID
+
+
 class PaymentRefreshCallback(CallbackData, prefix="payment_refresh"):
     order_id: UUID
 
@@ -296,6 +300,10 @@ class OrderDirectPreviousCallback(CallbackData, prefix="order_direct_prev"):
 
 class OrderDirectBackCallback(CallbackData, prefix="order_direct_back"):
     pass
+
+
+class OrderDirectPerformerProfileCallback(CallbackData, prefix="order_direct_profile"):
+    performer_id: UUID
 
 
 class OrderPublishDirectCallback(CallbackData, prefix="order_publish_direct"):

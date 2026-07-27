@@ -164,6 +164,10 @@ class BackendPort(Protocol):
         self, *, telegram_id: int, order_id: UUID
     ) -> PerformerProfileDTO: ...
 
+    async def get_public_performer_profile(
+        self, *, telegram_id: int, performer_id: UUID
+    ) -> PerformerProfileDTO: ...
+
     async def upload_file(
         self,
         *,

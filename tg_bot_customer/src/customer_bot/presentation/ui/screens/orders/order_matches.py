@@ -5,6 +5,7 @@ from uuid import UUID
 
 from customer_bot.presentation.callbacks import (
     MainMenuCallback,
+    OrderResponsePerformerProfileCallback,
     OrderResponseRejectCallback,
     OrderResponseSelectCallback,
 )
@@ -57,5 +58,11 @@ class Screen(BaseScreen[_View]):
             keyboard.button(
                 f"Отклонить #{index}",
                 OrderResponseRejectCallback(match_id=match_id),
+            )
+            keyboard.button(
+                "Открыть профиль",
+                OrderResponsePerformerProfileCallback(
+                    performer_id=item.performer_id,
+                ),
             )
         return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()

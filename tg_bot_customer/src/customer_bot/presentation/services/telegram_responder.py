@@ -138,6 +138,25 @@ class TelegramResponder:
             first_name=first_name,
         )
 
+    async def send_photo(
+        self,
+        *,
+        bot: Bot,
+        event: Message | CallbackQuery,
+        photo: str,
+        caption: str,
+        reply_markup: ReplyMarkupUnion | None = None,
+    ) -> Message | None:
+        message = event if isinstance(event, Message) else event.message
+        if not isinstance(message, Message):
+            return None
+        return await bot.send_photo(
+            chat_id=message.chat.id,
+            photo=photo,
+            caption=caption,
+            reply_markup=reply_markup,
+        )
+
     async def delete_clicked_message(self, callback: CallbackQuery) -> None:
         if isinstance(callback.message, Message):
             await _delete_message(callback.message)
