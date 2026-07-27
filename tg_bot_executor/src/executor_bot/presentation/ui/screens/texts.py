@@ -234,6 +234,18 @@ def executor_main_menu_text(category: object | None = None) -> str:
     return f"<b>{escape(title)}</b>"
 
 
+def executor_setup_hint_text(missing: tuple[str, ...]) -> str:
+    lines = ["<b>Настройка профиля исполнителя</b>", ""]
+    if "schedule" in missing:
+        lines.append("• выберите рабочие дни и время в разделе «Календарь»;")
+    if "service" in missing:
+        lines.append("• включите хотя бы одну одобренную услугу в разделе «Услуги»;")
+    if "accepting_orders" in missing:
+        lines.append("• нажмите «Начать принимать заказы» в разделе «Услуги».")
+    lines.extend(["", "После этого вы начнёте получать подходящие заказы."])
+    return "\n".join(lines)
+
+
 def executor_profile_text(
     profile: ExecutorProfileView,
     *,

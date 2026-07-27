@@ -16,6 +16,7 @@ from executor_bot.presentation.navigation import (
 )
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
+    executor_setup_hint_text,
     fallback_keyboard,
     help_text,
     no_invitation_text,
@@ -146,6 +147,21 @@ async def _open_start_or_menu(
                 force_create_new=True,
             )
             return
+        setup_hint = await _setup_hint(
+            backend_client=backend_client,
+            telegram_id=telegram_user_context.telegram_id,
+            is_accepting_orders=bool(
+                registration_state.performer
+                and registration_state.performer.is_accepting_orders
+            ),
+        )
+        if setup_hint is not None:
+            await telegram_responder.send_notice(
+                bot=bot,
+                event=message,
+                telegram_id=telegram_user_context.telegram_id,
+                text=setup_hint,
+            )
         await show_category_menu(
             bot=bot,
             event=message,
@@ -184,6 +200,33 @@ async def _open_start_or_menu(
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=True),
     )
+
+
+async def _setup_hint(
+    *,
+    backend_client: BackendPort,
+    telegram_id: int,
+    is_accepting_orders: bool,
+) -> str | None:
+    try:
+        calendar = await backend_client.get_calendar(telegram_id=telegram_id)
+        services = await backend_client.list_performer_services(
+            telegram_id=telegram_id,
+        )
+    except BackendClientError:
+        logger.info(
+            "Skipped executor setup hint because setup state is unavailable",
+            extra={"telegram_id": telegram_id},
+        )
+        return None
+    missing: list[str] = []
+    if calendar.schedule is None:
+        missing.append("schedule")
+    if not any(item.is_approved and item.is_enabled for item in services):
+        missing.append("service")
+    if not is_accepting_orders:
+        missing.append("accepting_orders")
+    return executor_setup_hint_text(tuple(missing)) if missing else None
 
 
 __all__ = ["help_command", "menu", "router", "start"]

@@ -6,6 +6,7 @@ from executor_bot.presentation.ui import (
     avatar_keyboard,
     contact_methods_keyboard,
     executor_profile_text,
+    executor_setup_hint_text,
     legal_documents_text,
     registration_summary_keyboard,
     select_city_keyboard,
@@ -66,6 +67,14 @@ def test_registration_summary_escapes_user_values() -> None:
 
     assert "Иван &lt;script&gt;" in text
     assert "Опыт &lt;5 лет&gt;" in text
+
+
+def test_executor_setup_hint_lists_only_missing_setup_steps() -> None:
+    text = executor_setup_hint_text(("schedule", "accepting_orders"))
+
+    assert "выберите рабочие дни" in text
+    assert "Начать принимать заказы" in text
+    assert "включите хотя бы одну одобренную услугу" not in text
 
 
 def test_work_addresses_keyboard_is_inline_first() -> None:
