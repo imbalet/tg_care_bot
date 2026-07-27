@@ -122,7 +122,7 @@ class PaymentStore:
                     str(payload["OrderId"]),
                     int(payload["Amount"]),
                     str(payload.get("Description") or "Оплата заказа"),
-                    str(payload.get("PayType") or "T"),
+                    "T",
                     payload.get("NotificationURL"),
                     payload.get("SuccessURL"),
                     payload.get("FailURL"),
@@ -149,7 +149,7 @@ class PaymentStore:
             ).fetchone()
 
     def expire_if_needed(self, payment: sqlite3.Row) -> sqlite3.Row:
-        if payment["status"] in {"NEW", "AUTHORIZED"} and _parse(payment["expires_at"]) < utc_now():
+        if payment["status"] == "NEW" and _parse(payment["expires_at"]) < utc_now():
             return self.transition(payment["id"], "DEADLINE_EXPIRED", 0, "998", "Срок оплаты истек")
         return payment
 
@@ -169,9 +169,7 @@ class PaymentStore:
             authorized_amount = payment["authorized_amount"]
             captured_amount = payment["captured_amount"]
             refunded_amount = payment["refunded_amount"]
-            if status == "AUTHORIZED":
-                authorized_amount = amount
-            elif status == "CONFIRMED":
+            if status == "CONFIRMED":
                 captured_amount += amount
             elif status == "REFUNDED" or status == "PARTIAL_REFUNDED":
                 refunded_amount += amount

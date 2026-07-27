@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from .cards import CardScenario, get_scenario
 from .config import Settings
 from .signatures import sign_payload, verify_payload
-from .store import PaymentStore
+from .store import PaymentStore, utc_now
 
 
 settings = Settings.from_env()
@@ -56,6 +56,35 @@ def _request_amount(payload: dict[str, Any], fallback: int) -> int | None:
     return _parse_positive_int(payload["Amount"])
 
 
+def _validate_receipt(payload: dict[str, Any], amount: int) -> str | None:
+    receipt = payload.get("Receipt")
+    if not isinstance(receipt, dict):
+        return "Receipt обязателен"
+    items = receipt.get("Items")
+    if not isinstance(items, list) or not items:
+        return "Receipt.Items обязателен"
+    total = 0
+    for item in items:
+        if not isinstance(item, dict):
+            return "Некорректная позиция Receipt"
+        item_amount = _parse_positive_int(item.get("Amount"))
+        price = _parse_positive_int(item.get("Price"))
+        if item_amount is None or price is None or item.get("Quantity") != 1:
+            return "Некорректная сумма позиции Receipt"
+        if not item.get("Name") or not item.get("Tax"):
+            return "В Receipt отсутствуют обязательные поля"
+        if not item.get("PaymentMethod") or not item.get("PaymentObject"):
+            return "В Receipt отсутствуют параметры расчета"
+        if item_amount != price:
+            return "Amount позиции должен совпадать с Price при Quantity=1"
+        total += item_amount
+    if total != amount:
+        return "Сумма Receipt не совпадает с Amount"
+    if not receipt.get("Taxation"):
+        return "Receipt.Taxation обязателен"
+    return None
+
+
 def _payment_response(payment: Any) -> dict[str, Any]:
     return {
         "Success": True,
@@ -74,7 +103,7 @@ def _webhook_payload(payment: Any, status: str, amount: int) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "TerminalKey": payment["terminal_key"],
         "OrderId": payment["order_id"],
-        "Success": status in {"AUTHORIZED", "CONFIRMED"},
+        "Success": status == "CONFIRMED",
         "Status": status,
         "PaymentId": str(payment["id"]),
         "ErrorCode": payment["last_error_code"],
@@ -204,8 +233,14 @@ async def init_payment(request: Request) -> JSONResponse:
     amount = _parse_positive_int(payload.get("Amount"))
     if not str(payload.get("OrderId") or "").strip() or amount is None:
         return _error("Некорректная сумма или OrderId", "3")
+    receipt_error = _validate_receipt(payload, amount)
+    if receipt_error:
+        return _error(receipt_error, "3")
     if payload.get("PayType") is not None:
         return _error("Mock поддерживает только одностадийную оплату", "7")
+    data = payload.get("DATA")
+    if not isinstance(data, dict) or str(data.get("OperationInitiatorType")) != "0":
+        return _error("DATA.OperationInitiatorType должен быть равен 0", "3")
     try:
         ttl = _parse_positive_int(payload.get("ttl")) or 20
         payment = store.create_payment(payload, ttl)
@@ -229,27 +264,6 @@ async def get_state(request: Request) -> JSONResponse:
     return JSONResponse(_payment_response(payment))
 
 
-@app.post("/v2/Confirm")
-async def confirm_payment(request: Request, background_tasks: BackgroundTasks) -> JSONResponse:
-    payload = await request.json()
-    error = _validate_request(payload)
-    if error:
-        return _error(error, "204")
-    payment = store.get_payment(str(payload.get("PaymentId")))
-    if payment is None:
-        return _error("Платеж не найден", "5")
-    if payment["status"] == "CONFIRMED":
-        return JSONResponse(_payment_response(payment))
-    if payment["status"] != "AUTHORIZED":
-        return _error("Подтвердить можно только авторизованный платеж", "8")
-    amount = _request_amount(payload, payment["authorized_amount"])
-    if amount is None or amount > payment["authorized_amount"]:
-        return _error("Сумма списания превышает сумму авторизации", "9")
-    payment = store.transition(payment["id"], "CONFIRMED", amount)
-    _queue_webhook(background_tasks, payment, "CONFIRMED", amount)
-    return JSONResponse(_payment_response(payment))
-
-
 @app.post("/v2/Cancel")
 async def cancel_payment(request: Request, background_tasks: BackgroundTasks) -> JSONResponse:
     payload = await request.json()
@@ -260,10 +274,6 @@ async def cancel_payment(request: Request, background_tasks: BackgroundTasks) ->
     if payment is None:
         return _error("Платеж не найден", "5")
     if payment["status"] in {"CANCELED", "REFUNDED", "PARTIAL_REFUNDED"}:
-        return JSONResponse(_payment_response(payment))
-    if payment["status"] == "AUTHORIZED":
-        payment = store.transition(payment["id"], "CANCELED", 0)
-        _queue_webhook(background_tasks, payment, "CANCELED", 0)
         return JSONResponse(_payment_response(payment))
     if payment["status"] != "CONFIRMED":
         return _error("Платеж нельзя отменить в текущем статусе", "10")
@@ -387,9 +397,15 @@ async def _finish_card(
     scenario: CardScenario,
     background_tasks: BackgroundTasks,
 ) -> HTMLResponse:
-    if scenario.status == "REJECTED":
-        payment = store.transition(payment["id"], "REJECTED", 0, scenario.error_code, scenario.message)
-        _queue_webhook(background_tasks, payment, "REJECTED", 0)
+    if scenario.status != "CONFIRMED":
+        payment = store.transition(
+            payment["id"],
+            scenario.status,
+            0,
+            scenario.error_code,
+            scenario.message,
+        )
+        _queue_webhook(background_tasks, payment, scenario.status, 0)
         return _failure_response(
             payment,
             "Ошибка оплаты",

@@ -30,6 +30,12 @@ CARD_SCENARIOS: dict[str, CardScenario] = {
         error_code="1006",
         message="Платеж не прошел",
     ),
+    "2201382000000062": CardScenario(
+        name="authorization_failed",
+        status="AUTH_FAIL",
+        error_code="1006",
+        message="Авторизация платежа не выполнена",
+    ),
     "2201382000000831": CardScenario(
         name="insufficient_funds",
         status="REJECTED",
