@@ -13,13 +13,13 @@ class CardScenario:
 CARD_SCENARIOS: dict[str, CardScenario] = {
     "2201382000000013": CardScenario(
         name="frictionless_success",
-        status="AUTHORIZED",
+        status="CONFIRMED",
         error_code="0",
         message="",
     ),
     "2201382000000047": CardScenario(
         name="challenge_success",
-        status="AUTHORIZED",
+        status="CONFIRMED",
         error_code="0",
         message="",
         challenge=True,
@@ -44,19 +44,19 @@ CARD_SCENARIOS: dict[str, CardScenario] = {
     ),
     "2201382000000039": CardScenario(
         name="attempt_success",
-        status="AUTHORIZED",
+        status="CONFIRMED",
         error_code="0",
         message="",
     ),
     "2200770239097761": CardScenario(
         name="non_3ds_success",
-        status="AUTHORIZED",
+        status="CONFIRMED",
         error_code="0",
         message="",
     ),
     "2201382000000591": CardScenario(
         name="mock_service_success",
-        status="AUTHORIZED",
+        status="CONFIRMED",
         error_code="0",
         message="",
     ),

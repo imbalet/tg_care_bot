@@ -204,8 +204,8 @@ async def init_payment(request: Request) -> JSONResponse:
     amount = _parse_positive_int(payload.get("Amount"))
     if not str(payload.get("OrderId") or "").strip() or amount is None:
         return _error("Некорректная сумма или OrderId", "3")
-    if payload.get("PayType") not in {None, "T"}:
-        return _error("Для терминала доступна двухстадийная оплата", "7")
+    if payload.get("PayType") is not None:
+        return _error("Mock поддерживает только одностадийную оплату", "7")
     try:
         ttl = _parse_positive_int(payload.get("ttl")) or 20
         payment = store.create_payment(payload, ttl)
@@ -377,7 +377,7 @@ async def finish_challenge(
             "<h1>Оплата не прошла</h1><p class='error'>Неверный OTP-код.</p>",
         )
     scenario = get_scenario(payment["card_mask"] or "") or CardScenario(
-        "challenge_success", "AUTHORIZED", "0", "", True
+        "challenge_success", "CONFIRMED", "0", "", True
     )
     return await _finish_card(payment, scenario, background_tasks)
 
@@ -395,8 +395,8 @@ async def _finish_card(
             "Ошибка оплаты",
             f"<h1>Оплата не прошла</h1><p class='error'>{html.escape(scenario.message)}</p>",
         )
-    payment = store.transition(payment["id"], "AUTHORIZED", payment["amount"])
-    _queue_webhook(background_tasks, payment, "AUTHORIZED", payment["amount"])
+    payment = store.transition(payment["id"], scenario.status, payment["amount"])
+    _queue_webhook(background_tasks, payment, scenario.status, payment["amount"])
     if payment["success_url"]:
         return RedirectResponse(payment["success_url"], status_code=303)
-    return _page("Платеж авторизован", "<h1>Оплата авторизована</h1><p>Средства удержаны до подтверждения сделки.</p>")
+    return _page("Платеж принят", "<h1>Оплата прошла</h1><p>Средства зачислены платформе.</p>")
