@@ -57,7 +57,9 @@ from backend.modules.orders.infrastructure.exports import (
     OrderReportModel,
     OrderStatusHistoryModel,
 )
-from backend.modules.payments.application import CreateManualRefundCommand
+from backend.modules.payments.application import (
+    CreateManualRefundCommand,
+)
 from backend.modules.payments.infrastructure import PaymentModel, RefundModel
 from backend.modules.performers.application import (
     ApprovePerformerServiceCommand,
@@ -667,7 +669,7 @@ class FileReviewView(ReadOnlyModelView):
 
 
 class OrderView(OperationalModelView):
-    actions = ["cancel_order", "force_close_order"]
+    actions = ["cancel_order", "force_close_order", "mark_manual_payout"]
     searchable_fields = [
         "id",
         "customer_id",
@@ -753,6 +755,37 @@ class OrderView(OperationalModelView):
     )
     async def cancel_order_action(self, request: Request, pks: list[Any]) -> str:
         return await self._close_orders(request, pks, force=False)
+
+    @action(
+        name="mark_manual_payout",
+        text="Mark payout paid",
+        confirmation="Mark selected orders as paid to performers?",
+        submit_btn_text="Mark paid",
+        form=(
+            '<input name="reference" required placeholder="Bank transfer reference">'
+            '<textarea name="comment"></textarea>'
+        ),
+    )
+    async def mark_manual_payout_action(self, request: Request, pks: list[Any]) -> str:
+        admin = getattr(request.state, "admin_user", None)
+        if admin is None:
+            raise FormValidationError({"id": "Admin session is required"})
+        data = await request.form()
+        reference = str(data.get("reference", "")).strip()
+        comment = str(data.get("comment", "")).strip() or None
+        if not reference:
+            raise FormValidationError({"reference": "Reference is required"})
+        for raw_pk in pks:
+            try:
+                await self._container.payments.mark_manual_payout(
+                    order_id=UUID(str(raw_pk)),
+                    reference=reference,
+                    comment=comment,
+                    admin_id=admin.id,
+                )
+            except (ConflictError, NotFoundError, ValidationError) as exc:
+                raise FormValidationError({str(raw_pk): str(exc)}) from exc
+        return f"Payouts marked paid: {len(pks)}"
 
     @action(
         name="force_close_order",

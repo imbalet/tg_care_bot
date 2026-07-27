@@ -8,6 +8,7 @@ import pytest
 
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.payments.application.dto import (
+    ManualPayoutDTO,
     PaymentAttemptDTO,
     PaymentInitializationData,
     PaymentWebhookCommand,
@@ -23,6 +24,8 @@ from backend.modules.payments.application.use_cases import (
     GetCustomerPaymentStatusUseCase,
     InitializePaymentCommand,
     InitializePaymentUseCase,
+    MarkManualPayoutCommand,
+    MarkManualPayoutUseCase,
     RetryCustomerPaymentCommand,
     RetryCustomerPaymentUseCase,
     RetryPaymentOperationCommand,
@@ -196,6 +199,36 @@ async def test_manual_refund_success_and_failure_are_persisted() -> None:
             "provider-payment",
         )
     repository.mark_refund_failed.assert_awaited_once_with(refund_id=refund_dto.id)
+
+
+@pytest.mark.unit
+async def test_manual_payout_is_recorded_with_reference_and_admin() -> None:
+    repository = AsyncMock()
+    expected = ManualPayoutDTO(
+        order_id=uuid4(),
+        status="paid",
+        amount=Decimal("100.00"),
+        reference="bank-transfer-42",
+        comment="Paid from platform account",
+        completed_at=datetime.now(UTC),
+    )
+    repository.mark_manual_payout.return_value = expected
+    command = MarkManualPayoutCommand(
+        order_id=expected.order_id,
+        reference=expected.reference,
+        comment=expected.comment,
+        admin_id=uuid4(),
+    )
+
+    result = await MarkManualPayoutUseCase(repository).execute(command)
+
+    assert result == expected
+    repository.mark_manual_payout.assert_awaited_once_with(
+        order_id=command.order_id,
+        reference=command.reference,
+        comment=command.comment,
+        admin_id=command.admin_id,
+    )
 
 
 @pytest.mark.unit

@@ -7,7 +7,6 @@ import pytest
 
 from backend.common.domain import ValidationError
 from backend.modules.payments.application import (
-    PaymentGatewayConfirmCommand,
     PaymentGatewayInitCommand,
     PaymentGatewayRefundCommand,
     PaymentGatewayStateCommand,
@@ -87,45 +86,10 @@ async def test_tbank_init_builds_signed_idempotent_receipt_payload(
     path, payload = client.requests[0]
     assert path == "/Init"
     assert payload["Amount"] == 12345
-    assert payload["PayType"] == "T"
+    assert "PayType" not in payload
     assert payload["DATA"]["idempotency_key"] == "payment:42"
     assert payload["Receipt"]["Items"][0]["Amount"] == 12345
     assert payload["NotificationURL"] == "https://api.test/webhook"
-    assert verify_tbank_token(payload, gateway_password)
-
-
-@pytest.mark.unit
-async def test_tbank_confirm_maps_authorized_payment(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    client = _Client()
-    client.response = _Response(
-        {"Success": True, "PaymentId": 42, "Status": "CONFIRMED"},
-    )
-    monkeypatch.setattr(httpx, "AsyncClient", lambda **_: client)
-    gateway_password = str(uuid4())
-    gateway = TBankPaymentGateway(
-        base_url="https://bank.test",
-        terminal_key="terminal",
-        password=gateway_password,
-        notification_url=None,
-        receipt=TBankReceiptSettings("usn_income", "none", "full_payment", "service"),
-        timeout_seconds=3,
-    )
-
-    result = await gateway.confirm_payment(
-        PaymentGatewayConfirmCommand(
-            provider_payment_id="42",
-            amount=Decimal("12.34"),
-        ),
-    )
-
-    assert result.provider_payment_id == "42"
-    assert result.status == "CONFIRMED"
-    path, payload = client.requests[0]
-    assert path == "/Confirm"
-    assert payload["PaymentId"] == "42"
-    assert payload["Amount"] == 1234
     assert verify_tbank_token(payload, gateway_password)
 
 

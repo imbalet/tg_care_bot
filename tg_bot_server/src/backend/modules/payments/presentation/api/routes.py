@@ -18,7 +18,7 @@ from .schemas import PaymentStatusResponse
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
-SUCCESS_STATUSES = {"CONFIRMED", "AUTHORIZED"}
+SUCCESS_STATUSES = {"CONFIRMED"}
 
 
 @router.post("/webhooks/tbank")

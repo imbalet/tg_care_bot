@@ -49,6 +49,21 @@ class ManualRefundResponse(BaseModel):
     provider_refund_id: str | None
 
 
+class ManualPayoutRequest(BaseModel):
+    order_id: UUID
+    reference: str = Field(min_length=1, max_length=200)
+    comment: str | None = Field(default=None, max_length=500)
+
+
+class ManualPayoutResponse(BaseModel):
+    order_id: str
+    status: str
+    amount: str
+    reference: str
+    comment: str | None
+    completed_at: str
+
+
 class PaymentRetryResponse(BaseModel):
     status: str
     applied: bool

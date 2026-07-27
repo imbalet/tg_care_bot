@@ -11,8 +11,6 @@ from backend.modules.geo.application import (
     NormalizedAddressDTO,
 )
 from backend.modules.payments.application import (
-    PaymentGatewayConfirmCommand,
-    PaymentGatewayConfirmResult,
     PaymentGatewayInitCommand,
     PaymentGatewayInitResult,
     PaymentGatewayRefundCommand,
@@ -131,7 +129,6 @@ class FakeGeocoder:
 class FakePaymentGateway:
     def __init__(self) -> None:
         self.created: list[PaymentGatewayInitCommand] = []
-        self.confirmed: list[PaymentGatewayConfirmCommand] = []
         self.refunds: list[PaymentGatewayRefundCommand] = []
         self.states: list[PaymentGatewayStateCommand] = []
 
@@ -153,16 +150,6 @@ class FakePaymentGateway:
         self.refunds.append(command)
         return PaymentGatewayRefundResult(
             provider_refund_id=f"refund-{command.refund_id}",
-        )
-
-    async def confirm_payment(
-        self,
-        command: PaymentGatewayConfirmCommand,
-    ) -> PaymentGatewayConfirmResult:
-        self.confirmed.append(command)
-        return PaymentGatewayConfirmResult(
-            provider_payment_id=command.provider_payment_id,
-            status="CONFIRMED",
         )
 
     async def get_payment_state(

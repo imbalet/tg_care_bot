@@ -16,6 +16,7 @@ from backend.modules.orders.infrastructure.persistence.models import (
     OrderStatusHistoryModel,
 )
 from backend.modules.payments.application import (
+    ManualPayoutDTO,
     PaymentAttemptDTO,
     PaymentInitializationData,
     PaymentStatusDTO,
@@ -199,7 +200,7 @@ class SqlAlchemyPaymentRepository:
                 applied=False,
                 unapplied_reason=payment.failure_code,
             )
-        if command.status not in {"CONFIRMED", "AUTHORIZED"}:
+        if command.status != "CONFIRMED":
             payment.status = "failed"
             payment.provider_status = command.status
             payment.failure_code = f"provider_{command.status.lower()}"
@@ -375,6 +376,8 @@ class SqlAlchemyPaymentRepository:
     ) -> RefundDTO:
         payment = await self._lock_payment(payment_id)
         order = await self._lock_order(payment.order_id)
+        if order.payout_status == "paid":
+            raise ConflictError("Payout is already paid")
         if payment.status != "succeeded":
             raise ConflictError("Payment is not succeeded")
         if amount is None:
@@ -422,6 +425,54 @@ class SqlAlchemyPaymentRepository:
         )
         await self._session.flush()
         return _refund_to_dto(refund)
+
+    async def mark_manual_payout(
+        self,
+        *,
+        order_id: UUID,
+        reference: str,
+        comment: str | None,
+        admin_id: UUID,
+    ) -> ManualPayoutDTO:
+        order = await self._lock_order(order_id)
+        if order.payout_status == "paid":
+            if order.payout_reference is None or order.payout_completed_at is None:
+                raise ConflictError("Payout is already marked as paid")
+            return ManualPayoutDTO(
+                order_id=order.id,
+                status=order.payout_status,
+                amount=order.payout_amount or Decimal("0"),
+                reference=order.payout_reference,
+                comment=order.payout_comment,
+                completed_at=order.payout_completed_at,
+            )
+        if order.status != "completed":
+            raise ConflictError("Order is not completed")
+        if order.payout_status != "ready":
+            raise ConflictError("Payout is not ready")
+        if order.active_payment_id is None:
+            raise ConflictError("Order has no active payment")
+        payment = await self._lock_payment(order.active_payment_id)
+        if payment.status != "succeeded":
+            raise ConflictError("Order payment is not succeeded")
+        if await self._get_active_refund(payment.id) is not None:
+            raise ConflictError("Payment has an active or completed refund")
+        now = utc_now()
+        order.payout_status = "paid"
+        order.payout_reference = reference
+        order.payout_admin_id = admin_id
+        order.payout_comment = comment
+        order.payout_completed_at = now
+        order.payout_last_error = None
+        await self._session.flush()
+        return ManualPayoutDTO(
+            order_id=order.id,
+            status=order.payout_status,
+            amount=order.payout_amount or order.performer_amount,
+            reference=reference,
+            comment=comment,
+            completed_at=now,
+        )
 
     async def mark_refund_succeeded(
         self,

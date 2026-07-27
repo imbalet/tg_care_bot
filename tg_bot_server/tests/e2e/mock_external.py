@@ -20,7 +20,7 @@ class MockExternalHandler(BaseHTTPRequestHandler):
                 requests = list(self.requests)
             self._respond({"requests": requests})
             return
-        self._respond({"Success": True, "Status": "AUTHORIZED"})
+        self._respond({"Success": True, "Status": "CONFIRMED"})
 
     def do_POST(self) -> None:  # noqa: N802
         content_length = int(self.headers.get("Content-Length", "0"))

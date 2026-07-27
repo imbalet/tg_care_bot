@@ -28,6 +28,8 @@ from .schemas import (
     BusinessSettingResponse,
     LoginRequest,
     LoginResponse,
+    ManualPayoutRequest,
+    ManualPayoutResponse,
     ManualRefundRequest,
     ManualRefundResponse,
     MarkAdminNotificationsReadRequest,
@@ -204,6 +206,28 @@ async def create_manual_refund(
         status=refund.status,
         reason=refund.reason,
         provider_refund_id=refund.provider_refund_id,
+    )
+
+
+@router.post("/orders/payouts/manual")
+async def mark_manual_payout(
+    request: ManualPayoutRequest,
+    container: Annotated[Container, Depends(get_container)],
+    current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
+) -> ManualPayoutResponse:
+    payout = await container.payments.mark_manual_payout(
+        order_id=request.order_id,
+        reference=request.reference,
+        comment=request.comment,
+        admin_id=UUID(current[0].id),
+    )
+    return ManualPayoutResponse(
+        order_id=str(payout.order_id),
+        status=payout.status,
+        amount=str(payout.amount),
+        reference=payout.reference,
+        comment=payout.comment,
+        completed_at=payout.completed_at.isoformat(),
     )
 
 

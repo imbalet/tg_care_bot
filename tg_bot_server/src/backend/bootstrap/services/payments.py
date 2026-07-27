@@ -9,8 +9,9 @@ from ._shared import (
     CreateManualRefundUseCase,
     GetCustomerPaymentStatusCommand,
     GetCustomerPaymentStatusUseCase,
+    MarkManualPayoutCommand,
+    MarkManualPayoutUseCase,
     NotFoundError,
-    PaymentGatewayConfirmCommand,
     PaymentGatewayInitCommand,
     PaymentGatewayRefundCommand,
     PaymentWebhookCommand,
@@ -27,6 +28,40 @@ logger = logging.getLogger(__name__)
 
 
 class PaymentServices(Service):
+    async def mark_manual_payout(
+        self,
+        *,
+        order_id: UUID,
+        reference: str,
+        comment: str | None,
+        admin_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            repository = SqlAlchemyPaymentRepository(uow.session)
+            payout = await MarkManualPayoutUseCase(repository).execute(
+                MarkManualPayoutCommand(
+                    order_id=order_id,
+                    reference=reference,
+                    comment=comment,
+                    admin_id=admin_id,
+                ),
+            )
+            uow.session.add(
+                AdminAuditLogModel(
+                    admin_id=admin_id,
+                    action="manual_payout_marked_paid",
+                    entity_type="order",
+                    entity_id=order_id,
+                    reason=comment,
+                    audit_metadata={
+                        "amount": str(payout.amount),
+                        "reference": reference,
+                    },
+                ),
+            )
+            await uow.commit()
+            return payout
+
     async def retry_customer_payment(
         self,
         *,
@@ -55,22 +90,6 @@ class PaymentServices(Service):
             GetCustomerPaymentStatusCommand(
                 order_id=order_id,
                 customer_id=customer_id,
-            ),
-        )
-
-    async def confirm_payment_for_order(self, order_id: UUID) -> None:
-        async with self._uow() as uow:
-            payment = await SqlAlchemyPaymentRepository(
-                uow.session,
-            ).get_current_payment_for_order(order_id)
-        if payment is None or payment.provider_payment_id is None:
-            return
-        if payment.status != "succeeded" or payment.provider_status != "AUTHORIZED":
-            return
-        await self._payment_gateway().confirm_payment(
-            PaymentGatewayConfirmCommand(
-                provider_payment_id=payment.provider_payment_id,
-                amount=payment.amount,
             ),
         )
 

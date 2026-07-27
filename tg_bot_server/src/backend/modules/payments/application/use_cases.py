@@ -4,6 +4,7 @@ from uuid import UUID
 
 from backend.common.domain import NotFoundError, ValidationError
 from backend.modules.payments.application.dto import (
+    ManualPayoutDTO,
     PaymentAttemptDTO,
     PaymentGatewayInitCommand,
     PaymentGatewayRefundCommand,
@@ -88,6 +89,29 @@ class CreateManualRefundCommand:
     amount: Decimal | None
     reason: str
     admin_id: UUID
+
+
+@dataclass(frozen=True)
+class MarkManualPayoutCommand:
+    order_id: UUID
+    reference: str
+    comment: str | None
+    admin_id: UUID
+
+
+class MarkManualPayoutUseCase:
+    def __init__(self, repository: PaymentRepository) -> None:
+        self._repository = repository
+
+    async def execute(self, command: MarkManualPayoutCommand) -> ManualPayoutDTO:
+        if not command.reference.strip():
+            raise ValidationError("Payout reference is required")
+        return await self._repository.mark_manual_payout(
+            order_id=command.order_id,
+            reference=command.reference,
+            comment=command.comment,
+            admin_id=command.admin_id,
+        )
 
 
 class CreateManualRefundUseCase:
@@ -213,7 +237,7 @@ class RetryPaymentOperationUseCase:
                 provider_payment_id=data.payment.provider_payment_id,
             ),
         )
-        if state.status in {"CONFIRMED", "AUTHORIZED"}:
+        if state.status == "CONFIRMED":
             return await self._repository.apply_successful_webhook(
                 PaymentWebhookCommand(
                     provider_payment_id=state.provider_payment_id,

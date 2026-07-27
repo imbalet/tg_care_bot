@@ -82,6 +82,12 @@ class OrderModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    payout_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payout_admin_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("admins.id"),
+        nullable=True,
+    )
+    payout_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     provider_receipt_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     receipt_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     refund_policy_version_at_payment: Mapped[str | None] = mapped_column(

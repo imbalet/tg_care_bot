@@ -81,6 +81,16 @@ class RefundDTO:
 
 
 @dataclass(frozen=True)
+class ManualPayoutDTO:
+    order_id: UUID
+    status: str
+    amount: Decimal
+    reference: str
+    comment: str | None
+    completed_at: datetime
+
+
+@dataclass(frozen=True)
 class PaymentGatewayRefundCommand:
     refund_id: UUID
     payment_id: UUID
@@ -92,18 +102,6 @@ class PaymentGatewayRefundCommand:
 @dataclass(frozen=True)
 class PaymentGatewayRefundResult:
     provider_refund_id: str
-
-
-@dataclass(frozen=True)
-class PaymentGatewayConfirmCommand:
-    provider_payment_id: str
-    amount: Decimal
-
-
-@dataclass(frozen=True)
-class PaymentGatewayConfirmResult:
-    provider_payment_id: str
-    status: str
 
 
 @dataclass(frozen=True)
