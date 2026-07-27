@@ -54,6 +54,7 @@ _OPEN_ORDER_TYPES = frozenset(
         "report_auto_accepted",
         "contact_request_created",
         "pool_order_available",
+        "payment_failed",
     }
 )
 
@@ -88,6 +89,9 @@ _BODIES = {
     ),
     "contact_request_created": "Исполнитель просит связаться по заказу.",
     "pool_order_available": "Появился подходящий заказ рядом с вами.",
+    "payment_failed": (
+        "Оплата не прошла. Откройте заказ и попробуйте оплатить ещё раз."
+    ),
     "support_request_created": "Поступило новое обращение в поддержку.",
     "complaint_created": "Поступила новая жалоба.",
     "account_deletion_requested": "Поступил запрос на удаление аккаунта.",

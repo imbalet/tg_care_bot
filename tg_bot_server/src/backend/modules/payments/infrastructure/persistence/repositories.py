@@ -154,6 +154,21 @@ class SqlAlchemyPaymentRepository:
             return
         payment.failure_code = failure_code
         payment.status = "failed"
+        order = await self._session.get(OrderModel, payment.order_id)
+        if order is not None:
+            await self._add_notification(
+                recipient_type="customer",
+                customer_id=order.customer_id,
+                notification_type="payment_failed",
+                entity_type="order",
+                entity_id=order.id,
+                payload={
+                    "order_id": str(order.id),
+                    "payment_id": str(payment.id),
+                    "failure_code": failure_code,
+                },
+                deduplication_key=f"payment-failed:init:{payment.id}",
+            )
 
     async def apply_successful_webhook(
         self,
@@ -204,6 +219,19 @@ class SqlAlchemyPaymentRepository:
             payment.status = "failed"
             payment.provider_status = command.status
             payment.failure_code = f"provider_{command.status.lower()}"
+            await self._add_notification(
+                recipient_type="customer",
+                customer_id=order.customer_id,
+                notification_type="payment_failed",
+                entity_type="order",
+                entity_id=order.id,
+                payload={
+                    "order_id": str(order.id),
+                    "payment_id": str(payment.id),
+                    "failure_code": payment.failure_code,
+                },
+                deduplication_key=f"payment-failed:webhook:{payment.id}",
+            )
             await self._session.flush()
             return PaymentWebhookResult(
                 payment_id=payment.id,
