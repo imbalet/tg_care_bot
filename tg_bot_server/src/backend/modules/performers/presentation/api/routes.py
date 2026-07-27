@@ -35,6 +35,7 @@ from backend.modules.performers.application import (
     ApprovePerformerServiceCommand,
     CreateInvitationCommand,
     RegisterPerformerCommand,
+    SetNearbyOrderNotificationsCommand,
     SetPerformerAcceptingOrdersCommand,
     SetPerformerServiceEnabledCommand,
     SetPerformerServiceMaxObjectsCommand,
@@ -58,11 +59,13 @@ from .schemas import (
     CreateInvitationRequest,
     FileResponse,
     InvitationResponse,
+    NearbyOrderNotificationsResponse,
     PerformerResponse,
     PerformerServiceResponse,
     RegisterPerformerRequest,
     RegistrationStateResponse,
     SetAcceptingOrdersRequest,
+    SetNearbyOrderNotificationsRequest,
     SetPerformerServiceEnabledRequest,
     SetPerformerServiceMaxObjectsRequest,
     UpdatePerformerProfileRequest,
@@ -329,6 +332,40 @@ async def set_accepting_orders(
         ),
     )
     return performer_response(performer)
+
+
+@router.get(
+    "/performers/by-telegram/{telegram_id}/nearby-order-notifications",
+    response_model=NearbyOrderNotificationsResponse,
+)
+async def get_nearby_order_notifications(
+    telegram_id: int,
+    container: Annotated[Container, Depends(get_container)],
+) -> NearbyOrderNotificationsResponse:
+    return NearbyOrderNotificationsResponse(
+        is_enabled=await container.performers.get_nearby_order_notifications(
+            telegram_id=telegram_id,
+        ),
+    )
+
+
+@router.patch(
+    "/performers/by-telegram/{telegram_id}/nearby-order-notifications",
+    response_model=NearbyOrderNotificationsResponse,
+)
+async def set_nearby_order_notifications(
+    telegram_id: int,
+    request: SetNearbyOrderNotificationsRequest,
+    container: Annotated[Container, Depends(get_container)],
+) -> NearbyOrderNotificationsResponse:
+    return NearbyOrderNotificationsResponse(
+        is_enabled=await container.performers.set_nearby_order_notifications(
+            SetNearbyOrderNotificationsCommand(
+                telegram_id=telegram_id,
+                is_enabled=request.is_enabled,
+            ),
+        ),
+    )
 
 
 @router.get("/performers/by-telegram/{telegram_id}/addresses")

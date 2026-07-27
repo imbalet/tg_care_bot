@@ -37,6 +37,8 @@ from backend.modules.performers.application.use_cases import (
     RegisterPerformerUseCase,
     RevokePerformerServiceCommand,
     RevokePerformerServiceUseCase,
+    SetNearbyOrderNotificationsCommand,
+    SetNearbyOrderNotificationsUseCase,
     SetPerformerAcceptingOrdersCommand,
     SetPerformerAcceptingOrdersUseCase,
     SetPerformerServiceEnabledCommand,
@@ -377,11 +379,26 @@ async def test_calendar_override_can_be_cancelled_by_owner() -> None:
     result = await CancelCalendarOverrideUseCase(repository).execute(
         CancelCalendarOverrideCommand(telegram_id=1, override_id=override.id),
     )
-
     assert result.id == override.id
     repository.cancel_override.assert_awaited_once_with(
         telegram_id=1,
         override_id=override.id,
+    )
+
+
+@pytest.mark.unit
+async def test_nearby_order_notification_preference_is_performer_owned() -> None:
+    repository = AsyncMock()
+    repository.set_nearby_order_notifications_by_telegram_id.return_value = True
+
+    result = await SetNearbyOrderNotificationsUseCase(repository).execute(
+        SetNearbyOrderNotificationsCommand(telegram_id=1, is_enabled=True),
+    )
+
+    assert result is True
+    repository.set_nearby_order_notifications_by_telegram_id.assert_awaited_once_with(
+        telegram_id=1,
+        is_enabled=True,
     )
 
 

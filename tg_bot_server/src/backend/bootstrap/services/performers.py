@@ -13,6 +13,7 @@ from ._shared import (
     CreateOwnerAddressCommand,
     CreatePerformerAddressUseCase,
     DeletePerformerAddressUseCase,
+    GetNearbyOrderNotificationsUseCase,
     GetRegistrationStateUseCase,
     ListPerformerServicesUseCase,
     NotFoundError,
@@ -22,6 +23,8 @@ from ._shared import (
     RegisterPerformerUseCase,
     RevokePerformerServiceCommand,
     RevokePerformerServiceUseCase,
+    SetNearbyOrderNotificationsCommand,
+    SetNearbyOrderNotificationsUseCase,
     SetPerformerAcceptingOrdersCommand,
     SetPerformerAcceptingOrdersUseCase,
     SetPerformerCurrentAddressUseCase,
@@ -340,6 +343,23 @@ class PerformerServices(Service):
             ).execute(command)
             await uow.commit()
             return performer
+
+    async def set_nearby_order_notifications(
+        self,
+        command: SetNearbyOrderNotificationsCommand,
+    ) -> bool:
+        async with self._uow() as uow:
+            enabled = await SetNearbyOrderNotificationsUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(command)
+            await uow.commit()
+            return enabled
+
+    async def get_nearby_order_notifications(self, *, telegram_id: int) -> bool:
+        async with self._uow() as uow:
+            return await GetNearbyOrderNotificationsUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(telegram_id)
 
     async def list_performer_addresses(self, *, telegram_id: int) -> Any:
         async with self._uow() as uow:

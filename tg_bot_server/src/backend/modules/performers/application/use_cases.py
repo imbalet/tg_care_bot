@@ -410,3 +410,36 @@ class SetPerformerAcceptingOrdersUseCase:
         if performer is None:
             raise NotFoundError("Active performer not found")
         return performer
+
+
+@dataclass(frozen=True)
+class SetNearbyOrderNotificationsCommand:
+    telegram_id: int
+    is_enabled: bool
+
+
+class SetNearbyOrderNotificationsUseCase:
+    def __init__(self, repository: PerformerRepository) -> None:
+        self._repository = repository
+
+    async def execute(self, command: SetNearbyOrderNotificationsCommand) -> bool:
+        enabled = await self._repository.set_nearby_order_notifications_by_telegram_id(
+            telegram_id=command.telegram_id,
+            is_enabled=command.is_enabled,
+        )
+        if enabled is None:
+            raise NotFoundError("Active performer not found")
+        return enabled
+
+
+class GetNearbyOrderNotificationsUseCase:
+    def __init__(self, repository: PerformerRepository) -> None:
+        self._repository = repository
+
+    async def execute(self, telegram_id: int) -> bool:
+        enabled = await self._repository.get_nearby_order_notifications_by_telegram_id(
+            telegram_id=telegram_id,
+        )
+        if enabled is None:
+            raise NotFoundError("Active performer not found")
+        return enabled

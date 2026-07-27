@@ -53,6 +53,14 @@ class SetAcceptingOrdersRequest(BaseModel):
     is_accepting_orders: bool
 
 
+class SetNearbyOrderNotificationsRequest(BaseModel):
+    is_enabled: bool
+
+
+class NearbyOrderNotificationsResponse(BaseModel):
+    is_enabled: bool
+
+
 class CreateAddressRequest(BaseModel):
     city_id: UUID
     unrestricted_value: str = Field(min_length=1)

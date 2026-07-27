@@ -137,5 +137,20 @@ class PerformerRepository(Protocol):
     ) -> PerformerDTO | None:
         pass
 
+    async def set_nearby_order_notifications_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+        is_enabled: bool,
+    ) -> bool | None:
+        pass
+
+    async def get_nearby_order_notifications_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+    ) -> bool | None:
+        pass
+
     async def get_service_order_limit(self, service_id: UUID) -> int | None:
         pass

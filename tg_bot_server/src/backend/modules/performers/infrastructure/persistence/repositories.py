@@ -381,6 +381,30 @@ class SqlAlchemyPerformerRepository(PerformerRepository):
         performer.updated_at = utc_now()
         return _performer_to_dto(performer)
 
+    async def set_nearby_order_notifications_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+        is_enabled: bool,
+    ) -> bool | None:
+        performer = await self._get_performer_model_by_telegram_id(telegram_id)
+        if performer is None or performer.status != "active":
+            return None
+        performer.is_nearby_order_notifications_enabled = is_enabled
+        performer.updated_at = utc_now()
+        await self._session.flush()
+        return performer.is_nearby_order_notifications_enabled
+
+    async def get_nearby_order_notifications_by_telegram_id(
+        self,
+        *,
+        telegram_id: int,
+    ) -> bool | None:
+        performer = await self._get_performer_model_by_telegram_id(telegram_id)
+        if performer is None or performer.status != "active":
+            return None
+        return performer.is_nearby_order_notifications_enabled
+
     async def get_service_order_limit(self, service_id: UUID) -> int | None:
         result = await self._session.execute(
             select(ServiceCategoryModel.max_objects_per_order)

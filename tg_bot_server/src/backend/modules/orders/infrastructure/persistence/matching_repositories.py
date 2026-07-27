@@ -25,6 +25,7 @@ from backend.modules.orders.application import (
 )
 from backend.modules.orders.infrastructure.persistence.models import (
     OrderAddressSnapshotModel,
+    OrderCareObjectModel,
     OrderMatchModel,
     OrderModel,
     OrderStatusHistoryModel,
@@ -281,7 +282,60 @@ class SqlAlchemyMatchingRepository:
             raise ConflictError("Direct invitation is still pending")
         order.matching_mode = "pool"
         await self._session.flush()
+        await self._notify_nearby_performers(order)
         return await self._order_to_dto(order)
+
+    async def _notify_nearby_performers(self, order: OrderModel) -> None:
+        city_id = await self._session.scalar(
+            select(CustomerModel.city_id).where(CustomerModel.id == order.customer_id),
+        )
+        if city_id is None:
+            return
+        care_object_ids = tuple(
+            care_object_id
+            for care_object_id in await self._session.scalars(
+                select(OrderCareObjectModel.care_object_id).where(
+                    OrderCareObjectModel.order_id == order.id,
+                ),
+            )
+            if care_object_id is not None
+        )
+        candidates = await SqlAlchemyAvailabilityRepository(
+            self._session,
+        ).find_suitable_performers(
+            city_id=city_id,
+            service_id=order.service_id,
+            starts_at=order.start_at,
+            ends_at=order.end_at,
+            objects_count=order.objects_count,
+            care_object_ids=care_object_ids,
+            address_id=order.address_id,
+            limit=10,
+        )
+        enabled_ids = set(
+            await self._session.scalars(
+                select(PerformerModel.id).where(
+                    PerformerModel.id.in_(
+                        tuple(item.performer_id for item in candidates)
+                    ),
+                    PerformerModel.is_nearby_order_notifications_enabled.is_(True),
+                ),
+            )
+        )
+        for candidate in candidates:
+            if candidate.performer_id not in enabled_ids:
+                continue
+            await self._add_notification(
+                recipient_type="performer",
+                performer_id=candidate.performer_id,
+                notification_type="pool_order_available",
+                entity_type="order",
+                entity_id=order.id,
+                payload={"order_id": str(order.id)},
+                deduplication_key=(
+                    f"pool-order-available:{order.id}:{candidate.performer_id}"
+                ),
+            )
 
     async def list_order_matches(
         self,

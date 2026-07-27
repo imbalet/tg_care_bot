@@ -53,6 +53,7 @@ _OPEN_ORDER_TYPES = frozenset(
         "report_overdue",
         "report_auto_accepted",
         "contact_request_created",
+        "pool_order_available",
     }
 )
 
@@ -86,6 +87,7 @@ _BODIES = {
         "Отчет автоматически принят после окончания окна подтверждения."
     ),
     "contact_request_created": "Исполнитель просит связаться по заказу.",
+    "pool_order_available": "Появился подходящий заказ рядом с вами.",
     "support_request_created": "Поступило новое обращение в поддержку.",
     "complaint_created": "Поступила новая жалоба.",
     "account_deletion_requested": "Поступил запрос на удаление аккаунта.",

@@ -29,6 +29,10 @@ class PerformerModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
         default="profile_pending",
     )
     is_accepting_orders: Mapped[bool] = mapped_column(nullable=False, default=False)
+    is_nearby_order_notifications_enabled: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+    )
     current_address_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("addresses.id"),
         nullable=True,
