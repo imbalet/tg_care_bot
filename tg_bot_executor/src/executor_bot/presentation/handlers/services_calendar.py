@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from executor_bot.application.dto import PerformerServiceDTO
-from executor_bot.application.errors import BackendClientError
+from executor_bot.application.errors import BackendClientError, BackendValidationError
 from executor_bot.application.ports import BackendPort
 from executor_bot.presentation.callbacks import (
     AcceptingOrdersCallback,
@@ -78,6 +78,13 @@ async def toggle_accepting_orders(
             telegram_id=telegram_user_context.telegram_id,
             is_accepting_orders=callback_data.value,
         )
+    except BackendValidationError:
+        await telegram_responder.acknowledge(
+            callback,
+            "Сначала включите хотя бы одну одобренную услугу",
+            show_alert=True,
+        )
+        return
     except BackendClientError:
         await telegram_responder.update(
             bot=bot,
