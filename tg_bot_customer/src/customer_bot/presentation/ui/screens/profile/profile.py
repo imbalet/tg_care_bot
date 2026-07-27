@@ -46,6 +46,7 @@ STATUS_LABELS = {
     "active": "Активен",
     "blocked": "Заблокирован",
     "pending": "На проверке",
+    "deletion_pending": "Удаление запрошено",
 }
 
 
