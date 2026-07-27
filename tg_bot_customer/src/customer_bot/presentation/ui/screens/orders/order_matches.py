@@ -10,6 +10,9 @@ from customer_bot.presentation.callbacks import (
     OrderResponseSelectCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
+from customer_bot.presentation.ui.screens.orders.status_labels import (
+    response_status_label,
+)
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreen,
     Markup,
@@ -42,7 +45,7 @@ class Screen(BaseScreen[_View]):
                     "",
                     f"#{index}",
                     f"Исполнитель ID: {escape(str(item.performer_id))}",
-                    f"Статус: {escape(item.status)}",
+                    f"Статус: {response_status_label(item.status)}",
                 ),
             )
         return "\n".join(lines)

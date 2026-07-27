@@ -35,3 +35,15 @@ def matching_mode_label(mode: str) -> str:
         mode,
         escape(mode),
     )
+
+
+def response_status_label(status: str) -> str:
+    return {
+        "pending": "ожидает решения",
+        "active": "активен",
+        "selected": "выбран",
+        "confirmed": "подтверждён",
+        "rejected": "отклонён",
+        "expired": "истёк",
+        "cancelled": "отменён",
+    }.get(status, escape(status))
