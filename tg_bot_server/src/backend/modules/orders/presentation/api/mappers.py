@@ -91,6 +91,7 @@ def order_response(order: OrderDTO) -> OrderResponse:
         platform_fee_amount=order.platform_fee_amount,
         matching_deadline_at=matching_deadline_at.isoformat(),
         timezone=order.timezone,
+        distance_km=order.distance_km,
     )
 
 

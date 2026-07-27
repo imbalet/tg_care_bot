@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import exists, func, select, true
@@ -16,6 +17,7 @@ from backend.modules.catalog.infrastructure import (
     ServiceModel,
 )
 from backend.modules.customers.infrastructure import CustomerModel
+from backend.modules.geo.application import haversine_distance_km
 from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.application import (
     MatchActionDTO,
@@ -122,7 +124,31 @@ class SqlAlchemyMatchingRepository:
                 ends_at=order.end_at,
             )
             if check.is_available:
-                orders.append(await self._order_to_dto(order))
+                snapshot = await self._session.scalar(
+                    select(OrderAddressSnapshotModel).where(
+                        OrderAddressSnapshotModel.order_id == order.id,
+                    )
+                )
+                performer_address = await self._session.get(
+                    AddressModel,
+                    performer.current_address_id,
+                )
+                distance_km = None
+                if (
+                    snapshot is not None
+                    and performer_address is not None
+                    and snapshot.latitude is not None
+                    and snapshot.longitude is not None
+                    and performer_address.latitude is not None
+                    and performer_address.longitude is not None
+                ):
+                    distance_km = haversine_distance_km(
+                        first_latitude=performer_address.latitude,
+                        first_longitude=performer_address.longitude,
+                        second_latitude=snapshot.latitude,
+                        second_longitude=snapshot.longitude,
+                    )
+                orders.append(await self._order_to_dto(order, distance_km=distance_km))
         return tuple(orders)
 
     async def list_performer_responses(
@@ -885,8 +911,17 @@ class SqlAlchemyMatchingRepository:
             raise NotFoundError("Order match not found")
         return match
 
-    async def _order_to_dto(self, model: OrderModel) -> OrderDTO:
-        return _order_to_dto(model, await self._order_timezone(model))
+    async def _order_to_dto(
+        self,
+        model: OrderModel,
+        *,
+        distance_km: Decimal | None = None,
+    ) -> OrderDTO:
+        return _order_to_dto(
+            model,
+            await self._order_timezone(model),
+            distance_km=distance_km,
+        )
 
     async def _order_timezone(self, order: OrderModel | UUID) -> str:
         if isinstance(order, OrderModel):
@@ -914,7 +949,12 @@ class SqlAlchemyMatchingRepository:
         return timezone
 
 
-def _order_to_dto(model: OrderModel, timezone: str) -> OrderDTO:
+def _order_to_dto(
+    model: OrderModel,
+    timezone: str,
+    *,
+    distance_km: Decimal | None = None,
+) -> OrderDTO:
     if model.customer_id is None:
         raise ValidationError("Order customer is required")
     return OrderDTO(
@@ -938,6 +978,7 @@ def _order_to_dto(model: OrderModel, timezone: str) -> OrderDTO:
         matching_deadline_at=model.matching_deadline_at,
         timezone=timezone,
         report_photo_consent=model.report_photo_consent,
+        distance_km=distance_km,
     )
 
 

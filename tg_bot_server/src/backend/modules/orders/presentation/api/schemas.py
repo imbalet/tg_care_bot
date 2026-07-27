@@ -51,6 +51,7 @@ class OrderResponse(BaseModel):
     platform_fee_amount: Decimal
     matching_deadline_at: str
     timezone: str
+    distance_km: Decimal | None = None
 
 
 class FullAddressSnapshotResponse(BaseModel):

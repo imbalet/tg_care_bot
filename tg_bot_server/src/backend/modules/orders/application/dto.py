@@ -89,6 +89,7 @@ class OrderDTO:
     matching_deadline_at: datetime
     timezone: str
     report_photo_consent: bool | None = None
+    distance_km: Decimal | None = None
 
 
 @dataclass(frozen=True)
