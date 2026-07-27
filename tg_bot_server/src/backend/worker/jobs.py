@@ -442,6 +442,15 @@ class DeadlinesWorkerJob:
                     payload={"order_id": str(order.id)},
                     deduplication_key=f"order-approaching:{order.id}",
                 )
+                await self._notify_once(
+                    session=session,
+                    recipient_type="performer",
+                    performer_id=order.selected_performer_id,
+                    notification_type="order_approaching",
+                    entity_id=order.id,
+                    payload={"order_id": str(order.id)},
+                    deduplication_key=f"order-approaching:performer:{order.id}",
+                )
             else:
                 await self._notify_once(
                     session=session,
