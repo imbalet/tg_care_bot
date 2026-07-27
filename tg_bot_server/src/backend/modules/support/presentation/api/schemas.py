@@ -35,6 +35,9 @@ class ContactRequestResponse(BaseModel):
     requested_method: str
     status: str
     failure_reason: str | None
+    contact_name: str
+    contact_phone: str | None
+    contact_telegram_username: str | None
 
 
 class FileUploadResponse(BaseModel):

@@ -228,12 +228,15 @@ async def create_customer_contact_request(
         order_id=request.order_id,
     )
     return ContactRequestResponse(
-        id=record.id,
-        order_id=record.order_id,
-        performer_id=record.performer_id,
-        requested_method=record.requested_method,
-        status=record.status,
-        failure_reason=record.failure_reason,
+        id=record.record.id,
+        order_id=record.record.order_id,
+        performer_id=record.record.performer_id,
+        requested_method=record.record.requested_method,
+        status=record.record.status,
+        failure_reason=record.record.failure_reason,
+        contact_name=record.contact_name,
+        contact_phone=record.contact_phone,
+        contact_telegram_username=record.contact_telegram_username,
     )
 
 
@@ -248,12 +251,15 @@ async def create_performer_contact_request(
         order_id=request.order_id,
     )
     return ContactRequestResponse(
-        id=record.id,
-        order_id=record.order_id,
-        performer_id=record.performer_id,
-        requested_method=record.requested_method,
-        status=record.status,
-        failure_reason=record.failure_reason,
+        id=record.record.id,
+        order_id=record.record.order_id,
+        performer_id=record.record.performer_id,
+        requested_method=record.record.requested_method,
+        status=record.record.status,
+        failure_reason=record.record.failure_reason,
+        contact_name=record.contact_name,
+        contact_phone=record.contact_phone,
+        contact_telegram_username=record.contact_telegram_username,
     )
 
 
