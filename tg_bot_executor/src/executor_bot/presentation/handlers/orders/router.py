@@ -468,7 +468,12 @@ async def _refresh_order_card(
         telegram_id=context.telegram_id,
         text=my_order_card_text(order),
         reply_markup=my_order_card_keyboard_for_status(
-            status=order.status, order_id=str(order.id), group=group, page=page
+            status=order.status,
+            order_id=str(order.id),
+            group=group,
+            page=page,
+            start_at=order.start_at,
+            end_at=order.end_at,
         ),
     )
 

@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from aiogram.types import InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
@@ -374,7 +375,13 @@ def report_skip_keyboard(step: str) -> InlineKeyboardMarkup:
 
 
 def my_order_card_keyboard_for_status(
-    *, status: str | None, order_id: str | None = None, group: str, page: int
+    *,
+    status: str | None,
+    order_id: str | None = None,
+    group: str,
+    page: int,
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
 ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory()
     if order_id is not None and status in {
@@ -390,7 +397,15 @@ def my_order_card_keyboard_for_status(
         keyboard.button(
             "Попросить связаться", ExecutorOrderContactCallback(order_id=order_id)
         )
-    if order_id is not None and status == "confirmed":
+    start_window_open = (
+        start_at is None
+        or end_at is None
+        or (
+            datetime.now(UTC) >= start_at - timedelta(minutes=30)
+            and datetime.now(UTC) < end_at
+        )
+    )
+    if order_id is not None and status == "confirmed" and start_window_open:
         keyboard.button("Я на месте", ExecutorOrderStartCallback(order_id=order_id))
         keyboard.button(
             "Не могу выполнить", ExecutorOrderCancelCallback(order_id=order_id)
