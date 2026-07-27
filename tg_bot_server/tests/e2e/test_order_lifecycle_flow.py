@@ -87,6 +87,15 @@ async def test_confirmed_order_completes_full_execution_lifecycle(
     assert start_response.status_code == 200, start_response.text
     assert start_response.json()["status"] == "in_progress"
 
+    cancel_response = await e2e_client.post(
+        f"/api/orders/{order['id']}/cancel",
+        json={
+            "actor_type": "performer",
+            "actor_id": performer["entity_id"],
+        },
+    )
+    assert cancel_response.status_code == 409, cancel_response.text
+
     finish_response = await e2e_client.post(
         f"/api/orders/{order['id']}/finish",
         json={"performer_id": performer["entity_id"]},
