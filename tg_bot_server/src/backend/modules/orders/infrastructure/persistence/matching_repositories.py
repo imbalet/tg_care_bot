@@ -33,6 +33,7 @@ from backend.modules.payments.infrastructure import PaymentModel
 from backend.modules.performers.infrastructure import (
     PerformerCalendarOverrideModel,
     PerformerModel,
+    PerformerScheduleModel,
     PerformerServiceModel,
 )
 
@@ -51,6 +52,25 @@ class SqlAlchemyMatchingRepository:
         performer = await self._session.get(PerformerModel, performer_id)
         if performer is None or performer.status != "active":
             raise NotFoundError("Performer not found")
+        if not performer.is_accepting_orders:
+            raise ValidationError("Performer is not accepting orders")
+        has_schedule = await self._session.scalar(
+            select(PerformerScheduleModel.id).where(
+                PerformerScheduleModel.performer_id == performer_id,
+                PerformerScheduleModel.is_active.is_(True),
+            )
+        )
+        if has_schedule is None:
+            raise ValidationError("Performer schedule is not configured")
+        has_enabled_service = await self._session.scalar(
+            select(PerformerServiceModel.id).where(
+                PerformerServiceModel.performer_id == performer_id,
+                PerformerServiceModel.is_approved.is_(True),
+                PerformerServiceModel.is_enabled.is_(True),
+            )
+        )
+        if has_enabled_service is None:
+            raise ValidationError("Performer has no enabled services")
         now = utc_now()
         is_currently_unavailable = await self._session.scalar(
             select(PerformerCalendarOverrideModel.id).where(
