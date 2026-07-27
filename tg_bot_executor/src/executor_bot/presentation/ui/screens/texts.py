@@ -582,7 +582,7 @@ def my_order_card_text(
             f"Оплата заказчика до: {_datetime_label(order.payment_deadline_at)}"
         )
     if order.payment_status is not None:
-        lines.append(f"Платеж заказчика: {escape(order.payment_status)}")
+        lines.append(f"Платеж заказчика: {_payment_status_label(order.payment_status)}")
     if order.status in {"confirmed", "in_progress", "waiting_report"}:
         lines.extend(
             (
@@ -680,6 +680,17 @@ def _matching_mode_label(mode: str) -> str:
         mode,
         escape(mode),
     )
+
+
+def _payment_status_label(status: str) -> str:
+    return {
+        "created": "создаётся",
+        "pending": "ожидает оплаты",
+        "succeeded": "оплачен",
+        "failed": "ошибка оплаты",
+        "expired": "срок оплаты истёк",
+        "cancelled": "отменён",
+    }.get(status, escape(status))
 
 
 def _datetime_label(value: datetime) -> str:

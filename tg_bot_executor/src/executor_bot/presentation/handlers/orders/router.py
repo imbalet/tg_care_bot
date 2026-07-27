@@ -274,7 +274,8 @@ async def executor_responses_callback(
             ),
             group=callback_data.group,
         )
-        lines = ["<b>Мои отклики</b>", "", f"Раздел: {callback_data.group}"]
+        group_label = "активные" if callback_data.group == "active" else "архив"
+        lines = ["<b>Мои отклики</b>", "", f"Раздел: {group_label}"]
         for match in matches:
             lines.extend(
                 (
@@ -282,7 +283,7 @@ async def executor_responses_callback(
                     f"<b>Заказ #{escape(str(match.order_id)[:8])}</b>",
                     f"Период: {_match_period(match)}",
                     f"Ответить до: {_match_datetime(match.response_expires_at)}",
-                    f"Статус: {escape(match.status)}",
+                    f"Статус: {_match_status_label(match.status)}",
                     *(
                         (f"Причина закрытия: {escape(match.close_reason)}",)
                         if match.close_reason
@@ -1322,6 +1323,18 @@ async def _show_orders_page(
         text=my_orders_page_text(orders, group),
         reply_markup=my_orders_page_keyboard(orders, group),
     )
+
+
+def _match_status_label(status: str) -> str:
+    return {
+        "pending": "ожидает ответа",
+        "active": "активен",
+        "selected": "выбран",
+        "confirmed": "подтверждён",
+        "rejected": "отклонён",
+        "expired": "истёк",
+        "cancelled": "отменён",
+    }.get(status, escape(status))
 
 
 __all__ = ["router"]
