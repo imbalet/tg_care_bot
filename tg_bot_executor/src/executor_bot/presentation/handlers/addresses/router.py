@@ -312,10 +312,32 @@ async def select_address(
     callback: CallbackQuery,
     bot: Bot,
     state: FSMContext,
+    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     callback_data: WorkAddressSelectCallback,
 ) -> None:
+    try:
+        addresses = await backend_client.list_work_addresses(
+            telegram_id=telegram_user_context.telegram_id,
+        )
+    except BackendValidationError as exc:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=work_address_validation_error_text(str(exc)),
+        )
+        return
+    except BackendClientError:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=retry_later_text(),
+        )
+        return
+    await state.update_data(work_addresses=[_address_state(item) for item in addresses])
     item = await _address_by_index(state, callback_data.index)
     if item is None:
         await telegram_responder.acknowledge(callback, "Выберите действие кнопкой.")
