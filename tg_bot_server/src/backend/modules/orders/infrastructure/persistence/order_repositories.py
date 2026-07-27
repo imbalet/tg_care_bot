@@ -248,6 +248,8 @@ class SqlAlchemyOrderRepository(OrderRepository):
         ):
             raise ConflictError("Report confirmation window has expired")
         order.status = "completed"
+        order.payout_status = "ready"
+        order.payout_block_reason = None
         self._add_status_history(
             order.id,
             "report_submitted",

@@ -376,7 +376,7 @@ class SqlAlchemyPaymentRepository:
     ) -> RefundDTO:
         payment = await self._lock_payment(payment_id)
         order = await self._lock_order(payment.order_id)
-        if order.payout_status == "paid":
+        if order.payout_status == "succeeded":
             raise ConflictError("Payout is already paid")
         if payment.status != "succeeded":
             raise ConflictError("Payment is not succeeded")
@@ -435,7 +435,7 @@ class SqlAlchemyPaymentRepository:
         admin_id: UUID,
     ) -> ManualPayoutDTO:
         order = await self._lock_order(order_id)
-        if order.payout_status == "paid":
+        if order.payout_status == "succeeded":
             if order.payout_reference is None or order.payout_completed_at is None:
                 raise ConflictError("Payout is already marked as paid")
             return ManualPayoutDTO(
@@ -458,7 +458,7 @@ class SqlAlchemyPaymentRepository:
         if await self._get_active_refund(payment.id) is not None:
             raise ConflictError("Payment has an active or completed refund")
         now = utc_now()
-        order.payout_status = "paid"
+        order.payout_status = "succeeded"
         order.payout_reference = reference
         order.payout_admin_id = admin_id
         order.payout_comment = comment

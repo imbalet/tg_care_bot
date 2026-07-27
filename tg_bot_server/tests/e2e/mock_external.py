@@ -51,6 +51,24 @@ class MockExternalHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+        if self.path == "/Init" and "PayType" in request_payload:
+            self._respond(
+                {
+                    "Success": False,
+                    "ErrorCode": "7",
+                    "Message": "Two-stage payments are not supported in E2E",
+                },
+            )
+            return
+        if self.path == "/Confirm":
+            self._respond(
+                {
+                    "Success": False,
+                    "ErrorCode": "8",
+                    "Message": "Confirm must not be called for platform settlement",
+                },
+            )
+            return
         if self.path == "/GetState":
             self._respond(
                 {

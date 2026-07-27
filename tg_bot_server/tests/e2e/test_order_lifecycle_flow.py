@@ -173,6 +173,81 @@ async def test_confirmed_order_completes_full_execution_lifecycle(
         == 1
     )
 
+    payment_row = await e2e_db.fetchrow(
+        """
+        SELECT p.id, p.status, p.provider_status, o.payout_status
+        FROM orders AS o
+        JOIN payments AS p ON p.id = o.active_payment_id
+        WHERE o.id = $1
+        """,
+        order["id"],
+    )
+    assert payment_row is not None
+    assert dict(payment_row) == {
+        "id": payment_row["id"],
+        "status": "succeeded",
+        "provider_status": "CONFIRMED",
+        "payout_status": "ready",
+    }
+
+    login_response = await e2e_client.post(
+        "/admin/login",
+        json={
+            "email": test_settings.default_admin_email,
+            "password": test_settings.default_admin_password,
+        },
+    )
+    assert login_response.status_code == 200, login_response.text
+    csrf_token = login_response.json()["csrf_token"]
+    payout_response = await e2e_client.post(
+        "/admin/orders/payouts/manual",
+        headers={"X-CSRF-Token": csrf_token},
+        json={
+            "order_id": order["id"],
+            "reference": "e2e-bank-transfer-1",
+            "comment": "E2E manual payout",
+        },
+    )
+    assert payout_response.status_code == 200, payout_response.text
+    assert payout_response.json()["status"] == "succeeded"
+    assert payout_response.json()["reference"] == "e2e-bank-transfer-1"
+
+    repeated_payout_response = await e2e_client.post(
+        "/admin/orders/payouts/manual",
+        headers={"X-CSRF-Token": csrf_token},
+        json={
+            "order_id": order["id"],
+            "reference": "different-reference",
+        },
+    )
+    assert repeated_payout_response.status_code == 200, repeated_payout_response.text
+    assert repeated_payout_response.json()["reference"] == "e2e-bank-transfer-1"
+
+    refund_response = await e2e_client.post(
+        "/admin/payments/refunds",
+        headers={"X-CSRF-Token": csrf_token},
+        json={
+            "payment_id": str(payment_row["id"]),
+            "amount": str(order["total_amount"]),
+            "reason": "refund_after_payout",
+        },
+    )
+    assert refund_response.status_code == 409, refund_response.text
+
+    payout_row = await e2e_db.fetchrow(
+        """
+        SELECT payout_status, payout_reference, payout_comment, payout_completed_at
+        FROM orders
+        WHERE id = $1
+        """,
+        order["id"],
+    )
+    assert payout_row is not None
+    assert payout_row["payout_status"] == "succeeded"
+    assert payout_row["payout_reference"] == "e2e-bank-transfer-1"
+    assert payout_row["payout_comment"] == "E2E manual payout"
+    assert payout_row["payout_completed_at"] is not None
+
 
 @pytest.mark.e2e
 async def test_non_selected_performer_cannot_start_confirmed_order(

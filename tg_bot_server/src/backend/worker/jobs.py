@@ -525,6 +525,8 @@ class DeadlinesWorkerJob:
             if order.status != "report_submitted":
                 continue
             order.status = "completed"
+            order.payout_status = "ready"
+            order.payout_block_reason = None
             order.confirmation_deadline_at = None
             session.add(
                 OrderStatusHistoryModel(
