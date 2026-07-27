@@ -214,8 +214,16 @@ class CalendarScheduleCallback(CallbackData, prefix="calendar_schedule"):
     schedule_type: str
 
 
-class CalendarUnavailableTomorrowCallback(
-    CallbackData,
-    prefix="calendar_unavailable_tomorrow",
-):
+class CalendarCustomScheduleCallback(CallbackData, prefix="calendar_custom_schedule"):
     pass
+
+
+class CalendarUnavailableCallback(CallbackData, prefix="calendar_unavailable"):
+    pass
+
+
+class CalendarCancelUnavailableCallback(
+    CallbackData,
+    prefix="calendar_cancel_unavailable",
+):
+    override_id: str

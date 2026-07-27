@@ -119,6 +119,33 @@ class PerformerScheduleDTO:
 
 
 @dataclass(frozen=True)
+class CalendarOverrideDTO:
+    id: UUID
+    override_type: str
+    starts_at: datetime
+    ends_at: datetime
+    comment: str | None
+    timezone: str
+    is_active: bool
+
+
+@dataclass(frozen=True)
+class BusyIntervalDTO:
+    id: UUID
+    kind: str
+    status: str
+    starts_at: datetime
+    ends_at: datetime
+
+
+@dataclass(frozen=True)
+class CalendarDTO:
+    schedule: PerformerScheduleDTO | None
+    overrides: tuple[CalendarOverrideDTO, ...]
+    busy_intervals: tuple[BusyIntervalDTO, ...]
+
+
+@dataclass(frozen=True)
 class AvailableOrderDTO:
     id: UUID
     service_name: str

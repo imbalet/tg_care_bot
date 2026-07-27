@@ -7,6 +7,9 @@ from executor_bot.application.dto import (
     AddressDTO,
     AddressSuggestionDTO,
     AvailableOrderDTO,
+    BusyIntervalDTO,
+    CalendarDTO,
+    CalendarOverrideDTO,
     ContactRequestDTO,
     FileDTO,
     MatchActionDTO,
@@ -155,6 +158,55 @@ def schedule_from_json(data: dict[str, object]) -> PerformerScheduleDTO:
         else None,
         work_start_time=str(data["work_start_time"]),
         work_end_time=str(data["work_end_time"]),
+    )
+
+
+def calendar_override_from_json(data: dict[str, object]) -> CalendarOverrideDTO:
+    return CalendarOverrideDTO(
+        id=UUID(str(data["id"])),
+        override_type=str(data["override_type"]),
+        starts_at=datetime.fromisoformat(str(data["starts_at"])),
+        ends_at=datetime.fromisoformat(str(data["ends_at"])),
+        comment=(
+            str(data["comment"]) if isinstance(data.get("comment"), str) else None
+        ),
+        timezone=str(data["timezone"]),
+        is_active=bool(data["is_active"]),
+    )
+
+
+def busy_interval_from_json(data: dict[str, object]) -> BusyIntervalDTO:
+    return BusyIntervalDTO(
+        id=UUID(str(data["id"])),
+        kind=str(data["kind"]),
+        status=str(data["status"]),
+        starts_at=datetime.fromisoformat(str(data["starts_at"])),
+        ends_at=datetime.fromisoformat(str(data["ends_at"])),
+    )
+
+
+def calendar_from_json(data: dict[str, object]) -> CalendarDTO:
+    schedule_data = data.get("schedule")
+    overrides = data.get("overrides")
+    busy_intervals = data.get("busy_intervals")
+    return CalendarDTO(
+        schedule=schedule_from_json(schedule_data)
+        if isinstance(schedule_data, dict)
+        else None,
+        overrides=tuple(
+            calendar_override_from_json(item)
+            for item in overrides
+            if isinstance(item, dict)
+        )
+        if isinstance(overrides, list)
+        else (),
+        busy_intervals=tuple(
+            busy_interval_from_json(item)
+            for item in busy_intervals
+            if isinstance(item, dict)
+        )
+        if isinstance(busy_intervals, list)
+        else (),
     )
 
 
@@ -371,6 +423,9 @@ __all__ = [
     "address_from_json",
     "address_suggestion_from_json",
     "available_order_from_json",
+    "busy_interval_from_json",
+    "calendar_from_json",
+    "calendar_override_from_json",
     "contact_request_from_json",
     "error_message",
     "file_from_json",

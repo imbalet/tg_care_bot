@@ -8,7 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
 from executor_bot.application.dto import OrderMatchDTO
-from executor_bot.application.errors import BackendClientError
+from executor_bot.application.errors import BackendClientError, BackendValidationError
 from executor_bot.application.ports import (
     ActiveCategoryStore,
     BackendPort,
@@ -101,14 +101,39 @@ async def available_orders_callback(
         active_category_store=active_category_store,
         telegram_id=telegram_user_context.telegram_id,
     )
-    orders = await backend_client.list_available_orders(
-        performer_id=registration_state.performer.id,
-        category_code=(
-            category.code
-            if callback_data.scope.value == "current_category" and category is not None
-            else None
-        ),
-    )
+    try:
+        orders = await backend_client.list_available_orders(
+            performer_id=registration_state.performer.id,
+            category_code=(
+                category.code
+                if callback_data.scope.value == "current_category"
+                and category is not None
+                else None
+            ),
+        )
+    except BackendValidationError as error:
+        if "unavailable" not in str(error).lower():
+            raise
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(
+                "Сейчас вы отмечены как недоступный исполнитель. "
+                "Доступные заказы появятся после окончания периода или его отмены."
+            ),
+            reply_markup=orders_filter_keyboard(is_available_orders=True),
+        )
+        return
+    except BackendClientError:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Не удалось загрузить заказы. Попробуйте позже.",
+            reply_markup=orders_filter_keyboard(is_available_orders=True),
+        )
+        return
     viewed = await viewed_available_orders_store.list_viewed(
         telegram_user_context.telegram_id,
     )

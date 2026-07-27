@@ -1,5 +1,5 @@
 import logging
-from datetime import date, datetime, time, timedelta
+from datetime import time
 from typing import Any
 from uuid import UUID
 
@@ -9,6 +9,8 @@ from executor_bot.application.dto import (
     AddressDTO,
     AddressSuggestionDTO,
     AvailableOrderDTO,
+    CalendarDTO,
+    CalendarOverrideDTO,
     CityDTO,
     ContactRequestDTO,
     DeletionPreflightDTO,
@@ -39,6 +41,12 @@ from executor_bot.infrastructure.http.parsers import (
 )
 from executor_bot.infrastructure.http.parsers import (
     available_order_from_json as _available_order_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    calendar_from_json as _calendar_from_json,
+)
+from executor_bot.infrastructure.http.parsers import (
+    calendar_override_from_json as _calendar_override_from_json,
 )
 from executor_bot.infrastructure.http.parsers import (
     contact_request_from_json as _contact_request_from_json,
@@ -442,21 +450,46 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return _schedule_from_json(response.json())
 
-    async def add_tomorrow_unavailable(self, *, telegram_id: int) -> None:
-        tomorrow = date.today() + timedelta(days=1)
-        starts_at = datetime.combine(tomorrow, time.min)
-        ends_at = starts_at + timedelta(days=1)
+    async def get_calendar(self, *, telegram_id: int) -> CalendarDTO:
+        response = await self._request(
+            "GET", f"/api/performers/by-telegram/{telegram_id}/calendar"
+        )
+        self._raise_for_status(response)
+        return _calendar_from_json(response.json())
+
+    async def add_unavailable(
+        self,
+        *,
+        telegram_id: int,
+        starts_at: str,
+        ends_at: str,
+    ) -> CalendarOverrideDTO:
         response = await self._request(
             "POST",
             f"/api/performers/by-telegram/{telegram_id}/calendar-overrides",
             json={
                 "override_type": "unavailable",
-                "starts_at": starts_at.isoformat(),
-                "ends_at": ends_at.isoformat(),
-                "comment": "Telegram quick action",
+                "starts_at": starts_at,
+                "ends_at": ends_at,
+                "comment": "Запланированная недоступность",
             },
         )
         self._raise_for_status(response)
+        return _calendar_override_from_json(response.json())
+
+    async def cancel_unavailability(
+        self,
+        *,
+        telegram_id: int,
+        override_id: UUID,
+    ) -> CalendarOverrideDTO:
+        response = await self._request(
+            "DELETE",
+            f"/api/performers/by-telegram/{telegram_id}"
+            f"/calendar-overrides/{override_id}",
+        )
+        self._raise_for_status(response)
+        return _calendar_override_from_json(response.json())
 
     async def list_available_orders(
         self,

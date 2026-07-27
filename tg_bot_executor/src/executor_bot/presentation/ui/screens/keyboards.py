@@ -3,6 +3,7 @@ from typing import Protocol
 
 from aiogram.types import InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
+from executor_bot.application.dto import CalendarOverrideDTO
 from executor_bot.presentation.callbacks import (
     AcceptingOrdersCallback,
     AvailableOrderCardCallback,
@@ -10,9 +11,11 @@ from executor_bot.presentation.callbacks import (
     AvatarDeleteCallback,
     AvatarOpenCallback,
     AvatarUploadCallback,
+    CalendarCancelUnavailableCallback,
+    CalendarCustomScheduleCallback,
     CalendarOpenCallback,
     CalendarScheduleCallback,
-    CalendarUnavailableTomorrowCallback,
+    CalendarUnavailableCallback,
     CategoryChangeCallback,
     CategorySelectCallback,
     DirectAcceptCallback,
@@ -484,8 +487,10 @@ def services_keyboard(
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
-def calendar_keyboard() -> InlineKeyboardMarkup:
-    return (
+def calendar_keyboard(
+    override: CalendarOverrideDTO | None = None,
+) -> InlineKeyboardMarkup:
+    keyboard = (
         InlineKeyboardFactory()
         .button(
             "Каждый день 09-18",
@@ -493,10 +498,16 @@ def calendar_keyboard() -> InlineKeyboardMarkup:
         )
         .button("Будни 09-18", CalendarScheduleCallback(schedule_type="weekdays"))
         .button("Выходные 09-18", CalendarScheduleCallback(schedule_type="weekends"))
-        .button("Завтра недоступен", CalendarUnavailableTomorrowCallback())
-        .button(MsgKey.MAIN_MENU, MainMenuCallback())
-        .as_markup()
+        .button("Свой график", CalendarCustomScheduleCallback())
     )
+    if override is None:
+        keyboard.button("Добавить недоступность", CalendarUnavailableCallback())
+    else:
+        keyboard.button(
+            "Отменить недоступность",
+            CalendarCancelUnavailableCallback(override_id=str(override.id)),
+        )
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
 __all__ = [

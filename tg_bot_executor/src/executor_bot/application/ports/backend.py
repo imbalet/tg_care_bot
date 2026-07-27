@@ -6,6 +6,8 @@ from executor_bot.application.dto import (
     AddressDTO,
     AddressSuggestionDTO,
     AvailableOrderDTO,
+    CalendarDTO,
+    CalendarOverrideDTO,
     CityDTO,
     ContactRequestDTO,
     DeletionPreflightDTO,
@@ -171,7 +173,22 @@ class BackendPort(Protocol):
         work_end_time: time,
     ) -> PerformerScheduleDTO: ...
 
-    async def add_tomorrow_unavailable(self, *, telegram_id: int) -> None: ...
+    async def get_calendar(self, *, telegram_id: int) -> CalendarDTO: ...
+
+    async def add_unavailable(
+        self,
+        *,
+        telegram_id: int,
+        starts_at: str,
+        ends_at: str,
+    ) -> CalendarOverrideDTO: ...
+
+    async def cancel_unavailability(
+        self,
+        *,
+        telegram_id: int,
+        override_id: UUID,
+    ) -> CalendarOverrideDTO: ...
 
     async def list_available_orders(
         self,
