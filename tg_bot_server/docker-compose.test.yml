@@ -42,6 +42,25 @@ services:
       timeout: 3s
       retries: 20
 
+  tbank-mock:
+    build:
+      context: ../tbank_mock
+    environment:
+      TBANK_MOCK_TERMINAL_KEY: test-terminal
+      TBANK_MOCK_PASSWORD: test-password
+      TBANK_MOCK_DATABASE_PATH: /tmp/tbank-mock.db
+      TBANK_MOCK_PUBLIC_BASE_URL: http://tbank-mock:8080
+      TBANK_MOCK_HOST: 0.0.0.0
+      TBANK_MOCK_PORT: 8080
+      TBANK_MOCK_WEBHOOK_TIMEOUT_SECONDS: 3
+      TBANK_MOCK_WEBHOOK_RETRY_COUNT: 5
+      TBANK_MOCK_WEBHOOK_RETRY_DELAY_SECONDS: 1
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
   migrate:
     build:
       context: .
@@ -70,10 +89,10 @@ services:
       DADATA_SECRET_KEY: test-dadata-secret
       DADATA_BASE_URL: http://mock-external:8080
       PAYMENT_PROVIDER: tbank_test
-      TBANK_BASE_URL: http://mock-external:8080
+      TBANK_BASE_URL: http://tbank-mock:8080/v2
       TBANK_TERMINAL_KEY: test-terminal
       TBANK_PASSWORD: test-password
-      TBANK_NOTIFICATION_URL: http://api:8000/api/payments/webhook
+      TBANK_NOTIFICATION_URL: http://api:8000/api/payments/webhooks/tbank
       DEFAULT_ADMIN_EMAIL: admin@test.local
       DEFAULT_ADMIN_FULL_NAME: Test Admin
       DEFAULT_ADMIN_PASSWORD: test-password
@@ -101,6 +120,8 @@ services:
         condition: service_completed_successfully
       mock-external:
         condition: service_healthy
+      tbank-mock:
+        condition: service_healthy
     command: ["uvicorn", "backend.bootstrap.api:app", "--host", "0.0.0.0", "--port", "8000"]
 
   worker:
@@ -112,6 +133,8 @@ services:
       migrate:
         condition: service_completed_successfully
       mock-external:
+        condition: service_healthy
+      tbank-mock:
         condition: service_healthy
     command: ["python", "-m", "backend.worker.main"]
 
@@ -138,6 +161,8 @@ services:
       minio:
         condition: service_healthy
       mock-external:
+        condition: service_healthy
+      tbank-mock:
         condition: service_healthy
     command: ["uv", "run", "pytest", "-m", "e2e"]
 

@@ -87,6 +87,7 @@ async def test_tbank_init_builds_signed_idempotent_receipt_payload(
     assert path == "/Init"
     assert payload["Amount"] == 12345
     assert "PayType" not in payload
+    assert payload["DATA"]["OperationInitiatorType"] == "0"
     assert payload["DATA"]["idempotency_key"] == "payment:42"
     assert payload["Receipt"]["Items"][0]["Amount"] == 12345
     assert payload["NotificationURL"] == "https://api.test/webhook"
@@ -175,3 +176,21 @@ async def test_tbank_token_verification_rejects_missing_or_modified_token() -> N
         verify_tbank_token({"TerminalKey": "terminal", "Token": "bad"}, "password")
         is False
     )
+
+
+@pytest.mark.unit
+def test_tbank_receipt_settings_reject_unknown_values() -> None:
+    with pytest.raises(ValidationError, match="receipt tax"):
+        TBankPaymentGateway(
+            base_url="https://bank.test",
+            terminal_key="terminal",
+            password=str(uuid4()),
+            notification_url=None,
+            receipt=TBankReceiptSettings(
+                "usn_income",
+                "vat99",
+                "full_payment",
+                "service",
+            ),
+            timeout_seconds=3,
+        )

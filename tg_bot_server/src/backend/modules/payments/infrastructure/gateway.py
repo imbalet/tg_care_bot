@@ -25,6 +25,51 @@ class TBankReceiptSettings:
     payment_object: str
 
 
+_RECEIPT_TAXATION_VALUES = {
+    "osn",
+    "usn_income",
+    "usn_income_outcome",
+    "envd",
+    "esn",
+    "patent",
+}
+_RECEIPT_TAX_VALUES = {"none", "vat0", "vat5", "vat7", "vat10", "vat20", "vat22"}
+_RECEIPT_METHOD_VALUES = {
+    "full_prepayment",
+    "prepayment",
+    "advance",
+    "full_payment",
+    "partial_payment",
+    "credit",
+    "credit_payment",
+}
+_RECEIPT_OBJECT_VALUES = {
+    "commodity",
+    "excise",
+    "job",
+    "service",
+    "gambling_bet",
+    "gambling_prize",
+    "intellectual_activity",
+    "payment",
+    "agent_commission",
+    "composite",
+    "another",
+}
+
+
+def validate_tbank_receipt_settings(settings: TBankReceiptSettings) -> None:
+    fields = (
+        ("taxation", settings.taxation, _RECEIPT_TAXATION_VALUES),
+        ("tax", settings.tax, _RECEIPT_TAX_VALUES),
+        ("payment method", settings.payment_method, _RECEIPT_METHOD_VALUES),
+        ("payment object", settings.payment_object, _RECEIPT_OBJECT_VALUES),
+    )
+    for name, value, allowed in fields:
+        if value not in allowed:
+            raise ValidationError(f"Unsupported T-Bank receipt {name}: {value}")
+
+
 class TBankPaymentGateway:
     def __init__(
         self,
@@ -42,6 +87,7 @@ class TBankPaymentGateway:
         self._notification_url = notification_url
         self._receipt = receipt
         self._timeout_seconds = timeout_seconds
+        validate_tbank_receipt_settings(receipt)
 
     async def create_payment(
         self,
@@ -56,6 +102,7 @@ class TBankPaymentGateway:
                 "order_id": str(command.order_id),
                 "payment_id": str(command.payment_id),
                 "idempotency_key": command.idempotency_key,
+                "OperationInitiatorType": "0",
             },
             "Receipt": {
                 "Phone": command.customer_phone,

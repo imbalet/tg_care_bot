@@ -248,7 +248,12 @@ class RetryPaymentOperationUseCase:
                     raw_payload={},
                 ),
             )
-        if state.status in {"REJECTED", "CANCELED", "DEADLINE_EXPIRED"}:
+        if state.status in {
+            "AUTH_FAIL",
+            "REJECTED",
+            "CANCELED",
+            "DEADLINE_EXPIRED",
+        }:
             await self._repository.mark_provider_status(
                 payment_id=data.payment.id,
                 status="failed",

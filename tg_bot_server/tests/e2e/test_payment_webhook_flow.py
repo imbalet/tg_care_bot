@@ -539,10 +539,13 @@ async def test_customer_payment_retry_is_limited_to_three_attempts(
         )
         assert current_provider_payment_id
 
-    assert await e2e_db.fetchval(
-        "SELECT count(*) FROM payments WHERE order_id = $1",
-        order["id"],
-    ) == 3
+    assert (
+        await e2e_db.fetchval(
+            "SELECT count(*) FROM payments WHERE order_id = $1",
+            order["id"],
+        )
+        == 3
+    )
 
 
 @pytest.mark.e2e
@@ -907,6 +910,18 @@ async def test_admin_retry_check_marks_rejected_provider_payment_failed(
         e2e_client,
         e2e_db,
     )
+    assert payment["confirmation_url"]
+    async with httpx.AsyncClient(follow_redirects=False) as payment_client:
+        payment_response = await payment_client.post(
+            f"{payment['confirmation_url']}/submit",
+            data={
+                "pan": "2201382000000062",
+                "exp_date": "12/30",
+                "cvv": "123",
+                "cardholder": "E2E CUSTOMER",
+            },
+        )
+    assert payment_response.status_code == 200, payment_response.text
     login_response = await e2e_client.post(
         "/admin/login",
         json={

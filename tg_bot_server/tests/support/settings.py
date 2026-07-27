@@ -97,7 +97,7 @@ class TestSettings(BaseSettings):
         validation_alias="TBANK_PASSWORD",
     )
     tbank_notification_url: str = Field(
-        default="http://api:8000/api/payments/webhook",
+        default="http://api:8000/api/payments/webhooks/tbank",
         validation_alias="TBANK_NOTIFICATION_URL",
     )
     default_admin_email: str = Field(

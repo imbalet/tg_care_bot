@@ -45,8 +45,8 @@ test-integration:
 		fi; \
 	}; \
 	trap cleanup EXIT INT TERM; \
-	docker compose -f docker-compose.test.yml build test-runner mock-external; \
-	docker compose -f docker-compose.test.yml up --build -d postgres redis minio mock-external; \
+	docker compose -f docker-compose.test.yml build test-runner mock-external tbank-mock; \
+	docker compose -f docker-compose.test.yml up --build -d postgres redis minio mock-external tbank-mock; \
 	docker compose -f docker-compose.test.yml run --rm test-runner \
 		uv run pytest -m integration -n auto --maxprocesses=15
 
@@ -55,9 +55,9 @@ test-e2e:
 	status=0; \
 	cleanup() { docker compose -f docker-compose.test.yml down -v --remove-orphans; }; \
 	trap cleanup EXIT INT TERM; \
-	docker compose -f docker-compose.test.yml build test-runner e2e-runner mock-external; \
+	docker compose -f docker-compose.test.yml build test-runner e2e-runner mock-external tbank-mock; \
 	docker compose -f docker-compose.test.yml up --build -d \
-		postgres redis minio mock-external migrate api worker worker-2; \
+		postgres redis minio mock-external tbank-mock migrate api worker worker-2; \
 	docker compose -f docker-compose.test.yml up \
 		--abort-on-container-exit --exit-code-from e2e-runner e2e-runner || status=$$?; \
 	exit $$status
