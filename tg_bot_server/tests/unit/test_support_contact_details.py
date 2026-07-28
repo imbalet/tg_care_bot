@@ -1,4 +1,8 @@
+import pytest
+
 from backend.bootstrap.services.support import SupportServices
+
+pytestmark = pytest.mark.unit
 
 
 def test_contact_details_expose_only_the_selected_channels() -> None:

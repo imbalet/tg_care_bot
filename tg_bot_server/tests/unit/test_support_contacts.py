@@ -2,6 +2,8 @@ import pytest
 
 from backend.bootstrap.services.support import SupportServices
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.mark.parametrize(
     ("contact_method", "expected_phone", "expected_telegram"),
