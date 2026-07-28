@@ -17,6 +17,7 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.contexts import TelegramUserContext
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import RetryLaterScreen
+from customer_bot.presentation.ui.screens.common._keyboard import fallback_keyboard
 
 router = Router(name="support_requests")
 logger = logging.getLogger(__name__)
@@ -477,12 +478,13 @@ async def _show_submitted(
     kind: str,
     status: str,
 ) -> None:
-    await _prompt(
+    await telegram_responder.update(
         bot=bot,
         event=event,
-        telegram_responder=telegram_responder,
         telegram_id=telegram_id,
         text=(f"<b>{kind} отправлена</b>\n\nСтатус: {_support_status_label(status)}."),
+        reply_markup=fallback_keyboard(),
+        create_new=True,
     )
 
 
