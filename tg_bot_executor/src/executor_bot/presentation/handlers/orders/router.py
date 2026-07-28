@@ -51,6 +51,7 @@ from executor_bot.presentation.ui import (
     direct_accept_created_text,
     direct_conflict_text,
     direct_rejected_text,
+    fallback_keyboard,
     my_order_card_keyboard_for_status,
     my_order_card_text,
     my_orders_page_keyboard,
@@ -656,6 +657,7 @@ async def order_support_text(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text="Обращение отправлено в поддержку.",
+            reply_markup=fallback_keyboard(),
             create_new=True,
         )
     except BackendClientError:
@@ -664,6 +666,7 @@ async def order_support_text(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text="Не удалось отправить обращение. Попробуйте позже.",
+            reply_markup=fallback_keyboard(),
             create_new=True,
         )
     finally:
@@ -751,6 +754,7 @@ async def complaint_text(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text="Жалоба отправлена.",
+            reply_markup=fallback_keyboard(),
             create_new=True,
         )
     except BackendClientError:
@@ -759,6 +763,7 @@ async def complaint_text(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text="Не удалось отправить жалобу. Попробуйте позже.",
+            reply_markup=fallback_keyboard(),
             create_new=True,
         )
     finally:
@@ -1103,6 +1108,7 @@ async def _submit_order_report(
             event=event,
             telegram_id=telegram_user_context.telegram_id,
             text="Отчёт отправлен заказчику.",
+            reply_markup=fallback_keyboard(),
             create_new=True,
         )
     except BackendClientError, ValueError:
@@ -1111,6 +1117,7 @@ async def _submit_order_report(
             event=event,
             telegram_id=telegram_user_context.telegram_id,
             text="Не удалось отправить отчёт. Попробуйте ещё раз.",
+            reply_markup=fallback_keyboard(),
             create_new=True,
         )
     finally:
