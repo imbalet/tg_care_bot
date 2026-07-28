@@ -11,6 +11,7 @@ from executor_bot.presentation.handlers.addresses.router import select_address
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.ui import (
     avatar_keyboard,
+    calendar_text,
     cancel_confirmation_keyboard,
     contact_methods_keyboard,
     executor_profile_text,
@@ -87,6 +88,13 @@ def test_executor_setup_hint_lists_only_missing_setup_steps() -> None:
 
     assert "выберите рабочие дни" in text
     assert "Начать принимать заказы" in text
+
+
+def test_calendar_text_describes_unavailability_period_not_exception() -> None:
+    text = calendar_text()
+
+    assert "период недоступности" in text
+    assert "исключение" not in text
 
 
 def test_available_orders_text_shows_distance_or_missing_coordinates() -> None:

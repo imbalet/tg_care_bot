@@ -421,7 +421,7 @@ def services_updated_text() -> str:
 
 
 def calendar_text() -> str:
-    return "<b>Календарь</b>\n\nВыберите шаблон или быстрое исключение."
+    return "<b>Календарь</b>\n\nНастройте график или запланируйте период недоступности."
 
 
 def calendar_updated_text() -> str:
