@@ -93,6 +93,18 @@ def test_order_card_hides_retry_button_when_backend_disallows_retry() -> None:
     assert "Повторить оплату" not in texts
 
 
+def test_order_card_displays_payment_attempt_count_once() -> None:
+    screen = OrderCardScreen(
+        _order_card(
+            payment_status="failed",
+            payment_confirmation_url=None,
+            payment_retry_available=True,
+        ),
+    ).build()
+
+    assert screen.text.count("Попытки оплаты: 1 из 3") == 1
+
+
 def test_payment_status_screen_displays_confirmation_url_and_retry_state() -> None:
     order_id = uuid4()
     screen = Screen(
