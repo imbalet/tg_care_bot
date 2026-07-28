@@ -55,6 +55,7 @@ from executor_bot.presentation.ui import (
     my_order_card_text,
     my_orders_page_keyboard,
     my_orders_page_text,
+    order_location_keyboard,
     orders_filter_keyboard,
     pool_response_created_text,
     report_skip_keyboard,
@@ -444,7 +445,15 @@ async def order_location_callback(
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=text,
-        reply_markup=stale_action_keyboard() if text == stale_action_text() else None,
+        reply_markup=(
+            stale_action_keyboard()
+            if text == stale_action_text()
+            else order_location_keyboard(
+                order_id=callback_data.order_id,
+                group=callback_data.group,
+                page=callback_data.page,
+            )
+        ),
     )
 
 

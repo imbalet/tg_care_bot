@@ -451,6 +451,23 @@ def my_order_card_keyboard_for_status(
     )
 
 
+def order_location_keyboard(
+    *,
+    order_id: str,
+    group: str,
+    page: int,
+) -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button(
+            "К заказу",
+            ExecutorOrderCardCallback(order_id=order_id, group=group, page=page),
+        )
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
+
+
 def work_addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory().button(
         MsgKey.ADD_ADDRESS,
@@ -459,6 +476,15 @@ def work_addresses_keyboard(items: Sequence[object]) -> InlineKeyboardMarkup:
     for index, _item in enumerate(items):
         keyboard.button(f"№{index + 1}", WorkAddressSelectCallback(index=index))
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+
+
+def work_address_created_keyboard() -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button("К рабочим адресам", WorkAddressesOpenCallback())
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
 
 
 def work_address_card_keyboard(index: int) -> InlineKeyboardMarkup:
@@ -583,6 +609,7 @@ __all__ = [
     "my_order_card_keyboard_for_status",
     "my_orders_page_keyboard",
     "orders_filter_keyboard",
+    "order_location_keyboard",
     "responses_keyboard",
     "phone_contact_keyboard",
     "registration_summary_keyboard",
@@ -592,6 +619,7 @@ __all__ = [
     "support_keyboard",
     "work_address_card_keyboard",
     "work_address_city_keyboard",
+    "work_address_created_keyboard",
     "work_address_skip_keyboard",
     "work_address_suggestions_keyboard",
     "work_addresses_keyboard",

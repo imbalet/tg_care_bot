@@ -29,7 +29,6 @@ from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.services import TelegramResponder
 from executor_bot.presentation.ui import (
     calendar_keyboard,
-    calendar_updated_text,
     retry_later_text,
     services_keyboard,
     services_text,
@@ -291,11 +290,12 @@ async def set_schedule(
             text=retry_later_text(),
         )
         return
-    await telegram_responder.update(
-        bot=bot,
+    await _show_calendar(
         event=callback,
+        bot=bot,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
         telegram_id=telegram_user_context.telegram_id,
-        text=calendar_updated_text(),
     )
 
 
@@ -364,11 +364,12 @@ async def save_custom_schedule(
         )
         return
     await state.clear()
-    await telegram_responder.update(
-        bot=bot,
+    await _show_calendar(
         event=message,
+        bot=bot,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
         telegram_id=telegram_user_context.telegram_id,
-        text=calendar_updated_text(),
     )
 
 
@@ -444,14 +445,12 @@ async def save_unavailable_period(
         )
         return
     await state.clear()
-    await telegram_responder.update(
-        bot=bot,
+    await _show_calendar(
         event=message,
+        bot=bot,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
         telegram_id=telegram_user_context.telegram_id,
-        text=(
-            "Недоступность запланирована. Она отображается в календаре "
-            "и может быть отменена там."
-        ),
     )
 
 
@@ -477,11 +476,40 @@ async def cancel_unavailable_period(
             text=retry_later_text(),
         )
         return
+    await _show_calendar(
+        event=callback,
+        bot=bot,
+        backend_client=backend_client,
+        telegram_responder=telegram_responder,
+        telegram_id=telegram_user_context.telegram_id,
+    )
+
+
+async def _show_calendar(
+    *,
+    event: Message | CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_id: int,
+) -> None:
+    try:
+        calendar = await backend_client.get_calendar(telegram_id=telegram_id)
+    except BackendClientError:
+        await telegram_responder.update(
+            bot=bot,
+            event=event,
+            telegram_id=telegram_id,
+            text=retry_later_text(),
+            reply_markup=calendar_keyboard(),
+        )
+        return
     await telegram_responder.update(
         bot=bot,
-        event=callback,
-        telegram_id=telegram_user_context.telegram_id,
-        text="Недоступность отменена.",
+        event=event,
+        telegram_id=telegram_id,
+        text=_calendar_view(calendar),
+        reply_markup=calendar_keyboard(_current_override(calendar)),
     )
 
 

@@ -26,6 +26,7 @@ from executor_bot.presentation.ui import (
     work_address_card_text,
     work_address_city_keyboard,
     work_address_city_step_text,
+    work_address_created_keyboard,
     work_address_created_text,
     work_address_current_text,
     work_address_deleted_text,
@@ -470,6 +471,7 @@ async def _advance_or_create(
         event=event,
         telegram_id=telegram_user_context.telegram_id,
         text=work_address_created_text(),
+        reply_markup=work_address_created_keyboard(),
     )
 
 
