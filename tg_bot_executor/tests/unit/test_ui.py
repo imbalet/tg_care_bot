@@ -89,6 +89,9 @@ def test_executor_setup_hint_lists_only_missing_setup_steps() -> None:
     assert "выберите рабочие дни" in text
     assert "Начать принимать заказы" in text
 
+    address_text = executor_setup_hint_text(("address",))
+    assert "добавьте и выберите рабочий адрес" in address_text
+
 
 def test_calendar_text_describes_unavailability_period_not_exception() -> None:
     text = calendar_text()

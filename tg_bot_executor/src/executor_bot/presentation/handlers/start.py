@@ -154,6 +154,10 @@ async def _open_start_or_menu(
                 registration_state.performer
                 and registration_state.performer.is_accepting_orders
             ),
+            has_work_address=bool(
+                registration_state.performer
+                and registration_state.performer.current_address_id
+            ),
         )
         if setup_hint is not None:
             await telegram_responder.send_notice(
@@ -207,6 +211,7 @@ async def _setup_hint(
     backend_client: BackendPort,
     telegram_id: int,
     is_accepting_orders: bool,
+    has_work_address: bool,
 ) -> str | None:
     try:
         calendar = await backend_client.get_calendar(telegram_id=telegram_id)
@@ -224,6 +229,8 @@ async def _setup_hint(
         missing.append("schedule")
     if not any(item.is_approved and item.is_enabled for item in services):
         missing.append("service")
+    if not has_work_address:
+        missing.append("address")
     if not is_accepting_orders:
         missing.append("accepting_orders")
     return executor_setup_hint_text(tuple(missing)) if missing else None

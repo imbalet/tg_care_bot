@@ -244,6 +244,8 @@ def executor_setup_hint_text(missing: tuple[str, ...]) -> str:
         lines.append("• выберите рабочие дни и время в разделе «Календарь»;")
     if "service" in missing:
         lines.append("• включите хотя бы одну одобренную услугу в разделе «Услуги»;")
+    if "address" in missing:
+        lines.append("• добавьте и выберите рабочий адрес в профиле;")
     if "accepting_orders" in missing:
         lines.append("• нажмите «Начать принимать заказы» в разделе «Услуги».")
     lines.extend(["", "После этого вы начнёте получать подходящие заказы."])
