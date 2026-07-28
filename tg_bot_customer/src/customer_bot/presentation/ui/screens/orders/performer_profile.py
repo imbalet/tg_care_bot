@@ -5,6 +5,12 @@ from customer_bot.presentation.callbacks import MainMenuCallback
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.screen import BaseScreen, Markup
 
+_PRICE_TYPE_LABELS = {
+    "hourly": "за час",
+    "fixed": "за услугу",
+    "started_24h": "за начатые сутки",
+}
+
 
 class Screen(BaseScreen[PerformerProfileDTO]):
     def _build_text(self) -> str:
@@ -24,10 +30,11 @@ class Screen(BaseScreen[PerformerProfileDTO]):
             lines.append("Услуги пока не указаны")
         else:
             for service in profile.services:
+                price_type = _PRICE_TYPE_LABELS.get(service.price_type, "за услугу")
                 lines.append(
                     f"• {escape(service.service_name)} — "
                     f"{escape(str(service.base_price))} "
-                    f"({escape(service.price_type)}), "
+                    f"({escape(price_type)}), "
                     f"до {service.performer_max_objects} объектов"
                 )
         return "\n".join(lines)
