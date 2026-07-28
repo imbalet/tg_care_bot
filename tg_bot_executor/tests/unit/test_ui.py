@@ -24,6 +24,7 @@ from executor_bot.presentation.ui import (
     executor_setup_hint_text,
     legal_documents_text,
     registration_summary_keyboard,
+    report_skip_keyboard,
     select_city_keyboard,
     summary_text,
     work_address_card_text,
@@ -185,6 +186,15 @@ def test_registration_keyboards_are_inline_first() -> None:
     assert contact_keyboard.inline_keyboard[0][0].callback_data is not None
     assert summary_keyboard.inline_keyboard[0][0].callback_data == REGISTRATION_CONFIRM
     assert REGISTRATION_ACCEPT_LEGAL == "registration:legal:accept"
+
+
+def test_report_skip_is_an_inline_callback_for_each_optional_step() -> None:
+    for step in ("comment", "problem_description", "attachment"):
+        keyboard = report_skip_keyboard(step)
+        button = keyboard.inline_keyboard[0][0]
+
+        assert button.text == "Пропустить"
+        assert button.callback_data == f"order_report_skip:{step}"
 
 
 def test_executor_profile_text_escapes_user_values() -> None:

@@ -897,7 +897,7 @@ async def report_comment(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await state.update_data(comment=None if message.text == "/skip" else message.text)
+    await state.update_data(comment=message.text)
     await state.set_state(OrderActionForm.report_problem)
     await telegram_responder.update(
         bot=bot,
@@ -995,7 +995,7 @@ async def report_attachment(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text="Прикрепите фото или документ либо отправьте /skip.",
+            text="Прикрепите фото или документ либо нажмите «Пропустить».",
             create_new=True,
         )
         return
@@ -1046,8 +1046,23 @@ async def report_attachment(
     )
 
 
-@router.message(OrderActionForm.report_attachment, F.text == "/skip")
-async def report_attachment_skip(
+@router.message(OrderActionForm.report_attachment, F.text)
+async def report_attachment_text(
+    message: Message,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await telegram_responder.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Используйте inline-кнопку «Пропустить» или прикрепите фото/документ.",
+        create_new=True,
+    )
+
+
+async def _submit_order_report(
     event: Message | CallbackQuery,
     state: FSMContext,
     bot: Bot,
@@ -1116,7 +1131,7 @@ async def report_skip_callback(
         )
         return
     if callback_data.step == "attachment":
-        await report_attachment_skip(
+        await _submit_order_report(
             callback,
             state,
             bot,
