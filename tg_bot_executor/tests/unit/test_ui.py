@@ -5,9 +5,15 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 from executor_bot.application.dto import AddressDTO
+from executor_bot.application.dto import (
+    BusyIntervalDTO,
+    CalendarDTO,
+    PerformerScheduleDTO,
+)
 from executor_bot.infrastructure.http import PerformerProfileDTO
 from executor_bot.presentation.callbacks import WorkAddressSelectCallback
 from executor_bot.presentation.handlers.addresses.router import select_address
+from executor_bot.presentation.handlers.services_calendar import _calendar_view
 from executor_bot.presentation.middlewares import TelegramUserContext
 from executor_bot.presentation.ui import (
     avatar_keyboard,
@@ -98,6 +104,34 @@ def test_calendar_text_describes_unavailability_period_not_exception() -> None:
 
     assert "период недоступности" in text
     assert "исключение" not in text
+
+
+def test_calendar_view_localizes_schedule_and_busy_interval_kinds() -> None:
+    calendar = CalendarDTO(
+        schedule=PerformerScheduleDTO(
+            schedule_type="custom",
+            work_days=(1, 3, 5),
+            work_start_time="09:00:00",
+            work_end_time="18:00:00",
+        ),
+        overrides=(),
+        busy_intervals=(
+            BusyIntervalDTO(
+                id=uuid4(),
+                kind="response",
+                status="active",
+                starts_at=datetime(2026, 7, 28, 10, 0),
+                ends_at=datetime(2026, 7, 28, 11, 0),
+            ),
+        ),
+    )
+
+    text = _calendar_view(calendar)
+
+    assert "пн, ср, пт" in text
+    assert "отклик" in text
+    assert "custom" not in text
+    assert "response" not in text
 
 
 def test_available_orders_text_shows_distance_or_missing_coordinates() -> None:

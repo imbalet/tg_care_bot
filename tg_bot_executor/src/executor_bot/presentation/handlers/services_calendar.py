@@ -499,8 +499,9 @@ def _current_override(calendar: CalendarDTO) -> CalendarOverrideDTO | None:
 def _calendar_view(calendar: CalendarDTO) -> str:
     schedule = "График не задан"
     if calendar.schedule is not None:
+        schedule_name = _schedule_name(calendar.schedule)
         schedule = (
-            f"{calendar.schedule.schedule_type}: "
+            f"{schedule_name}, "
             f"{calendar.schedule.work_start_time[:5]}–"
             f"{calendar.schedule.work_end_time[:5]}"
         )
@@ -523,10 +524,41 @@ def _calendar_view(calendar: CalendarDTO) -> str:
     if calendar.busy_intervals:
         lines.extend(["", "Занятые интервалы:"])
         lines.extend(
-            f"• {item.starts_at:%d.%m %H:%M}–{item.ends_at:%H:%M} · {item.kind}"
+            f"• {item.starts_at:%d.%m %H:%M}–{item.ends_at:%H:%M} · "
+            f"{_busy_interval_name(item.kind)}"
             for item in calendar.busy_intervals[:8]
         )
     return "\n".join(lines)
+
+
+def _schedule_name(schedule: object) -> str:
+    schedule_type = getattr(schedule, "schedule_type", "")
+    names = {
+        "every_day": "каждый день",
+        "weekdays": "будни",
+        "weekends": "выходные",
+        "custom": "выбранные дни",
+    }
+    name = names.get(schedule_type, "выбранные дни")
+    work_days = getattr(schedule, "work_days", None)
+    if schedule_type == "custom" and isinstance(work_days, tuple):
+        day_names = ("пн", "вт", "ср", "чт", "пт", "сб", "вс")
+        selected = [
+            day_names[day - 1]
+            for day in work_days
+            if isinstance(day, int) and 1 <= day <= len(day_names)
+        ]
+        if selected:
+            name = ", ".join(selected)
+    return name
+
+
+def _busy_interval_name(kind: str) -> str:
+    return {
+        "direct": "direct-заказ",
+        "response": "отклик",
+        "order": "назначенный заказ",
+    }.get(kind, "занятый интервал")
 
 
 async def _service_by_index(
