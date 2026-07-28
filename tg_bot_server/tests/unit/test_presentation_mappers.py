@@ -230,6 +230,15 @@ def test_notification_registry_and_timezone_rules_are_deterministic() -> None:
     assert callback_data.startswith("direct_accept:")
     assert notification_actions("direct_invitation_created", "invalid") is None
     assert notification_actions("unknown", entity_id) is None
+    payment_failed_actions = notification_actions("payment_failed", entity_id)
+    assert payment_failed_actions == [
+        [
+            {
+                "text": "Открыть заказ",
+                "callback_data": f"notification_order:{entity_id}",
+            },
+        ],
+    ]
     assert (
         notification_action_entity_id(
             "direct_invitation_created",
@@ -242,6 +251,7 @@ def test_notification_registry_and_timezone_rules_are_deterministic() -> None:
         == entity_id
     )
     assert notification_body("unknown_event") == "unknown_event"
+    assert "попробуйте оплатить ещё раз" in notification_body("payment_failed")
     assert "не выполнен автоматически" in notification_body("refund_failed")
     assert "администратору" in notification_body("refund_failed")
     assert parse_timezone("Europe/Moscow").key == "Europe/Moscow"
