@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import uuid4
 
@@ -5,6 +6,7 @@ import pytest
 
 from backend.modules.availability.application.dto import SuitablePerformerDTO
 from backend.modules.availability.infrastructure.persistence.repositories import (
+    _override_interval_to_utc,
     _sort_suitable_performers,
 )
 
@@ -32,3 +34,15 @@ def test_suitable_performers_are_sorted_by_distance_with_unknown_last() -> None:
     near = _performer("C", Decimal("1"))
 
     assert _sort_suitable_performers([unknown, far, near]) == [near, far, unknown]
+
+
+@pytest.mark.unit
+def test_naive_override_interval_is_interpreted_in_performer_timezone() -> None:
+    starts_at, ends_at = _override_interval_to_utc(
+        starts_at=datetime(2026, 7, 7, 10),
+        ends_at=datetime(2026, 7, 7, 12),
+        timezone="Europe/Moscow",
+    )
+
+    assert starts_at == datetime(2026, 7, 7, 7, tzinfo=UTC)
+    assert ends_at == datetime(2026, 7, 7, 9, tzinfo=UTC)

@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.common.application import to_timezone, utc_now
+from backend.common.application import to_timezone, to_utc, utc_now
 from backend.common.domain import ValidationError
 from backend.modules.addresses.infrastructure.persistence.models import AddressModel
 from backend.modules.availability.application import (
@@ -111,6 +111,14 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
         performer = await self._get_performer_by_telegram_id(telegram_id)
         if performer is None:
             return None
+        timezone = await self.get_performer_timezone(performer.id)
+        if timezone is None:
+            return None
+        starts_at, ends_at = _override_interval_to_utc(
+            starts_at=starts_at,
+            ends_at=ends_at,
+            timezone=timezone,
+        )
         if override_type == "unavailable":
             existing = await self._session.scalar(
                 select(PerformerCalendarOverrideModel.id).where(
@@ -133,9 +141,6 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
         )
         self._session.add(model)
         await self._session.flush()
-        timezone = await self.get_performer_timezone(performer.id)
-        if timezone is None:
-            return None
         return _override_to_dto(model, timezone)
 
     async def cancel_override(
@@ -523,6 +528,15 @@ def _schedule_to_dto(model: PerformerScheduleModel) -> PerformerScheduleDTO:
         work_end_time=model.work_end_time,
         is_active=model.is_active,
     )
+
+
+def _override_interval_to_utc(
+    *,
+    starts_at: datetime,
+    ends_at: datetime,
+    timezone: str,
+) -> tuple[datetime, datetime]:
+    return to_utc(starts_at, timezone), to_utc(ends_at, timezone)
 
 
 def _override_to_dto(
