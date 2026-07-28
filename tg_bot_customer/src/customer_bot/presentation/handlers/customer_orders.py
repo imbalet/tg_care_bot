@@ -76,6 +76,16 @@ async def contact_order_callback(
                     .as_markup()
                 ),
             )
+        await _show_order_card(
+            callback=callback,
+            bot=bot,
+            backend_client=backend_client,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            order_id=callback_data.order_id,
+            group="active",
+            page=1,
+        )
     except BackendClientError:
         await telegram_responder.acknowledge(
             callback, "Запрос контакта сейчас недоступен", show_alert=True
@@ -103,6 +113,7 @@ async def performer_profile_callback(
             telegram_id=telegram_user_context.telegram_id,
             profile=profile,
             telegram_responder=telegram_responder,
+            back_order_id=callback_data.order_id,
         )
     except BackendClientError:
         await telegram_responder.acknowledge(

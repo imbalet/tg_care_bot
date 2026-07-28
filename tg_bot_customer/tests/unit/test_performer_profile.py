@@ -5,6 +5,7 @@ from customer_bot.application.dto import (
     PerformerProfileDTO,
     PerformerServiceProfileDTO,
 )
+from customer_bot.presentation.callbacks import OrderCardOpenCallback
 from customer_bot.presentation.ui.screens.orders.performer_profile import Screen
 
 
@@ -30,3 +31,22 @@ def test_performer_profile_localizes_service_price_type() -> None:
 
     assert "за начатые сутки" in text
     assert "started_24h" not in text
+
+
+def test_performer_profile_has_order_back_button_when_opened_from_order() -> None:
+    order_id = uuid4()
+    profile = PerformerProfileDTO(
+        performer_id=uuid4(),
+        full_name="Исполнитель",
+        about_text=None,
+        city_name="Ростов-на-Дону",
+        avatar_url="http://minio:9000/private/avatar.jpg",
+        services=(),
+    )
+
+    markup = Screen(profile, back_order_id=order_id).build().reply_markup
+
+    assert markup is not None
+    callback = markup.inline_keyboard[0][0].callback_data
+    assert callback is not None
+    assert OrderCardOpenCallback.unpack(callback).order_id == order_id

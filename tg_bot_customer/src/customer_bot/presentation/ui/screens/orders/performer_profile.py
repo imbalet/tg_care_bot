@@ -1,7 +1,11 @@
 from html import escape
+from uuid import UUID
 
 from customer_bot.application.dto import PerformerProfileDTO
-from customer_bot.presentation.callbacks import MainMenuCallback
+from customer_bot.presentation.callbacks import (
+    MainMenuCallback,
+    OrderCardOpenCallback,
+)
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.screen import BaseScreen, Markup
 
@@ -13,6 +17,19 @@ _PRICE_TYPE_LABELS = {
 
 
 class Screen(BaseScreen[PerformerProfileDTO]):
+    def __init__(
+        self,
+        data: PerformerProfileDTO,
+        *,
+        back_order_id: UUID | None = None,
+        back_group: str = "active",
+        back_page: int = 1,
+    ) -> None:
+        super().__init__(data)
+        self._back_order_id = back_order_id
+        self._back_group = back_group
+        self._back_page = back_page
+
     def _build_text(self) -> str:
         profile = self.data
         about = escape(profile.about_text) if profile.about_text else "Не указано"
@@ -40,8 +57,14 @@ class Screen(BaseScreen[PerformerProfileDTO]):
         return "\n".join(lines)
 
     def _build_keyboard(self) -> Markup:
-        return (
-            InlineKeyboardFactory()
-            .button("Главное меню", MainMenuCallback())
-            .as_markup()
-        )
+        keyboard = InlineKeyboardFactory()
+        if self._back_order_id is not None:
+            keyboard.button(
+                "К заказу",
+                OrderCardOpenCallback(
+                    order_id=self._back_order_id,
+                    group=self._back_group,
+                    page=self._back_page,
+                ),
+            )
+        return keyboard.button("Главное меню", MainMenuCallback()).as_markup()
