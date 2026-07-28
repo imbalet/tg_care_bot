@@ -111,3 +111,36 @@ def test_payment_status_screen_displays_confirmation_url_and_retry_state() -> No
 
     assert "http://localhost:18080/pay/5" in screen.text
     assert "Попытки оплаты: 1 из 3" in screen.text
+
+
+def test_payment_status_screen_explains_failure_and_retry_action() -> None:
+    screen = Screen(
+        PaymentStatusView(
+            id=uuid4(),
+            order_status="waiting_payment",
+            payment_status="failed",
+            confirmation_url=None,
+            expires_at=None,
+            failure_code="provider_declined",
+            attempts_used=2,
+            max_attempts=3,
+            retry_available=True,
+        ),
+    ).build()
+
+    assert "Платеж не выполнен. Можно попробовать оплатить снова." in screen.text
+    assert "Повторить оплату" in _button_texts(
+        Screen(
+            PaymentStatusView(
+                id=uuid4(),
+                order_status="waiting_payment",
+                payment_status="failed",
+                confirmation_url=None,
+                expires_at=None,
+                failure_code="provider_declined",
+                attempts_used=2,
+                max_attempts=3,
+                retry_available=True,
+            ),
+        ),
+    )
