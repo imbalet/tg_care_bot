@@ -76,6 +76,7 @@ async def open_work_addresses(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=work_address_validation_error_text(str(exc)),
+            reply_markup=work_addresses_keyboard(()),
         )
         return
     except BackendClientError:
@@ -84,6 +85,7 @@ async def open_work_addresses(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=work_addresses_keyboard(()),
         )
         return
     await state.update_data(work_addresses=[_address_state(item) for item in items])
@@ -121,6 +123,7 @@ async def add_work_address(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=work_addresses_keyboard(()),
         )
         return
     await state.set_state(WorkAddressManagement.city)
@@ -336,6 +339,7 @@ async def select_address(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=work_addresses_keyboard(()),
         )
         return
     await state.update_data(work_addresses=[_address_state(item) for item in addresses])
@@ -388,6 +392,7 @@ async def set_current_address(
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=work_address_current_text(),
+        reply_markup=work_addresses_keyboard(()),
     )
 
 
@@ -416,6 +421,7 @@ async def delete_address(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=work_addresses_keyboard(()),
         )
         return
     await telegram_responder.update(
@@ -423,6 +429,7 @@ async def delete_address(
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=work_address_deleted_text(),
+        reply_markup=work_addresses_keyboard(()),
     )
 
 
@@ -463,6 +470,7 @@ async def _advance_or_create(
             event=event,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=work_address_created_keyboard(),
         )
         return
     await state.clear()

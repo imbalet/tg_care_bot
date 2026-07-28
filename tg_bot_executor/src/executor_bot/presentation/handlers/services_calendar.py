@@ -65,6 +65,7 @@ async def open_services(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=services_keyboard(()),
         )
         return
     await _show_services(
@@ -110,6 +111,7 @@ async def toggle_accepting_orders(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=services_keyboard(()),
         )
         return
     await _show_services(
@@ -143,6 +145,7 @@ async def toggle_nearby_order_notifications(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=services_keyboard(()),
         )
         return
     await _show_services(
@@ -181,6 +184,7 @@ async def toggle_service(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=services_keyboard(()),
         )
         return
     await _show_services(
@@ -224,6 +228,7 @@ async def reduce_service_limit(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=services_keyboard(()),
         )
         return
     await _show_services(
@@ -254,6 +259,7 @@ async def open_calendar(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=calendar_keyboard(),
         )
         return
     await telegram_responder.update(
@@ -288,6 +294,7 @@ async def set_schedule(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=calendar_keyboard(),
         )
         return
     await _show_calendar(
@@ -361,6 +368,7 @@ async def save_custom_schedule(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=calendar_keyboard(),
         )
         return
     await state.clear()
@@ -442,6 +450,7 @@ async def save_unavailable_period(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=calendar_keyboard(),
         )
         return
     await state.clear()
@@ -474,6 +483,7 @@ async def cancel_unavailable_period(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            reply_markup=calendar_keyboard(),
         )
         return
     await _show_calendar(
