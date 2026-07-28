@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 import pytest
 
@@ -7,7 +9,7 @@ import pytest
 @pytest.mark.e2e
 async def test_customer_registration_fixture_creates_owned_profile(
     e2e_client: httpx.AsyncClient,
-    customer_factory,
+    customer_factory: Any,
 ) -> None:
     customer = await customer_factory()
 
@@ -22,7 +24,7 @@ async def test_customer_registration_fixture_creates_owned_profile(
 
 @pytest.mark.e2e
 async def test_customer_profile_is_not_accessible_without_service_key(
-    test_settings,
+    test_settings: Any,
 ) -> None:
     async with httpx.AsyncClient(base_url=test_settings.e2e_base_url) as client:
         response = await client.get(

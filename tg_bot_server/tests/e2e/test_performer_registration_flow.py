@@ -1,3 +1,5 @@
+from typing import Any
+
 import httpx
 import pytest
 
@@ -5,7 +7,7 @@ import pytest
 @pytest.mark.e2e
 async def test_performer_can_be_registered_and_prepared_for_orders(
     e2e_client: httpx.AsyncClient,
-    performer_factory,
+    performer_factory: Any,
 ) -> None:
     performer = await performer_factory()
 

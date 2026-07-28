@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -245,7 +245,9 @@ async def test_service_revoke_preserves_assignment_and_delegates_to_repository()
     None
 ):
     repository = AsyncMock()
-    service = SimpleNamespace(id=uuid4(), is_approved=False, is_enabled=False)
+    service = cast(
+        Any, SimpleNamespace(id=uuid4(), is_approved=False, is_enabled=False)
+    )
     repository.revoke_service.return_value = service
     performer_id = uuid4()
     service_id = uuid4()
@@ -254,7 +256,7 @@ async def test_service_revoke_preserves_assignment_and_delegates_to_repository()
         RevokePerformerServiceCommand(performer_id, service_id),
     )
 
-    assert result is service
+    assert result == service
     repository.revoke_service.assert_awaited_once_with(
         performer_id=performer_id,
         service_id=service_id,

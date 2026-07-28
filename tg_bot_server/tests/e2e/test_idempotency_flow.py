@@ -1,3 +1,5 @@
+from typing import Any
+
 import httpx
 import pytest
 
@@ -5,9 +7,9 @@ import pytest
 @pytest.mark.e2e
 async def test_customer_registration_repeat_updates_one_existing_account(
     e2e_client: httpx.AsyncClient,
-    e2e_catalog,
-    e2e_db,
-    customer_factory,
+    e2e_catalog: Any,
+    e2e_db: Any,
+    customer_factory: Any,
 ) -> None:
     customer = await customer_factory()
     registration_payload = {

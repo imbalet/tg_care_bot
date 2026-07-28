@@ -1,5 +1,6 @@
 import base64
 import json
+from typing import Any
 
 import asyncpg
 import httpx
@@ -17,7 +18,7 @@ _REPORT_PNG = base64.b64decode(
 async def test_customer_dispute_blocks_payout_and_admin_can_close_it(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     customer, performer, order = await _confirm_direct_order(

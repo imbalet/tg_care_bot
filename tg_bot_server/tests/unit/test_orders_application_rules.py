@@ -194,7 +194,7 @@ async def test_create_selectable_location_order_requires_location_source() -> No
 
 
 @pytest.mark.unit
-async def test_selectable_location_rejects_customer_address_for_performer():
+async def test_selectable_location_rejects_customer_address_for_performer() -> None:
     service = _service(location_policy="customer_or_performer_address")
     repository = _order_repository(service, _snapshot())
 

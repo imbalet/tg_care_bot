@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any
 
 import asyncpg
 import httpx
@@ -12,7 +13,7 @@ from tests.support.settings import TestSettings
 async def test_customer_can_cancel_before_payment_without_creating_refund(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
 ) -> None:
     customer, _performer, order = await direct_order_factory()
 
@@ -64,7 +65,7 @@ async def test_customer_can_cancel_before_payment_without_creating_refund(
 async def test_customer_cancellation_after_payment_creates_idempotent_full_refund(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     customer, _performer, order = await _confirm_direct_order(

@@ -1,3 +1,5 @@
+from typing import Any
+
 import httpx
 import pytest
 
@@ -5,7 +7,7 @@ import pytest
 @pytest.mark.e2e
 async def test_admin_login_cookie_session_and_logout(
     e2e_client: httpx.AsyncClient,
-    test_settings,
+    test_settings: Any,
 ) -> None:
     login_response = await e2e_client.post(
         "/admin/login",
@@ -50,7 +52,7 @@ async def test_admin_login_cookie_session_and_logout(
 @pytest.mark.e2e
 async def test_admin_session_rejects_reused_csrf_request_after_logout(
     e2e_client: httpx.AsyncClient,
-    test_settings,
+    test_settings: Any,
 ) -> None:
     login_response = await e2e_client.post(
         "/admin/login",
@@ -78,7 +80,7 @@ async def test_admin_session_rejects_reused_csrf_request_after_logout(
 @pytest.mark.e2e
 async def test_admin_login_rejects_invalid_credentials_without_session(
     e2e_client: httpx.AsyncClient,
-    test_settings,
+    test_settings: Any,
 ) -> None:
     response = await e2e_client.post(
         "/admin/login",

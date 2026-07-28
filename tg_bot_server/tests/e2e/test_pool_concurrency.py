@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import asyncpg
 import httpx
@@ -37,8 +38,8 @@ async def _select_pool_match(
 async def test_concurrent_pool_responses_and_selection_have_single_winner(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    performer_factory,
-    pool_order_factory,
+    performer_factory: Any,
+    pool_order_factory: Any,
 ) -> None:
     customer, order = await pool_order_factory()
     first_performer = await performer_factory()
@@ -168,8 +169,8 @@ async def test_concurrent_pool_responses_and_selection_have_single_winner(
 async def test_pool_response_limit_rejects_sixth_response(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    performer_factory,
-    pool_order_factory,
+    performer_factory: Any,
+    pool_order_factory: Any,
 ) -> None:
     customer, order = await pool_order_factory()
     performers = [await performer_factory() for _ in range(6)]

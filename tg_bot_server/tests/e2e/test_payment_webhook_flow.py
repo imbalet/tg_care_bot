@@ -3,7 +3,7 @@ import hashlib
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import asyncpg
@@ -48,10 +48,10 @@ def _webhook_payload(
 
 
 async def _prepare_payment(
-    direct_order_factory,
+    direct_order_factory: Any,
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-):
+) -> tuple[Any, dict[str, Any], dict[str, Any]]:
     customer, performer, order = await direct_order_factory()
     matches_response = await e2e_client.get(
         f"/api/orders/{order['id']}/matches",
@@ -113,6 +113,8 @@ async def _wait_for_payment_deadline_transition(
     customer_id: str,
     expected_order_status: str,
 ) -> dict[str, Any]:
+    status_response: httpx.Response | None = None
+    payment_status: Any = None
     for _ in range(40):
         status_response = await e2e_client.get(
             f"/api/payments/orders/{order_id}/status",
@@ -134,12 +136,13 @@ async def _wait_for_payment_deadline_transition(
             status["order_status"] == expected_order_status
             and payment_status == "expired"
         ):
-            return status
+            return cast(dict[str, Any], status)
         with suppress(TimeoutError):
             await asyncio.wait_for(asyncio.Event().wait(), timeout=0.25)
     pytest.fail(
         f"Worker did not expire payment for order {order_id}; "
-        f"last status={status_response.json()} payment_status={payment_status}"
+        f"last status={status_response.json() if status_response else None} "
+        f"payment_status={payment_status}"
     )
 
 
@@ -147,7 +150,7 @@ async def _wait_for_payment_deadline_transition(
 async def test_successful_payment_webhook_confirms_order_and_is_idempotent(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     customer, order, payment = await _prepare_payment(
@@ -236,7 +239,7 @@ async def test_successful_payment_webhook_confirms_order_and_is_idempotent(
 async def test_payment_webhook_rejects_invalid_signature_and_terminal(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     _, order, payment = await _prepare_payment(
@@ -289,7 +292,7 @@ async def test_payment_webhook_rejects_invalid_signature_and_terminal(
 async def test_payment_webhook_rejects_invalid_payload(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
     payload_update: dict[str, Any],
     expected_status: int,
@@ -355,7 +358,7 @@ async def test_payment_webhook_rejects_invalid_payload(
 async def test_rejected_payment_webhook_does_not_confirm_order(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     _, order, payment = await _prepare_payment(
@@ -392,7 +395,7 @@ async def test_rejected_payment_webhook_does_not_confirm_order(
 async def test_customer_can_retry_failed_payment_and_old_webhook_is_ignored(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     customer, order, payment = await _prepare_payment(
@@ -481,7 +484,7 @@ async def test_customer_can_retry_failed_payment_and_old_webhook_is_ignored(
 async def test_customer_payment_retry_is_limited_to_three_attempts(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     customer, order, payment = await _prepare_payment(
@@ -552,7 +555,7 @@ async def test_customer_payment_retry_is_limited_to_three_attempts(
 async def test_payment_webhook_with_mismatched_amount_is_not_applied(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     _, order, payment = await _prepare_payment(
@@ -588,7 +591,7 @@ async def test_payment_webhook_with_mismatched_amount_is_not_applied(
 async def test_expired_payment_webhook_is_not_applied(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     _, order, payment = await _prepare_payment(
@@ -625,7 +628,7 @@ async def test_expired_payment_webhook_is_not_applied(
 async def test_worker_expiring_payment_returns_order_to_searching(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
 ) -> None:
     customer, _, order = await direct_order_factory()
     matches_response = await e2e_client.get(
@@ -716,7 +719,7 @@ async def test_worker_expiring_payment_returns_order_to_searching(
 async def test_worker_expiring_payment_expires_order_after_matching_deadline(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
 ) -> None:
     customer, _, order = await direct_order_factory()
     matches_response = await e2e_client.get(
@@ -795,7 +798,7 @@ async def test_worker_expiring_payment_expires_order_after_matching_deadline(
 async def test_unknown_provider_payment_is_not_applied(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     _, order, payment = await _prepare_payment(
@@ -828,7 +831,7 @@ async def test_unknown_provider_payment_is_not_applied(
 async def test_old_payment_attempt_is_not_applied_to_active_order_payment(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     _, order, payment = await _prepare_payment(
@@ -902,7 +905,7 @@ async def test_old_payment_attempt_is_not_applied_to_active_order_payment(
 async def test_admin_retry_check_marks_rejected_provider_payment_failed(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     _, order, payment = await _prepare_payment(

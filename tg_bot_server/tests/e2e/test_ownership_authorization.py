@@ -7,8 +7,8 @@ import pytest
 @pytest.mark.e2e
 async def test_customer_cannot_read_or_change_another_customer_order(
     e2e_client: httpx.AsyncClient,
-    direct_order_factory,
-    customer_factory,
+    direct_order_factory: Any,
+    customer_factory: Any,
 ) -> None:
     owner, _performer, order = await direct_order_factory()
     other_customer = await customer_factory()
@@ -40,8 +40,8 @@ async def test_customer_cannot_read_or_change_another_customer_order(
 async def test_performer_cannot_read_or_execute_another_performers_order(
     e2e_client: httpx.AsyncClient,
     e2e_db: Any,
-    direct_order_factory,
-    performer_factory,
+    direct_order_factory: Any,
+    performer_factory: Any,
 ) -> None:
     _customer, _owner, order = await direct_order_factory()
     other_performer = await performer_factory()

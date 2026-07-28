@@ -4,7 +4,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import asyncpg
 import httpx
@@ -25,7 +25,7 @@ def _sign_payload(payload: dict[str, Any], password: str) -> str:
 
 
 async def _confirm_direct_order(
-    direct_order_factory,
+    direct_order_factory: Any,
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
     test_settings: TestSettings,
@@ -77,7 +77,9 @@ async def _mock_requests(
     ) as client:
         response = await client.get("/__mock__/requests")
     assert response.status_code == 200, response.text
-    return response.json()["requests"]
+    requests = response.json()["requests"]
+    assert isinstance(requests, list)
+    return cast(list[dict[str, Any]], requests)
 
 
 async def _wait_for_notification_sent(
@@ -85,6 +87,7 @@ async def _wait_for_notification_sent(
     test_settings: TestSettings,
     notification_id: str,
 ) -> asyncpg.Record:
+    notification: asyncpg.Record | None = None
     for _ in range(60):
         notification = await e2e_db.fetchrow(
             """
@@ -109,7 +112,7 @@ async def _wait_for_notification_sent(
 async def test_contact_notification_is_deduplicated_and_delivered_once(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     contact_notification_text = "Исполнитель просит связаться по заказу."

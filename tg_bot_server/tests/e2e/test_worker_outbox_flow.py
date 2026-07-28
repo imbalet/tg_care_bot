@@ -158,6 +158,7 @@ async def test_two_workers_claim_outbox_batch_without_duplicate_delivery(
 ) -> None:
     notification_ids = await _insert_invitation_notifications(e2e_db, count=100)
 
+    completed = 0
     for _ in range(120):
         completed = await e2e_db.fetchval(
             """

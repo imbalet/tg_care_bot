@@ -1,5 +1,5 @@
 from unittest.mock import AsyncMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -11,7 +11,7 @@ from backend.modules.performers.application.use_cases import (
 )
 
 
-def _performer(*, current_address_id: object | None) -> PerformerDTO:
+def _performer(*, current_address_id: UUID | None) -> PerformerDTO:
     return PerformerDTO(
         id=uuid4(),
         telegram_id=123,

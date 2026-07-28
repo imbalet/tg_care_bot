@@ -1,3 +1,5 @@
+from typing import Any
+
 import httpx
 import pytest
 
@@ -5,9 +7,9 @@ import pytest
 @pytest.mark.e2e
 async def test_rejected_repeat_command_does_not_create_extra_outbox_task(
     e2e_client: httpx.AsyncClient,
-    e2e_db,
-    performer_factory,
-    pool_order_factory,
+    e2e_db: Any,
+    performer_factory: Any,
+    pool_order_factory: Any,
 ) -> None:
     _customer, order = await pool_order_factory()
     performer = await performer_factory()

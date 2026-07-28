@@ -1,3 +1,5 @@
+from typing import Any
+
 import httpx
 import pytest
 
@@ -5,9 +7,9 @@ import pytest
 @pytest.mark.e2e
 async def test_customer_and_performer_username_sync_persists_and_allows_removal(
     e2e_client: httpx.AsyncClient,
-    e2e_db,
-    customer_factory,
-    performer_factory,
+    e2e_db: Any,
+    customer_factory: Any,
+    performer_factory: Any,
 ) -> None:
     customer = await customer_factory()
     performer = await performer_factory()

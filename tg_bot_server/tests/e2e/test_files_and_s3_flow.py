@@ -63,7 +63,7 @@ async def test_actor_file_upload_persists_metadata_and_content(
     e2e_client: httpx.AsyncClient,
     e2e_db: Any,
     e2e_s3_client: Any,
-    customer_factory,
+    customer_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     customer = await customer_factory()
@@ -118,7 +118,7 @@ async def test_actor_file_upload_persists_metadata_and_content(
 async def test_actor_file_upload_rejects_invalid_file(
     e2e_client: httpx.AsyncClient,
     e2e_db: Any,
-    customer_factory,
+    customer_factory: Any,
     filename: str,
     content: bytes,
     content_type: str,
@@ -146,7 +146,7 @@ async def test_avatar_replacement_and_deletion_clean_up_s3_and_database(
     e2e_client: httpx.AsyncClient,
     e2e_db: Any,
     e2e_s3_client: Any,
-    performer_factory,
+    performer_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     performer = await performer_factory()
@@ -221,7 +221,7 @@ async def test_avatar_replacement_and_deletion_clean_up_s3_and_database(
 async def test_support_attachment_has_private_signed_url_and_owner_check(
     e2e_client: httpx.AsyncClient,
     e2e_s3_client: Any,
-    customer_factory,
+    customer_factory: Any,
 ) -> None:
     owner = await customer_factory()
     other_customer = await customer_factory()

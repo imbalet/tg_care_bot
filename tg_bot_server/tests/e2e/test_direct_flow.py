@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 import httpx
 import pytest
@@ -7,7 +8,7 @@ import pytest
 @pytest.mark.e2e
 async def test_direct_invitation_can_be_accepted_and_wait_for_payment(
     e2e_client: httpx.AsyncClient,
-    direct_order_factory,
+    direct_order_factory: Any,
 ) -> None:
     customer, performer, order = await direct_order_factory()
 
@@ -35,9 +36,9 @@ async def test_direct_invitation_can_be_accepted_and_wait_for_payment(
 @pytest.mark.e2e
 async def test_direct_invitation_notification_uses_match_id(
     e2e_client: httpx.AsyncClient,
-    e2e_db,
-    direct_order_factory,
-    performer_factory,
+    e2e_db: Any,
+    direct_order_factory: Any,
+    performer_factory: Any,
 ) -> None:
     customer, performer, order = await direct_order_factory()
     second_performer = await performer_factory()

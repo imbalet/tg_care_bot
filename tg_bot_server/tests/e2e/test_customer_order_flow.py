@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 import httpx
@@ -105,8 +106,8 @@ async def test_customer_can_register_create_object_and_publish_boarding_order(
 @pytest.mark.e2e
 async def test_contact_request_requires_a_succeeded_active_payment(
     e2e_client: httpx.AsyncClient,
-    e2e_db,
-    direct_order_factory,
+    e2e_db: Any,
+    direct_order_factory: Any,
 ) -> None:
     customer, performer, order = await direct_order_factory()
     match_response = await e2e_client.get(

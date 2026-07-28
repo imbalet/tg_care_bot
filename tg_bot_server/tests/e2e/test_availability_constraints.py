@@ -10,7 +10,7 @@ import pytest
 def _suitable_params(
     customer: Any,
     order: dict[str, Any],
-) -> dict[str, object]:
+) -> dict[str, str | int]:
     return {
         "city_id": customer.city_id,
         "service_id": order["service_id"],
@@ -23,8 +23,8 @@ def _suitable_params(
 @pytest.mark.e2e
 async def test_suitable_performers_excludes_disabled_service_and_non_accepting(
     e2e_client: httpx.AsyncClient,
-    performer_factory,
-    pool_order_factory,
+    performer_factory: Any,
+    pool_order_factory: Any,
 ) -> None:
     customer, order = await pool_order_factory()
     performer = await performer_factory()
@@ -79,8 +79,8 @@ async def test_suitable_performers_excludes_disabled_service_and_non_accepting(
 async def test_suitable_performers_excludes_missing_address_and_inactive_performer(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    performer_factory,
-    pool_order_factory,
+    performer_factory: Any,
+    pool_order_factory: Any,
 ) -> None:
     customer, order = await pool_order_factory()
     missing_address = await performer_factory()
@@ -110,9 +110,9 @@ async def test_suitable_performers_excludes_missing_address_and_inactive_perform
 async def test_unavailable_override_and_selected_order_block_pool_response(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
-    pool_order_factory,
-    performer_factory,
+    direct_order_factory: Any,
+    pool_order_factory: Any,
+    performer_factory: Any,
 ) -> None:
     customer, order = await pool_order_factory()
     performer = await performer_factory()

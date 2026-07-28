@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import asyncpg
 import httpx
 import pytest
@@ -9,7 +11,7 @@ import pytest
 async def test_empty_geocoding_result_is_not_saved(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    performer_factory,
+    performer_factory: Any,
 ) -> None:
     performer = await performer_factory()
     suggestions_response = await e2e_client.get(
@@ -49,7 +51,7 @@ async def test_empty_geocoding_result_is_not_saved(
 async def test_ambiguous_geocoding_result_is_not_saved(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    performer_factory,
+    performer_factory: Any,
 ) -> None:
     performer = await performer_factory()
     suggestions_response = await e2e_client.get(
@@ -93,7 +95,7 @@ async def test_ambiguous_geocoding_result_is_not_saved(
 async def test_geocoding_transport_errors_do_not_save_address(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    performer_factory,
+    performer_factory: Any,
     query: str,
 ) -> None:
     performer = await performer_factory()

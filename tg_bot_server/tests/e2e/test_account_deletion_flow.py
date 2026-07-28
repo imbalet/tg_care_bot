@@ -7,7 +7,7 @@ import pytest
 @pytest.mark.e2e
 async def test_active_customer_order_blocks_account_deletion(
     e2e_client: httpx.AsyncClient,
-    pool_order_factory,
+    pool_order_factory: Any,
 ) -> None:
     customer, order = await pool_order_factory()
 
@@ -33,7 +33,7 @@ async def test_active_customer_order_blocks_account_deletion(
 async def test_clean_customer_deletion_request_is_idempotent(
     e2e_client: httpx.AsyncClient,
     e2e_db: Any,
-    customer_factory,
+    customer_factory: Any,
 ) -> None:
     customer = await customer_factory()
 

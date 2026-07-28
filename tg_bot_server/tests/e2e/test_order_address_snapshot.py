@@ -11,7 +11,7 @@ import pytest
 async def test_performer_address_change_does_not_change_order_snapshot(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
 ) -> None:
     customer, performer, order = await direct_order_factory()
 

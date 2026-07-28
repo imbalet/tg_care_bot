@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
 import asyncpg
 import httpx
@@ -43,15 +43,15 @@ async def _create_direct_order_for_existing_performer(
         },
     )
     assert order_response.status_code == 201, order_response.text
-    return order_response.json()
+    return cast(dict[str, Any], order_response.json())
 
 
 @pytest.mark.e2e
 async def test_concurrent_direct_accept_has_single_winner(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    customer_factory,
-    direct_order_factory,
+    customer_factory: Any,
+    direct_order_factory: Any,
 ) -> None:
     first_customer, performer, first_order = await direct_order_factory()
     second_customer = await customer_factory()
@@ -157,7 +157,7 @@ async def test_concurrent_direct_accept_has_single_winner(
 async def test_repeated_direct_accept_is_rejected_without_side_effects(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
 ) -> None:
     customer, performer, order = await direct_order_factory()
     matches_response = await e2e_client.get(
@@ -201,7 +201,7 @@ async def test_repeated_direct_accept_is_rejected_without_side_effects(
 async def test_direct_accept_after_rejection_is_rejected_without_payment(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
 ) -> None:
     customer, performer, order = await direct_order_factory()
     matches_response = await e2e_client.get(
@@ -242,7 +242,7 @@ async def test_direct_accept_after_rejection_is_rejected_without_payment(
 async def test_direct_accept_after_expiration_is_rejected_without_payment(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
 ) -> None:
     customer, performer, order = await direct_order_factory()
     matches_response = await e2e_client.get(

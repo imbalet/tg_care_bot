@@ -23,7 +23,7 @@ def _sign_payload(payload: dict[str, Any], password: str) -> str:
 
 
 async def _confirm_direct_order(
-    direct_order_factory,
+    direct_order_factory: Any,
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
     test_settings: TestSettings,
@@ -97,7 +97,7 @@ async def _confirm_direct_order(
 async def test_confirmed_order_completes_full_execution_lifecycle(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     customer, performer, order = await _confirm_direct_order(
@@ -289,8 +289,8 @@ async def test_confirmed_order_completes_full_execution_lifecycle(
 async def test_non_selected_performer_cannot_start_confirmed_order(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
-    performer_factory,
+    direct_order_factory: Any,
+    performer_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     customer, performer, order = await _confirm_direct_order(
@@ -321,7 +321,7 @@ async def test_non_selected_performer_cannot_start_confirmed_order(
 async def test_performer_cannot_submit_order_report_twice(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
-    direct_order_factory,
+    direct_order_factory: Any,
     test_settings: TestSettings,
 ) -> None:
     _customer, performer, order = await _confirm_direct_order(
