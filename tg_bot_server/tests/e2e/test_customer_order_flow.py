@@ -103,6 +103,60 @@ async def test_customer_can_register_create_object_and_publish_boarding_order(
 
 
 @pytest.mark.e2e
+async def test_contact_request_requires_a_succeeded_active_payment(
+    e2e_client: httpx.AsyncClient,
+    e2e_db,
+    direct_order_factory,
+) -> None:
+    customer, performer, order = await direct_order_factory()
+    match_response = await e2e_client.get(
+        f"/api/orders/{order['id']}/matches",
+        params={"customer_id": customer.entity_id},
+    )
+    assert match_response.status_code == 200, match_response.text
+    match = match_response.json()[0]
+
+    accept_response = await e2e_client.post(
+        f"/api/orders/matches/{match['id']}/direct/accept",
+        json={"performer_id": performer.entity_id},
+    )
+    assert accept_response.status_code == 200, accept_response.text
+    payment_id = accept_response.json()["payment"]["payment_id"]
+
+    await e2e_db.execute(
+        "UPDATE orders SET status = 'confirmed' WHERE id = $1",
+        order["id"],
+    )
+    unpaid_customer_response = await e2e_client.post(
+        f"/api/customers/by-telegram/{customer.telegram_id}/contact-requests",
+        json={"order_id": order["id"]},
+    )
+    unpaid_performer_response = await e2e_client.post(
+        f"/api/performers/by-telegram/{performer.telegram_id}/contact-requests",
+        json={"order_id": order["id"]},
+    )
+    assert unpaid_customer_response.status_code == 409
+    assert unpaid_performer_response.status_code == 409
+
+    await e2e_db.execute(
+        "UPDATE payments SET status = 'succeeded' WHERE id = $1",
+        payment_id,
+    )
+    paid_customer_response = await e2e_client.post(
+        f"/api/customers/by-telegram/{customer.telegram_id}/contact-requests",
+        json={"order_id": order["id"]},
+    )
+    paid_performer_response = await e2e_client.post(
+        f"/api/performers/by-telegram/{performer.telegram_id}/contact-requests",
+        json={"order_id": order["id"]},
+    )
+    assert paid_customer_response.status_code == 201, paid_customer_response.text
+    assert paid_performer_response.status_code == 201, paid_performer_response.text
+    assert paid_customer_response.json()["contact_telegram_username"]
+    assert paid_performer_response.json()["contact_telegram_username"]
+
+
+@pytest.mark.e2e
 async def test_business_api_rejects_missing_service_key_without_touching_state(
     test_settings: TestSettings,
 ) -> None:

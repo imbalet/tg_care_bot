@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 
 from backend.modules.orders.infrastructure.exports import OrderModel
+from backend.modules.payments.infrastructure import PaymentModel
 
 from ._shared import (
     UUID,
@@ -141,6 +142,12 @@ class SupportServices(Service):
                     OrderModel.status.in_(
                         ("confirmed", "in_progress", "report_submitted")
                     ),
+                    exists(
+                        select(PaymentModel.id).where(
+                            PaymentModel.id == OrderModel.active_payment_id,
+                            PaymentModel.status == "succeeded",
+                        )
+                    ),
                 )
                 .with_for_update()
             )
@@ -232,6 +239,12 @@ class SupportServices(Service):
                             "in_progress",
                             "waiting_report",
                             "report_submitted",
+                        )
+                    ),
+                    exists(
+                        select(PaymentModel.id).where(
+                            PaymentModel.id == OrderModel.active_payment_id,
+                            PaymentModel.status == "succeeded",
                         )
                     ),
                 )
