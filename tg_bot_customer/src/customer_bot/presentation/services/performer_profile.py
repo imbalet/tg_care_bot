@@ -19,13 +19,25 @@ async def show_performer_profile(
     back_order_id: UUID | None = None,
     back_group: str = "active",
     back_page: int = 1,
+    back_direct: bool = False,
 ) -> None:
     screen = PerformerProfileScreen(
         profile,
         back_order_id=back_order_id,
         back_group=back_group,
         back_page=back_page,
+        back_direct=back_direct,
     ).build()
+    if profile.avatar_url:
+        await telegram_responder.replace_with_photo(
+            bot=bot,
+            event=event,
+            telegram_id=telegram_id,
+            photo=profile.avatar_url,
+            caption=screen.text,
+            reply_markup=screen.reply_markup,
+        )
+        return
     await telegram_responder.update(
         bot=bot,
         event=event,

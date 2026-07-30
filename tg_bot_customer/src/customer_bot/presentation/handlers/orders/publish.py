@@ -151,6 +151,7 @@ async def direct_performer_profile(
         telegram_id=telegram_user_context.telegram_id,
         profile=profile,
         telegram_responder=telegram_responder,
+        back_direct=True,
     )
 
 

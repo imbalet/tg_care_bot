@@ -46,7 +46,7 @@ async def test_contact_request_refreshes_order_card(
 
 
 @pytest.mark.asyncio
-async def test_performer_profile_with_avatar_edits_current_message() -> None:
+async def test_performer_profile_avatar_uses_photo_replacement() -> None:
     responder = AsyncMock()
     profile = PerformerProfileDTO(
         performer_id=uuid4(),
@@ -66,5 +66,5 @@ async def test_performer_profile_with_avatar_edits_current_message() -> None:
         back_order_id=uuid4(),
     )
 
-    responder.update.assert_awaited_once()
-    responder.send_photo.assert_not_awaited()
+    responder.replace_with_photo.assert_awaited_once()
+    assert responder.replace_with_photo.await_args.kwargs["photo"] == profile.avatar_url

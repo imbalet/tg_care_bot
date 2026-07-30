@@ -27,7 +27,7 @@ def fallback_keyboard(
         url = str(getattr(document, "content_url", ""))
         if url.startswith(("https://", "http://")):
             keyboard.url_button(f"Документ {index}", url)
-    if _is_valid_support_url(support_url):
+    if isinstance(support_url, str) and _is_valid_support_url(support_url):
         keyboard.url_button(support_label, support_url)
     if include_help:
         keyboard.button(MsgKey.HELP, HelpCallback())
