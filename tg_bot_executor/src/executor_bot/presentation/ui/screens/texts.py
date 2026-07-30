@@ -55,6 +55,10 @@ class ExecutorProfileView(Protocol):
     def current_address_id(self) -> object | None:
         pass
 
+    @property
+    def avatar_url(self) -> str | None:
+        pass
+
 
 class MyOrderSummaryView(Protocol):
     @property
@@ -282,6 +286,7 @@ def executor_profile_text(
             f"ФИО: {escape(profile.full_name)}",
             f"Телефон: {escape(profile.phone)}",
             f"Город: {escape(city_name or str(profile.city_id))}",
+            f"Фото: {'загружено' if profile.avatar_url else 'не загружено'}",
             f"Контакт: {escape(contact_method)}",
             f"О себе: {about_text}",
             f"Telegram: {username_text}",

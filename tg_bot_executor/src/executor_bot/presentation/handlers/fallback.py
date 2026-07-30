@@ -1,7 +1,7 @@
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.types import BufferedInputFile, CallbackQuery, Message, ReplyKeyboardRemove
 
 from executor_bot.application.errors import BackendClientError
 from executor_bot.application.ports import ActiveCategoryStore, BackendPort
@@ -372,18 +372,35 @@ async def profile_callback(
         (city.name for city in cities if city.id == state.performer.city_id),
         str(state.performer.city_id),
     )
+    reply_markup = (
+        InlineKeyboardFactory()
+        .button("Редактировать профиль", ProfileEditCallback())
+        .button("Проверить удаление аккаунта", ProfileDeletionCheckCallback())
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
+    text = executor_profile_text(state.performer, city_name=city_name)
+    if state.performer.avatar_url:
+        try:
+            avatar = await backend_client.download_avatar(state.performer.avatar_url)
+        except BackendClientError:
+            avatar = b""
+        if avatar:
+            await telegram_responder.replace_with_photo(
+                bot=bot,
+                event=callback,
+                telegram_id=telegram_user_context.telegram_id,
+                photo=BufferedInputFile(avatar, filename="performer-avatar.jpg"),
+                caption=text,
+                reply_markup=reply_markup,
+            )
+            return
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=executor_profile_text(state.performer, city_name=city_name),
-        reply_markup=(
-            InlineKeyboardFactory()
-            .button("Редактировать профиль", ProfileEditCallback())
-            .button("Проверить удаление аккаунта", ProfileDeletionCheckCallback())
-            .button(MsgKey.MAIN_MENU, MainMenuCallback())
-            .as_markup()
-        ),
+        text=text,
+        reply_markup=reply_markup,
     )
 
 

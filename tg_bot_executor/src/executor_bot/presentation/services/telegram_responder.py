@@ -2,7 +2,13 @@ import logging
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, ReplyMarkupUnion
+from aiogram.types import (
+    BufferedInputFile,
+    CallbackQuery,
+    InlineKeyboardMarkup,
+    Message,
+    ReplyMarkupUnion,
+)
 
 from executor_bot.application.ports import CurrentMessageStore
 
@@ -148,7 +154,7 @@ class TelegramResponder:
         bot: Bot,
         event: Message | CallbackQuery,
         telegram_id: int,
-        photo: str,
+        photo: str | BufferedInputFile,
         caption: str,
         reply_markup: ReplyMarkupUnion | None = None,
     ) -> Message | None:

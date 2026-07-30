@@ -132,6 +132,15 @@ class BackendClient(BackendPort):
             else None,
         )
 
+    async def download_avatar(self, avatar_url: str) -> bytes:
+        try:
+            response = await self._client.get(avatar_url)
+        except httpx.HTTPError as exc:
+            raise BackendUnavailableError("Avatar is unavailable") from exc
+        if response.status_code >= 400:
+            raise BackendUnavailableError("Avatar is unavailable")
+        return response.content
+
     async def list_active_cities(self) -> tuple[CityDTO, ...]:
         response = await self._request("GET", "/api/catalog/cities")
         self._raise_for_status(response)

@@ -55,6 +55,9 @@ def performer_from_json(data: dict[str, object]) -> PerformerProfileDTO:
         current_address_id=UUID(str(data["current_address_id"]))
         if data.get("current_address_id") is not None
         else None,
+        avatar_url=str(data["avatar_url"])
+        if isinstance(data.get("avatar_url"), str)
+        else None,
     )
 
 
