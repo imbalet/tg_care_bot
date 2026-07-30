@@ -26,5 +26,7 @@ class Screen(BaseScreen[_View]):
     def _build_keyboard(self) -> Markup:
         return fallback_keyboard(
             include_main_menu=True,
+            include_help=False,
+            include_support=False,
             legal_documents=self.data.legal_documents,
         )

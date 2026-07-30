@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from customer_bot.presentation.callbacks import (
+    AddressRetryCallback,
     AddressSuggestionCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
@@ -35,4 +36,4 @@ class Screen(BaseScreen[_View]):
                 f"№{index + 1}",
                 AddressSuggestionCallback(index=index),
             )
-        return keyboard.as_markup()
+        return keyboard.button("Ввести заново", AddressRetryCallback()).as_markup()

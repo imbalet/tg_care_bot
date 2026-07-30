@@ -226,6 +226,10 @@ class AddressSuggestionCallback(CallbackData, prefix="addr_suggestion"):
     index: int
 
 
+class AddressRetryCallback(CallbackData, prefix="addr_retry"):
+    pass
+
+
 class AddressSkipCallback(CallbackData, prefix="addr_skip"):
     pass
 

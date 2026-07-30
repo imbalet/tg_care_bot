@@ -12,7 +12,11 @@ from customer_bot.presentation.ui.texts.labels import MsgKey
 
 
 def fallback_keyboard(
-    *, include_main_menu: bool = True, legal_documents: tuple[object, ...] = ()
+    *,
+    include_main_menu: bool = True,
+    include_help: bool = True,
+    include_support: bool = True,
+    legal_documents: tuple[object, ...] = (),
 ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory()
     if include_main_menu:
@@ -21,8 +25,8 @@ def fallback_keyboard(
         url = str(getattr(document, "content_url", ""))
         if url.startswith(("https://", "http://")):
             keyboard.url_button(f"Документ {index}", url)
-    return (
+    if include_help:
         keyboard.button(MsgKey.HELP, HelpCallback())
-        .button("Связаться с поддержкой", SupportOpenCallback())
-        .as_markup()
-    )
+    if include_support:
+        keyboard.button("Связаться с поддержкой", SupportOpenCallback())
+    return keyboard.as_markup()

@@ -10,6 +10,7 @@ from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
     AddressAddCallback,
     AddressCityCallback,
+    AddressRetryCallback,
     AddressSkipCallback,
     AddressSuggestionCallback,
 )
@@ -253,6 +254,28 @@ async def select_suggestion(
                 AddressExtraView(field_name=EXTRA_FIELDS[0][1])
             ).build()
         ).text,
+        reply_markup=screen.reply_markup,
+    )
+
+
+@router.callback_query(
+    AddressManagement.suggestion,
+    AddressRetryCallback.filter(),
+)
+async def retry_address_query(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await state.set_state(AddressManagement.query)
+    await state.update_data(address_suggestions=[])
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=(screen := AddressQueryStepScreen().build()).text,
         reply_markup=screen.reply_markup,
     )
 
