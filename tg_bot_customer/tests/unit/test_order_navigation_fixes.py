@@ -48,6 +48,8 @@ async def test_contact_request_refreshes_order_card(
 @pytest.mark.asyncio
 async def test_performer_profile_avatar_uses_photo_replacement() -> None:
     responder = AsyncMock()
+    backend = AsyncMock()
+    backend.download_avatar.return_value = b"avatar"
     profile = PerformerProfileDTO(
         performer_id=uuid4(),
         full_name="Исполнитель",
@@ -62,9 +64,11 @@ async def test_performer_profile_avatar_uses_photo_replacement() -> None:
         event=object(),
         telegram_id=123,
         profile=profile,
+        backend_client=backend,
         telegram_responder=responder,
         back_order_id=uuid4(),
     )
 
     responder.replace_with_photo.assert_awaited_once()
-    assert responder.replace_with_photo.await_args.kwargs["photo"] == profile.avatar_url
+    photo = responder.replace_with_photo.await_args.kwargs["photo"]
+    assert photo.data == b"avatar"

@@ -58,6 +58,7 @@ async def response_performer_profile(
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         profile=profile,
+        backend_client=backend_client,
         telegram_responder=telegram_responder,
     )
 

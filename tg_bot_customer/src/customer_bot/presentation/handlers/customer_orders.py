@@ -112,6 +112,7 @@ async def performer_profile_callback(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             profile=profile,
+            backend_client=backend_client,
             telegram_responder=telegram_responder,
             back_order_id=callback_data.order_id,
         )
