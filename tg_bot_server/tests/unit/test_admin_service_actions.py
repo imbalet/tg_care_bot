@@ -119,3 +119,22 @@ async def test_approve_service_action_form_is_postable_and_has_multi_select() ->
     assert 'name="service_ids"' in action["form"]
     assert "multiple" in action["form"]
     assert str(service.id) in action["form"]
+
+
+async def test_approve_service_action_defaults_empty_limit_to_one() -> None:
+    service = _service(code="walk", name="Walk")
+    performers = SimpleNamespace(approve_performer_service=AsyncMock())
+    container = SimpleNamespace(
+        catalog=SimpleNamespace(get_catalog=AsyncMock(return_value=_catalog(service))),
+        performers=performers,
+    )
+    view = PerformerView(PerformerModel, container)
+    body = f"service_ids={service.id}&constraints=%7B%7D".encode()
+
+    await view.approve_service_action(
+        _request(body, admin_id=uuid4()),
+        [str(uuid4())],
+    )
+
+    command = performers.approve_performer_service.await_args.args[0]
+    assert command.admin_max_objects == 1

@@ -12,7 +12,7 @@ from starlette_admin import action
 from starlette_admin._types import RequestAction
 from starlette_admin.auth import AdminUser, AuthProvider
 from starlette_admin.contrib.sqla import Admin, ModelView
-from starlette_admin.exceptions import FormValidationError, LoginFailed
+from starlette_admin.exceptions import ActionFailed, FormValidationError, LoginFailed
 from starlette_admin.fields import JSONField
 
 from backend.bootstrap.container import Container
@@ -410,7 +410,7 @@ class PerformerView(ReadOnlyModelView):
             f"{''.join(options)}"
             "</select>"
             '<input name="admin_max_objects" type="number" min="1" required '
-            'placeholder="Maximum objects">'
+            'value="1" placeholder="Maximum objects">'
             '<textarea name="constraints" placeholder="Constraints as JSON">'
             "{}"
             "</textarea>"
@@ -491,7 +491,7 @@ class PerformerView(ReadOnlyModelView):
         form=(
             "<form>"
             '<select name="service_ids" required multiple class="form-select"></select>'
-            '<input name="admin_max_objects" type="number" min="1" required>'
+            '<input name="admin_max_objects" type="number" min="1" required value="1">'
             '<textarea name="constraints">{}</textarea>'
             "</form>"
         ),
@@ -507,28 +507,20 @@ class PerformerView(ReadOnlyModelView):
             if str(value).strip()
         ]
         if not service_values:
-            raise FormValidationError({"service_ids": "Select at least one service"})
+            raise ActionFailed("Select at least one service")
         try:
-            admin_max_objects = int(str(data.get("admin_max_objects", "")))
+            admin_max_objects = int(str(data.get("admin_max_objects", "1")) or "1")
             constraints = json.loads(str(data.get("constraints", "{}")))
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
-            raise FormValidationError(
-                {
-                    "admin_max_objects": "Positive limit and valid JSON are required",
-                },
-            ) from exc
+            raise ActionFailed("Positive limit and valid JSON are required") from exc
         if not isinstance(constraints, dict):
-            raise FormValidationError(
-                {"constraints": "Constraints must be a JSON object"},
-            )
+            raise ActionFailed("Constraints must be a JSON object")
 
         service_ids: list[UUID] = []
         for service_value in dict.fromkeys(service_values):
             service_id = await self._resolve_service_id(service_value)
             if service_id is None:
-                raise FormValidationError(
-                    {"service_ids": f"Service not found: {service_value}"},
-                )
+                raise ActionFailed(f"Service not found: {service_value}")
             service_ids.append(service_id)
 
         approved = 0
@@ -552,7 +544,7 @@ class PerformerView(ReadOnlyModelView):
                 else:
                     approved += 1
         if errors:
-            raise FormValidationError(errors)
+            raise ActionFailed("; ".join(str(error) for error in errors.values()))
         return f"Approved performer services: {approved}"
 
     async def _resolve_service_id(self, value: str) -> UUID | None:
