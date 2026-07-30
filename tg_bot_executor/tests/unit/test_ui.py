@@ -4,8 +4,8 @@ from decimal import Decimal
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
-from executor_bot.application.dto import AddressDTO
 from executor_bot.application.dto import (
+    AddressDTO,
     BusyIntervalDTO,
     CalendarDTO,
     PerformerScheduleDTO,
@@ -24,16 +24,12 @@ from executor_bot.presentation.ui import (
     executor_setup_hint_text,
     legal_documents_text,
     registration_summary_keyboard,
+    report_attachment_keyboard,
     report_skip_keyboard,
     select_city_keyboard,
     summary_text,
     work_address_card_text,
     work_addresses_keyboard,
-)
-from executor_bot.presentation.ui.screens.keyboards import my_order_card_keyboard_for_status
-from executor_bot.presentation.ui.screens.texts import (
-    available_orders_text,
-    my_orders_page_text,
 )
 from executor_bot.presentation.ui.keyboards import (
     AVATAR_UPLOAD,
@@ -42,6 +38,13 @@ from executor_bot.presentation.ui.keyboards import (
     REGISTRATION_CONFIRM,
     WORK_ADDRESS_ADD,
     WORK_ADDRESS_SELECT_PREFIX,
+)
+from executor_bot.presentation.ui.screens.keyboards import (
+    my_order_card_keyboard_for_status,
+)
+from executor_bot.presentation.ui.screens.texts import (
+    available_orders_text,
+    my_orders_page_text,
 )
 
 
@@ -195,6 +198,14 @@ def test_report_skip_is_an_inline_callback_for_each_optional_step() -> None:
 
         assert button.text == "Пропустить"
         assert button.callback_data == f"order_report_skip:{step}"
+
+
+def test_report_attachment_keyboard_uses_done_after_upload() -> None:
+    keyboard = report_attachment_keyboard(has_attachments=True)
+    button = keyboard.inline_keyboard[0][0]
+
+    assert button.text == "Готово"
+    assert button.callback_data == "order_report_submit"
 
 
 def test_executor_profile_text_escapes_user_values() -> None:

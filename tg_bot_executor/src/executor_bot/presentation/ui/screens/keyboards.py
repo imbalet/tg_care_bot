@@ -31,6 +31,7 @@ from executor_bot.presentation.callbacks import (
     ExecutorOrderLocationCallback,
     ExecutorOrderReportCallback,
     ExecutorOrderReportSkipCallback,
+    ExecutorOrderReportSubmitCallback,
     ExecutorOrderReportViewCallback,
     ExecutorOrdersOpenCallback,
     ExecutorOrdersPageCallback,
@@ -415,6 +416,16 @@ def report_skip_keyboard(step: str) -> InlineKeyboardMarkup:
         )
         .as_markup()
     )
+
+
+def report_attachment_keyboard(*, has_attachments: bool) -> InlineKeyboardMarkup:
+    if has_attachments:
+        return (
+            InlineKeyboardFactory()
+            .button("Готово", ExecutorOrderReportSubmitCallback())
+            .as_markup()
+        )
+    return report_skip_keyboard("attachment")
 
 
 def my_order_card_keyboard_for_status(

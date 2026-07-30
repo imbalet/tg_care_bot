@@ -29,6 +29,7 @@ from executor_bot.presentation.callbacks import (
     ExecutorOrderLocationCallback,
     ExecutorOrderReportCallback,
     ExecutorOrderReportSkipCallback,
+    ExecutorOrderReportSubmitCallback,
     ExecutorOrderReportViewCallback,
     ExecutorOrdersOpenCallback,
     ExecutorOrdersPageCallback,
@@ -61,6 +62,7 @@ from executor_bot.presentation.ui import (
     order_location_keyboard,
     orders_filter_keyboard,
     pool_response_created_text,
+    report_attachment_keyboard,
     report_skip_keyboard,
     responses_keyboard,
     stale_action_keyboard,
@@ -1012,7 +1014,7 @@ async def report_problem(
         event=message,
         telegram_id=telegram_user_context.telegram_id,
         text="Прикрепите фото или документ либо пропустите этот шаг.",
-        reply_markup=report_skip_keyboard("attachment"),
+        reply_markup=report_attachment_keyboard(has_attachments=False),
         create_new=True,
     )
 
@@ -1042,7 +1044,7 @@ async def report_problem_description(
         event=message,
         telegram_id=telegram_user_context.telegram_id,
         text="Прикрепите фото или документ либо пропустите этот шаг.",
-        reply_markup=report_skip_keyboard("attachment"),
+        reply_markup=report_attachment_keyboard(has_attachments=False),
         create_new=True,
     )
 
@@ -1107,8 +1109,8 @@ async def report_attachment(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text="Файл добавлен. Добавьте ещё или пропустите этот шаг.",
-        reply_markup=report_skip_keyboard("attachment"),
+        text="Файл добавлен. Добавьте ещё или нажмите «Готово».",
+        reply_markup=report_attachment_keyboard(has_attachments=True),
         create_new=True,
     )
 
@@ -1217,12 +1219,32 @@ async def report_skip_callback(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text="Прикрепите фото или документ либо пропустите этот шаг.",
-            reply_markup=report_skip_keyboard("attachment"),
+            reply_markup=report_attachment_keyboard(has_attachments=False),
             create_new=True,
         )
         return
     await telegram_responder.acknowledge(
         callback, "Шаг уже недоступен", show_alert=True
+    )
+
+
+@router.callback_query(ExecutorOrderReportSubmitCallback.filter())
+async def report_submit_callback(
+    callback: CallbackQuery,
+    state: FSMContext,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await telegram_responder.acknowledge(callback)
+    await _submit_order_report(
+        callback,
+        state,
+        bot,
+        backend_client,
+        telegram_responder,
+        telegram_user_context,
     )
 
 
