@@ -276,6 +276,10 @@ async def help_callback(
             documents = await backend_client.list_active_legal_documents()
         except BackendClientError:
             documents = ()
+        try:
+            contact = await backend_client.get_support_contact()
+        except BackendClientError:
+            contact = None
         await telegram_responder.update(
             bot=bot,
             event=callback,
@@ -285,6 +289,8 @@ async def help_callback(
                 include_main_menu=True,
                 include_help=False,
                 include_support=False,
+                support_label=(contact.label if contact is not None else "Поддержка"),
+                support_url=(contact.telegram_url if contact is not None else None),
                 legal_documents=documents,
             ),
         )

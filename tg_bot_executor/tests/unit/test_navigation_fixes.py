@@ -53,10 +53,13 @@ def test_help_fallback_does_not_repeat_help_or_support() -> None:
         include_main_menu=True,
         include_help=False,
         include_support=False,
+        support_label="Аккаунт поддержки",
+        support_url="https://t.me/support",
     )
     labels = [button.text for row in markup.inline_keyboard for button in row]
 
-    assert labels == ["Главное меню"]
+    assert labels == ["Главное меню", "Аккаунт поддержки"]
+    assert markup.inline_keyboard[1][0].url == "https://t.me/support"
 
 
 def test_work_address_views_mark_current_address() -> None:
