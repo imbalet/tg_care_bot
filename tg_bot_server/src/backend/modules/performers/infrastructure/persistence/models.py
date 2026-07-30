@@ -4,13 +4,14 @@ from uuid import UUID
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, SmallInteger, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.common.infrastructure.database import (
     Base,
     TimestampMixin,
     UuidPrimaryKeyMixin,
 )
+from backend.modules.catalog.infrastructure.persistence.models import ServiceModel
 
 
 class PerformerModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
@@ -51,6 +52,9 @@ class PerformerModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+    def __admin_repr__(self, _request: Any) -> str:
+        return f"{self.full_name} ({self.telegram_id})"
 
 
 class PerformerInvitationModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
@@ -97,6 +101,8 @@ class PerformerServiceModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    performer: Mapped[PerformerModel] = relationship(lazy="joined")
+    service: Mapped[ServiceModel] = relationship(lazy="joined")
 
 
 class PerformerScheduleModel(UuidPrimaryKeyMixin, TimestampMixin, Base):

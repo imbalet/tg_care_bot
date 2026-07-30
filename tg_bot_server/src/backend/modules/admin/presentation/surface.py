@@ -1,6 +1,7 @@
 import json
 from collections.abc import Awaitable, Callable
 from decimal import Decimal, InvalidOperation
+from html import escape
 from typing import Any, cast
 from uuid import UUID
 
@@ -230,8 +231,10 @@ class PaymentView(OperationalModelView):
         confirmation="Create a refund for selected payments?",
         submit_btn_text="Refund",
         form=(
+            "<form>"
             '<input name="amount" placeholder="Full amount by default">'
             '<textarea name="reason" required></textarea>'
+            "</form>"
         ),
     )
     async def create_manual_refund_action(
@@ -344,7 +347,7 @@ class BusinessSettingView(OperationalModelView):
         text="Update setting",
         confirmation="Update selected business settings?",
         submit_btn_text="Save",
-        form='<textarea name="value" required></textarea>',
+        form='<form><textarea name="value" required></textarea></form>',
     )
     async def update_business_setting_action(
         self, request: Request, pks: list[Any]
@@ -386,6 +389,40 @@ class PerformerView(ReadOnlyModelView):
         super().__init__(model, **kwargs)
         self._container = container
 
+    async def get_all_actions(self, request: Request) -> list[dict[str, Any]]:
+        actions = await super().get_all_actions(request)
+        catalog = await self._container.catalog.get_catalog(active_only=False)
+        options = [
+            '<option value="">Select a service...</option>',
+        ]
+        for category in catalog.categories:
+            for service in category.services:
+                status = " [inactive]" if not service.is_active else ""
+                label = f"{category.name} — {service.name} ({service.code}){status}"
+                options.append(
+                    f'<option value="{escape(str(service.id))}">'
+                    f"{escape(label)}</option>"
+                )
+        form = (
+            "<form>"
+            '<label for="service_ids">Services</label>'
+            '<select name="service_ids" required multiple class="form-select">'
+            f"{''.join(options)}"
+            "</select>"
+            '<input name="admin_max_objects" type="number" min="1" required '
+            'placeholder="Maximum objects">'
+            '<textarea name="constraints" placeholder="Constraints as JSON">'
+            "{}"
+            "</textarea>"
+            "</form>"
+        )
+        for index, action_data in enumerate(actions):
+            if action_data.get("name") == "approve_service":
+                action_data = action_data.copy()
+                action_data["form"] = form
+                actions[index] = action_data
+        return actions
+
     @action(
         name="activate_performer",
         text="Activate performer",
@@ -419,8 +456,10 @@ class PerformerView(ReadOnlyModelView):
         confirmation="Reject selected performers?",
         submit_btn_text="Reject",
         form=(
+            "<form>"
             '<input name="reason" required maxlength="200">'
             '<textarea name="comment" required></textarea>'
+            "</form>"
         ),
     )
     async def reject_performer_action(self, request: Request, pks: list[Any]) -> str:
@@ -450,9 +489,11 @@ class PerformerView(ReadOnlyModelView):
         confirmation="Approve this service for selected performers?",
         submit_btn_text="Approve",
         form=(
-            '<input name="service_id" required placeholder="Service UUID">'
+            "<form>"
+            '<select name="service_ids" required multiple class="form-select"></select>'
             '<input name="admin_max_objects" type="number" min="1" required>'
             '<textarea name="constraints">{}</textarea>'
+            "</form>"
         ),
     )
     async def approve_service_action(self, request: Request, pks: list[Any]) -> str:
@@ -460,43 +501,94 @@ class PerformerView(ReadOnlyModelView):
         if admin is None:
             raise FormValidationError({"id": "Admin session is required"})
         data = await request.form()
+        service_values = [
+            str(value).strip()
+            for value in data.getlist("service_ids")
+            if str(value).strip()
+        ]
+        if not service_values:
+            raise FormValidationError({"service_ids": "Select at least one service"})
         try:
-            service_id = UUID(str(data.get("service_id", "")).strip())
             admin_max_objects = int(str(data.get("admin_max_objects", "")))
             constraints = json.loads(str(data.get("constraints", "{}")))
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             raise FormValidationError(
                 {
-                    "service_id": (
-                        "Service UUID, positive limit and valid JSON are required"
-                    ),
+                    "admin_max_objects": "Positive limit and valid JSON are required",
                 },
             ) from exc
         if not isinstance(constraints, dict):
             raise FormValidationError(
                 {"constraints": "Constraints must be a JSON object"},
             )
-        approved = 0
-        for raw_pk in pks:
-            try:
-                await self._container.performers.approve_performer_service(
-                    ApprovePerformerServiceCommand(
-                        performer_id=UUID(str(raw_pk)),
-                        service_id=service_id,
-                        admin_max_objects=admin_max_objects,
-                        constraints=constraints,
-                        approved_by_admin_id=admin.id,
-                    ),
-                    audit_admin_id=admin.id,
+
+        service_ids: list[UUID] = []
+        for service_value in dict.fromkeys(service_values):
+            service_id = await self._resolve_service_id(service_value)
+            if service_id is None:
+                raise FormValidationError(
+                    {"service_ids": f"Service not found: {service_value}"},
                 )
-            except (NotFoundError, ValidationError) as exc:
-                raise FormValidationError({str(raw_pk): str(exc)}) from exc
-            approved += 1
-        return f"Approved service for performers: {approved}"
+            service_ids.append(service_id)
+
+        approved = 0
+        errors: dict[str | int, Any] = {}
+        for raw_pk in pks:
+            performer_id = UUID(str(raw_pk))
+            for service_id in service_ids:
+                try:
+                    await self._container.performers.approve_performer_service(
+                        ApprovePerformerServiceCommand(
+                            performer_id=performer_id,
+                            service_id=service_id,
+                            admin_max_objects=admin_max_objects,
+                            constraints=constraints,
+                            approved_by_admin_id=admin.id,
+                        ),
+                        audit_admin_id=admin.id,
+                    )
+                except (NotFoundError, ValidationError) as exc:
+                    errors[f"{raw_pk}:{service_id}"] = str(exc)
+                else:
+                    approved += 1
+        if errors:
+            raise FormValidationError(errors)
+        return f"Approved performer services: {approved}"
+
+    async def _resolve_service_id(self, value: str) -> UUID | None:
+        """Resolve the admin-friendly service value without exposing UUIDs in the UI."""
+        try:
+            return UUID(value)
+        except ValueError:
+            pass
+
+        catalog = await self._container.catalog.get_catalog(active_only=False)
+        normalized = value.casefold()
+        matches = [
+            service
+            for category in catalog.categories
+            for service in category.services
+            if service.code.casefold() == normalized
+            or service.name.casefold() == normalized
+        ]
+        if len(matches) != 1:
+            return None
+        return cast(UUID, matches[0].id)
 
 
 class PerformerServiceView(ReadOnlyModelView):
     actions = ["update_assignment", "revoke_assignment"]
+    fields: list[Any] = [
+        "id",
+        "performer",
+        "service",
+        "is_approved",
+        "is_enabled",
+        "admin_max_objects",
+        "performer_max_objects",
+        "constraints",
+        "approved_at",
+    ]
     searchable_fields = ["performer_id", "service_id", "is_approved", "is_enabled"]
 
     def __init__(self, model: type[Any], container: Container, **kwargs: Any) -> None:
@@ -509,8 +601,10 @@ class PerformerServiceView(ReadOnlyModelView):
         confirmation="Update selected performer services?",
         submit_btn_text="Save",
         form=(
+            "<form>"
             '<input name="admin_max_objects" type="number" min="1" required>'
             '<textarea name="constraints">{}</textarea>'
+            "</form>"
         ),
     )
     async def update_assignment_action(
@@ -751,7 +845,7 @@ class OrderView(OperationalModelView):
         text="Cancel order",
         confirmation="Cancel selected orders?",
         submit_btn_text="Cancel",
-        form='<textarea name="comment" required></textarea>',
+        form=('<form><textarea name="comment" required></textarea></form>'),
     )
     async def cancel_order_action(self, request: Request, pks: list[Any]) -> str:
         return await self._close_orders(request, pks, force=False)
@@ -762,8 +856,10 @@ class OrderView(OperationalModelView):
         confirmation="Mark selected orders as paid to performers?",
         submit_btn_text="Mark paid",
         form=(
+            "<form>"
             '<input name="reference" required placeholder="Bank transfer reference">'
             '<textarea name="comment"></textarea>'
+            "</form>"
         ),
     )
     async def mark_manual_payout_action(self, request: Request, pks: list[Any]) -> str:
@@ -792,7 +888,7 @@ class OrderView(OperationalModelView):
         text="Force close order",
         confirmation="Force close selected non-terminal orders?",
         submit_btn_text="Force close",
-        form='<textarea name="comment" required></textarea>',
+        form='<form><textarea name="comment" required></textarea></form>',
     )
     async def force_close_order_action(self, request: Request, pks: list[Any]) -> str:
         return await self._close_orders(request, pks, force=True)
@@ -868,7 +964,10 @@ class SupportRecordView(OperationalModelView):
         text="Update status",
         confirmation="Update selected records?",
         submit_btn_text="Save",
-        form='<input name="status" required><textarea name="comment"></textarea>',
+        form=(
+            '<form><input name="status" required>'
+            '<textarea name="comment"></textarea></form>'
+        ),
     )
     async def update_record_action(self, request: Request, pks: list[Any]) -> str:
         admin = getattr(request.state, "admin_user", None)
@@ -897,7 +996,7 @@ class SupportRecordView(OperationalModelView):
         text="Resolve deletion",
         confirmation="Resolve selected deletion requests?",
         submit_btn_text="Resolve",
-        form='<textarea name="comment" required></textarea>',
+        form='<form><textarea name="comment" required></textarea></form>',
     )
     async def resolve_deletion_action(self, request: Request, pks: list[Any]) -> str:
         admin = getattr(request.state, "admin_user", None)

@@ -76,6 +76,9 @@ class ServiceModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     category: Mapped[ServiceCategoryModel] = relationship(back_populates="services")
     options: Mapped[list[ServiceOptionModel]] = relationship(lazy="selectin")
 
+    def __admin_repr__(self, _request: Any) -> str:
+        return f"{self.name} ({self.code})"
+
 
 class ServiceOptionModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "service_options"
