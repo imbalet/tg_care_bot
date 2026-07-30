@@ -40,6 +40,8 @@ from ._shared import (
     SqlAlchemyCustomerRepository,
     SqlAlchemyFileRepository,
     SqlAlchemyPerformerRepository,
+    SyncPerformerServicesCommand,
+    SyncPerformerServicesUseCase,
     UpdatePerformerProfileCommand,
     UpdatePerformerProfileUseCase,
     UpdatePerformerUsernameCommand,
@@ -118,6 +120,12 @@ class PerformerServices(Service):
             return await GetRegistrationStateUseCase(
                 SqlAlchemyPerformerRepository(uow.session),
             ).execute(telegram_id)
+
+    async def get_performer_by_id(self, performer_id: UUID) -> Any:
+        async with self._uow() as uow:
+            return await SqlAlchemyPerformerRepository(
+                uow.session,
+            ).get_performer_by_id(performer_id)
 
     async def register_performer(self, command: RegisterPerformerCommand) -> Any:
         async with self._uow() as uow:
@@ -199,6 +207,52 @@ class PerformerServices(Service):
             )
             await uow.commit()
             return service
+
+    async def sync_performer_services(
+        self,
+        command: SyncPerformerServicesCommand,
+    ) -> Any:
+        async with self._uow() as uow:
+            result = await SyncPerformerServicesUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(command)
+            for service in result.added:
+                await SqlAlchemyAdminAuditRepository(uow.session).add(
+                    admin_id=command.approved_by_admin_id,
+                    action="approve_performer_service",
+                    entity_type="performer_service",
+                    entity_id=service.id,
+                    audit_metadata={
+                        "performer_id": str(command.performer_id),
+                        "service_id": str(service.service_id),
+                        "admin_max_objects": service.admin_max_objects,
+                    },
+                )
+            for service in result.updated:
+                await SqlAlchemyAdminAuditRepository(uow.session).add(
+                    admin_id=command.approved_by_admin_id,
+                    action="update_performer_service",
+                    entity_type="performer_service",
+                    entity_id=service.id,
+                    audit_metadata={
+                        "performer_id": str(command.performer_id),
+                        "service_id": str(service.service_id),
+                        "admin_max_objects": service.admin_max_objects,
+                    },
+                )
+            for service in result.revoked:
+                await SqlAlchemyAdminAuditRepository(uow.session).add(
+                    admin_id=command.approved_by_admin_id,
+                    action="revoke_performer_service",
+                    entity_type="performer_service",
+                    entity_id=service.id,
+                    audit_metadata={
+                        "performer_id": str(command.performer_id),
+                        "service_id": str(service.service_id),
+                    },
+                )
+            await uow.commit()
+            return result
 
     async def list_performer_services_by_id(self, performer_id: UUID) -> Any:
         async with self._uow() as uow:

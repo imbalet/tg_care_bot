@@ -9,6 +9,8 @@ from backend.modules.performers.application.dto import (
     InvitationDTO,
     PerformerDTO,
     PerformerServiceDTO,
+    PerformerServiceSelection,
+    PerformerServicesSyncResult,
     RegistrationStateDTO,
 )
 from backend.modules.performers.application.interfaces import PerformerRepository
@@ -253,6 +255,48 @@ class RevokePerformerServiceUseCase:
         if service is None:
             raise NotFoundError("Performer service not found")
         return service
+
+
+@dataclass(frozen=True)
+class SyncPerformerServicesCommand:
+    performer_id: UUID
+    selections: tuple[PerformerServiceSelection, ...]
+    approved_by_admin_id: UUID
+
+
+class SyncPerformerServicesUseCase:
+    def __init__(self, repository: PerformerRepository) -> None:
+        self._repository = repository
+
+    async def execute(
+        self,
+        command: SyncPerformerServicesCommand,
+    ) -> PerformerServicesSyncResult:
+        seen_service_ids: set[UUID] = set()
+        for selection in command.selections:
+            if selection.service_id in seen_service_ids:
+                raise ValidationError("Duplicate performer service selection")
+            seen_service_ids.add(selection.service_id)
+            if selection.admin_max_objects < 1:
+                raise ValidationError("Admin max objects must be positive")
+            service_order_limit = await self._repository.get_service_order_limit(
+                selection.service_id,
+            )
+            if service_order_limit is None:
+                raise NotFoundError("Active service not found")
+            if selection.admin_max_objects > service_order_limit:
+                raise ValidationError("Admin max objects exceeds service order limit")
+            if not isinstance(selection.constraints, dict):
+                raise ValidationError("Service constraints must be a JSON object")
+
+        result = await self._repository.sync_services(
+            performer_id=command.performer_id,
+            selections=command.selections,
+            approved_by_admin_id=command.approved_by_admin_id,
+        )
+        if result is None:
+            raise NotFoundError("Performer not found")
+        return result
 
 
 class ListPerformerServicesUseCase:

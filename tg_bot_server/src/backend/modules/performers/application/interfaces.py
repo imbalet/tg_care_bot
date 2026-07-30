@@ -6,6 +6,8 @@ from backend.modules.performers.application.dto import (
     InvitationDTO,
     PerformerDTO,
     PerformerServiceDTO,
+    PerformerServiceSelection,
+    PerformerServicesSyncResult,
 )
 
 
@@ -23,6 +25,9 @@ class PerformerRepository(Protocol):
         self,
         telegram_id: int,
     ) -> PerformerDTO | None:
+        pass
+
+    async def get_performer_by_id(self, performer_id: UUID) -> PerformerDTO | None:
         pass
 
     async def get_pending_invitation(self, telegram_id: int) -> InvitationDTO | None:
@@ -109,6 +114,15 @@ class PerformerRepository(Protocol):
         performer_id: UUID,
         service_id: UUID,
     ) -> PerformerServiceDTO | None:
+        pass
+
+    async def sync_services(
+        self,
+        *,
+        performer_id: UUID,
+        selections: tuple[PerformerServiceSelection, ...],
+        approved_by_admin_id: UUID,
+    ) -> PerformerServicesSyncResult | None:
         pass
 
     async def set_service_enabled_by_telegram_id(

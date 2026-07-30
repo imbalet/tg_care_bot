@@ -1,19 +1,19 @@
 import json
 from collections.abc import Awaitable, Callable
 from decimal import Decimal, InvalidOperation
-from html import escape
 from typing import Any, cast
 from uuid import UUID
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from sqlalchemy import select
-from starlette.responses import Response
-from starlette_admin import action
+from starlette.responses import RedirectResponse, Response
+from starlette_admin import action, row_action
 from starlette_admin._types import RequestAction
 from starlette_admin.auth import AdminUser, AuthProvider
 from starlette_admin.contrib.sqla import Admin, ModelView
-from starlette_admin.exceptions import ActionFailed, FormValidationError, LoginFailed
+from starlette_admin.exceptions import FormValidationError, LoginFailed
 from starlette_admin.fields import JSONField
+from starlette_admin.views import CustomView
 
 from backend.bootstrap.container import Container
 from backend.common.domain import (
@@ -65,6 +65,8 @@ from backend.modules.payments.infrastructure import PaymentModel, RefundModel
 from backend.modules.performers.application import (
     ApprovePerformerServiceCommand,
     CreateInvitationCommand,
+    PerformerServiceSelection,
+    SyncPerformerServicesCommand,
 )
 from backend.modules.performers.infrastructure import (
     PerformerCalendarOverrideModel,
@@ -380,8 +382,167 @@ class BusinessSettingView(OperationalModelView):
         self._container = container
 
 
+class PerformerServicesAdminView(CustomView):
+    def __init__(self, container: Container) -> None:
+        super().__init__(
+            label="Manage performer services",
+            path="/performer-services/{performer_id}",
+            template_path="performer_services_manage.html",
+            name="admin_performer_services",
+            methods=["GET", "POST"],
+            add_to_menu=False,
+        )
+        self._container = container
+
+    def is_accessible(self, request: Request) -> bool:
+        return getattr(request.state, "admin_user", None) is not None
+
+    async def render(self, request: Request, templates: Any) -> Response:
+        try:
+            performer_id = UUID(str(request.path_params["performer_id"]))
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(status_code=404, detail="Performer not found") from exc
+
+        performer = await self._container.performers.get_performer_by_id(performer_id)
+        if performer is None:
+            raise HTTPException(status_code=404, detail="Performer not found")
+        catalog = await self._container.catalog.get_catalog(active_only=False)
+        assignments = await self._container.performers.list_performer_services_by_id(
+            performer_id,
+        )
+        assignment_by_service_id = {
+            assignment.service_id: assignment for assignment in assignments
+        }
+        selected_ids = {
+            assignment.service_id
+            for assignment in assignments
+            if assignment.is_approved
+        }
+        form_values: dict[str, str] = {}
+        error: str | None = None
+
+        if request.method == "POST":
+            data = await request.form()
+            try:
+                selected_ids = {
+                    UUID(str(raw_id))
+                    for raw_id in data.getlist("service_id")
+                    if str(raw_id).strip()
+                }
+                catalog_service_ids = {
+                    service.id
+                    for category in catalog.categories
+                    for service in category.services
+                }
+                unknown_service_ids = selected_ids - catalog_service_ids
+                if unknown_service_ids:
+                    raise ValueError("Selected service is not present in the catalog")
+                selections = []
+                for category in catalog.categories:
+                    for service in category.services:
+                        if service.id not in selected_ids:
+                            continue
+                        max_key = f"admin_max_objects_{service.id}"
+                        constraints_key = f"constraints_{service.id}"
+                        max_objects = int(
+                            str(data.get(max_key, category.max_objects_per_order)),
+                        )
+                        constraints = json.loads(
+                            str(data.get(constraints_key, "{}")),
+                        )
+                        if not isinstance(constraints, dict):
+                            raise ValueError(
+                                f"Constraints for {service.name} must be a JSON object",
+                            )
+                        selections.append(
+                            PerformerServiceSelection(
+                                service_id=service.id,
+                                admin_max_objects=max_objects,
+                                constraints=constraints,
+                            ),
+                        )
+                        form_values[max_key] = str(data.get(max_key, ""))
+                        form_values[constraints_key] = str(
+                            data.get(constraints_key, "{}"),
+                        )
+                await self._container.performers.sync_performer_services(
+                    SyncPerformerServicesCommand(
+                        performer_id=performer_id,
+                        selections=tuple(selections),
+                        approved_by_admin_id=request.state.admin_user.id,
+                    ),
+                )
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                error = str(exc)
+            except (NotFoundError, ValidationError) as exc:
+                error = str(exc)
+            else:
+                return RedirectResponse(
+                    str(
+                        request.url_for(
+                            "admin_catalog:admin_performer_services",
+                            performer_id=str(performer_id),
+                        ),
+                    )
+                    + "?saved=1",
+                    status_code=303,
+                )
+
+        rows = []
+        for category in catalog.categories:
+            for service in category.services:
+                assignment = assignment_by_service_id.get(service.id)
+                max_key = f"admin_max_objects_{service.id}"
+                constraints_key = f"constraints_{service.id}"
+                default_max_objects = (
+                    assignment.admin_max_objects
+                    if assignment is not None
+                    else category.max_objects_per_order
+                )
+                default_constraints = (
+                    assignment.constraints if assignment is not None else {}
+                )
+                rows.append(
+                    {
+                        "category_name": category.name,
+                        "service": service,
+                        "assignment": assignment,
+                        "selected": service.id in selected_ids,
+                        "is_inactive": not service.is_active,
+                        "max_objects": form_values.get(
+                            max_key,
+                            str(default_max_objects),
+                        ),
+                        "constraints": form_values.get(
+                            constraints_key,
+                            json.dumps(
+                                default_constraints,
+                                ensure_ascii=False,
+                                sort_keys=True,
+                            ),
+                        ),
+                    },
+                )
+
+        return cast(
+            Response,
+            templates.TemplateResponse(
+                request=request,
+                name=self.template_path,
+                context={
+                    "title": f"Services — {performer.full_name}",
+                    "performer": performer,
+                    "rows": rows,
+                    "error": error,
+                    "saved": request.query_params.get("saved") == "1",
+                },
+            ),
+        )
+
+
 class PerformerView(ReadOnlyModelView):
-    actions = ["activate_performer", "reject_performer", "approve_service"]
+    actions = ["activate_performer", "reject_performer"]
+    row_actions = ["manage_services"]
     searchable_fields = ["id", "telegram_id", "full_name", "status", "city_id"]
     sortable_fields = ["id", "created_at", "updated_at", "status"]
 
@@ -389,39 +550,20 @@ class PerformerView(ReadOnlyModelView):
         super().__init__(model, **kwargs)
         self._container = container
 
-    async def get_all_actions(self, request: Request) -> list[dict[str, Any]]:
-        actions = await super().get_all_actions(request)
-        catalog = await self._container.catalog.get_catalog(active_only=False)
-        options = [
-            '<option value="">Select a service...</option>',
-        ]
-        for category in catalog.categories:
-            for service in category.services:
-                status = " [inactive]" if not service.is_active else ""
-                label = f"{category.name} — {service.name} ({service.code}){status}"
-                options.append(
-                    f'<option value="{escape(str(service.id))}">'
-                    f"{escape(label)}</option>"
-                )
-        form = (
-            "<form>"
-            '<label for="service_ids">Services</label>'
-            '<select name="service_ids" required multiple class="form-select">'
-            f"{''.join(options)}"
-            "</select>"
-            '<input name="admin_max_objects" type="number" min="1" required '
-            'value="1" placeholder="Maximum objects">'
-            '<textarea name="constraints" placeholder="Constraints as JSON">'
-            "{}"
-            "</textarea>"
-            "</form>"
+    @row_action(
+        name="manage_services",
+        text="Manage services",
+        action_btn_class="btn-primary",
+        icon_class="fa-solid fa-list-check",
+        custom_response=True,
+    )
+    async def manage_services_action(self, request: Request, pk: Any) -> Any:
+        return RedirectResponse(
+            request.url_for(
+                "admin_catalog:admin_performer_services",
+                performer_id=str(pk),
+            ),
         )
-        for index, action_data in enumerate(actions):
-            if action_data.get("name") == "approve_service":
-                action_data = action_data.copy()
-                action_data["form"] = form
-                actions[index] = action_data
-        return actions
 
     @action(
         name="activate_performer",
@@ -483,93 +625,9 @@ class PerformerView(ReadOnlyModelView):
                 raise FormValidationError({str(raw_pk): str(exc)}) from exc
         return f"Rejected performers: {len(pks)}"
 
-    @action(
-        name="approve_service",
-        text="Approve performer service",
-        confirmation="Approve this service for selected performers?",
-        submit_btn_text="Approve",
-        form=(
-            "<form>"
-            '<select name="service_ids" required multiple class="form-select"></select>'
-            '<input name="admin_max_objects" type="number" min="1" required value="1">'
-            '<textarea name="constraints">{}</textarea>'
-            "</form>"
-        ),
-    )
-    async def approve_service_action(self, request: Request, pks: list[Any]) -> str:
-        admin = getattr(request.state, "admin_user", None)
-        if admin is None:
-            raise FormValidationError({"id": "Admin session is required"})
-        data = await request.form()
-        service_values = [
-            str(value).strip()
-            for value in data.getlist("service_ids")
-            if str(value).strip()
-        ]
-        if not service_values:
-            raise ActionFailed("Select at least one service")
-        try:
-            admin_max_objects = int(str(data.get("admin_max_objects", "1")) or "1")
-            constraints = json.loads(str(data.get("constraints", "{}")))
-        except (TypeError, ValueError, json.JSONDecodeError) as exc:
-            raise ActionFailed("Positive limit and valid JSON are required") from exc
-        if not isinstance(constraints, dict):
-            raise ActionFailed("Constraints must be a JSON object")
-
-        service_ids: list[UUID] = []
-        for service_value in dict.fromkeys(service_values):
-            service_id = await self._resolve_service_id(service_value)
-            if service_id is None:
-                raise ActionFailed(f"Service not found: {service_value}")
-            service_ids.append(service_id)
-
-        approved = 0
-        errors: dict[str | int, Any] = {}
-        for raw_pk in pks:
-            performer_id = UUID(str(raw_pk))
-            for service_id in service_ids:
-                try:
-                    await self._container.performers.approve_performer_service(
-                        ApprovePerformerServiceCommand(
-                            performer_id=performer_id,
-                            service_id=service_id,
-                            admin_max_objects=admin_max_objects,
-                            constraints=constraints,
-                            approved_by_admin_id=admin.id,
-                        ),
-                        audit_admin_id=admin.id,
-                    )
-                except (NotFoundError, ValidationError) as exc:
-                    errors[f"{raw_pk}:{service_id}"] = str(exc)
-                else:
-                    approved += 1
-        if errors:
-            raise ActionFailed("; ".join(str(error) for error in errors.values()))
-        return f"Approved performer services: {approved}"
-
-    async def _resolve_service_id(self, value: str) -> UUID | None:
-        """Resolve the admin-friendly service value without exposing UUIDs in the UI."""
-        try:
-            return UUID(value)
-        except ValueError:
-            pass
-
-        catalog = await self._container.catalog.get_catalog(active_only=False)
-        normalized = value.casefold()
-        matches = [
-            service
-            for category in catalog.categories
-            for service in category.services
-            if service.code.casefold() == normalized
-            or service.name.casefold() == normalized
-        ]
-        if len(matches) != 1:
-            return None
-        return cast(UUID, matches[0].id)
-
 
 class PerformerServiceView(ReadOnlyModelView):
-    actions = ["update_assignment", "revoke_assignment"]
+    actions: list[str] = []
     fields: list[Any] = [
         "id",
         "performer",
@@ -1017,6 +1075,7 @@ def create_admin_surface(container: Container) -> Admin:
         route_name="admin_catalog",
         auth_provider=AdminSurfaceAuthProvider(container),
     )
+    admin.add_view(PerformerServicesAdminView(container))
     admin.add_view(CatalogModelView(CityModel, label="Cities"))
     admin.add_view(CatalogModelView(DistrictModel, label="Districts"))
     admin.add_view(CatalogModelView(ServiceCategoryModel, label="Service categories"))

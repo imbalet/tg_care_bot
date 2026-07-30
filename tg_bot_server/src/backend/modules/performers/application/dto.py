@@ -51,3 +51,18 @@ class PerformerServiceDTO:
     constraints: dict[str, Any]
     approved_by_admin_id: UUID | None
     approved_at: datetime | None
+
+
+@dataclass(frozen=True)
+class PerformerServiceSelection:
+    service_id: UUID
+    admin_max_objects: int
+    constraints: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class PerformerServicesSyncResult:
+    services: tuple[PerformerServiceDTO, ...]
+    added: tuple[PerformerServiceDTO, ...]
+    revoked: tuple[PerformerServiceDTO, ...]
+    updated: tuple[PerformerServiceDTO, ...]

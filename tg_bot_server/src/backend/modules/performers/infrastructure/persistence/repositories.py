@@ -18,6 +18,8 @@ from backend.modules.performers.application.dto import (
     InvitationDTO,
     PerformerDTO,
     PerformerServiceDTO,
+    PerformerServiceSelection,
+    PerformerServicesSyncResult,
 )
 from backend.modules.performers.application.interfaces import PerformerRepository
 from backend.modules.performers.infrastructure.persistence.models import (
@@ -68,6 +70,12 @@ class SqlAlchemyPerformerRepository(PerformerRepository):
             select(PerformerModel).where(PerformerModel.telegram_id == telegram_id),
         )
         model = result.scalar_one_or_none()
+        if model is None:
+            return None
+        return _performer_to_dto(model)
+
+    async def get_performer_by_id(self, performer_id: UUID) -> PerformerDTO | None:
+        model = await self._session.get(PerformerModel, performer_id)
         if model is None:
             return None
         return _performer_to_dto(model)
@@ -325,6 +333,95 @@ class SqlAlchemyPerformerRepository(PerformerRepository):
         model.updated_at = utc_now()
         await self._session.flush()
         return await self._get_performer_service_dto(model.id)
+
+    async def sync_services(
+        self,
+        *,
+        performer_id: UUID,
+        selections: tuple[PerformerServiceSelection, ...],
+        approved_by_admin_id: UUID,
+    ) -> PerformerServicesSyncResult | None:
+        performer_result = await self._session.execute(
+            select(PerformerModel)
+            .where(PerformerModel.id == performer_id)
+            .with_for_update(),
+        )
+        if performer_result.scalar_one_or_none() is None:
+            return None
+
+        result = await self._session.execute(
+            _performer_service_statement()
+            .where(PerformerServiceModel.performer_id == performer_id)
+            .with_for_update(of=PerformerServiceModel),
+        )
+        current_rows = list(result.tuples())
+        current_by_service_id = {
+            model.service_id: (model, service) for model, service in current_rows
+        }
+        selections_by_service_id = {
+            selection.service_id: selection for selection in selections
+        }
+        added_ids: list[UUID] = []
+        revoked_ids: list[UUID] = []
+        updated_ids: list[UUID] = []
+
+        for selection in selections:
+            current = current_by_service_id.get(selection.service_id)
+            if current is None:
+                now = utc_now()
+                model = PerformerServiceModel(
+                    id=new_uuid(),
+                    performer_id=performer_id,
+                    service_id=selection.service_id,
+                    is_approved=True,
+                    is_enabled=False,
+                    admin_max_objects=selection.admin_max_objects,
+                    performer_max_objects=selection.admin_max_objects,
+                    constraints=selection.constraints,
+                    approved_by_admin_id=approved_by_admin_id,
+                    approved_at=now,
+                    created_at=now,
+                    updated_at=now,
+                )
+                self._session.add(model)
+                added_ids.append(model.id)
+                continue
+
+            model, _service = current
+            if (
+                not model.is_approved
+                or model.admin_max_objects != selection.admin_max_objects
+                or model.constraints != selection.constraints
+            ):
+                model.is_approved = True
+                model.admin_max_objects = selection.admin_max_objects
+                if model.performer_max_objects > selection.admin_max_objects:
+                    model.performer_max_objects = selection.admin_max_objects
+                model.constraints = selection.constraints
+                model.approved_by_admin_id = approved_by_admin_id
+                model.approved_at = utc_now()
+                model.updated_at = utc_now()
+                updated_ids.append(model.id)
+
+        for service_id, (model, _service) in current_by_service_id.items():
+            if service_id in selections_by_service_id or not model.is_approved:
+                continue
+            model.is_approved = False
+            model.is_enabled = False
+            model.approved_by_admin_id = None
+            model.approved_at = None
+            model.updated_at = utc_now()
+            revoked_ids.append(model.id)
+
+        await self._session.flush()
+        services = await self.list_services_for_performer(performer_id)
+        by_id = {service.id: service for service in services}
+        return PerformerServicesSyncResult(
+            services=services,
+            added=tuple(by_id[service_id] for service_id in added_ids),
+            revoked=tuple(by_id[service_id] for service_id in revoked_ids),
+            updated=tuple(by_id[service_id] for service_id in updated_ids),
+        )
 
     async def set_service_enabled_by_telegram_id(
         self,
