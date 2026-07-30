@@ -280,7 +280,10 @@ async def list_performer_my_orders(
 async def list_performer_responses(
     performer_id: UUID,
     container: Annotated[Container, Depends(get_container)],
-    group: Annotated[str, Query(pattern="^(active|selected|closed)$")] = "active",
+    group: Annotated[
+        str,
+        Query(pattern="^(active|selected|closed|direct)$"),
+    ] = "active",
 ) -> list[OrderMatchResponse]:
     matches = await container.orders.list_performer_responses(
         performer_id=performer_id,

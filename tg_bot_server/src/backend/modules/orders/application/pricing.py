@@ -74,9 +74,11 @@ class CalculatePricePreviewUseCase:
             )
         else:
             raise ValidationError("Service price type is invalid")
-        total_amount = service_amount
-        platform_fee_amount = _money(total_amount * platform_fee_percent / Decimal(100))
-        performer_amount = _money(total_amount - platform_fee_amount)
+        platform_fee_amount = _money(
+            service_amount * platform_fee_percent / Decimal(100),
+        )
+        total_amount = _money(service_amount + platform_fee_amount)
+        performer_amount = service_amount
         return PricePreviewDTO(
             service_id=service.service_id,
             service_code=service.service_code,

@@ -162,9 +162,11 @@ class SqlAlchemyMatchingRepository:
             "selected": ("selected",),
             "closed": ("closed", "rejected", "cancelled", "expired"),
         }.get(group)
-        if statuses is None:
+        if group == "direct":
+            statuses = ("pending",)
+        elif statuses is None:
             raise ValidationError("Invalid response group")
-        result = await self._session.execute(
+        statement = (
             select(OrderMatchModel, OrderModel)
             .join(OrderModel, OrderModel.id == OrderMatchModel.order_id)
             .where(
@@ -173,6 +175,9 @@ class SqlAlchemyMatchingRepository:
             )
             .order_by(OrderMatchModel.created_at.desc())
         )
+        if group == "direct":
+            statement = statement.where(OrderMatchModel.source == "direct")
+        result = await self._session.execute(statement)
         matches: list[OrderMatchDTO] = []
         for match, order in result.all():
             matches.append(_match_to_dto(match, await self._order_timezone(order)))

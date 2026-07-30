@@ -69,7 +69,8 @@ async def test_hourly_price_rounds_duration_and_splits_platform_fee() -> None:
     assert result.billable_minutes == 90
     assert result.service_amount == Decimal("1350.00")
     assert result.platform_fee_amount == Decimal("135.00")
-    assert result.performer_amount == Decimal("1215.00")
+    assert result.performer_amount == Decimal("1350.00")
+    assert result.total_amount == Decimal("1485.00")
 
 
 @pytest.mark.unit

@@ -79,8 +79,8 @@ async def test_order_repository_enforces_execution_lifecycle(
         service_amount=Decimal("600.00"),
         platform_fee_percent_at_order=Decimal("10"),
         platform_fee_amount=Decimal("60.00"),
-        performer_amount=Decimal("540.00"),
-        total_amount=Decimal("600.00"),
+        performer_amount=Decimal("600.00"),
+        total_amount=Decimal("660.00"),
         matching_deadline_at=start_at - timedelta(minutes=30),
     )
     session.add(order)
@@ -212,8 +212,8 @@ async def test_customer_order_archive_treats_empty_category_as_all_directions(
             service_amount=Decimal("600.00"),
             platform_fee_percent_at_order=Decimal("10"),
             platform_fee_amount=Decimal("60.00"),
-            performer_amount=Decimal("540.00"),
-            total_amount=Decimal("600.00"),
+            performer_amount=Decimal("600.00"),
+            total_amount=Decimal("660.00"),
             matching_deadline_at=start_at - timedelta(minutes=30),
         ),
     )

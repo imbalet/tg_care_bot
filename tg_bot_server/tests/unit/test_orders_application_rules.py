@@ -123,7 +123,7 @@ async def test_create_pool_order_validates_and_persists_price_snapshot() -> None
     repository.create_pool.assert_awaited_once()
     call = repository.create_pool.await_args.kwargs
     assert call["object_snapshots"] == (snapshot,)
-    assert call["price"].total_amount == Decimal("600.00")
+    assert call["price"].total_amount == Decimal("660.00")
 
 
 @pytest.mark.unit
