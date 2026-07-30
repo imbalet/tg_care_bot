@@ -552,6 +552,36 @@ class SqlAlchemyOrderRepository(OrderRepository):
             ),
         )
 
+    def _add_direct_invitation_notification(
+        self,
+        *,
+        match: OrderMatchModel,
+        order_id: UUID,
+        performer_id: UUID,
+    ) -> None:
+        now = utc_now()
+        self._session.add(
+            NotificationModel(
+                recipient_type="performer",
+                customer_id=None,
+                performer_id=performer_id,
+                admin_id=None,
+                channel="telegram",
+                type="direct_invitation_created",
+                entity_type="order_match",
+                entity_id=match.id,
+                payload={
+                    "order_id": str(order_id),
+                    "match_id": str(match.id),
+                },
+                deduplication_key=f"direct-invitation-created:{match.id}",
+                status="pending",
+                attempts=0,
+                scheduled_at=now,
+                delete_after=now + timedelta(days=30),
+            ),
+        )
+
     async def create_pool(
         self,
         *,
@@ -608,19 +638,24 @@ class SqlAlchemyOrderRepository(OrderRepository):
         if not await self._performer_can_receive_direct(model, performer_id):
             raise ValidationError("Performer is not suitable for direct order")
         now = utc_now()
-        self._session.add(
-            OrderMatchModel(
-                order_id=model.id,
-                performer_id=performer_id,
-                source="direct",
-                status="pending",
-                starts_at=model.start_at,
-                ends_at=model.end_at,
-                response_expires_at=now + timedelta(minutes=response_window_minutes),
-            ),
+        match = OrderMatchModel(
+            order_id=model.id,
+            performer_id=performer_id,
+            source="direct",
+            status="pending",
+            starts_at=model.start_at,
+            ends_at=model.end_at,
+            response_expires_at=now + timedelta(minutes=response_window_minutes),
         )
+        self._session.add(match)
+        await self._session.flush()
         self._replace_children(model.id, object_snapshots, data.option_values)
         self._add_status_history(model.id, None, "searching")
+        self._add_direct_invitation_notification(
+            match=match,
+            order_id=model.id,
+            performer_id=performer_id,
+        )
         await self._session.flush()
         return _order_to_dto(model, data.timezone)
 

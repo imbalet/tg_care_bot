@@ -8,6 +8,7 @@ import pytest
 @pytest.mark.e2e
 async def test_direct_invitation_can_be_accepted_and_wait_for_payment(
     e2e_client: httpx.AsyncClient,
+    e2e_db: Any,
     direct_order_factory: Any,
 ) -> None:
     customer, performer, order = await direct_order_factory()
@@ -21,6 +22,29 @@ async def test_direct_invitation_can_be_accepted_and_wait_for_payment(
     match = matches_response.json()[0]
     assert match["source"] == "direct"
     assert match["status"] == "pending"
+
+    notification = await e2e_db.fetchrow(
+        """
+        SELECT recipient_type, performer_id, entity_type, entity_id,
+               payload, deduplication_key
+        FROM notifications
+        WHERE type = 'direct_invitation_created'
+          AND entity_id = $1
+        """,
+        match["id"],
+    )
+    assert notification is not None
+    assert notification["recipient_type"] == "performer"
+    assert str(notification["performer_id"]) == performer.entity_id
+    assert notification["entity_type"] == "order_match"
+    assert str(notification["entity_id"]) == match["id"]
+    payload = notification["payload"]
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    assert payload == {"order_id": order["id"], "match_id": match["id"]}
+    assert notification["deduplication_key"] == (
+        f"direct-invitation-created:{match['id']}"
+    )
 
     accept_response = await e2e_client.post(
         f"/api/orders/matches/{match['id']}/direct/accept",
