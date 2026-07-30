@@ -79,3 +79,28 @@ async def test_nearby_notification_opens_available_order_card() -> None:
     viewed_orders.mark_viewed.assert_awaited_once_with(123, str(order_id))
     assert "Доступный заказ" in responder.update.await_args.kwargs["text"]
     assert "Расстояние: 2.5 км" in responder.update.await_args.kwargs["text"]
+
+
+@pytest.mark.asyncio
+async def test_nearby_notification_shows_stale_action_for_unavailable_order() -> None:
+    backend = SimpleNamespace(
+        get_registration_state=AsyncMock(
+            return_value=SimpleNamespace(performer=SimpleNamespace(id=uuid4())),
+        ),
+        list_available_orders=AsyncMock(return_value=()),
+        get_performer_order_card=AsyncMock(),
+    )
+    responder = AsyncMock()
+
+    await notification_order_callback(
+        callback=object(),
+        bot=object(),
+        backend_client=backend,
+        telegram_responder=responder,
+        telegram_user_context=SimpleNamespace(telegram_id=123),
+        viewed_available_orders_store=AsyncMock(),
+        callback_data=NotificationOrderOpenCallback(order_id=str(uuid4())),
+    )
+
+    backend.get_performer_order_card.assert_not_awaited()
+    assert "устарел" in responder.update.await_args.kwargs["text"].lower()

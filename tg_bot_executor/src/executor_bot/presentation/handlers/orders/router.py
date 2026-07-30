@@ -478,15 +478,12 @@ async def notification_order_callback(
         )
         return
     if order is None:
-        await _show_executor_order_card(
-            callback=callback,
+        await telegram_responder.update(
             bot=bot,
-            backend_client=backend_client,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
-            order_id=callback_data.order_id,
-            group="active",
-            page=1,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=stale_action_text(),
+            reply_markup=stale_action_keyboard(),
         )
         return
     await telegram_responder.update(
