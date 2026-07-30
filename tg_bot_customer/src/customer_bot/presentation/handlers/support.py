@@ -22,6 +22,22 @@ from customer_bot.presentation.ui.screens.common._keyboard import fallback_keybo
 router = Router(name="support_requests")
 logger = logging.getLogger(__name__)
 
+_COMPLAINT_CATEGORY_ALIASES = {
+    "order_problem": "order_problem",
+    "проблема с заказом": "order_problem",
+    "conditions_mismatch": "conditions_mismatch",
+    "условия не совпадают": "conditions_mismatch",
+    "no_contact": "no_contact",
+    "нет связи": "no_contact",
+    "post_completion": "post_completion",
+    "после выполнения": "post_completion",
+}
+
+
+def _complaint_category(value: str) -> str:
+    normalized = " ".join(value.lower().split())
+    return _COMPLAINT_CATEGORY_ALIASES.get(normalized, "order_problem")
+
 
 class SupportForm(StatesGroup):
     request_type = State()
@@ -89,7 +105,11 @@ async def start_complaint(
         event=callback,
         telegram_responder=telegram_responder,
         telegram_id=telegram_user_context.telegram_id,
-        text="<b>Жалоба</b>\n\nУкажите категорию жалобы.",
+        text=(
+            "<b>Жалоба</b>\n\n"
+            "Укажите категорию: проблема с заказом, условия не совпадают, "
+            "нет связи или после выполнения."
+        ),
     )
 
 
@@ -406,7 +426,7 @@ async def complaint_category(
             text="Введите категорию жалобы текстом.",
         )
         return
-    await state.update_data(complaint_category=message.text.strip())
+    await state.update_data(complaint_category=_complaint_category(message.text))
     await state.set_state(SupportForm.complaint_text)
     await _prompt(
         bot=bot,

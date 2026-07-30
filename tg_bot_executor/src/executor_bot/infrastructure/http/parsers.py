@@ -259,6 +259,21 @@ def order_match_from_json(data: dict[str, object]) -> OrderMatchDTO:
             else None
         ),
         timezone=str(data["timezone"]),
+        service_name=(
+            str(data["service_name"])
+            if isinstance(data.get("service_name"), str)
+            else None
+        ),
+        total_amount=(
+            Decimal(str(data["total_amount"]))
+            if data.get("total_amount") is not None
+            else None
+        ),
+        distance_km=(
+            Decimal(str(data["distance_km"]))
+            if data.get("distance_km") is not None
+            else None
+        ),
     )
 
 

@@ -9,6 +9,7 @@ from decimal import Decimal
 from html import escape
 from typing import Protocol
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy import delete, func, select, update
@@ -934,6 +935,10 @@ def _notification_text(notification: NotificationModel) -> str:
             "Вас пригласили зарегистрироваться исполнителем в We Are Close.\n"
             "Откройте бот исполнителя и отправьте /start."
         )
+    if notification.type == "pool_order_available":
+        return _nearby_order_notification_text(notification)
+    if notification.type == "direct_invitation_created":
+        return _direct_invitation_notification_text(notification)
     title = _notification_title(notification)
     body = notification_body(notification.type)
     lines = [f"<b>{escape(title)}</b>", escape(body)]
@@ -941,6 +946,124 @@ def _notification_text(notification: NotificationModel) -> str:
     if order_id is not None:
         lines.append(f"Заказ: #{escape(str(order_id)[:8])}")
     return "\n".join(lines)
+
+
+def _nearby_order_notification_text(notification: NotificationModel) -> str:
+    payload = notification.payload
+    lines = [
+        "<b>Новый ближайший заказ</b>",
+        escape(notification_body(notification.type)),
+    ]
+    details = (
+        ("Услуга", payload.get("service_name")),
+        (
+            "Период",
+            _notification_period(
+                payload.get("start_at"),
+                payload.get("end_at"),
+                payload.get("timezone"),
+            ),
+        ),
+        ("Объектов", payload.get("objects_count")),
+        ("Сумма", payload.get("total_amount")),
+        (
+            "Расстояние",
+            (
+                f"{payload['distance_km']} км"
+                if payload.get("distance_km") is not None
+                else "нет координат"
+            ),
+        ),
+    )
+    for label, value in details:
+        if value is not None:
+            suffix = " ₽" if label == "Сумма" else ""
+            lines.append(f"{label}: {escape(str(value))}{suffix}")
+    lines.append(f"Заказ: #{escape(str(payload.get('order_id', ''))[:8])}")
+    return "\n".join(lines)
+
+
+def _direct_invitation_notification_text(notification: NotificationModel) -> str:
+    payload = notification.payload
+    if not any(
+        payload.get(key)
+        for key in (
+            "service_name",
+            "start_at",
+            "end_at",
+            "performer_amount",
+            "response_expires_at",
+        )
+    ):
+        return "\n".join(
+            (
+                f"<b>{escape(_notification_title(notification))}</b>",
+                escape(notification_body(notification.type)),
+            ),
+        )
+    lines = [
+        "<b>Новое Direct-приглашение</b>",
+        "",
+    ]
+    details = (
+        ("Услуга", payload.get("service_name")),
+        (
+            "Период",
+            _notification_period(
+                payload.get("start_at"),
+                payload.get("end_at"),
+                None,
+            ),
+        ),
+        ("Объектов", payload.get("objects_count")),
+        ("Ваша сумма", payload.get("performer_amount")),
+        (
+            "Расстояние",
+            (
+                f"{payload['distance_km']} км"
+                if payload.get("distance_km") is not None
+                else "нет координат"
+            ),
+        ),
+        (
+            "Ответить до",
+            _notification_datetime(payload.get("response_expires_at")),
+        ),
+    )
+    for label, value in details:
+        if value is not None:
+            suffix = " ₽" if label == "Ваша сумма" else ""
+            lines.append(f"{label}: {escape(str(value))}{suffix}")
+    lines.append(f"Заказ: #{escape(str(payload.get('order_id', ''))[:8])}")
+    return "\n".join(lines)
+
+
+def _notification_period(
+    start_at: object,
+    end_at: object,
+    timezone: object,
+) -> str | None:
+    if not isinstance(start_at, str) or not isinstance(end_at, str):
+        return None
+    try:
+        zone = ZoneInfo(str(timezone)) if isinstance(timezone, str) else None
+        start = datetime.fromisoformat(start_at)
+        end = datetime.fromisoformat(end_at)
+        if zone is not None:
+            start = start.astimezone(zone)
+            end = end.astimezone(zone)
+        return f"{start:%d.%m.%Y %H:%M} — {end:%H:%M}"
+    except ValueError, TypeError:
+        return f"{start_at} — {end_at}"
+
+
+def _notification_datetime(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value).strftime("%d.%m.%Y %H:%M")
+    except ValueError:
+        return value
 
 
 def _notification_title(notification: NotificationModel) -> str:

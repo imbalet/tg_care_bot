@@ -589,6 +589,59 @@ def test_notification_rendering_covers_performer_and_admin_titles() -> None:
 
 
 @pytest.mark.unit
+def test_nearby_order_notification_contains_order_details() -> None:
+    notification = SimpleNamespace(
+        type="pool_order_available",
+        recipient_type="performer",
+        payload={
+            "order_id": str(uuid4()),
+            "service_name": "Уход за питомцем",
+            "start_at": "2026-07-31T09:00:00+00:00",
+            "end_at": "2026-07-31T10:30:00+00:00",
+            "objects_count": "2",
+            "total_amount": "1500.00",
+            "distance_km": "3.25",
+            "timezone": "Europe/Moscow",
+        },
+    )
+
+    text = _notification_text(_as_notification(notification))
+
+    assert "Уход за питомцем" in text
+    assert "31.07.2026 12:00 — 13:30" in text
+    assert "Объектов: 2" in text
+    assert "Сумма: 1500.00 ₽" in text
+    assert "Расстояние: 3.25 км" in text
+
+
+@pytest.mark.unit
+def test_direct_invitation_notification_contains_order_details() -> None:
+    notification = SimpleNamespace(
+        type="direct_invitation_created",
+        recipient_type="performer",
+        payload={
+            "order_id": str(uuid4()),
+            "service_name": "Сопровождение",
+            "start_at": "2026-07-31T09:00:00+00:00",
+            "end_at": "2026-07-31T10:00:00+00:00",
+            "objects_count": "1",
+            "performer_amount": "800.00",
+            "distance_km": "1.75",
+            "response_expires_at": "2026-07-30T18:00:00+00:00",
+        },
+    )
+
+    text = _notification_text(_as_notification(notification))
+
+    assert "Сопровождение" in text
+    assert "31.07.2026 09:00 — 10:00" in text
+    assert "Объектов: 1" in text
+    assert "Ваша сумма: 800.00 ₽" in text
+    assert "Расстояние: 1.75 км" in text
+    assert "Ответить до: 30.07.2026 18:00" in text
+
+
+@pytest.mark.unit
 async def test_noop_worker_job_is_safe() -> None:
     await NoopWorkerJob().run_once()
 

@@ -157,6 +157,9 @@ class OrderMatchDTO:
     closed_at: datetime | None
     close_reason: str | None
     timezone: str
+    service_name: str | None = None
+    total_amount: Decimal | None = None
+    distance_km: Decimal | None = None
 
 
 @dataclass(frozen=True)

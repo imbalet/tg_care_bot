@@ -21,6 +21,7 @@ _ACTIONS: dict[str, tuple[NotificationAction, ...]] = {
     "direct_invitation_created": (
         NotificationAction("Принять", "direct_accept"),
         NotificationAction("Отклонить", "direct_reject"),
+        NotificationAction("Подробнее", "direct_response_card"),
     ),
     "pool_response_created": (
         NotificationAction("Выбрать", "order_resp_select"),

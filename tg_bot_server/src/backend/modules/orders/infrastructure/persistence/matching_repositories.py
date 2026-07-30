@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import exists, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.common.application import utc_now
+from backend.common.application import to_timezone, utc_now
 from backend.common.domain import ConflictError, NotFoundError, ValidationError
 from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.availability.infrastructure import SqlAlchemyAvailabilityRepository
@@ -180,7 +180,17 @@ class SqlAlchemyMatchingRepository:
         result = await self._session.execute(statement)
         matches: list[OrderMatchDTO] = []
         for match, order in result.all():
-            matches.append(_match_to_dto(match, await self._order_timezone(order)))
+            matches.append(
+                _match_to_dto(
+                    match,
+                    await self._order_timezone(order),
+                    order=order,
+                    distance_km=await self._distance_for_match(
+                        order,
+                        match.performer_id,
+                    ),
+                )
+            )
         return tuple(matches)
 
     async def create_pool_response(
@@ -238,16 +248,33 @@ class SqlAlchemyMatchingRepository:
         )
         self._session.add(match)
         await self._session.flush()
+        timezone = await self._order_timezone(order)
+        distance_km = await self._distance_for_match(order, performer_id)
+        payload = {
+            "order_id": str(order.id),
+            "match_id": str(match.id),
+            "service_name": order.service_name,
+            "start_at": to_timezone(order.start_at, timezone).isoformat(),
+            "end_at": to_timezone(order.end_at, timezone).isoformat(),
+            "response_expires_at": to_timezone(
+                match.response_expires_at,
+                timezone,
+            ).isoformat(),
+            "objects_count": str(order.objects_count),
+            "performer_amount": str(order.performer_amount),
+        }
+        if distance_km is not None:
+            payload["distance_km"] = str(distance_km)
         await self._add_notification(
             recipient_type="customer",
             customer_id=order.customer_id,
             notification_type="pool_response_created",
             entity_type="order_match",
             entity_id=match.id,
-            payload={"order_id": str(order.id), "match_id": str(match.id)},
+            payload=payload,
             deduplication_key=f"pool-response-created:{match.id}",
         )
-        return _match_to_dto(match, await self._order_timezone(order))
+        return _match_to_dto(match, await self._order_timezone(order), order=order)
 
     async def invite_direct_performer(
         self,
@@ -295,16 +322,33 @@ class SqlAlchemyMatchingRepository:
         )
         self._session.add(match)
         await self._session.flush()
+        timezone = await self._order_timezone(order)
+        distance_km = await self._distance_for_match(order, performer_id)
+        payload = {
+            "order_id": str(order.id),
+            "match_id": str(match.id),
+            "service_name": order.service_name,
+            "start_at": to_timezone(order.start_at, timezone).isoformat(),
+            "end_at": to_timezone(order.end_at, timezone).isoformat(),
+            "response_expires_at": to_timezone(
+                match.response_expires_at,
+                timezone,
+            ).isoformat(),
+            "objects_count": str(order.objects_count),
+            "performer_amount": str(order.performer_amount),
+        }
+        if distance_km is not None:
+            payload["distance_km"] = str(distance_km)
         await self._add_notification(
             recipient_type="performer",
             performer_id=performer_id,
             notification_type="direct_invitation_created",
             entity_type="order_match",
             entity_id=match.id,
-            payload={"order_id": str(order.id), "match_id": str(match.id)},
+            payload=payload,
             deduplication_key=f"direct-invitation-created:{match.id}",
         )
-        return _match_to_dto(match, await self._order_timezone(order))
+        return _match_to_dto(match, await self._order_timezone(order), order=order)
 
     async def publish_pool(
         self,
@@ -329,11 +373,15 @@ class SqlAlchemyMatchingRepository:
         await self._notify_nearby_performers(order)
 
     async def _notify_nearby_performers(self, order: OrderModel) -> None:
-        city_id = await self._session.scalar(
-            select(CustomerModel.city_id).where(CustomerModel.id == order.customer_id),
+        city_row = await self._session.execute(
+            select(CustomerModel.city_id, CityModel.timezone)
+            .join(CityModel, CityModel.id == CustomerModel.city_id)
+            .where(CustomerModel.id == order.customer_id),
         )
-        if city_id is None:
+        customer_city = city_row.one_or_none()
+        if customer_city is None:
             return
+        city_id, timezone = customer_city
         care_object_ids = tuple(
             care_object_id
             for care_object_id in await self._session.scalars(
@@ -368,13 +416,24 @@ class SqlAlchemyMatchingRepository:
         for candidate in candidates:
             if candidate.performer_id not in enabled_ids:
                 continue
+            payload = {
+                "order_id": str(order.id),
+                "service_name": order.service_name,
+                "start_at": order.start_at.isoformat(),
+                "end_at": order.end_at.isoformat(),
+                "objects_count": str(order.objects_count),
+                "total_amount": str(order.total_amount),
+                "timezone": timezone,
+            }
+            if candidate.distance_km is not None:
+                payload["distance_km"] = str(candidate.distance_km)
             await self._add_notification(
                 recipient_type="performer",
                 performer_id=candidate.performer_id,
                 notification_type="pool_order_available",
                 entity_type="order",
                 entity_id=order.id,
-                payload={"order_id": str(order.id)},
+                payload=payload,
                 deduplication_key=(
                     f"pool-order-available:{order.id}:{candidate.performer_id}"
                 ),
@@ -922,6 +981,44 @@ class SqlAlchemyMatchingRepository:
             raise NotFoundError("Order match not found")
         return match
 
+    async def _distance_for_match(
+        self,
+        order: OrderModel,
+        performer_id: UUID,
+    ) -> Decimal | None:
+        if order.address_id is None:
+            return None
+        snapshot = await self._session.scalar(
+            select(OrderAddressSnapshotModel).where(
+                OrderAddressSnapshotModel.order_id == order.id,
+            ),
+        )
+        performer = await self._session.get(PerformerModel, performer_id)
+        if (
+            snapshot is None
+            or performer is None
+            or performer.current_address_id is None
+        ):
+            return None
+        performer_address = await self._session.get(
+            AddressModel,
+            performer.current_address_id,
+        )
+        if (
+            performer_address is None
+            or snapshot.latitude is None
+            or snapshot.longitude is None
+            or performer_address.latitude is None
+            or performer_address.longitude is None
+        ):
+            return None
+        return haversine_distance_km(
+            first_latitude=performer_address.latitude,
+            first_longitude=performer_address.longitude,
+            second_latitude=snapshot.latitude,
+            second_longitude=snapshot.longitude,
+        )
+
     async def _order_to_dto(
         self,
         model: OrderModel,
@@ -993,7 +1090,13 @@ def _order_to_dto(
     )
 
 
-def _match_to_dto(model: OrderMatchModel, timezone: str) -> OrderMatchDTO:
+def _match_to_dto(
+    model: OrderMatchModel,
+    timezone: str,
+    *,
+    order: OrderModel | None = None,
+    distance_km: Decimal | None = None,
+) -> OrderMatchDTO:
     return OrderMatchDTO(
         id=model.id,
         order_id=model.order_id,
@@ -1007,6 +1110,9 @@ def _match_to_dto(model: OrderMatchModel, timezone: str) -> OrderMatchDTO:
         closed_at=model.closed_at,
         close_reason=model.close_reason,
         timezone=timezone,
+        service_name=order.service_name if order is not None else None,
+        total_amount=order.total_amount if order is not None else None,
+        distance_km=distance_km,
     )
 
 

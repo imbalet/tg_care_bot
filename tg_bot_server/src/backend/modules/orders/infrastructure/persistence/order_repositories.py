@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.common.application import utc_now
+from backend.common.application import to_timezone, utc_now
 from backend.common.domain import ConflictError, NotFoundError, ValidationError
 from backend.modules.addresses.infrastructure import AddressModel
 from backend.modules.care_objects.infrastructure import CareObjectModel
@@ -17,6 +17,7 @@ from backend.modules.catalog.infrastructure import (
     ServiceOptionModel,
 )
 from backend.modules.customers.infrastructure import CustomerModel
+from backend.modules.geo.application import haversine_distance_km
 from backend.modules.notifications.infrastructure import NotificationModel
 from backend.modules.orders.application import (
     CustomerPerformerProfileDTO,
@@ -552,14 +553,56 @@ class SqlAlchemyOrderRepository(OrderRepository):
             ),
         )
 
-    def _add_direct_invitation_notification(
+    async def _add_direct_invitation_notification(
         self,
         *,
         match: OrderMatchModel,
-        order_id: UUID,
+        order: OrderModel,
         performer_id: UUID,
+        timezone: str,
     ) -> None:
         now = utc_now()
+        start_at = to_timezone(order.start_at, timezone)
+        end_at = to_timezone(order.end_at, timezone)
+        response_expires_at = to_timezone(match.response_expires_at, timezone)
+        payload: dict[str, str] = {
+            "order_id": str(order.id),
+            "match_id": str(match.id),
+            "service_name": order.service_name,
+            "start_at": start_at.isoformat(),
+            "end_at": end_at.isoformat(),
+            "response_expires_at": response_expires_at.isoformat(),
+            "objects_count": str(order.objects_count),
+            "performer_amount": str(order.performer_amount),
+        }
+        if order.address_id is not None:
+            snapshot = await self._session.scalar(
+                select(OrderAddressSnapshotModel).where(
+                    OrderAddressSnapshotModel.order_id == order.id,
+                ),
+            )
+            performer = await self._session.get(PerformerModel, performer_id)
+            performer_address = (
+                await self._session.get(AddressModel, performer.current_address_id)
+                if performer is not None and performer.current_address_id is not None
+                else None
+            )
+            if (
+                snapshot is not None
+                and performer_address is not None
+                and snapshot.latitude is not None
+                and snapshot.longitude is not None
+                and performer_address.latitude is not None
+                and performer_address.longitude is not None
+            ):
+                payload["distance_km"] = str(
+                    haversine_distance_km(
+                        first_latitude=performer_address.latitude,
+                        first_longitude=performer_address.longitude,
+                        second_latitude=snapshot.latitude,
+                        second_longitude=snapshot.longitude,
+                    )
+                )
         self._session.add(
             NotificationModel(
                 recipient_type="performer",
@@ -570,10 +613,7 @@ class SqlAlchemyOrderRepository(OrderRepository):
                 type="direct_invitation_created",
                 entity_type="order_match",
                 entity_id=match.id,
-                payload={
-                    "order_id": str(order_id),
-                    "match_id": str(match.id),
-                },
+                payload=payload,
                 deduplication_key=f"direct-invitation-created:{match.id}",
                 status="pending",
                 attempts=0,
@@ -651,10 +691,11 @@ class SqlAlchemyOrderRepository(OrderRepository):
         await self._session.flush()
         self._replace_children(model.id, object_snapshots, data.option_values)
         self._add_status_history(model.id, None, "searching")
-        self._add_direct_invitation_notification(
+        await self._add_direct_invitation_notification(
             match=match,
-            order_id=model.id,
+            order=model,
             performer_id=performer_id,
+            timezone=data.timezone,
         )
         await self._session.flush()
         return _order_to_dto(model, data.timezone)

@@ -185,6 +185,9 @@ def match_response(match: OrderMatchDTO) -> OrderMatchResponse:
         closed_at=closed_at.isoformat() if closed_at is not None else None,
         close_reason=match.close_reason,
         timezone=match.timezone,
+        service_name=match.service_name,
+        total_amount=match.total_amount,
+        distance_km=match.distance_km,
     )
 
 

@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from executor_bot.application.dto import OrderMatchDTO
+from executor_bot.application.dto import AvailableOrderDTO, OrderMatchDTO
 from executor_bot.application.errors import BackendClientError, BackendValidationError
 from executor_bot.application.ports import (
     ActiveCategoryStore,
@@ -67,6 +67,7 @@ from executor_bot.presentation.ui import (
     responses_keyboard,
     stale_action_keyboard,
     stale_action_text,
+    start_window_unavailable_text,
 )
 from executor_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 
@@ -223,18 +224,7 @@ async def available_order_card_callback(
         telegram_user_context.telegram_id,
         callback_data.order_id,
     )
-    text = "\n".join(
-        (
-            "📦 <b>Доступный заказ</b>",
-            "",
-            f"ID: #{escape(str(item['id'])[:8])}",
-            f"Услуга: {escape(str(item['service_name']))}",
-            "🗓 Период: "
-            f"{escape(str(item['start_at']))} — {escape(str(item['end_at']))}",
-            f"Объектов: {escape(str(item['objects_count']))}",
-            f"Сумма: {escape(str(item['total_amount']))} ₽",
-        ),
-    )
+    text = _available_order_card_text(item)
     await telegram_responder.update(
         bot=bot,
         event=callback,
@@ -365,7 +355,22 @@ async def executor_direct_response_card_callback(
                 "<b>Direct-приглашение</b>",
                 "",
                 f"Заказ: #{escape(str(match.order_id)[:8])}",
+                *(
+                    (f"Услуга: {escape(match.service_name)}",)
+                    if match.service_name is not None
+                    else ()
+                ),
                 f"Период: {_match_period(match)}",
+                *(
+                    (f"Сумма: {match.total_amount} ₽",)
+                    if match.total_amount is not None
+                    else ()
+                ),
+                *(
+                    (f"Расстояние: {match.distance_km} км",)
+                    if match.distance_km is not None
+                    else ("Расстояние: нет координат",)
+                ),
                 f"Ответить до: {_match_datetime(match.response_expires_at)}",
                 f"Статус: {_match_status_label(match.status)}",
             ),
@@ -443,17 +448,88 @@ async def notification_order_callback(
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
+    viewed_available_orders_store: ViewedAvailableOrdersStore,
     callback_data: NotificationOrderOpenCallback,
 ) -> None:
-    await _show_executor_order_card(
-        callback=callback,
+    try:
+        performer_id = await _performer_id(
+            backend_client,
+            telegram_user_context.telegram_id,
+        )
+        orders = await backend_client.list_available_orders(
+            performer_id=performer_id,
+        )
+        order = next(
+            (item for item in orders if str(item.id) == callback_data.order_id),
+            None,
+        )
+        if order is not None:
+            await viewed_available_orders_store.mark_viewed(
+                telegram_user_context.telegram_id,
+                callback_data.order_id,
+            )
+    except BackendClientError, ValueError:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=stale_action_text(),
+            reply_markup=stale_action_keyboard(),
+        )
+        return
+    if order is None:
+        await _show_executor_order_card(
+            callback=callback,
+            bot=bot,
+            backend_client=backend_client,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            order_id=callback_data.order_id,
+            group="active",
+            page=1,
+        )
+        return
+    await telegram_responder.update(
         bot=bot,
-        backend_client=backend_client,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
-        order_id=callback_data.order_id,
-        group="active",
-        page=1,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=_available_order_card_text(order),
+        reply_markup=available_order_card_keyboard(callback_data.order_id),
+    )
+
+
+def _available_order_card_text(order: AvailableOrderDTO | dict[str, object]) -> str:
+    if isinstance(order, dict):
+        order_id = order.get("id")
+        service_name = order.get("service_name")
+        start_at = order.get("start_at")
+        end_at = order.get("end_at")
+        objects_count = order.get("objects_count")
+        total_amount = order.get("total_amount")
+        distance = order.get("distance_km")
+    else:
+        order_id = order.id
+        service_name = order.service_name
+        start_at = order.start_at
+        end_at = order.end_at
+        objects_count = order.objects_count
+        total_amount = order.total_amount
+        distance = order.distance_km
+    return "\n".join(
+        (
+            "📦 <b>Доступный заказ</b>",
+            "",
+            f"ID: #{escape(str(order_id)[:8])}",
+            f"Услуга: {escape(str(service_name))}",
+            f"🗓 Период: {escape(str(start_at))} — {escape(str(end_at))}",
+            f"Объектов: {escape(str(objects_count))}",
+            f"Сумма: {escape(str(total_amount))} ₽",
+            (
+                f"Расстояние: {escape(str(distance))} км"
+                if distance is not None
+                else "Расстояние: недоступно (нет координат)"
+            ),
+        ),
     )
 
 
@@ -568,12 +644,16 @@ async def order_start_callback(
             context=telegram_user_context,
             order_id=UUID(callback_data.order_id),
         )
-    except BackendClientError, ValueError:
+    except (BackendClientError, ValueError) as exc:
         await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=stale_action_text(),
+            text=(
+                start_window_unavailable_text()
+                if "start window" in str(exc).lower()
+                else stale_action_text()
+            ),
             reply_markup=stale_action_keyboard(),
         )
 
