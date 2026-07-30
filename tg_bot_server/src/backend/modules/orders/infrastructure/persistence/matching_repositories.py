@@ -322,6 +322,12 @@ class SqlAlchemyMatchingRepository:
         await self._notify_nearby_performers(order)
         return await self._order_to_dto(order)
 
+    async def notify_nearby_performers(self, *, order_id: UUID) -> None:
+        order = await self._session.get(OrderModel, order_id)
+        if order is None:
+            raise NotFoundError("Order not found")
+        await self._notify_nearby_performers(order)
+
     async def _notify_nearby_performers(self, order: OrderModel) -> None:
         city_id = await self._session.scalar(
             select(CustomerModel.city_id).where(CustomerModel.id == order.customer_id),

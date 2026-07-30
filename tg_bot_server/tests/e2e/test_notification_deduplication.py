@@ -82,6 +82,44 @@ async def _mock_requests(
     return cast(list[dict[str, Any]], requests)
 
 
+@pytest.mark.e2e
+async def test_pool_creation_notifies_enabled_nearby_performer(
+    e2e_client: httpx.AsyncClient,
+    e2e_db: asyncpg.Connection,
+    performer_factory: Any,
+    pool_order_factory: Any,
+) -> None:
+    performer = await performer_factory()
+    setting_response = await e2e_client.patch(
+        f"/api/performers/by-telegram/{performer.telegram_id}/"
+        "nearby-order-notifications",
+        json={"is_enabled": True},
+    )
+    assert setting_response.status_code == 200, setting_response.text
+
+    _customer, order = await pool_order_factory()
+
+    notifications = await e2e_db.fetch(
+        """
+        SELECT performer_id, type, entity_id, deduplication_key
+        FROM notifications
+        WHERE type = 'pool_order_available'
+          AND entity_id = $1
+        """,
+        order["id"],
+    )
+    assert [dict(row) for row in notifications] == [
+        {
+            "performer_id": performer.entity_id,
+            "type": "pool_order_available",
+            "entity_id": order["id"],
+            "deduplication_key": (
+                f"pool-order-available:{order['id']}:{performer.entity_id}"
+            ),
+        },
+    ]
+
+
 async def _wait_for_notification_sent(
     e2e_db: asyncpg.Connection,
     test_settings: TestSettings,

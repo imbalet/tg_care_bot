@@ -48,6 +48,9 @@ class OrderServices(Service):
                 SqlAlchemyOrderRepository(uow.session),
                 SqlAlchemyPricingRepository(uow.session),
             ).execute(command)
+            await SqlAlchemyMatchingRepository(
+                uow.session,
+            ).notify_nearby_performers(order_id=order.id)
             await uow.commit()
             return order
 
