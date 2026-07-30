@@ -579,6 +579,7 @@ async def save_unavailable_end_time(
         backend_client=backend_client,
         telegram_responder=telegram_responder,
         telegram_id=telegram_user_context.telegram_id,
+        create_new=True,
     )
 
 
@@ -656,6 +657,7 @@ async def _show_calendar(
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_id: int,
+    create_new: bool = False,
 ) -> None:
     try:
         calendar = await backend_client.get_calendar(telegram_id=telegram_id)
@@ -674,6 +676,7 @@ async def _show_calendar(
         telegram_id=telegram_id,
         text=_calendar_view(calendar),
         reply_markup=calendar_keyboard(_current_override(calendar)),
+        create_new=create_new,
     )
 
 
