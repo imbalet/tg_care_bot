@@ -174,10 +174,11 @@ class NotificationWorkerJob:
             if notification is None or notification.status != "processing":
                 raise RuntimeError("Notification is not processing")
             token, chat_id = await self._telegram_target(session, notification)
+            payload = await _notification_payload_for_delivery(session, notification)
             return NotificationDelivery(
                 token=token,
                 chat_id=chat_id,
-                text=_notification_text(notification),
+                text=_notification_text(notification, payload=payload),
                 reply_markup=_notification_keyboard(notification),
             )
 
@@ -929,27 +930,60 @@ class DeadlinesWorkerJob:
         )
 
 
-def _notification_text(notification: NotificationModel) -> str:
+async def _notification_payload_for_delivery(
+    session: AsyncSession,
+    notification: NotificationModel,
+) -> Mapping[str, object]:
+    payload = dict(notification.payload)
+    if notification.type != "pool_order_available" or payload.get("service_name"):
+        return payload
+    order = await session.get(OrderModel, notification.entity_id)
+    if order is None:
+        return payload
+    payload.update(
+        {
+            "service_name": order.service_name,
+            "start_at": order.start_at.isoformat(),
+            "end_at": order.end_at.isoformat(),
+            "objects_count": str(order.objects_count),
+            "total_amount": str(order.total_amount),
+        },
+    )
+    return payload
+
+
+def _notification_text(
+    notification: NotificationModel,
+    *,
+    payload: Mapping[str, object] | None = None,
+) -> str:
+    notification_payload = notification.payload if payload is None else payload
     if notification.type == "performer_invitation_created":
         return (
             "Вас пригласили зарегистрироваться исполнителем в We Are Close.\n"
             "Откройте бот исполнителя и отправьте /start."
         )
     if notification.type == "pool_order_available":
-        return _nearby_order_notification_text(notification)
+        return _nearby_order_notification_text(
+            notification,
+            payload=notification_payload,
+        )
     if notification.type == "direct_invitation_created":
         return _direct_invitation_notification_text(notification)
     title = _notification_title(notification)
     body = notification_body(notification.type)
     lines = [f"<b>{escape(title)}</b>", escape(body)]
-    order_id = notification.payload.get("order_id")
+    order_id = notification_payload.get("order_id")
     if order_id is not None:
         lines.append(f"Заказ: #{escape(str(order_id)[:8])}")
     return "\n".join(lines)
 
 
-def _nearby_order_notification_text(notification: NotificationModel) -> str:
-    payload = notification.payload
+def _nearby_order_notification_text(
+    notification: NotificationModel,
+    *,
+    payload: Mapping[str, object],
+) -> str:
     lines = [
         "<b>Новый ближайший заказ</b>",
         escape(notification_body(notification.type)),

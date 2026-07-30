@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import cast
@@ -227,6 +228,39 @@ async def test_notification_load_delivery_builds_message_payload() -> None:
     assert delivery.chat_id == 42
     assert "/start" in delivery.text
     assert delivery.reply_markup is None
+
+
+@pytest.mark.unit
+async def test_notification_load_delivery_enriches_legacy_nearby_payload() -> None:
+    order = SimpleNamespace(
+        service_name="Уход за питомцем",
+        start_at=datetime(2026, 7, 31, 9),
+        end_at=datetime(2026, 7, 31, 10),
+        objects_count=2,
+        total_amount=Decimal("1500.00"),
+    )
+    notification = SimpleNamespace(
+        status="processing",
+        recipient_type="performer",
+        recipient_telegram_id=None,
+        customer_id=None,
+        performer_id=uuid4(),
+        type="pool_order_available",
+        entity_id=uuid4(),
+        payload={"order_id": str(uuid4())},
+    )
+    session = AsyncMock()
+    session.get.side_effect = [notification, order]
+    target_result = Mock()
+    target_result.scalar_one_or_none.return_value = 42
+    session.execute.return_value = target_result
+    job = _notification_job(Mock(return_value=_SessionContext(session)))
+
+    delivery = await job._load_delivery(uuid4())
+
+    assert "Уход за питомцем" in delivery.text
+    assert "Объектов: 2" in delivery.text
+    assert "Сумма: 1500.00 ₽" in delivery.text
 
 
 @pytest.mark.unit
