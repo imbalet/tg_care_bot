@@ -9,6 +9,7 @@ from executor_bot.presentation.callbacks import (
     ExecutorOrderCardCallback,
 )
 from executor_bot.presentation.handlers.addresses.router import _advance_or_create
+from executor_bot.presentation.handlers.avatar import _upload
 from executor_bot.presentation.handlers.services_calendar import (
     _parse_time,
     cancel_unavailable_period,
@@ -168,4 +169,27 @@ async def test_cancel_unavailability_refreshes_calendar_with_keyboard() -> None:
     )
 
     assert "Календарь исполнителя" in responder.update.await_args.kwargs["text"]
+    assert responder.update.await_args.kwargs["reply_markup"] is not None
+
+
+@pytest.mark.asyncio
+async def test_avatar_upload_creates_new_menu_message() -> None:
+    backend = AsyncMock()
+    responder = AsyncMock()
+    state = AsyncMock()
+    context = type("Context", (), {"telegram_id": 123})()
+
+    await _upload(
+        message=object(),
+        state=state,
+        bot=object(),
+        backend_client=backend,
+        telegram_responder=responder,
+        telegram_user_context=context,
+        filename="avatar.jpg",
+        content=b"image",
+        content_type="image/jpeg",
+    )
+
+    assert responder.update.await_args.kwargs["create_new"] is True
     assert responder.update.await_args.kwargs["reply_markup"] is not None
