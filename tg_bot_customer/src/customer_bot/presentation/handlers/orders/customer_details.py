@@ -2,7 +2,7 @@ import logging
 from uuid import UUID
 
 from aiogram import Bot, Router
-from aiogram.types import CallbackQuery
+from aiogram.types import BufferedInputFile, CallbackQuery
 
 from customer_bot.application.errors import BackendClientError
 from customer_bot.application.ports import BackendPort
@@ -132,6 +132,39 @@ async def open_order_report(
         text=screen.text,
         reply_markup=screen.reply_markup,
     )
+
+    for file in report.files:
+        try:
+            content = await backend_client.download_file(file.signed_url)
+        except BackendClientError:
+            logger.warning(
+                "Failed to download customer order report attachment",
+                extra={
+                    "telegram_id": telegram_user_context.telegram_id,
+                    "order_id": str(callback_data.order_id),
+                    "file_id": str(file.id),
+                    "exception_type": "BackendClientError",
+                },
+            )
+            continue
+
+        filename = file.original_name or "report-file"
+        attachment = BufferedInputFile(content, filename=filename)
+        caption = file.original_name or "Вложение к отчёту"
+        if file.mime_type.startswith("image/"):
+            await telegram_responder.send_photo(
+                bot=bot,
+                event=callback,
+                photo=attachment,
+                caption=caption,
+            )
+        else:
+            await telegram_responder.send_document(
+                bot=bot,
+                event=callback,
+                document=attachment,
+                caption=caption,
+            )
 
 
 __all__ = ["router"]

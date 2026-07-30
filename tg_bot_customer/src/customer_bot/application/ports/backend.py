@@ -170,6 +170,8 @@ class BackendPort(Protocol):
 
     async def download_avatar(self, avatar_url: str) -> bytes: ...
 
+    async def download_file(self, file_url: str) -> bytes: ...
+
     async def upload_file(
         self,
         *,

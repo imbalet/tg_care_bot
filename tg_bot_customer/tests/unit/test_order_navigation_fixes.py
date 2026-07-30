@@ -1,11 +1,22 @@
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
 
-from customer_bot.application.dto import ContactRequestDTO, PerformerProfileDTO
-from customer_bot.presentation.callbacks import OrderContactCallback
+from customer_bot.application.dto import (
+    ContactRequestDTO,
+    OrderReportDTO,
+    OrderReportFileDTO,
+    PerformerProfileDTO,
+)
+from customer_bot.presentation.callbacks import (
+    OrderContactCallback,
+    OrderReportOpenCallback,
+)
 from customer_bot.presentation.handlers import customer_orders
+from customer_bot.presentation.handlers.orders import customer_details
 from customer_bot.presentation.services.performer_profile import show_performer_profile
 
 
@@ -72,3 +83,48 @@ async def test_performer_profile_avatar_uses_photo_replacement() -> None:
     responder.replace_with_photo.assert_awaited_once()
     photo = responder.replace_with_photo.await_args.kwargs["photo"]
     assert photo.data == b"avatar"
+
+
+@pytest.mark.asyncio
+async def test_customer_order_report_sends_attachments_as_photos() -> None:
+    order_id = uuid4()
+    customer_id = uuid4()
+    signed_url = "http://minio:9000/report.jpg?signature=secret"
+    report = OrderReportDTO(
+        id=uuid4(),
+        order_id=order_id,
+        performer_id=uuid4(),
+        completed_work="Работа выполнена",
+        comment=None,
+        problem_flag=False,
+        problem_description=None,
+        submitted_at=datetime.now(UTC),
+        files=(
+            OrderReportFileDTO(
+                id=uuid4(),
+                original_name="report.jpg",
+                mime_type="image/jpeg",
+                signed_url=signed_url,
+            ),
+        ),
+    )
+    backend = AsyncMock()
+    backend.get_customer_profile.return_value = SimpleNamespace(id=customer_id)
+    backend.get_customer_order_report.return_value = report
+    backend.download_file.return_value = b"photo-bytes"
+    responder = AsyncMock()
+
+    await customer_details.open_order_report(
+        callback=object(),
+        bot=object(),
+        backend_client=backend,
+        telegram_responder=responder,
+        telegram_user_context=SimpleNamespace(telegram_id=123),
+        callback_data=OrderReportOpenCallback(order_id=order_id),
+    )
+
+    backend.download_file.assert_awaited_once_with(signed_url)
+    responder.send_photo.assert_awaited_once()
+    photo = responder.send_photo.await_args.kwargs["photo"]
+    assert photo.data == b"photo-bytes"
+    assert signed_url not in responder.update.await_args.kwargs["text"]

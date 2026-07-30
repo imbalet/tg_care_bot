@@ -49,10 +49,10 @@ class Screen(BaseScreen[_View]):
             if self.data.problem_description:
                 lines.append(escape(self.data.problem_description))
         if self.data.files:
-            lines.extend(("", "Фотографии:"))
+            lines.extend(("", "Вложения:"))
             for file in self.data.files:
                 name = file.original_name or file.mime_type
-                lines.append(f"• {escape(name)}: {escape(file.signed_url)}")
+                lines.append(f"• {escape(name)}")
         return "\n".join(lines)
 
     def _build_keyboard(self) -> Markup:

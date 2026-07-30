@@ -823,12 +823,15 @@ class BackendClient(BackendPort):
         )
 
     async def download_avatar(self, avatar_url: str) -> bytes:
+        return await self.download_file(avatar_url)
+
+    async def download_file(self, file_url: str) -> bytes:
         try:
-            response = await self._client.get(avatar_url)
+            response = await self._client.get(file_url)
         except httpx.HTTPError as exc:
-            raise BackendUnavailableError("Avatar is unavailable") from exc
+            raise BackendUnavailableError("File is unavailable") from exc
         if response.status_code >= 400:
-            raise BackendUnavailableError("Avatar is unavailable")
+            raise BackendUnavailableError("File is unavailable")
         return response.content
 
     async def upload_file(

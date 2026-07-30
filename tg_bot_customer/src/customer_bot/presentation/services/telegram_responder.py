@@ -167,6 +167,25 @@ class TelegramResponder:
             reply_markup=reply_markup,
         )
 
+    async def send_document(
+        self,
+        *,
+        bot: Bot,
+        event: Message | CallbackQuery,
+        document: BufferedInputFile,
+        caption: str,
+        reply_markup: ReplyMarkupUnion | None = None,
+    ) -> Message | None:
+        message = event if isinstance(event, Message) else event.message
+        if not isinstance(message, Message):
+            return None
+        return await bot.send_document(
+            chat_id=message.chat.id,
+            document=document,
+            caption=caption,
+            reply_markup=reply_markup,
+        )
+
     async def replace_with_photo(
         self,
         *,
