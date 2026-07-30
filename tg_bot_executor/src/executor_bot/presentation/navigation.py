@@ -15,8 +15,21 @@ from executor_bot.presentation.ui import (
 
 async def list_categories(
     backend_client: BackendPort,
+    *,
+    telegram_id: int | None = None,
 ) -> tuple[ServiceCategoryDTO, ...]:
-    return await backend_client.list_catalog_categories()
+    categories = await backend_client.list_catalog_categories()
+    if telegram_id is None:
+        return categories
+    services = await backend_client.list_performer_services(telegram_id=telegram_id)
+    approved_service_codes = {
+        service.service_code for service in services if service.is_approved
+    }
+    return tuple(
+        category
+        for category in categories
+        if any(service.code in approved_service_codes for service in category.services)
+    )
 
 
 def category_by_code(
@@ -37,7 +50,7 @@ async def active_category(
     active_category_store: ActiveCategoryStore,
     telegram_id: int,
 ) -> ServiceCategoryDTO | None:
-    categories = await list_categories(backend_client)
+    categories = await list_categories(backend_client, telegram_id=telegram_id)
     code = await active_category_store.get(telegram_id)
     return category_by_code(categories, code)
 
@@ -51,7 +64,10 @@ async def show_category_select(
     telegram_responder: TelegramResponder,
     force_create_new: bool = False,
 ) -> None:
-    categories = await list_categories(backend_client)
+    categories = await list_categories(
+        backend_client,
+        telegram_id=telegram_user_context.telegram_id,
+    )
     await telegram_responder.update(
         bot=bot,
         event=event,

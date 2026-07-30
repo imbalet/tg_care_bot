@@ -182,6 +182,10 @@ class WorkAddressSuggestionCallback(CallbackData, prefix="work_addr_suggestion")
     index: int
 
 
+class WorkAddressRetryCallback(CallbackData, prefix="work_addr_retry"):
+    pass
+
+
 class WorkAddressSkipCallback(CallbackData, prefix="work_addr_skip"):
     pass
 

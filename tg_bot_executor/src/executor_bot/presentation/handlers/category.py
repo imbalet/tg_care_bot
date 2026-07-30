@@ -51,7 +51,10 @@ async def select_category(
                 reply_markup=fallback_keyboard(include_main_menu=False),
             )
             return
-        categories = await list_categories(backend_client)
+        categories = await list_categories(
+            backend_client,
+            telegram_id=telegram_user_context.telegram_id,
+        )
     except BackendClientError as exc:
         logger.warning(
             "Failed to select category",

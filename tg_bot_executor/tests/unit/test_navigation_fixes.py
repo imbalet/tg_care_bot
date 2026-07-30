@@ -12,9 +12,12 @@ from executor_bot.presentation.handlers.addresses.router import _advance_or_crea
 from executor_bot.presentation.handlers.services_calendar import (
     cancel_unavailable_period,
 )
+from executor_bot.presentation.navigation import list_categories
 from executor_bot.presentation.ui import order_location_keyboard
 from executor_bot.presentation.ui.screens.keyboards import (
+    fallback_keyboard,
     work_address_created_keyboard,
+    work_address_suggestions_keyboard,
 )
 
 
@@ -36,6 +39,59 @@ def test_created_work_address_keyboard_has_navigation() -> None:
 
     assert "К рабочим адресам" in labels
     assert "Главное меню" in labels
+
+
+def test_work_address_suggestions_keyboard_allows_retry() -> None:
+    markup = work_address_suggestions_keyboard((object(),))
+    labels = [button.text for row in markup.inline_keyboard for button in row]
+
+    assert "Ввести заново" in labels
+
+
+def test_help_fallback_does_not_repeat_help_or_support() -> None:
+    markup = fallback_keyboard(
+        include_main_menu=True,
+        include_help=False,
+        include_support=False,
+    )
+    labels = [button.text for row in markup.inline_keyboard for button in row]
+
+    assert labels == ["Главное меню"]
+
+
+def test_work_address_views_mark_current_address() -> None:
+    from executor_bot.presentation.ui import (
+        work_address_card_text,
+        work_addresses_list_text,
+    )
+
+    item = {"address_text": "ул. Тестовая, 1", "is_current": True}
+
+    assert "текущий" in work_addresses_list_text((item,))
+    assert "Текущий рабочий адрес" in work_address_card_text(item)
+
+
+@pytest.mark.asyncio
+async def test_executor_categories_include_only_approved_service_categories() -> None:
+    backend = AsyncMock()
+    service = type("Service", (), {"code": "care", "name": "Уход"})()
+    hidden_service = type("Service", (), {"code": "walk", "name": "Прогулка"})()
+    backend.list_catalog_categories.return_value = (
+        type("Category", (), {"code": "care_category", "services": (service,)})(),
+        type(
+            "Category",
+            (),
+            {"code": "walk_category", "services": (hidden_service,)},
+        )(),
+    )
+    backend.list_performer_services.return_value = (
+        type("PerformerService", (), {"service_code": "care", "is_approved": True})(),
+        type("PerformerService", (), {"service_code": "walk", "is_approved": False})(),
+    )
+
+    categories = await list_categories(backend, telegram_id=123)
+
+    assert [category.code for category in categories] == ["care_category"]
 
 
 @pytest.mark.asyncio

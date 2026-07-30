@@ -56,6 +56,7 @@ from executor_bot.presentation.callbacks import (
     WorkAddressCurrentCallback,
     WorkAddressDeleteCallback,
     WorkAddressesOpenCallback,
+    WorkAddressRetryCallback,
     WorkAddressSelectCallback,
     WorkAddressSkipCallback,
     WorkAddressSuggestionCallback,
@@ -163,7 +164,11 @@ def main_menu_keyboard(category: object | None = None) -> InlineKeyboardMarkup:
 
 
 def fallback_keyboard(
-    *, include_main_menu: bool = True, legal_documents: tuple[object, ...] = ()
+    *,
+    include_main_menu: bool = True,
+    include_help: bool = True,
+    include_support: bool = True,
+    legal_documents: tuple[object, ...] = (),
 ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory()
     if include_main_menu:
@@ -172,11 +177,11 @@ def fallback_keyboard(
         url = str(getattr(document, "content_url", ""))
         if url.startswith(("https://", "http://")):
             keyboard.url_button(f"Документ {index}", url)
-    return (
+    if include_help:
         keyboard.button(MsgKey.HELP, HelpCallback())
-        .button("Связаться с поддержкой", SupportOpenCallback())
-        .as_markup()
-    )
+    if include_support:
+        keyboard.button("Связаться с поддержкой", SupportOpenCallback())
+    return keyboard.as_markup()
 
 
 def stale_action_keyboard() -> InlineKeyboardMarkup:
@@ -515,7 +520,7 @@ def work_address_suggestions_keyboard(
             f"№{index + 1}",
             WorkAddressSuggestionCallback(index=index),
         )
-    return keyboard.as_markup()
+    return keyboard.button("Ввести заново", WorkAddressRetryCallback()).as_markup()
 
 
 def work_address_skip_keyboard() -> InlineKeyboardMarkup:

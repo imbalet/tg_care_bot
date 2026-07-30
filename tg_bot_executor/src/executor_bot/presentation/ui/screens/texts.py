@@ -297,10 +297,14 @@ def work_addresses_list_text(items: Sequence[object]) -> str:
     if count == 0:
         return "<b>Рабочий адрес</b>\n\nДобавьте адрес для профиля исполнителя."
     lines = ["<b>Рабочие адреса</b>", "", "Выберите адрес или добавьте новый:"]
-    lines.extend(
-        f"{index}. {getattr(item, 'address_text', '')}"
-        for index, item in enumerate(items, start=1)
-    )
+    for index, item in enumerate(items, start=1):
+        marker = " · текущий" if _item_is_current(item) else ""
+        address_text = (
+            item.get("address_text", "")
+            if isinstance(item, Mapping)
+            else getattr(item, "address_text", "")
+        )
+        lines.append(f"{index}. {address_text}{marker}")
     return "\n".join(lines)
 
 
@@ -316,6 +320,8 @@ def work_address_card_text(item: object) -> str:
     apartment = value("apartment")
     comment = value("comment")
     lines = ["<b>Рабочий адрес</b>", "", address_text]
+    if _item_is_current(item):
+        lines.append("✅ Текущий рабочий адрес")
     if isinstance(entrance, str):
         lines.append(f"Подъезд: {escape(entrance)}")
     if isinstance(floor, str):
@@ -325,6 +331,12 @@ def work_address_card_text(item: object) -> str:
     if isinstance(comment, str):
         lines.append(f"Комментарий: {escape(comment)}")
     return "\n".join(lines)
+
+
+def _item_is_current(item: object) -> bool:
+    if isinstance(item, Mapping):
+        return bool(item.get("is_current", False))
+    return bool(getattr(item, "is_current", False))
 
 
 def work_address_city_step_text() -> str:

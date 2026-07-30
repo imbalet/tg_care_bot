@@ -14,6 +14,7 @@ from executor_bot.presentation.callbacks import (
     WorkAddressCurrentCallback,
     WorkAddressDeleteCallback,
     WorkAddressesOpenCallback,
+    WorkAddressRetryCallback,
     WorkAddressSelectCallback,
     WorkAddressSkipCallback,
     WorkAddressSuggestionCallback,
@@ -70,6 +71,9 @@ async def open_work_addresses(
         items = await backend_client.list_work_addresses(
             telegram_id=telegram_user_context.telegram_id,
         )
+        registration_state = await backend_client.get_registration_state(
+            telegram_user_context.telegram_id,
+        )
     except BackendValidationError as exc:
         await telegram_responder.update(
             bot=bot,
@@ -88,12 +92,18 @@ async def open_work_addresses(
             reply_markup=work_addresses_keyboard(()),
         )
         return
-    await state.update_data(work_addresses=[_address_state(item) for item in items])
+    current_address_id = _current_address_id(registration_state)
+    address_states = [
+        _address_state(item, current_address_id=current_address_id) for item in items
+    ]
+    await state.update_data(
+        work_addresses=address_states,
+    )
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
-        text=work_addresses_list_text(items),
+        text=work_addresses_list_text(address_states),
         reply_markup=work_addresses_keyboard(items),
     )
 
@@ -265,6 +275,27 @@ async def select_suggestion(
     )
 
 
+@router.callback_query(
+    WorkAddressManagement.suggestion,
+    WorkAddressRetryCallback.filter(),
+)
+async def retry_address_query(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await state.set_state(WorkAddressManagement.query)
+    await state.update_data(work_address_suggestions=[])
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=work_address_query_step_text(),
+    )
+
+
 @router.message(WorkAddressManagement.extra)
 async def enter_extra(
     message: Message,
@@ -342,7 +373,16 @@ async def select_address(
             reply_markup=work_addresses_keyboard(()),
         )
         return
-    await state.update_data(work_addresses=[_address_state(item) for item in addresses])
+    registration_state = await backend_client.get_registration_state(
+        telegram_user_context.telegram_id,
+    )
+    current_address_id = _current_address_id(registration_state)
+    await state.update_data(
+        work_addresses=[
+            _address_state(item, current_address_id=current_address_id)
+            for item in addresses
+        ],
+    )
     item = await _address_by_index(state, callback_data.index)
     if item is None:
         await telegram_responder.acknowledge(callback, "Выберите действие кнопкой.")
@@ -483,7 +523,11 @@ async def _advance_or_create(
     )
 
 
-def _address_state(item: AddressDTO) -> dict[str, object]:
+def _address_state(
+    item: AddressDTO,
+    *,
+    current_address_id: UUID | None = None,
+) -> dict[str, object]:
     return {
         "id": str(item.id),
         "city_id": str(item.city_id),
@@ -492,7 +536,14 @@ def _address_state(item: AddressDTO) -> dict[str, object]:
         "floor": item.floor,
         "apartment": item.apartment,
         "comment": item.comment,
+        "is_current": item.id == current_address_id,
     }
+
+
+def _current_address_id(registration_state: object) -> UUID | None:
+    performer = getattr(registration_state, "performer", None)
+    value = getattr(performer, "current_address_id", None)
+    return value if isinstance(value, UUID) else None
 
 
 async def _address_by_index(

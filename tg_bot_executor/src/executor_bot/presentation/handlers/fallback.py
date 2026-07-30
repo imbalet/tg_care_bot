@@ -283,6 +283,8 @@ async def help_callback(
             text=help_text(),
             reply_markup=fallback_keyboard(
                 include_main_menu=True,
+                include_help=False,
+                include_support=False,
                 legal_documents=documents,
             ),
         )
