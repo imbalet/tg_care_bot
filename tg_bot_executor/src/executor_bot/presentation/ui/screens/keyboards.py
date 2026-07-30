@@ -67,6 +67,23 @@ from executor_bot.presentation.types import ContactMethod, OrderFilterScope
 from executor_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from executor_bot.presentation.ui.screens.labels import MsgKey
 
+_START_BUTTON_BEFORE_MINUTES = 30
+
+
+def _is_start_window_open(
+    *,
+    start_at: datetime | None,
+    end_at: datetime | None,
+    now: datetime | None = None,
+) -> bool:
+    if start_at is None or end_at is None:
+        return False
+    current_time = now or datetime.now(UTC)
+    return (
+        current_time >= start_at - timedelta(minutes=_START_BUTTON_BEFORE_MINUTES)
+        and current_time < end_at
+    )
+
 
 class CityButtonView(Protocol):
     @property
@@ -451,13 +468,9 @@ def my_order_card_keyboard_for_status(
         keyboard.button(
             "Попросить связаться", ExecutorOrderContactCallback(order_id=order_id)
         )
-    start_window_open = (
-        start_at is None
-        or end_at is None
-        or (
-            datetime.now(UTC) >= start_at - timedelta(minutes=30)
-            and datetime.now(UTC) < end_at
-        )
+    start_window_open = _is_start_window_open(
+        start_at=start_at,
+        end_at=end_at,
     )
     if order_id is not None and status == "confirmed" and start_window_open:
         keyboard.button("Я на месте", ExecutorOrderStartCallback(order_id=order_id))

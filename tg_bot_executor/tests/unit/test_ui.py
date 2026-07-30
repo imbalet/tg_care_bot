@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -40,6 +40,7 @@ from executor_bot.presentation.ui.keyboards import (
     WORK_ADDRESS_SELECT_PREFIX,
 )
 from executor_bot.presentation.ui.screens.keyboards import (
+    _is_start_window_open,
     my_order_card_keyboard_for_status,
 )
 from executor_bot.presentation.ui.screens.texts import (
@@ -277,6 +278,32 @@ def test_in_progress_order_has_no_cancel_action() -> None:
     ]
 
     assert not any("order_cancel" in value for value in callback_data)
+
+
+def test_executor_start_window_requires_both_dates_and_last_30_minutes() -> None:
+    start_at = datetime(2026, 7, 31, 12, tzinfo=UTC)
+    end_at = datetime(2026, 7, 31, 13, tzinfo=UTC)
+
+    assert not _is_start_window_open(
+        start_at=None,
+        end_at=end_at,
+        now=datetime(2026, 7, 31, 12, tzinfo=UTC),
+    )
+    assert not _is_start_window_open(
+        start_at=start_at,
+        end_at=end_at,
+        now=datetime(2026, 7, 31, 11, 29, tzinfo=UTC),
+    )
+    assert _is_start_window_open(
+        start_at=start_at,
+        end_at=end_at,
+        now=datetime(2026, 7, 31, 11, 30, tzinfo=UTC),
+    )
+    assert not _is_start_window_open(
+        start_at=start_at,
+        end_at=end_at,
+        now=datetime(2026, 7, 31, 13, tzinfo=UTC),
+    )
 
 
 async def test_work_address_selection_reloads_backend_after_stale_fsm_state() -> None:
