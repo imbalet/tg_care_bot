@@ -10,12 +10,14 @@ from executor_bot.presentation.callbacks import (
 )
 from executor_bot.presentation.handlers.addresses.router import _advance_or_create
 from executor_bot.presentation.handlers.services_calendar import (
+    _parse_time,
     cancel_unavailable_period,
 )
 from executor_bot.presentation.navigation import list_categories
 from executor_bot.presentation.ui import order_location_keyboard
 from executor_bot.presentation.ui.screens.keyboards import (
     fallback_keyboard,
+    responses_keyboard,
     work_address_created_keyboard,
     work_address_suggestions_keyboard,
 )
@@ -72,6 +74,18 @@ def test_work_address_views_mark_current_address() -> None:
 
     assert "текущий" in work_addresses_list_text((item,))
     assert "Текущий рабочий адрес" in work_address_card_text(item)
+
+
+def test_responses_keyboard_has_direct_section() -> None:
+    keyboard = responses_keyboard((), "direct")
+    labels = [button.text for row in keyboard.inline_keyboard for button in row]
+
+    assert labels == ["Активные", "Выбранные", "Закрытые", "Direct", "Главное меню"]
+
+
+def test_unavailable_period_time_parser_accepts_clock_values() -> None:
+    assert _parse_time("09:30") is not None
+    assert _parse_time("25:00") is None
 
 
 @pytest.mark.asyncio

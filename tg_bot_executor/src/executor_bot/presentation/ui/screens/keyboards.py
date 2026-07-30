@@ -21,6 +21,7 @@ from executor_bot.presentation.callbacks import (
     CategorySelectCallback,
     DirectAcceptCallback,
     DirectRejectCallback,
+    ExecutorDirectResponseCardCallback,
     ExecutorOrderCancelCallback,
     ExecutorOrderCancelConfirmCallback,
     ExecutorOrderCardCallback,
@@ -179,7 +180,7 @@ def fallback_keyboard(
         url = str(getattr(document, "content_url", ""))
         if url.startswith(("https://", "http://")):
             keyboard.url_button(f"Документ {index}", url)
-    if _valid_telegram_url(support_url):
+    if isinstance(support_url, str) and _valid_telegram_url(support_url):
         keyboard.url_button(support_label, support_url)
     if include_help:
         keyboard.button(MsgKey.HELP, HelpCallback())
@@ -250,14 +251,35 @@ def responses_keyboard(items: Sequence[object], group: str) -> InlineKeyboardMar
         if not order_id:
             continue
         status = str(getattr(item, "status", ""))
-        keyboard.button(
-            f"Заказ #{order_id[:8]} · {_response_status_label(status)}",
-            ExecutorResponseCardCallback(order_id=order_id, group=group),
-        )
+        if group == "direct":
+            match_id = str(getattr(item, "id", ""))
+            if not match_id:
+                continue
+            keyboard.button(
+                f"Direct #{order_id[:8]} · {_response_status_label(status)}",
+                ExecutorDirectResponseCardCallback(match_id=match_id),
+            )
+        else:
+            keyboard.button(
+                f"Заказ #{order_id[:8]} · {_response_status_label(status)}",
+                ExecutorResponseCardCallback(order_id=order_id, group=group),
+            )
     keyboard.button("Активные", ExecutorResponsesCallback(group="active"))
     keyboard.button("Выбранные", ExecutorResponsesCallback(group="selected"))
     keyboard.button("Закрытые", ExecutorResponsesCallback(group="closed"))
+    keyboard.button("Direct", ExecutorResponsesCallback(group="direct"))
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+
+
+def direct_response_card_keyboard(match_id: str) -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button("Принять", DirectAcceptCallback(match_id=match_id))
+        .button("Отклонить", DirectRejectCallback(match_id=match_id))
+        .button("К direct", ExecutorResponsesCallback(group="direct"))
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
 
 
 def _response_status_label(status: str) -> str:
@@ -611,6 +633,7 @@ __all__ = [
     "category_select_keyboard",
     "contact_methods_keyboard",
     "direct_offer_keyboard",
+    "direct_response_card_keyboard",
     "fallback_keyboard",
     "legal_acceptance_keyboard",
     "main_menu_keyboard",

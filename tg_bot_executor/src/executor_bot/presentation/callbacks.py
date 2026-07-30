@@ -61,6 +61,10 @@ class ExecutorResponseCardCallback(CallbackData, prefix="response_card"):
     group: str = "active"
 
 
+class ExecutorDirectResponseCardCallback(CallbackData, prefix="direct_response_card"):
+    match_id: str
+
+
 class ExecutorOrdersPageCallback(CallbackData, prefix="my_orders_page"):
     group: str = "active"
     page: int = 1

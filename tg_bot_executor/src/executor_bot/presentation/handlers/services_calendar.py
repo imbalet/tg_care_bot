@@ -1,10 +1,12 @@
-from datetime import datetime, time
+from datetime import date, datetime, time
+from typing import cast
 from uuid import UUID
 
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
+from aiogram_calendar import SimpleCalendar, SimpleCalendarCallback
 
 from executor_bot.application.dto import (
     CalendarDTO,
@@ -39,7 +41,10 @@ router = Router(name="services_calendar")
 
 
 class CalendarUnavailableForm(StatesGroup):
-    period = State()
+    start_date = State()
+    end_date = State()
+    start_time = State()
+    end_time = State()
 
 
 class CalendarCustomScheduleForm(StatesGroup):
@@ -385,26 +390,114 @@ async def save_custom_schedule(
 async def start_unavailable_period(
     callback: CallbackQuery,
     bot: Bot,
-    backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
     state: FSMContext,
 ) -> None:
-    await state.set_state(CalendarUnavailableForm.period)
+    await state.set_state(CalendarUnavailableForm.start_date)
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Выберите дату начала недоступности.",
+        reply_markup=await _unavailable_calendar_keyboard(),
+    )
+
+
+@router.callback_query(
+    CalendarUnavailableForm.start_date,
+    SimpleCalendarCallback.filter(),
+)
+async def select_unavailable_start_date(
+    callback: CallbackQuery,
+    state: FSMContext,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: SimpleCalendarCallback,
+) -> None:
+    selected_date = await _process_calendar_selection(callback, callback_data)
+    if selected_date is None:
+        return
+    await state.update_data(unavailable_start_date=selected_date.isoformat())
+    await state.set_state(CalendarUnavailableForm.end_date)
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=(
-            "Введите период недоступности одной строкой:\n"
-            "ДД.ММ.ГГГГ ЧЧ:ММ — ДД.ММ.ГГГГ ЧЧ:ММ\n\n"
-            "Например: 07.07.2026 10:00 — 10.07.2026 12:00"
+            f"Дата начала: {selected_date:%d.%m.%Y}\n\n"
+            "Выберите дату окончания недоступности."
         ),
+        reply_markup=await _unavailable_calendar_keyboard(),
     )
 
 
-@router.message(CalendarUnavailableForm.period)
-async def save_unavailable_period(
+@router.callback_query(
+    CalendarUnavailableForm.end_date,
+    SimpleCalendarCallback.filter(),
+)
+async def select_unavailable_end_date(
+    callback: CallbackQuery,
+    state: FSMContext,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: SimpleCalendarCallback,
+) -> None:
+    selected_date = await _process_calendar_selection(callback, callback_data)
+    if selected_date is None:
+        return
+    data = await state.get_data()
+    start_date = _stored_date(data.get("unavailable_start_date"))
+    if start_date is None or selected_date < start_date:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Дата окончания не может быть раньше даты начала. Выберите снова.",
+            reply_markup=await _unavailable_calendar_keyboard(),
+        )
+        return
+    await state.update_data(unavailable_end_date=selected_date.isoformat())
+    await state.set_state(CalendarUnavailableForm.start_time)
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Введите время начала недоступности в формате ЧЧ:ММ.",
+    )
+
+
+@router.message(CalendarUnavailableForm.start_time)
+async def save_unavailable_start_time(
+    message: Message,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    parsed = _parse_time(message.text)
+    if parsed is None:
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Введите время в формате ЧЧ:ММ, например 09:30.",
+        )
+        return
+    await state.update_data(unavailable_start_time=parsed.isoformat(timespec="minutes"))
+    await state.set_state(CalendarUnavailableForm.end_time)
+    await telegram_responder.update(
+        bot=bot,
+        event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text="Введите время окончания недоступности в формате ЧЧ:ММ.",
+    )
+
+
+@router.message(CalendarUnavailableForm.end_time)
+async def save_unavailable_end_time(
     message: Message,
     bot: Bot,
     state: FSMContext,
@@ -412,27 +505,47 @@ async def save_unavailable_period(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    raw = (message.text or "").replace("—", "-")
-    parts = [part.strip() for part in raw.split("-")]
-    if len(parts) != 2:
+    parsed = _parse_time(message.text)
+    if parsed is None:
         await telegram_responder.update(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text="Не понял формат. Пример: 07.07.2026 10:00 — 10.07.2026 12:00",
+            text="Введите время в формате ЧЧ:ММ, например 18:00.",
+        )
+        return
+    data = await state.get_data()
+    start_date = _stored_date(data.get("unavailable_start_date"))
+    end_date = _stored_date(data.get("unavailable_end_date"))
+    start_time = _parse_time(data.get("unavailable_start_time"))
+    if start_date is None or end_date is None or start_time is None:
+        await state.clear()
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text=retry_later_text(),
+            reply_markup=calendar_keyboard(),
+        )
+        return
+    starts_at = datetime.combine(start_date, start_time)
+    ends_at = datetime.combine(end_date, parsed)
+    if starts_at >= ends_at:
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text="Окончание должно быть позже начала. Введите время окончания снова.",
         )
         return
     try:
-        starts_at = datetime.strptime(parts[0], "%d.%m.%Y %H:%M")
-        ends_at = datetime.strptime(parts[1], "%d.%m.%Y %H:%M")
-        if starts_at >= ends_at:
-            raise ValueError
         await backend_client.add_unavailable(
             telegram_id=telegram_user_context.telegram_id,
             starts_at=starts_at.isoformat(timespec="minutes"),
             ends_at=ends_at.isoformat(timespec="minutes"),
         )
-    except ValueError, BackendValidationError:
+    except BackendValidationError:
+        await state.clear()
         await telegram_responder.update(
             bot=bot,
             event=message,
@@ -441,6 +554,7 @@ async def save_unavailable_period(
                 "Период некорректен или уже есть запланированная недоступность. "
                 "Проверьте даты и попробуйте снова."
             ),
+            reply_markup=calendar_keyboard(),
         )
         return
     except BackendClientError:
@@ -461,6 +575,41 @@ async def save_unavailable_period(
         telegram_responder=telegram_responder,
         telegram_id=telegram_user_context.telegram_id,
     )
+
+
+async def _unavailable_calendar_keyboard() -> InlineKeyboardMarkup:
+    return cast(InlineKeyboardMarkup, await SimpleCalendar().start_calendar())
+
+
+async def _process_calendar_selection(
+    callback: CallbackQuery,
+    callback_data: SimpleCalendarCallback,
+) -> date | None:
+    selected, selected_date = await SimpleCalendar().process_selection(
+        callback,
+        callback_data,
+    )
+    if not selected or not isinstance(selected_date, datetime):
+        return None
+    return selected_date.date()
+
+
+def _stored_date(value: object) -> date | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _parse_time(value: object) -> time | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return time.fromisoformat(value.strip())
+    except ValueError:
+        return None
 
 
 @router.callback_query(CalendarCancelUnavailableCallback.filter())

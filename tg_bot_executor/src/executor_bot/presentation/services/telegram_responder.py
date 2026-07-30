@@ -37,9 +37,6 @@ class TelegramResponder:
         create_new: bool = False,
         delete_event_message: bool = False,
     ) -> Message | None:
-        if isinstance(event, Message):
-            create_new = True
-            create_new = True
         message = event if isinstance(event, Message) else event.message
         if not isinstance(message, Message):
             if isinstance(event, CallbackQuery):
@@ -81,6 +78,9 @@ class TelegramResponder:
                     await _delete_message(event)
                 return message
             except TelegramAPIError as exc:
+                if "message is not modified" in str(exc).lower():
+                    await self._message_store.set(telegram_id, target_message_id)
+                    return message
                 logger.warning(
                     "Telegram message edit failed",
                     extra={
@@ -90,6 +90,7 @@ class TelegramResponder:
                         "exception_type": type(exc).__name__,
                     },
                 )
+                await _delete_chat_message(bot, message.chat.id, target_message_id)
                 await self._message_store.delete(telegram_id)
 
         sent = await bot.send_message(
@@ -140,6 +141,40 @@ class TelegramResponder:
             phone_number=phone_number,
             first_name=first_name,
         )
+
+    async def replace_with_photo(
+        self,
+        *,
+        bot: Bot,
+        event: Message | CallbackQuery,
+        telegram_id: int,
+        photo: str,
+        caption: str,
+        reply_markup: ReplyMarkupUnion | None = None,
+    ) -> Message | None:
+        message = event if isinstance(event, Message) else event.message
+        if not isinstance(message, Message):
+            if isinstance(event, CallbackQuery):
+                await event.answer("Сообщение недоступно", show_alert=True)
+            return None
+        if isinstance(event, CallbackQuery):
+            await event.answer()
+
+        target_message_id = await self._message_store.get(telegram_id)
+        if target_message_id is None and isinstance(event, CallbackQuery):
+            target_message_id = message.message_id
+        if target_message_id is not None:
+            await _delete_chat_message(bot, message.chat.id, target_message_id)
+            await self._message_store.delete(telegram_id)
+
+        sent = await bot.send_photo(
+            chat_id=message.chat.id,
+            photo=photo,
+            caption=caption,
+            reply_markup=reply_markup,
+        )
+        await self._message_store.set(telegram_id, sent.message_id)
+        return sent
 
     async def delete_clicked_message(self, callback: CallbackQuery) -> None:
         if isinstance(callback.message, Message):
@@ -195,3 +230,17 @@ async def _delete_message(message: Message) -> None:
             },
         )
         return
+
+
+async def _delete_chat_message(bot: Bot, chat_id: int, message_id: int) -> None:
+    try:
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except TelegramAPIError as exc:
+        logger.warning(
+            "Telegram managed message delete failed",
+            extra={
+                "chat_id": chat_id,
+                "message_id": message_id,
+                "exception_type": type(exc).__name__,
+            },
+        )

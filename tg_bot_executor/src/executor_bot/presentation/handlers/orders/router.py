@@ -19,6 +19,7 @@ from executor_bot.presentation.callbacks import (
     AvailableOrdersOpenCallback,
     DirectAcceptCallback,
     DirectRejectCallback,
+    ExecutorDirectResponseCardCallback,
     ExecutorOrderCancelCallback,
     ExecutorOrderCancelConfirmCallback,
     ExecutorOrderCardCallback,
@@ -51,6 +52,7 @@ from executor_bot.presentation.ui import (
     direct_accept_created_text,
     direct_conflict_text,
     direct_rejected_text,
+    direct_response_card_keyboard,
     fallback_keyboard,
     my_order_card_keyboard_for_status,
     my_order_card_text,
@@ -276,7 +278,12 @@ async def executor_responses_callback(
             ),
             group=callback_data.group,
         )
-        group_label = "активные" if callback_data.group == "active" else "архив"
+        group_label = {
+            "active": "активные",
+            "selected": "выбраны, ожидают оплаты",
+            "closed": "закрытые",
+            "direct": "ожидающие Direct",
+        }.get(callback_data.group, callback_data.group)
         lines = ["<b>Мои отклики</b>", "", f"Раздел: {group_label}"]
         for match in matches:
             lines.extend(
@@ -325,6 +332,52 @@ async def executor_response_card_callback(
         order_id=callback_data.order_id,
         group="active" if callback_data.group == "active" else "archive",
         page=1,
+    )
+
+
+@router.callback_query(ExecutorDirectResponseCardCallback.filter())
+async def executor_direct_response_card_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorDirectResponseCardCallback,
+) -> None:
+    try:
+        matches = await backend_client.list_performer_responses(
+            performer_id=await _performer_id(
+                backend_client,
+                telegram_user_context.telegram_id,
+            ),
+            group="direct",
+        )
+        match = next(
+            (item for item in matches if str(item.id) == callback_data.match_id),
+            None,
+        )
+        if match is None:
+            raise ValueError("Direct invitation is unavailable")
+        text = "\n".join(
+            (
+                "<b>Direct-приглашение</b>",
+                "",
+                f"Заказ: #{escape(str(match.order_id)[:8])}",
+                f"Период: {_match_period(match)}",
+                f"Ответить до: {_match_datetime(match.response_expires_at)}",
+                f"Статус: {_match_status_label(match.status)}",
+            ),
+        )
+        reply_markup = direct_response_card_keyboard(str(match.id))
+    except BackendClientError, ValueError:
+        text = stale_action_text()
+        reply_markup = stale_action_keyboard()
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=text,
+        reply_markup=reply_markup,
     )
 
 

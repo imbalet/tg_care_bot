@@ -176,6 +176,7 @@ async def _upload(
         event=message,
         telegram_id=telegram_user_context.telegram_id,
         text=avatar_uploaded_text(),
+        reply_markup=avatar_keyboard(),
     )
 
 
