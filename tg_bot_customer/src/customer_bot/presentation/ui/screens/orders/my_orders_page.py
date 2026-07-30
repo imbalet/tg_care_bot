@@ -11,7 +11,10 @@ from customer_bot.presentation.callbacks import (
     SupportOpenCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
-from customer_bot.presentation.ui.screens.orders.status_labels import short_order_id
+from customer_bot.presentation.ui.screens.orders.status_labels import (
+    order_status_label,
+    short_order_id,
+)
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreen,
     Markup,
@@ -23,20 +26,6 @@ CATEGORY_EMOJIS = {
     "care": "🧓",
     "pet": "🐾",
 }
-
-
-def _order_status_label(status: str) -> str:
-    return {
-        "searching": "идет поиск",
-        "waiting_payment": "ожидает оплаты",
-        "confirmed": "подтвержден",
-        "in_progress": "выполняется",
-        "waiting_report": "ожидает отчет",
-        "report_submitted": "отчет отправлен",
-        "completed": "завершен",
-        "cancelled": "отменен",
-        "expired": "истек",
-    }.get(status, escape(status))
 
 
 def _datetime_label(value: datetime) -> str:
@@ -124,7 +113,7 @@ class Screen(BaseScreen[_View]):
                     f"ID: {short_order_id(item.id)}",
                     f"{index}. {escape(item.service_name)}",
                     f"Направление: {escape(item.category_name)}",
-                    f"Статус: {_order_status_label(item.status)}",
+                    f"Статус: {order_status_label(item.status, item.matching_mode)}",
                     f"Время: {_datetime_label(item.start_at)}",
                     f"Итого: {escape(str(item.total_amount))} ₽",
                 ),

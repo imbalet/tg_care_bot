@@ -46,7 +46,7 @@ class Screen(BaseScreen[_View]):
                 "",
                 f"ID: {short_order_id(self.data.id)}",
                 f"Услуга: {escape(self.data.service_name)}",
-                f"Статус: {order_status_label(self.data.status)}",
+                f"Статус: {order_status_label(self.data.status, mode)}",
                 f"Подбор: {matching_mode_label(mode)}",
                 f"Итого: {escape(str(self.data.total_amount))}",
             ),

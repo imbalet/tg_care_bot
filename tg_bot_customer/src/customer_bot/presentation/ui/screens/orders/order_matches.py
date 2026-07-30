@@ -51,7 +51,7 @@ class Screen(BaseScreen[_View]):
         return "\n".join(lines)
 
     def _build_keyboard(self) -> Markup:
-        keyboard = InlineKeyboardFactory(row_width=2)
+        keyboard = InlineKeyboardFactory(row_width=3)
         for index, item in enumerate(self.data, start=1):
             match_id = item.id
             keyboard.button(

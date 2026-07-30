@@ -22,6 +22,7 @@ from customer_bot.presentation.callbacks import (
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.orders.status_labels import (
     matching_mode_label,
+    order_status_label,
     payment_status_label,
     short_order_id,
 )
@@ -30,20 +31,6 @@ from customer_bot.presentation.ui.screens.screen import (
     Markup,
 )
 from customer_bot.presentation.ui.texts.labels import MsgKey
-
-
-def _order_status_label(status: str) -> str:
-    return {
-        "searching": "идет поиск",
-        "waiting_payment": "ожидает оплаты",
-        "confirmed": "подтвержден",
-        "in_progress": "выполняется",
-        "waiting_report": "ожидает отчет",
-        "report_submitted": "отчет отправлен",
-        "completed": "завершен",
-        "cancelled": "отменен",
-        "expired": "истек",
-    }.get(status, escape(status))
 
 
 def _datetime_label(value: datetime) -> str:
@@ -127,7 +114,8 @@ class Screen(BaseScreen[_View]):
             f"ID: {short_order_id(self.data.id)}",
             f"Услуга: {escape(self.data.service_name)}",
             f"Направление: {escape(self.data.category_name)}",
-            f"🔹 Статус: {_order_status_label(self.data.status)}",
+            "🔹 Статус: "
+            f"{order_status_label(self.data.status, self.data.matching_mode)}",
             f"🗓 Начало: {_datetime_label(self.data.start_at)}",
             f"🗓 Окончание: {_datetime_label(self.data.end_at)}",
             f"⏱ Длительность: {_duration_label(self.data.start_at, self.data.end_at)}",
