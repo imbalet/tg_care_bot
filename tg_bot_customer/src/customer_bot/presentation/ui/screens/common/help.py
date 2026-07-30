@@ -14,6 +14,12 @@ class _View(Protocol):
     @property
     def legal_documents(self) -> tuple[object, ...]: ...
 
+    @property
+    def support_label(self) -> str: ...
+
+    @property
+    def support_telegram_url(self) -> str | None: ...
+
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
@@ -28,5 +34,7 @@ class Screen(BaseScreen[_View]):
             include_main_menu=True,
             include_help=False,
             include_support=False,
+            support_label=self.data.support_label,
+            support_url=self.data.support_telegram_url,
             legal_documents=self.data.legal_documents,
         )

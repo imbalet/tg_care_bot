@@ -22,6 +22,8 @@ from customer_bot.presentation.ui.screens import HelpScreen, RetryLaterScreen
 class IncludeMainMenu(NamedTuple):
     include_main_menu: bool
     legal_documents: tuple[object, ...] = ()
+    support_label: str = "Поддержка"
+    support_telegram_url: str | None = None
 
 
 router = Router(name="start")
@@ -120,7 +122,18 @@ async def help_command(
         documents = await backend_client.list_active_legal_documents()
     except BackendClientError:
         documents = ()
-    screen = HelpScreen(IncludeMainMenu(include_main_menu, documents)).build()
+    try:
+        contact = await backend_client.get_support_contact()
+    except BackendClientError:
+        contact = None
+    screen = HelpScreen(
+        IncludeMainMenu(
+            include_main_menu,
+            documents,
+            contact.label if contact is not None else "Поддержка",
+            contact.telegram_url if contact is not None else None,
+        )
+    ).build()
     await telegram_responder.update(
         bot=bot,
         event=message,
@@ -210,7 +223,18 @@ async def _open_start_or_menu(
         documents = await backend_client.list_active_legal_documents()
     except BackendClientError:
         documents = ()
-    screen = HelpScreen(IncludeMainMenu(False, documents)).build()
+    try:
+        contact = await backend_client.get_support_contact()
+    except BackendClientError:
+        contact = None
+    screen = HelpScreen(
+        IncludeMainMenu(
+            False,
+            documents,
+            contact.label if contact is not None else "Поддержка",
+            contact.telegram_url if contact is not None else None,
+        )
+    ).build()
     await telegram_responder.update(
         bot=bot,
         event=message,

@@ -21,9 +21,21 @@ def test_address_suggestions_allow_retry() -> None:
 
 
 def test_help_screen_does_not_repeat_help_or_broken_support_action() -> None:
-    screen = HelpScreen(HelpView(include_main_menu=True)).build()
+    screen = HelpScreen(
+        HelpView(
+            include_main_menu=True,
+            support_label="Аккаунт поддержки",
+            support_telegram_url="https://t.me/support",
+        )
+    ).build()
     labels = _labels(screen.reply_markup)
 
     assert "Помощь" not in labels
     assert "Связаться с поддержкой" not in labels
     assert "Главное меню" in labels
+    assert "Аккаунт поддержки" in labels
+    assert any(
+        button.url == "https://t.me/support"
+        for row in screen.reply_markup.inline_keyboard
+        for button in row
+    )

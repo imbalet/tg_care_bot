@@ -57,13 +57,26 @@ async def main_menu_callback(
             telegram_user_context.telegram_id,
         )
         if profile is None:
+            try:
+                contact = await backend_client.get_support_contact()
+            except BackendClientError:
+                contact = None
+            screen = HelpScreen(
+                HelpView(
+                    include_main_menu=True,
+                    support_label=(
+                        contact.label if contact is not None else "Поддержка"
+                    ),
+                    support_telegram_url=(
+                        contact.telegram_url if contact is not None else None
+                    ),
+                )
+            ).build()
             await telegram_responder.update(
                 bot=bot,
                 event=callback,
                 telegram_id=telegram_user_context.telegram_id,
-                text=(
-                    screen := HelpScreen(HelpView(include_main_menu=True)).build()
-                ).text,
+                text=screen.text,
                 reply_markup=screen.reply_markup,
             )
             return
@@ -135,13 +148,26 @@ async def help_callback(
         documents = await backend_client.list_active_legal_documents()
     except BackendClientError:
         documents = ()
+    try:
+        contact = await backend_client.get_support_contact()
+    except BackendClientError:
+        contact = None
     await telegram_responder.update(
         bot=bot,
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=(
             screen := HelpScreen(
-                HelpView(include_main_menu=True, legal_documents=documents)
+                HelpView(
+                    include_main_menu=include_main_menu,
+                    legal_documents=documents,
+                    support_label=(
+                        contact.label if contact is not None else "Поддержка"
+                    ),
+                    support_telegram_url=(
+                        contact.telegram_url if contact is not None else None
+                    ),
+                )
             ).build()
         ).text,
         reply_markup=screen.reply_markup,

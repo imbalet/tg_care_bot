@@ -8,6 +8,8 @@ from uuid import UUID
 class HelpView:
     include_main_menu: bool
     legal_documents: tuple[object, ...] = ()
+    support_label: str = "Поддержка"
+    support_telegram_url: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
