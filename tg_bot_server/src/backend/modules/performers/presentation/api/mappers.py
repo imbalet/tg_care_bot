@@ -60,6 +60,7 @@ def performer_response(performer: PerformerDTO) -> PerformerResponse:
         current_address_id=str(performer.current_address_id)
         if performer.current_address_id is not None
         else None,
+        avatar_url=getattr(performer, "avatar_url", None),
     )
 
 

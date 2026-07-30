@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from ._shared import (
     UUID,
     ActivatePerformerUseCase,
@@ -117,9 +119,28 @@ class PerformerServices(Service):
 
     async def get_registration_state(self, telegram_id: int) -> Any:
         async with self._uow() as uow:
-            return await GetRegistrationStateUseCase(
+            state = await GetRegistrationStateUseCase(
                 SqlAlchemyPerformerRepository(uow.session),
             ).execute(telegram_id)
+            if state.performer is None:
+                return state
+            avatar = await SqlAlchemyFileRepository(
+                uow.session,
+            ).get_avatar_for_entity(
+                entity_type="performer",
+                entity_id=state.performer.id,
+            )
+            return replace(
+                state,
+                performer=replace(
+                    state.performer,
+                    avatar_url=(
+                        await self._storage().create_download_url(avatar.storage_key)
+                        if avatar is not None and avatar.storage_key is not None
+                        else None
+                    ),
+                ),
+            )
 
     async def get_performer_by_id(self, performer_id: UUID) -> Any:
         async with self._uow() as uow:

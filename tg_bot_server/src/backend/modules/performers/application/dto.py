@@ -27,6 +27,7 @@ class PerformerDTO:
     status: str
     is_accepting_orders: bool
     current_address_id: UUID | None
+    avatar_url: str | None = None
 
 
 @dataclass(frozen=True)

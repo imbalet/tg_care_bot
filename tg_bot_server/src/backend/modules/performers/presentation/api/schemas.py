@@ -122,6 +122,7 @@ class PerformerResponse(BaseModel):
     status: str
     is_accepting_orders: bool
     current_address_id: str | None
+    avatar_url: str | None = None
 
 
 class PerformerServiceResponse(BaseModel):
