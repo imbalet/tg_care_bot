@@ -124,15 +124,7 @@ async def open_order_report(
         )
         return
 
-    screen = OrderReportScreen(report).build()
-    await telegram_responder.update(
-        bot=bot,
-        event=callback,
-        telegram_id=telegram_user_context.telegram_id,
-        text=screen.text,
-        reply_markup=screen.reply_markup,
-    )
-
+    attachments: list[tuple[str, BufferedInputFile, bool]] = []
     for file in report.files:
         try:
             content = await backend_client.download_file(file.signed_url)
@@ -149,22 +141,38 @@ async def open_order_report(
             continue
 
         filename = file.original_name or "report-file"
-        attachment = BufferedInputFile(content, filename=filename)
-        caption = file.original_name or "Вложение к отчёту"
-        if file.mime_type.startswith("image/"):
-            await telegram_responder.send_photo(
-                bot=bot,
-                event=callback,
-                photo=attachment,
-                caption=caption,
+        attachments.append(
+            (
+                filename,
+                BufferedInputFile(content, filename=filename),
+                file.mime_type.startswith("image/"),
             )
-        else:
-            await telegram_responder.send_document(
-                bot=bot,
-                event=callback,
-                document=attachment,
-                caption=caption,
-            )
+        )
+
+    if attachments:
+        for _filename, attachment, is_photo in attachments:
+            if is_photo:
+                await telegram_responder.send_photo(
+                    bot=bot,
+                    event=callback,
+                    photo=attachment,
+                )
+            else:
+                await telegram_responder.send_document(
+                    bot=bot,
+                    event=callback,
+                    document=attachment,
+                )
+
+    screen = OrderReportScreen(report).build()
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=screen.text,
+        reply_markup=screen.reply_markup,
+        create_new=bool(attachments),
+    )
 
 
 __all__ = ["router"]

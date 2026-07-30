@@ -127,4 +127,7 @@ async def test_customer_order_report_sends_attachments_as_photos() -> None:
     responder.send_photo.assert_awaited_once()
     photo = responder.send_photo.await_args.kwargs["photo"]
     assert photo.data == b"photo-bytes"
+    assert responder.send_photo.await_args.kwargs.get("caption") is None
     assert signed_url not in responder.update.await_args.kwargs["text"]
+    assert responder.update.await_args.kwargs["create_new"] is True
+    assert [call[0] for call in responder.method_calls] == ["send_photo", "update"]

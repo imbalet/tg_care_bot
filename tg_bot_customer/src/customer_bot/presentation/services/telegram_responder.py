@@ -154,7 +154,7 @@ class TelegramResponder:
         bot: Bot,
         event: Message | CallbackQuery,
         photo: str | BufferedInputFile,
-        caption: str,
+        caption: str | None = None,
         reply_markup: ReplyMarkupUnion | None = None,
     ) -> Message | None:
         message = event if isinstance(event, Message) else event.message
@@ -173,7 +173,7 @@ class TelegramResponder:
         bot: Bot,
         event: Message | CallbackQuery,
         document: BufferedInputFile,
-        caption: str,
+        caption: str | None = None,
         reply_markup: ReplyMarkupUnion | None = None,
     ) -> Message | None:
         message = event if isinstance(event, Message) else event.message
