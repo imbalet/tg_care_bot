@@ -32,6 +32,8 @@ from customer_bot.presentation.ui.screens.screen import (
 )
 from customer_bot.presentation.ui.texts.labels import MsgKey
 
+_START_BUTTON_BEFORE_MINUTES = 30
+
 
 def _datetime_label(value: datetime) -> str:
     return escape(value.strftime("%d.%m.%Y %H:%M"))
@@ -45,6 +47,19 @@ def _duration_label(start_at: datetime, end_at: datetime) -> str:
     if hours:
         return f"{hours} ч."
     return f"{minutes} мин."
+
+
+def _is_start_window_open(
+    *,
+    start_at: datetime,
+    end_at: datetime,
+    now: datetime | None = None,
+) -> bool:
+    current_time = now or datetime.now(UTC)
+    return (
+        current_time >= start_at - timedelta(minutes=_START_BUTTON_BEFORE_MINUTES)
+        and current_time < end_at
+    )
 
 
 class _View(Protocol):
@@ -208,9 +223,9 @@ class Screen(BaseScreen[_View]):
                 "Подтвердить выполнение",
                 OrderReportConfirmCallback(order_id=order_id),
             )
-        start_window_open = (
-            datetime.now(UTC) >= (self.data.start_at - timedelta(minutes=30))
-            and datetime.now(UTC) < self.data.end_at
+        start_window_open = _is_start_window_open(
+            start_at=self.data.start_at,
+            end_at=self.data.end_at,
         )
         if status == "confirmed" and start_window_open:
             keyboard.button(

@@ -6,6 +6,9 @@ from uuid import uuid4
 from customer_bot.presentation.ui.screens.orders.my_order_card import (
     Screen as MyOrderCardScreen,
 )
+from customer_bot.presentation.ui.screens.orders.my_order_card import (
+    _is_start_window_open,
+)
 from customer_bot.presentation.ui.screens.orders.my_orders_page import (
     Screen as MyOrdersPageScreen,
 )
@@ -102,3 +105,21 @@ def test_order_card_direct_order_shows_executor_review_status() -> None:
     ).build()
 
     assert "🔹 Статус: исполнитель рассматривает заказ" in screen.text
+
+
+def test_customer_start_window_is_open_only_during_last_30_minutes() -> None:
+    assert not _is_start_window_open(
+        start_at=_START_AT,
+        end_at=_END_AT,
+        now=datetime(2026, 7, 31, 11, 29, tzinfo=UTC),
+    )
+    assert _is_start_window_open(
+        start_at=_START_AT,
+        end_at=_END_AT,
+        now=datetime(2026, 7, 31, 11, 30, tzinfo=UTC),
+    )
+    assert not _is_start_window_open(
+        start_at=_START_AT,
+        end_at=_END_AT,
+        now=datetime(2026, 7, 31, 13, 0, tzinfo=UTC),
+    )
