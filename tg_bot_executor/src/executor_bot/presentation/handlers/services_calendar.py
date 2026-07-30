@@ -466,6 +466,7 @@ async def select_unavailable_end_date(
         event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text="Введите время начала недоступности в формате ЧЧ:ММ.",
+        create_new=True,
     )
 
 
@@ -484,6 +485,7 @@ async def save_unavailable_start_time(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text="Введите время в формате ЧЧ:ММ, например 09:30.",
+            create_new=True,
         )
         return
     await state.update_data(unavailable_start_time=parsed.isoformat(timespec="minutes"))
@@ -493,6 +495,7 @@ async def save_unavailable_start_time(
         event=message,
         telegram_id=telegram_user_context.telegram_id,
         text="Введите время окончания недоступности в формате ЧЧ:ММ.",
+        create_new=True,
     )
 
 
@@ -512,6 +515,7 @@ async def save_unavailable_end_time(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text="Введите время в формате ЧЧ:ММ, например 18:00.",
+            create_new=True,
         )
         return
     data = await state.get_data()
@@ -536,6 +540,7 @@ async def save_unavailable_end_time(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text="Окончание должно быть позже начала. Введите время окончания снова.",
+            create_new=True,
         )
         return
     try:
