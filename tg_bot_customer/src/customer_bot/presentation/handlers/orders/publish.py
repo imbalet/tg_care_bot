@@ -219,6 +219,9 @@ async def back_from_direct_selection(
                     platform_fee_amount=summary_view.platform_fee_amount,
                     total_amount=summary_view.total_amount,
                     performers_count=summary_view.performers_count,
+                    duration_unit=summary_view.duration_unit,
+                    start_at=summary_view.start_at,
+                    end_at=summary_view.end_at,
                     location_label=summary_view.location_label,
                 )
             ).build()

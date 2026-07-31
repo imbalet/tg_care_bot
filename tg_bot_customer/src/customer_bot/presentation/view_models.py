@@ -225,6 +225,7 @@ class MyOrderCardView:
     group: str
     page: int
     customer_comment: str | None = None
+    price_type: str = "hourly"
 
 
 @dataclass(frozen=True, slots=True)

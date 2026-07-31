@@ -7,11 +7,7 @@ class _Suggestion:
 
 
 def _labels(markup: object) -> list[str]:
-    return [
-        button.text
-        for row in markup.inline_keyboard
-        for button in row
-    ]
+    return [button.text for row in markup.inline_keyboard for button in row]
 
 
 def test_address_suggestions_allow_retry() -> None:

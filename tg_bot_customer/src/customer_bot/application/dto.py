@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
@@ -177,6 +177,7 @@ class MyOrderSummaryDTO:
     payment_deadline_at: datetime | None
     matching_deadline_at: datetime
     timezone: str
+    price_type: str = field(default="hourly", kw_only=True)
 
 
 @dataclass(frozen=True)

@@ -260,6 +260,8 @@ def parse_duration_interval(
 
 
 def duration_unit(draft_data: dict[str, object]) -> str:
+    if draft_data.get("price_type") == "started_24h":
+        return "days"
     multiday = (
         draft_data.get("allows_multiday") is True
         or draft_data.get("price_type") == "started_24h"

@@ -40,8 +40,20 @@ def _datetime_label(value: datetime) -> str:
     return escape(value.strftime("%d.%m.%Y %H:%M"))
 
 
-def _duration_label(start_at: datetime, end_at: datetime) -> str:
+def _duration_label(
+    start_at: datetime,
+    end_at: datetime,
+    *,
+    price_type: str,
+) -> str:
     minutes = max(0, int((end_at - start_at).total_seconds() // 60))
+    if price_type == "started_24h":
+        units = max(1, (minutes + 24 * 60 - 1) // (24 * 60))
+        return (
+            f"{units} сутки"
+            if units % 10 == 1 and units % 100 != 11
+            else f"{units} суток"
+        )
     hours, remainder = divmod(minutes, 60)
     if hours and remainder:
         return f"{hours} ч. {remainder} мин."
@@ -75,6 +87,9 @@ class _View(Protocol):
 
     @property
     def service_name(self) -> str: ...
+
+    @property
+    def price_type(self) -> str: ...
 
     @property
     def category_name(self) -> str: ...
@@ -127,6 +142,11 @@ class _View(Protocol):
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
+        duration = _duration_label(
+            self.data.start_at,
+            self.data.end_at,
+            price_type=self.data.price_type,
+        )
         lines = [
             "📦 <b>Заказ</b>",
             "",
@@ -137,7 +157,7 @@ class Screen(BaseScreen[_View]):
             f"{order_status_label(self.data.status, self.data.matching_mode)}",
             f"🗓 Начало: {_datetime_label(self.data.start_at)}",
             f"🗓 Окончание: {_datetime_label(self.data.end_at)}",
-            f"⏱ Длительность: {_duration_label(self.data.start_at, self.data.end_at)}",
+            f"⏱ Длительность: {duration}",
             f"Объектов: {self.data.objects_count}",
             f"Итого: {escape(str(self.data.total_amount))} ₽",
         ]

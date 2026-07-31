@@ -490,6 +490,7 @@ async def _show_order_card(
                     id=order.id,
                     category_name=category_name,
                     service_name=order.service_name,
+                    price_type=order.price_type,
                     matching_mode=order.matching_mode,
                     status=order.status,
                     start_at=order.start_at,

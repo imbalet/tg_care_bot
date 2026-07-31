@@ -50,8 +50,15 @@ class _View(Protocol):
     def location_label(self) -> str: ...
 
 
-def duration_label(duration_minutes: int) -> str:
+def duration_label(duration_minutes: int, duration_unit: str = "minutes") -> str:
     minutes = max(0, duration_minutes)
+    if duration_unit == "days":
+        units = max(1, (minutes + 24 * 60 - 1) // (24 * 60))
+        return (
+            f"{units} сутки"
+            if units % 10 == 1 and units % 100 != 11
+            else f"{units} суток"
+        )
     hours, remainder = divmod(minutes, 60)
     if hours and remainder:
         return f"{hours} ч. {remainder} мин."
@@ -68,7 +75,10 @@ class Screen(BaseScreen[_View]):
             if self.data.start_at is not None and self.data.end_at is not None
             else None
         )
-        duration_line = f"Длительность: {duration_label(self.data.duration_minutes)}"
+        duration_line = (
+            "Длительность: "
+            f"{duration_label(self.data.duration_minutes, self.data.duration_unit)}"
+        )
         return "\n".join(
             (
                 "<b>Проверьте заказ</b>",
