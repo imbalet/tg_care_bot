@@ -70,6 +70,10 @@ class MyOrderSummaryView(Protocol):
         pass
 
     @property
+    def price_type(self) -> str:
+        pass
+
+    @property
     def status(self) -> str:
         pass
 
@@ -653,14 +657,22 @@ def my_order_card_text(
         0,
         int((order.end_at - order.start_at).total_seconds() // 60),
     )
-    hours, minutes = divmod(duration_minutes, 60)
-    duration = (
-        f"{hours} ч. {minutes} мин."
-        if hours and minutes
-        else f"{hours} ч."
-        if hours
-        else f"{minutes} мин."
-    )
+    if order.price_type == "started_24h":
+        units = max(1, (duration_minutes + 24 * 60 - 1) // (24 * 60))
+        duration = (
+            f"{units} сутки"
+            if units % 10 == 1 and units % 100 != 11
+            else f"{units} суток"
+        )
+    else:
+        hours, minutes = divmod(duration_minutes, 60)
+        duration = (
+            f"{hours} ч. {minutes} мин."
+            if hours and minutes
+            else f"{hours} ч."
+            if hours
+            else f"{minutes} мин."
+        )
     lines = [
         "📦 <b>Заказ</b>",
         "",

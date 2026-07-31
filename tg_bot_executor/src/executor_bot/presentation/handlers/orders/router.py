@@ -1,3 +1,4 @@
+from datetime import datetime
 from html import escape
 from io import BytesIO
 from uuid import UUID
@@ -529,6 +530,7 @@ def _available_order_card_text(order: AvailableOrderDTO | dict[str, object]) -> 
         service_name = order.get("service_name")
         start_at = order.get("start_at")
         end_at = order.get("end_at")
+        price_type = order.get("price_type")
         objects_count = order.get("objects_count")
         total_amount = order.get("total_amount")
         distance = order.get("distance_km")
@@ -537,9 +539,11 @@ def _available_order_card_text(order: AvailableOrderDTO | dict[str, object]) -> 
         service_name = order.service_name
         start_at = order.start_at
         end_at = order.end_at
+        price_type = order.price_type
         objects_count = order.objects_count
         total_amount = order.total_amount
         distance = order.distance_km
+    duration_label = _available_order_duration_label(start_at, end_at, price_type)
     return "\n".join(
         (
             "📦 <b>Доступный заказ</b>",
@@ -547,6 +551,7 @@ def _available_order_card_text(order: AvailableOrderDTO | dict[str, object]) -> 
             f"ID: #{escape(str(order_id)[:8])}",
             f"Услуга: {escape(str(service_name))}",
             f"🗓 Период: {escape(str(start_at))} — {escape(str(end_at))}",
+            *((duration_label,) if duration_label else ()),
             f"Объектов: {escape(str(objects_count))}",
             f"Сумма: {escape(str(total_amount))} ₽",
             (
@@ -556,6 +561,34 @@ def _available_order_card_text(order: AvailableOrderDTO | dict[str, object]) -> 
             ),
         ),
     )
+
+
+def _available_order_duration_label(
+    start_at: object,
+    end_at: object,
+    price_type: object,
+) -> str:
+    if price_type != "started_24h":
+        return ""
+    try:
+        start = (
+            start_at
+            if isinstance(start_at, datetime)
+            else datetime.fromisoformat(str(start_at))
+        )
+        end = (
+            end_at
+            if isinstance(end_at, datetime)
+            else datetime.fromisoformat(str(end_at))
+        )
+    except ValueError:
+        return ""
+    minutes = max(0, int((end - start).total_seconds() // 60))
+    units = max(1, (minutes + 1439) // 1440)
+    duration = (
+        f"{units} сутки" if units % 10 == 1 and units % 100 != 11 else f"{units} суток"
+    )
+    return f"⏱ Длительность: {duration}"
 
 
 async def _performer_id(backend_client: BackendPort, telegram_id: int) -> UUID:

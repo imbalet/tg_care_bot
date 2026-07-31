@@ -151,14 +151,6 @@ class BackendPort(Protocol):
         is_enabled: bool,
     ) -> PerformerServiceDTO: ...
 
-    async def set_service_max_objects(
-        self,
-        *,
-        telegram_id: int,
-        service_id: UUID,
-        performer_max_objects: int,
-    ) -> PerformerServiceDTO: ...
-
     async def set_accepting_orders(
         self,
         *,

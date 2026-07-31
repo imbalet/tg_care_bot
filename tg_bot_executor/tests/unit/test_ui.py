@@ -27,6 +27,7 @@ from executor_bot.presentation.ui import (
     report_attachment_keyboard,
     report_skip_keyboard,
     select_city_keyboard,
+    services_keyboard,
     summary_text,
     work_address_card_text,
     work_addresses_keyboard,
@@ -109,6 +110,29 @@ def test_calendar_text_describes_unavailability_period_not_exception() -> None:
 
     assert "период недоступности" in text
     assert "исключение" not in text
+
+
+def test_services_keyboard_does_not_offer_limit_management() -> None:
+    item = type(
+        "Service",
+        (),
+        {
+            "service_name": "Уход",
+            "is_enabled": True,
+            "performer_max_objects": 3,
+        },
+    )()
+
+    keyboard = services_keyboard([item])
+    callback_data = [
+        button.callback_data
+        for row in keyboard.inline_keyboard
+        for button in row
+        if button.callback_data is not None
+    ]
+
+    assert any("service_toggle" in value for value in callback_data)
+    assert not any("service_limit" in value for value in callback_data)
 
 
 def test_calendar_view_localizes_schedule_and_busy_interval_kinds() -> None:

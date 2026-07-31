@@ -409,21 +409,6 @@ class BackendClient(BackendPort):
         self._raise_for_status(response)
         return _performer_service_from_json(response.json())
 
-    async def set_service_max_objects(
-        self,
-        *,
-        telegram_id: int,
-        service_id: UUID,
-        performer_max_objects: int,
-    ) -> PerformerServiceDTO:
-        response = await self._request(
-            "PATCH",
-            f"/api/performers/by-telegram/{telegram_id}/services/{service_id}/max-objects",
-            json={"performer_max_objects": performer_max_objects},
-        )
-        self._raise_for_status(response)
-        return _performer_service_from_json(response.json())
-
     async def set_accepting_orders(
         self,
         *,

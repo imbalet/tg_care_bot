@@ -50,7 +50,6 @@ from executor_bot.presentation.callbacks import (
     RegistrationContactCallback,
     RegistrationEditCallback,
     RegistrationLegalAcceptCallback,
-    ServiceLimitCallback,
     ServicesOpenCallback,
     ServiceToggleCallback,
     SupportOpenCallback,
@@ -650,9 +649,6 @@ def services_keyboard(
         name = str(getattr(item, "service_name", f"#{index + 1}"))
         toggle_text = "Отключить" if enabled else "Включить"
         keyboard.button(f"{toggle_text}: {name}", ServiceToggleCallback(index=index))
-        current_limit = int(getattr(item, "performer_max_objects", 1))
-        if current_limit > 1:
-            keyboard.button(f"Лимит -1: {name}", ServiceLimitCallback(index=index))
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 

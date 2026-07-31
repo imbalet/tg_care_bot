@@ -233,10 +233,6 @@ class ServiceToggleCallback(CallbackData, prefix="service_toggle"):
     index: int
 
 
-class ServiceLimitCallback(CallbackData, prefix="service_limit"):
-    index: int
-
-
 class CalendarOpenCallback(CallbackData, prefix="calendar_open"):
     pass
 

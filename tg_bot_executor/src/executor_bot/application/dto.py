@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -157,6 +157,7 @@ class AvailableOrderDTO:
     objects_count: int
     total_amount: Decimal
     distance_km: Decimal | None = None
+    price_type: str = field(default="hourly", kw_only=True)
 
 
 @dataclass(frozen=True)
@@ -259,6 +260,7 @@ class MyOrderSummaryDTO:
     payment_deadline_at: datetime | None
     matching_deadline_at: datetime
     timezone: str
+    price_type: str = field(default="hourly", kw_only=True)
 
 
 @dataclass(frozen=True)

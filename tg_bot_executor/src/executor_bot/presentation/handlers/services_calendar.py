@@ -23,7 +23,6 @@ from executor_bot.presentation.callbacks import (
     CalendarScheduleCallback,
     CalendarUnavailableCallback,
     NearbyOrderNotificationsCallback,
-    ServiceLimitCallback,
     ServicesOpenCallback,
     ServiceToggleCallback,
 )
@@ -182,50 +181,6 @@ async def toggle_service(
             telegram_id=telegram_user_context.telegram_id,
             service_id=UUID(str(item["service_id"])),
             is_enabled=not bool(item["is_enabled"]),
-        )
-    except BackendClientError:
-        await telegram_responder.update(
-            bot=bot,
-            event=callback,
-            telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
-            reply_markup=services_keyboard(()),
-        )
-        return
-    await _show_services(
-        callback=callback,
-        bot=bot,
-        state=state,
-        backend_client=backend_client,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
-    )
-
-
-@router.callback_query(ServiceLimitCallback.filter())
-async def reduce_service_limit(
-    callback: CallbackQuery,
-    bot: Bot,
-    state: FSMContext,
-    backend_client: BackendPort,
-    telegram_responder: TelegramResponder,
-    telegram_user_context: TelegramUserContext,
-    callback_data: ServiceLimitCallback,
-) -> None:
-    item = await _service_by_index(state, callback_data.index)
-    if item is None:
-        await telegram_responder.acknowledge(callback, use_buttons_text())
-        return
-    raw_limit = item["performer_max_objects"]
-    if not isinstance(raw_limit, int):
-        await telegram_responder.acknowledge(callback, use_buttons_text())
-        return
-    next_limit = max(1, raw_limit - 1)
-    try:
-        await backend_client.set_service_max_objects(
-            telegram_id=telegram_user_context.telegram_id,
-            service_id=UUID(str(item["service_id"])),
-            performer_max_objects=next_limit,
         )
     except BackendClientError:
         await telegram_responder.update(
