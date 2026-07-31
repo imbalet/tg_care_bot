@@ -32,7 +32,7 @@ CARE_OBJECT_TYPE_LABELS = {
 }
 
 
-@router.callback_query(OrderCreation.object, OrderAddObjectCallback.filter())
+@router.callback_query(OrderAddObjectCallback.filter())
 async def add_order_object(
     callback: CallbackQuery,
     bot: Bot,
