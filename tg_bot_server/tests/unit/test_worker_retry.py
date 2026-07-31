@@ -97,3 +97,19 @@ def test_notification_rendering_shows_short_order_id() -> None:
 
     assert "Заказ: #12345678" in text
     assert "12345678-1234" not in text
+
+
+@pytest.mark.unit
+def test_notification_rendering_explains_who_cancelled_order() -> None:
+    notification = NotificationModel(
+        recipient_type="performer",
+        type="order_cancelled",
+        payload={
+            "order_id": "12345678-1234-1234-1234-123456789abc",
+            "cancelled_by": "customer",
+        },
+    )
+
+    text = _notification_text(notification)
+
+    assert "Заказ отменён заказчиком." in text

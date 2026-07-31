@@ -285,7 +285,12 @@ class SqlAlchemyMyOrdersQueryService:
         category_code: str | None = None,
     ) -> Select[Any]:
         statement = (
-            select(OrderModel, CityModel.timezone, ServiceCategoryModel.code)
+            select(
+                OrderModel,
+                CityModel.timezone,
+                ServiceCategoryModel.code,
+                ServiceModel.price_type,
+            )
             .join(CustomerModel, CustomerModel.id == OrderModel.customer_id)
             .join(CityModel, CityModel.id == CustomerModel.city_id)
             .join(ServiceModel, ServiceModel.id == OrderModel.service_id)
@@ -326,8 +331,8 @@ class SqlAlchemyMyOrdersQueryService:
             statement.offset((page - 1) * page_size).limit(page_size),
         )
         items = tuple(
-            _summary_dto(order, timezone, category_code)
-            for order, timezone, category_code in result.all()
+            _summary_dto(order, timezone, category_code, price_type)
+            for order, timezone, category_code, price_type in result.all()
         )
         return MyOrdersPageDTO(
             items=items,
@@ -362,6 +367,7 @@ class SqlAlchemyMyOrdersQueryService:
             order,
             timezone,
             category_code,
+            price_type,
             payment_status,
             confirmation_url,
             payment_expires_at,
@@ -373,7 +379,7 @@ class SqlAlchemyMyOrdersQueryService:
         )
         attempts_used = int(attempts_result.scalar_one())
         return MyOrderCardDTO(
-            **_summary_dto(order, timezone, category_code).__dict__,
+            **_summary_dto(order, timezone, category_code, price_type).__dict__,
             payment_status=payment_status,
             payment_confirmation_url=confirmation_url if include_payment_url else None,
             payment_expires_at=payment_expires_at,
@@ -401,11 +407,13 @@ def _summary_dto(
     model: OrderModel,
     timezone: str,
     category_code: str,
+    price_type: str,
 ) -> MyOrderSummaryDTO:
     return MyOrderSummaryDTO(
         id=model.id,
         category_code=category_code,
         service_name=model.service_name,
+        price_type=price_type,
         matching_mode=model.matching_mode,
         status=model.status,
         start_at=model.start_at,

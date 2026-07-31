@@ -1073,6 +1073,7 @@ def _order_to_dto(
         service_id=model.service_id,
         service_code=model.service_code,
         service_name=model.service_name,
+        price_type=model.price_type,
         schedule_policy=model.schedule_policy,
         photo_policy=model.photo_policy,
         matching_mode=model.matching_mode,

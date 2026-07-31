@@ -239,6 +239,15 @@ def test_notification_registry_and_timezone_rules_are_deterministic() -> None:
             },
         ],
     ]
+    cancellation_actions = notification_actions("order_cancelled", entity_id)
+    assert cancellation_actions == [
+        [
+            {
+                "text": "Открыть заказ",
+                "callback_data": f"notification_order:{entity_id}",
+            },
+        ],
+    ]
     assert (
         notification_action_entity_id(
             "direct_invitation_created",
@@ -254,6 +263,7 @@ def test_notification_registry_and_timezone_rules_are_deterministic() -> None:
     assert "попробуйте оплатить ещё раз" in notification_body("payment_failed")
     assert "не выполнен автоматически" in notification_body("refund_failed")
     assert "администратору" in notification_body("refund_failed")
+    assert notification_body("order_cancelled") == "Заказ отменён."
     assert parse_timezone("Europe/Moscow").key == "Europe/Moscow"
     naive = datetime(2026, 1, 1, 10)
     assert to_utc(naive, "Europe/Moscow").tzinfo == UTC

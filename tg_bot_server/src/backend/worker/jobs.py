@@ -979,6 +979,14 @@ def _notification_text(
         return _direct_invitation_notification_text(notification)
     title = _notification_title(notification)
     body = notification_body(notification.type)
+    if notification.type == "order_cancelled":
+        cancelled_by = notification_payload.get("cancelled_by")
+        actor_label = {
+            "customer": "заказчиком",
+            "performer": "исполнителем",
+            "admin": "администратором",
+        }.get(str(cancelled_by), "пользователем")
+        body = f"Заказ отменён {actor_label}."
     lines = [f"<b>{escape(title)}</b>", escape(body)]
     order_id = notification_payload.get("order_id")
     if order_id is not None:
@@ -1094,7 +1102,7 @@ def _notification_period(
         if zone is not None:
             start = start.astimezone(zone)
             end = end.astimezone(zone)
-        return f"{start:%d.%m.%Y %H:%M} — {end:%H:%M}"
+        return f"{start:%d.%m.%Y %H:%M} — {end:%d.%m.%Y %H:%M}"
     except ValueError, TypeError:
         return f"{start_at} — {end_at}"
 

@@ -410,6 +410,10 @@ class SqlAlchemyAvailabilityRepository(AvailabilityRepository):
             .where(
                 OrderMatchModel.performer_id == performer_id,
                 OrderMatchModel.status.in_(("active", "selected")),
+                OrderModel.id == OrderMatchModel.order_id,
+                OrderModel.status.notin_(
+                    ("cancelled", "expired", "completed"),
+                ),
                 OrderMatchModel.starts_at < ends_at,
                 OrderMatchModel.ends_at > starts_at,
             )

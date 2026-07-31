@@ -639,7 +639,7 @@ def test_nearby_order_notification_contains_order_details() -> None:
             "order_id": str(uuid4()),
             "service_name": "Уход за питомцем",
             "start_at": "2026-07-31T09:00:00+00:00",
-            "end_at": "2026-07-31T10:30:00+00:00",
+            "end_at": "2026-08-02T06:00:00+00:00",
             "objects_count": "2",
             "total_amount": "1500.00",
             "distance_km": "3.25",
@@ -650,7 +650,7 @@ def test_nearby_order_notification_contains_order_details() -> None:
     text = _notification_text(_as_notification(notification))
 
     assert "Уход за питомцем" in text
-    assert "31.07.2026 12:00 — 13:30" in text
+    assert "31.07.2026 12:00 — 02.08.2026 09:00" in text
     assert "Объектов: 2" in text
     assert "Сумма: 1500.00 ₽" in text
     assert "Расстояние: 3.25 км" in text
@@ -677,7 +677,7 @@ def test_direct_invitation_notification_contains_order_details() -> None:
     text = _notification_text(_as_notification(notification))
 
     assert "Сопровождение" in text
-    assert "31.07.2026 09:00 — 10:00" in text
+    assert "31.07.2026 09:00 — 31.07.2026 10:00" in text
     assert "Объектов: 1" in text
     assert "Ваша сумма: 800.00 ₽" in text
     assert "Расстояние: 1.75 км" in text

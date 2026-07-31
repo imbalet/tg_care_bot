@@ -404,11 +404,30 @@ class SqlAlchemyOrderRepository(OrderRepository):
         matches = await self._session.execute(
             select(OrderMatchModel).where(
                 OrderMatchModel.order_id == order.id,
-                OrderMatchModel.status.in_({"pending", "active"}),
+                OrderMatchModel.status.in_({"pending", "active", "selected"}),
             ),
         )
         for match in matches.scalars():
             match.status = "cancelled"
+        cancellation_payload = {"cancelled_by": actor_type}
+        if actor_type in {"performer", "admin"}:
+            self._add_notification(
+                recipient_type="customer",
+                customer_id=order.customer_id,
+                notification_type="order_cancelled",
+                entity_id=order.id,
+                deduplication_key=f"order-cancelled:customer:{order.id}",
+                payload=cancellation_payload,
+            )
+        if actor_type in {"customer", "admin"}:
+            self._add_notification(
+                recipient_type="performer",
+                performer_id=order.selected_performer_id,
+                notification_type="order_cancelled",
+                entity_id=order.id,
+                deduplication_key=f"order-cancelled:performer:{order.id}",
+                payload=cancellation_payload,
+            )
         self._add_status_history(
             order.id,
             previous_status,
@@ -530,25 +549,27 @@ class SqlAlchemyOrderRepository(OrderRepository):
         self,
         *,
         recipient_type: str,
-        customer_id: UUID | None,
+        customer_id: UUID | None = None,
+        performer_id: UUID | None = None,
         notification_type: str,
         entity_id: UUID,
         deduplication_key: str,
+        payload: dict[str, str] | None = None,
     ) -> None:
-        if customer_id is None:
+        if customer_id is None and performer_id is None:
             return
         now = utc_now()
         self._session.add(
             NotificationModel(
                 recipient_type=recipient_type,
                 customer_id=customer_id,
-                performer_id=None,
+                performer_id=performer_id,
                 admin_id=None,
                 channel="telegram",
                 type=notification_type,
                 entity_type="order",
                 entity_id=entity_id,
-                payload={"order_id": str(entity_id)},
+                payload={"order_id": str(entity_id), **(payload or {})},
                 deduplication_key=deduplication_key,
                 status="pending",
                 attempts=0,
@@ -1009,6 +1030,7 @@ def _order_to_dto(model: OrderModel, timezone: str) -> OrderDTO:
         service_id=model.service_id,
         service_code=model.service_code,
         service_name=model.service_name,
+        price_type=model.price_type,
         schedule_policy=model.schedule_policy,
         photo_policy=model.photo_policy,
         matching_mode=model.matching_mode,
