@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import exists, select
 
+from backend.common.application import new_uuid
 from backend.modules.orders.infrastructure.exports import OrderModel
 from backend.modules.payments.infrastructure import PaymentModel
 
@@ -68,35 +69,23 @@ class SupportServices(Service):
         customer_id: UUID | None = None,
         performer_id: UUID | None = None,
     ) -> None:
-        deduplication_key = f"contact-request:{record.id}"
-        notification = await session.scalar(
-            select(NotificationModel).where(
-                NotificationModel.deduplication_key == deduplication_key,
+        notification_id = new_uuid()
+        now = utc_now()
+        session.add(
+            NotificationModel(
+                id=notification_id,
+                recipient_type=recipient_type,
+                customer_id=customer_id,
+                performer_id=performer_id,
+                type="contact_request_created",
+                entity_type="contact_request",
+                entity_id=record.id,
+                payload={"order_id": str(order_id)},
+                deduplication_key=f"contact-request:{record.id}:{notification_id}",
+                scheduled_at=now,
+                delete_after=now + timedelta(days=30),
             )
         )
-        if notification is None:
-            now = utc_now()
-            session.add(
-                NotificationModel(
-                    recipient_type=recipient_type,
-                    customer_id=customer_id,
-                    performer_id=performer_id,
-                    type="contact_request_created",
-                    entity_type="contact_request",
-                    entity_id=record.id,
-                    payload={"order_id": str(order_id)},
-                    deduplication_key=deduplication_key,
-                    scheduled_at=now,
-                    delete_after=now + timedelta(days=30),
-                )
-            )
-            return
-        if notification.status == "failed":
-            notification.status = "pending"
-            notification.attempts = 0
-            notification.claimed_at = None
-            notification.last_error = None
-            notification.scheduled_at = utc_now()
 
     async def create_dispute(
         self,

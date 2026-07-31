@@ -147,7 +147,7 @@ async def _wait_for_notification_sent(
 
 
 @pytest.mark.e2e
-async def test_contact_notification_is_deduplicated_and_delivered_once(
+async def test_contact_notification_is_sent_for_each_request(
     e2e_client: httpx.AsyncClient,
     e2e_db: asyncpg.Connection,
     direct_order_factory: Any,
@@ -175,34 +175,43 @@ async def test_contact_notification_is_deduplicated_and_delivered_once(
     assert second_response.status_code == 201, second_response.text
     assert second_response.json() == first_response.json()
 
-    notification = await e2e_db.fetchrow(
+    notifications = await e2e_db.fetch(
         """
         SELECT id, status, attempts, sent_at, last_error, deduplication_key
         FROM notifications
         WHERE type = 'contact_request_created'
           AND entity_id = $1
+        ORDER BY created_at
         """,
         first_response.json()["id"],
     )
-    assert notification is not None
-    assert notification["deduplication_key"] == (
-        f"contact-request:{first_response.json()['id']}"
+    assert len(notifications) == 2
+    assert len({row["deduplication_key"] for row in notifications}) == 2
+    assert all(
+        row["deduplication_key"].startswith(
+            f"contact-request:{first_response.json()['id']}:"
+        )
+        for row in notifications
     )
 
-    notification_id = str(notification["id"])
-    await e2e_db.execute(
-        """
-        UPDATE notifications
-        SET scheduled_at = now() - interval '1 minute'
-        WHERE id = $1 AND status = 'pending'
-        """,
-        notification_id,
-    )
-    delivered_notification = await _wait_for_notification_sent(
-        e2e_db,
-        test_settings,
-        notification_id,
-    )
+    delivered_notifications = []
+    for notification in notifications:
+        notification_id = str(notification["id"])
+        await e2e_db.execute(
+            """
+            UPDATE notifications
+            SET scheduled_at = now() - interval '1 minute'
+            WHERE id = $1 AND status = 'pending'
+            """,
+            notification_id,
+        )
+        delivered_notifications.append(
+            await _wait_for_notification_sent(
+                e2e_db,
+                test_settings,
+                notification_id,
+            )
+        )
     final_requests = await _mock_requests(test_settings)
     target_requests = [
         request
@@ -218,17 +227,9 @@ async def test_contact_notification_is_deduplicated_and_delivered_once(
         and json.loads(request["body"])["chat_id"] == performer["telegram_id"]
         and contact_notification_text in json.loads(request["body"])["text"]
     ]
-    assert len(target_requests) - len(before_target_requests) == 1
-
-    notification = await e2e_db.fetchrow(
-        """
-        SELECT status, attempts, sent_at, last_error
-        FROM notifications
-        WHERE id = $1
-        """,
-        notification_id,
-    )
-    assert notification == delivered_notification
-    assert notification["attempts"] == 1
-    assert notification["sent_at"] is not None
-    assert notification["last_error"] is None
+    assert len(target_requests) - len(before_target_requests) == 2
+    assert len(delivered_notifications) == 2
+    for notification in delivered_notifications:
+        assert notification["attempts"] == 1
+        assert notification["sent_at"] is not None
+        assert notification["last_error"] is None
