@@ -660,6 +660,7 @@ def test_direct_invitation_notification_contains_order_details() -> None:
             "end_at": "2026-07-31T10:00:00+00:00",
             "objects_count": "1",
             "performer_amount": "800.00",
+            "customer_comment": "Позвонить перед визитом",
             "distance_km": "1.75",
             "response_expires_at": "2026-07-30T18:00:00+00:00",
         },
@@ -673,6 +674,7 @@ def test_direct_invitation_notification_contains_order_details() -> None:
     assert "Ваша сумма: 800.00 ₽" in text
     assert "Расстояние: 1.75 км" in text
     assert "Ответить до: 30.07.2026 18:00" in text
+    assert "Комментарий заказчика: Позвонить перед визитом" in text
 
 
 @pytest.mark.unit

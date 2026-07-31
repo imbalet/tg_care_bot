@@ -262,6 +262,7 @@ class SqlAlchemyMatchingRepository:
             ).isoformat(),
             "objects_count": str(order.objects_count),
             "performer_amount": str(order.performer_amount),
+            "customer_comment": order.customer_comment or "",
         }
         if distance_km is not None:
             payload["distance_km"] = str(distance_km)
@@ -336,6 +337,7 @@ class SqlAlchemyMatchingRepository:
             ).isoformat(),
             "objects_count": str(order.objects_count),
             "performer_amount": str(order.performer_amount),
+            "customer_comment": order.customer_comment or "",
         }
         if distance_km is not None:
             payload["distance_km"] = str(distance_km)
@@ -1113,6 +1115,7 @@ def _match_to_dto(
         service_name=order.service_name if order is not None else None,
         total_amount=order.total_amount if order is not None else None,
         distance_km=distance_km,
+        customer_comment=order.customer_comment if order is not None else None,
     )
 
 

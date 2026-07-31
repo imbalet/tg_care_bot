@@ -574,6 +574,7 @@ class SqlAlchemyOrderRepository(OrderRepository):
             "response_expires_at": response_expires_at.isoformat(),
             "objects_count": str(order.objects_count),
             "performer_amount": str(order.performer_amount),
+            "customer_comment": order.customer_comment or "",
         }
         if order.address_id is not None:
             snapshot = await self._session.scalar(

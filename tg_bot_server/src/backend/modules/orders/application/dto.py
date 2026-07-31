@@ -160,6 +160,7 @@ class OrderMatchDTO:
     service_name: str | None = None
     total_amount: Decimal | None = None
     distance_km: Decimal | None = None
+    customer_comment: str | None = None
 
 
 @dataclass(frozen=True)
@@ -227,6 +228,7 @@ class MyOrderCardDTO(MyOrderSummaryDTO):
     payment_attempts_used: int = 0
     payment_max_attempts: int = 3
     payment_retry_available: bool = False
+    customer_comment: str | None = None
 
 
 @dataclass(frozen=True)

@@ -190,6 +190,7 @@ class OrderMatchResponse(BaseModel):
     service_name: str | None = None
     total_amount: Decimal | None = None
     distance_km: Decimal | None = None
+    customer_comment: str | None = None
 
 
 class PaymentPromptResponse(BaseModel):
@@ -227,6 +228,7 @@ class MyOrderCardResponse(MyOrderSummaryResponse):
     payment_attempts_used: int
     payment_max_attempts: int
     payment_retry_available: bool
+    customer_comment: str | None = None
 
 
 class CancellationPreviewResponse(BaseModel):

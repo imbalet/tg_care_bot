@@ -385,6 +385,7 @@ class SqlAlchemyMyOrdersQueryService:
                 and order.payment_deadline_at is not None
                 and order.payment_deadline_at > utc_now()
             ),
+            customer_comment=order.customer_comment,
         )
 
 

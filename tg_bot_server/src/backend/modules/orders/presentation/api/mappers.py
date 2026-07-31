@@ -188,6 +188,7 @@ def match_response(match: OrderMatchDTO) -> OrderMatchResponse:
         service_name=match.service_name,
         total_amount=match.total_amount,
         distance_km=match.distance_km,
+        customer_comment=match.customer_comment,
     )
 
 
@@ -291,6 +292,7 @@ def my_order_card_response(order: MyOrderCardDTO) -> MyOrderCardResponse:
         payment_attempts_used=order.payment_attempts_used,
         payment_max_attempts=order.payment_max_attempts,
         payment_retry_available=order.payment_retry_available,
+        customer_comment=order.customer_comment,
     )
 
 

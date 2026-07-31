@@ -1010,7 +1010,7 @@ def _nearby_order_notification_text(
         ),
     )
     for label, value in details:
-        if value is not None:
+        if value not in (None, ""):
             suffix = " ₽" if label == "Сумма" else ""
             lines.append(f"{label}: {escape(str(value))}{suffix}")
     lines.append(f"Заказ: #{escape(str(payload.get('order_id', ''))[:8])}")
@@ -1051,6 +1051,7 @@ def _direct_invitation_notification_text(notification: NotificationModel) -> str
         ),
         ("Объектов", payload.get("objects_count")),
         ("Ваша сумма", payload.get("performer_amount")),
+        ("Комментарий заказчика", payload.get("customer_comment")),
         (
             "Расстояние",
             (
