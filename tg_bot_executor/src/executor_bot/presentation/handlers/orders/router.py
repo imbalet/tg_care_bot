@@ -66,6 +66,8 @@ from executor_bot.presentation.ui import (
     pool_response_created_text,
     report_attachment_keyboard,
     report_skip_keyboard,
+    response_card_keyboard,
+    response_card_text,
     responses_keyboard,
     stale_action_keyboard,
     stale_action_text,
@@ -317,15 +319,31 @@ async def executor_response_card_callback(
     telegram_user_context: TelegramUserContext,
     callback_data: ExecutorResponseCardCallback,
 ) -> None:
-    await _show_executor_order_card(
-        callback=callback,
+    try:
+        matches = await backend_client.list_performer_responses(
+            performer_id=await _performer_id(
+                backend_client,
+                telegram_user_context.telegram_id,
+            ),
+            group=callback_data.group,
+        )
+        match = next(
+            (item for item in matches if str(item.id) == callback_data.match_id),
+            None,
+        )
+        if match is None:
+            raise ValueError("Response is unavailable")
+        text = response_card_text(match)
+        reply_markup = response_card_keyboard(callback_data.group)
+    except BackendClientError, ValueError:
+        text = stale_action_text()
+        reply_markup = stale_action_keyboard()
+    await telegram_responder.update(
         bot=bot,
-        backend_client=backend_client,
-        telegram_responder=telegram_responder,
-        telegram_user_context=telegram_user_context,
-        order_id=callback_data.order_id,
-        group="active" if callback_data.group == "active" else "archive",
-        page=1,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=text,
+        reply_markup=reply_markup,
     )
 
 

@@ -1,15 +1,22 @@
+from datetime import UTC, datetime
+from decimal import Decimal
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
 
-from executor_bot.application.dto import AddressDTO, CalendarDTO
+from executor_bot.application.dto import AddressDTO, CalendarDTO, OrderMatchDTO
 from executor_bot.presentation.callbacks import (
     CalendarCancelUnavailableCallback,
     ExecutorOrderCardCallback,
+    ExecutorResponseCardCallback,
+    ExecutorResponsesCallback,
 )
 from executor_bot.presentation.handlers.addresses.router import _advance_or_create
 from executor_bot.presentation.handlers.avatar import _upload
+from executor_bot.presentation.handlers.orders.router import (
+    executor_response_card_callback,
+)
 from executor_bot.presentation.handlers.services_calendar import (
     _parse_time,
     cancel_unavailable_period,
@@ -22,6 +29,7 @@ from executor_bot.presentation.ui.screens.keyboards import (
     work_address_created_keyboard,
     work_address_suggestions_keyboard,
 )
+from executor_bot.presentation.ui.screens.texts import response_card_text
 
 
 def test_order_location_keyboard_returns_to_order() -> None:
@@ -82,6 +90,109 @@ def test_responses_keyboard_has_direct_section() -> None:
     labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
     assert labels == ["Активные", "Выбранные", "Закрытые", "Direct", "Главное меню"]
+
+
+def test_response_button_points_to_match_card() -> None:
+    match_id = uuid4()
+    order_id = uuid4()
+    match = OrderMatchDTO(
+        id=match_id,
+        order_id=order_id,
+        performer_id=uuid4(),
+        source="pool",
+        status="active",
+        starts_at=datetime(2026, 7, 31, 10, tzinfo=UTC),
+        ends_at=datetime(2026, 7, 31, 12, tzinfo=UTC),
+        response_expires_at=datetime(2026, 7, 31, 7, tzinfo=UTC),
+        selected_at=None,
+        closed_at=None,
+        close_reason=None,
+        timezone="Europe/Moscow",
+        service_name="Прогулка",
+        total_amount=Decimal("1200.00"),
+        distance_km=Decimal("3.5"),
+        customer_comment="Позвоните перед визитом",
+    )
+
+    markup = responses_keyboard((match,), "active")
+    callback = markup.inline_keyboard[0][0].callback_data
+
+    assert callback is not None
+    data = ExecutorResponseCardCallback.unpack(callback)
+    assert data.match_id == str(match_id)
+    assert data.group == "active"
+
+
+def test_response_card_text_contains_match_details() -> None:
+    match = type(
+        "Match",
+        (),
+        {
+            "order_id": uuid4(),
+            "service_name": "Прогулка",
+            "starts_at": datetime(2026, 7, 31, 10, tzinfo=UTC),
+            "ends_at": datetime(2026, 7, 31, 12, tzinfo=UTC),
+            "response_expires_at": datetime(2026, 7, 31, 7, tzinfo=UTC),
+            "status": "active",
+            "total_amount": Decimal("1200.00"),
+            "distance_km": Decimal("3.5"),
+            "customer_comment": "Позвоните перед визитом",
+        },
+    )()
+
+    text = response_card_text(match)
+
+    assert "Карточка отклика" in text
+    assert "Прогулка" in text
+    assert "1200.00" in text
+    assert "Позвоните перед визитом" in text
+
+
+@pytest.mark.asyncio
+async def test_response_card_loads_match_instead_of_selected_order_card() -> None:
+    performer_id = uuid4()
+    match = OrderMatchDTO(
+        id=uuid4(),
+        order_id=uuid4(),
+        performer_id=performer_id,
+        source="pool",
+        status="active",
+        starts_at=datetime(2026, 7, 31, 10, tzinfo=UTC),
+        ends_at=datetime(2026, 7, 31, 12, tzinfo=UTC),
+        response_expires_at=datetime(2026, 7, 31, 7, tzinfo=UTC),
+        selected_at=None,
+        closed_at=None,
+        close_reason=None,
+        timezone="Europe/Moscow",
+        service_name="Прогулка",
+    )
+    backend = AsyncMock()
+    backend.get_registration_state.return_value = type(
+        "State", (), {"performer": type("Performer", (), {"id": performer_id})()}
+    )()
+    backend.list_performer_responses.return_value = (match,)
+    responder = AsyncMock()
+    context = type("Context", (), {"telegram_id": 123})()
+
+    await executor_response_card_callback(
+        callback=object(),
+        bot=object(),
+        backend_client=backend,
+        telegram_responder=responder,
+        telegram_user_context=context,
+        callback_data=ExecutorResponseCardCallback(
+            match_id=str(match.id),
+            group="active",
+        ),
+    )
+
+    backend.get_performer_order_card.assert_not_awaited()
+    responder.update.assert_awaited_once()
+    assert "Карточка отклика" in responder.update.await_args.kwargs["text"]
+    markup = responder.update.await_args.kwargs["reply_markup"]
+    callback = markup.inline_keyboard[0][0].callback_data
+    assert callback is not None
+    assert ExecutorResponsesCallback.unpack(callback).group == "active"
 
 
 def test_unavailable_period_time_parser_accepts_clock_values() -> None:

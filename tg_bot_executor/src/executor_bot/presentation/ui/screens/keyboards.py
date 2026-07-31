@@ -290,15 +290,27 @@ def responses_keyboard(items: Sequence[object], group: str) -> InlineKeyboardMar
                 ExecutorDirectResponseCardCallback(match_id=match_id),
             )
         else:
+            match_id = str(getattr(item, "id", ""))
+            if not match_id:
+                continue
             keyboard.button(
                 f"Заказ #{order_id[:8]} · {_response_status_label(status)}",
-                ExecutorResponseCardCallback(order_id=order_id, group=group),
+                ExecutorResponseCardCallback(match_id=match_id, group=group),
             )
     keyboard.button("Активные", ExecutorResponsesCallback(group="active"))
     keyboard.button("Выбранные", ExecutorResponsesCallback(group="selected"))
     keyboard.button("Закрытые", ExecutorResponsesCallback(group="closed"))
     keyboard.button("Direct", ExecutorResponsesCallback(group="direct"))
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
+
+
+def response_card_keyboard(group: str) -> InlineKeyboardMarkup:
+    return (
+        InlineKeyboardFactory()
+        .button("К откликам", ExecutorResponsesCallback(group=group))
+        .button(MsgKey.MAIN_MENU, MainMenuCallback())
+        .as_markup()
+    )
 
 
 def direct_response_card_keyboard(match_id: str) -> InlineKeyboardMarkup:

@@ -57,7 +57,7 @@ class ExecutorResponsesCallback(CallbackData, prefix="responses"):
 
 
 class ExecutorResponseCardCallback(CallbackData, prefix="response_card"):
-    order_id: str
+    match_id: str
     group: str = "active"
 
 

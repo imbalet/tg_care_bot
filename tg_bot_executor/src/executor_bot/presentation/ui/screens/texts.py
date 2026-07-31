@@ -569,6 +569,81 @@ def my_orders_page_text(page: MyOrdersPageView, group: str) -> str:
     return "\n".join(lines)
 
 
+class ResponseCardView(Protocol):
+    @property
+    def order_id(self) -> object:
+        pass
+
+    @property
+    def service_name(self) -> str | None:
+        pass
+
+    @property
+    def starts_at(self) -> datetime:
+        pass
+
+    @property
+    def ends_at(self) -> datetime:
+        pass
+
+    @property
+    def response_expires_at(self) -> datetime:
+        pass
+
+    @property
+    def status(self) -> str:
+        pass
+
+    @property
+    def total_amount(self) -> object | None:
+        pass
+
+    @property
+    def distance_km(self) -> object | None:
+        pass
+
+    @property
+    def customer_comment(self) -> str | None:
+        pass
+
+
+def response_card_text(match: ResponseCardView) -> str:
+    lines = [
+        "<b>Карточка отклика</b>",
+        "",
+        f"Заказ: #{escape(str(match.order_id)[:8])}",
+    ]
+    if match.service_name is not None:
+        lines.append(f"Услуга: {escape(match.service_name)}")
+    lines.extend(
+        (
+            f"Период: {_datetime_label(match.starts_at)} — "
+            f"{_datetime_label(match.ends_at)}",
+            f"Ответить до: {_datetime_label(match.response_expires_at)}",
+            f"Статус: {_response_status_label(match.status)}",
+        ),
+    )
+    if match.total_amount is not None:
+        lines.append(f"Сумма: {escape(str(match.total_amount))} ₽")
+    if match.distance_km is not None:
+        lines.append(f"Расстояние: {escape(str(match.distance_km))} км")
+    if match.customer_comment:
+        lines.append(f"Комментарий заказчика: {escape(match.customer_comment)}")
+    return "\n".join(lines)
+
+
+def _response_status_label(status: str) -> str:
+    return {
+        "pending": "ожидает ответа",
+        "active": "активен",
+        "selected": "выбран",
+        "confirmed": "подтверждён",
+        "rejected": "отклонён",
+        "expired": "истёк",
+        "cancelled": "отменён",
+    }.get(status, escape(status))
+
+
 def my_order_card_text(
     order: MyOrderCardView,
     *,
@@ -769,6 +844,7 @@ __all__ = [
     "legal_documents_text",
     "my_order_card_text",
     "my_orders_page_text",
+    "response_card_text",
     "no_invitation_text",
     "phone_step_text",
     "phone_contact_received_text",
