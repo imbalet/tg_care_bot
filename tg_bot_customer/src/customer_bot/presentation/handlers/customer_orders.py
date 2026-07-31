@@ -12,6 +12,7 @@ from customer_bot.presentation.callbacks import (
     OrderCancelPreviewCallback,
     OrderCardOpenCallback,
     OrderContactCallback,
+    OrderContactsCallback,
     OrderPerformerProfileCallback,
     OrderReportConfirmCallback,
     OrdersListCallback,
@@ -49,14 +50,45 @@ async def contact_order_callback(
     callback_data: OrderContactCallback,
 ) -> None:
     try:
-        result = await backend_client.create_contact_request(
+        await backend_client.create_contact_request(
             telegram_id=telegram_user_context.telegram_id,
             order_id=callback_data.order_id,
         )
         await telegram_responder.acknowledge(
             callback, "Запрос контакта отправлен исполнителю"
         )
-        if result.contact_phone:
+        await _show_order_card(
+            callback=callback,
+            bot=bot,
+            backend_client=backend_client,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            order_id=callback_data.order_id,
+            group="active",
+            page=1,
+        )
+    except BackendClientError:
+        await telegram_responder.acknowledge(
+            callback, "Запрос контакта сейчас недоступен", show_alert=True
+        )
+
+
+@router.callback_query(OrderContactsCallback.filter())
+async def contacts_order_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    backend_client: BackendPort,
+    telegram_user_context: TelegramUserContext,
+    callback_data: OrderContactsCallback,
+) -> None:
+    try:
+        result = await backend_client.get_order_contacts(
+            telegram_id=telegram_user_context.telegram_id,
+            order_id=callback_data.order_id,
+        )
+        await telegram_responder.acknowledge(callback, "Контакты доступны")
+        if result.contact_phone and result.contact_name:
             await telegram_responder.send_contact(
                 bot=bot,
                 event=callback,
@@ -76,19 +108,9 @@ async def contact_order_callback(
                     .as_markup()
                 ),
             )
-        await _show_order_card(
-            callback=callback,
-            bot=bot,
-            backend_client=backend_client,
-            telegram_responder=telegram_responder,
-            telegram_user_context=telegram_user_context,
-            order_id=callback_data.order_id,
-            group="active",
-            page=1,
-        )
     except BackendClientError:
         await telegram_responder.acknowledge(
-            callback, "Запрос контакта сейчас недоступен", show_alert=True
+            callback, "Контакты сейчас недоступны", show_alert=True
         )
 
 

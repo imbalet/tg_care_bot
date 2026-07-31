@@ -8,6 +8,7 @@ from customer_bot.application.dto import (
     CancellationPreviewDTO,
     CareObjectDTO,
     CityDTO,
+    ContactDetailsDTO,
     ContactRequestDTO,
     CustomerProfileDTO,
     DeletionPreflightDTO,
@@ -159,6 +160,10 @@ class BackendPort(Protocol):
     async def create_contact_request(
         self, *, telegram_id: int, order_id: UUID
     ) -> ContactRequestDTO: ...
+
+    async def get_order_contacts(
+        self, *, telegram_id: int, order_id: UUID
+    ) -> ContactDetailsDTO: ...
 
     async def get_performer_profile(
         self, *, telegram_id: int, order_id: UUID

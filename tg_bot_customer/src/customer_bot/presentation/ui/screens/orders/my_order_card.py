@@ -7,6 +7,7 @@ from customer_bot.presentation.callbacks import (
     MainMenuCallback,
     OrderCancelPreviewCallback,
     OrderContactCallback,
+    OrderContactsCallback,
     OrderDisputeOpenCallback,
     OrderLocationOpenCallback,
     OrderPerformerProfileCallback,
@@ -213,8 +214,12 @@ class Screen(BaseScreen[_View]):
                 "Место оказания", OrderLocationOpenCallback(order_id=order_id)
             )
             keyboard.button(
-                "Запросить контакт",
+                "Попросить связаться",
                 OrderContactCallback(order_id=order_id),
+            )
+            keyboard.button(
+                "Показать контакты",
+                OrderContactsCallback(order_id=order_id),
             )
             keyboard.button(
                 "Профиль исполнителя",
