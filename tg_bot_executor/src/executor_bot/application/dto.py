@@ -201,6 +201,13 @@ class ContactRequestDTO:
     requested_method: str
     status: str
     failure_reason: str | None
+    contact_name: str | None = None
+    contact_phone: str | None = None
+    contact_telegram_username: str | None = None
+
+
+@dataclass(frozen=True)
+class ContactDetailsDTO:
     contact_name: str
     contact_phone: str | None
     contact_telegram_username: str | None
@@ -275,6 +282,7 @@ __all__ = [
     "AddressSuggestionDTO",
     "AvailableOrderDTO",
     "CityDTO",
+    "ContactDetailsDTO",
     "ContactRequestDTO",
     "FileDTO",
     "LegalDocumentDTO",

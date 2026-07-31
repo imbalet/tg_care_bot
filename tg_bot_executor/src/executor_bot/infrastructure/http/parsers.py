@@ -375,7 +375,9 @@ def contact_request_from_json(data: dict[str, object]) -> ContactRequestDTO:
             if isinstance(data.get("failure_reason"), str)
             else None
         ),
-        contact_name=str(data["contact_name"]),
+        contact_name=(
+            str(data["contact_name"]) if data.get("contact_name") is not None else None
+        ),
         contact_phone=(
             str(data["contact_phone"])
             if data.get("contact_phone") is not None

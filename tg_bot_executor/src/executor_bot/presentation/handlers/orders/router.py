@@ -25,6 +25,7 @@ from executor_bot.presentation.callbacks import (
     ExecutorOrderCardCallback,
     ExecutorOrderComplaintCallback,
     ExecutorOrderContactCallback,
+    ExecutorOrderContactsCallback,
     ExecutorOrderFinishCallback,
     ExecutorOrderLocationCallback,
     ExecutorOrderReportCallback,
@@ -718,7 +719,28 @@ async def order_contact_callback(
             else "Связь недоступна",
             show_alert=True,
         )
-        if result.contact_phone:
+    except BackendClientError:
+        await telegram_responder.acknowledge(
+            callback, "Запрос контакта сейчас недоступен", show_alert=True
+        )
+
+
+@router.callback_query(ExecutorOrderContactsCallback.filter())
+async def order_contacts_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    telegram_responder: TelegramResponder,
+    backend_client: BackendPort,
+    telegram_user_context: TelegramUserContext,
+    callback_data: ExecutorOrderContactsCallback,
+) -> None:
+    try:
+        result = await backend_client.get_order_contacts(
+            telegram_id=telegram_user_context.telegram_id,
+            order_id=UUID(callback_data.order_id),
+        )
+        await telegram_responder.acknowledge(callback, "Контакты доступны")
+        if result.contact_phone and result.contact_name:
             await telegram_responder.send_contact(
                 bot=bot,
                 event=callback,
@@ -740,7 +762,7 @@ async def order_contact_callback(
             )
     except BackendClientError:
         await telegram_responder.acknowledge(
-            callback, "Запрос контакта сейчас недоступен", show_alert=True
+            callback, "Контакты сейчас недоступны", show_alert=True
         )
 
 

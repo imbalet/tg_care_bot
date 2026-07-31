@@ -12,6 +12,7 @@ from executor_bot.application.dto import (
     CalendarDTO,
     CalendarOverrideDTO,
     CityDTO,
+    ContactDetailsDTO,
     ContactRequestDTO,
     DeletionPreflightDTO,
     FileDTO,
@@ -714,6 +715,29 @@ class BackendClient(BackendPort):
         )
         self._raise_for_status(response)
         return _contact_request_from_json(response.json())
+
+    async def get_order_contacts(
+        self, *, telegram_id: int, order_id: UUID
+    ) -> ContactDetailsDTO:
+        response = await self._request(
+            "GET",
+            f"/api/performers/by-telegram/{telegram_id}/orders/{order_id}/contacts",
+        )
+        self._raise_for_status(response)
+        payload = response.json()
+        return ContactDetailsDTO(
+            contact_name=str(payload["contact_name"]),
+            contact_phone=(
+                str(payload["contact_phone"])
+                if payload.get("contact_phone") is not None
+                else None
+            ),
+            contact_telegram_username=(
+                str(payload["contact_telegram_username"])
+                if payload.get("contact_telegram_username") is not None
+                else None
+            ),
+        )
 
     async def create_support_request(
         self, *, telegram_id: int, order_id: UUID | None, request_type: str, text: str

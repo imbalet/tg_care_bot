@@ -126,6 +126,10 @@ class ExecutorOrderContactCallback(CallbackData, prefix="order_contact"):
     order_id: str
 
 
+class ExecutorOrderContactsCallback(CallbackData, prefix="order_contacts"):
+    order_id: str
+
+
 class ExecutorOrderCancelCallback(CallbackData, prefix="order_cancel"):
     order_id: str
 

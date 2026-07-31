@@ -27,6 +27,7 @@ from executor_bot.presentation.callbacks import (
     ExecutorOrderCardCallback,
     ExecutorOrderComplaintCallback,
     ExecutorOrderContactCallback,
+    ExecutorOrderContactsCallback,
     ExecutorOrderFinishCallback,
     ExecutorOrderLocationCallback,
     ExecutorOrderReportCallback,
@@ -467,6 +468,10 @@ def my_order_card_keyboard_for_status(
         )
         keyboard.button(
             "Попросить связаться", ExecutorOrderContactCallback(order_id=order_id)
+        )
+        keyboard.button(
+            "Показать контакты",
+            ExecutorOrderContactsCallback(order_id=order_id),
         )
     start_window_open = _is_start_window_open(
         start_at=start_at,

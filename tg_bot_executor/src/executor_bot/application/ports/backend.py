@@ -9,6 +9,7 @@ from executor_bot.application.dto import (
     CalendarDTO,
     CalendarOverrideDTO,
     CityDTO,
+    ContactDetailsDTO,
     ContactRequestDTO,
     DeletionPreflightDTO,
     FileDTO,
@@ -284,6 +285,10 @@ class BackendPort(Protocol):
     async def create_contact_request(
         self, *, telegram_id: int, order_id: UUID
     ) -> ContactRequestDTO: ...
+
+    async def get_order_contacts(
+        self, *, telegram_id: int, order_id: UUID
+    ) -> ContactDetailsDTO: ...
 
     async def create_support_request(
         self, *, telegram_id: int, order_id: UUID | None, request_type: str, text: str
