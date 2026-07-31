@@ -58,6 +58,46 @@ class SupportServices(Service):
             telegram_username if contact_method in {"telegram", "both"} else None,
         )
 
+    async def _ensure_contact_notification(
+        self,
+        *,
+        session: Any,
+        record: ContactRequestModel,
+        order_id: UUID,
+        recipient_type: str,
+        customer_id: UUID | None = None,
+        performer_id: UUID | None = None,
+    ) -> None:
+        deduplication_key = f"contact-request:{record.id}"
+        notification = await session.scalar(
+            select(NotificationModel).where(
+                NotificationModel.deduplication_key == deduplication_key,
+            )
+        )
+        if notification is None:
+            now = utc_now()
+            session.add(
+                NotificationModel(
+                    recipient_type=recipient_type,
+                    customer_id=customer_id,
+                    performer_id=performer_id,
+                    type="contact_request_created",
+                    entity_type="contact_request",
+                    entity_id=record.id,
+                    payload={"order_id": str(order_id)},
+                    deduplication_key=deduplication_key,
+                    scheduled_at=now,
+                    delete_after=now + timedelta(days=30),
+                )
+            )
+            return
+        if notification.status == "failed":
+            notification.status = "pending"
+            notification.attempts = 0
+            notification.claimed_at = None
+            notification.last_error = None
+            notification.scheduled_at = utc_now()
+
     async def create_dispute(
         self,
         *,
@@ -179,6 +219,14 @@ class SupportServices(Service):
                 telegram_username=performer.telegram_username,
             )
             if existing is not None:
+                if performer.telegram_id:
+                    await self._ensure_contact_notification(
+                        session=uow.session,
+                        record=existing,
+                        order_id=order.id,
+                        recipient_type="performer",
+                        performer_id=performer.id,
+                    )
                 await uow.commit()
                 return ContactRequestResult(
                     record=existing,
@@ -199,19 +247,12 @@ class SupportServices(Service):
             uow.session.add(record)
             await uow.session.flush()
             if performer.telegram_id:
-                now = utc_now()
-                uow.session.add(
-                    NotificationModel(
-                        recipient_type="performer",
-                        performer_id=performer.id,
-                        type="contact_request_created",
-                        entity_type="contact_request",
-                        entity_id=record.id,
-                        payload={"order_id": str(order.id)},
-                        deduplication_key=f"contact-request:{record.id}",
-                        scheduled_at=now,
-                        delete_after=now + timedelta(days=30),
-                    )
+                await self._ensure_contact_notification(
+                    session=uow.session,
+                    record=record,
+                    order_id=order.id,
+                    recipient_type="performer",
+                    performer_id=performer.id,
                 )
             await uow.commit()
             return ContactRequestResult(
@@ -275,6 +316,14 @@ class SupportServices(Service):
                 telegram_username=customer.telegram_username,
             )
             if existing is not None:
+                if customer.telegram_id:
+                    await self._ensure_contact_notification(
+                        session=uow.session,
+                        record=existing,
+                        order_id=order.id,
+                        recipient_type="customer",
+                        customer_id=customer.id,
+                    )
                 await uow.commit()
                 return ContactRequestResult(
                     record=existing,
@@ -295,20 +344,12 @@ class SupportServices(Service):
             uow.session.add(record)
             await uow.session.flush()
             if customer.telegram_id:
-                now = utc_now()
-                uow.session.add(
-                    NotificationModel(
-                        recipient_type="customer",
-                        customer_id=customer.id,
-                        performer_id=None,
-                        type="contact_request_created",
-                        entity_type="contact_request",
-                        entity_id=record.id,
-                        payload={"order_id": str(order.id)},
-                        deduplication_key=f"contact-request:{record.id}",
-                        scheduled_at=now,
-                        delete_after=now + timedelta(days=30),
-                    )
+                await self._ensure_contact_notification(
+                    session=uow.session,
+                    record=record,
+                    order_id=order.id,
+                    recipient_type="customer",
+                    customer_id=customer.id,
                 )
             await uow.commit()
             return ContactRequestResult(
