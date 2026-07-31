@@ -224,6 +224,7 @@ class MyOrderCardView:
     payment_retry_available: bool
     group: str
     page: int
+    customer_comment: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

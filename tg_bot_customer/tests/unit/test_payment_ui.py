@@ -35,6 +35,7 @@ def _order_card(
         payment_retry_available=payment_retry_available,
         group="active",
         page=1,
+        customer_comment="Позвонить перед визитом",
     )
 
 
@@ -91,6 +92,18 @@ def test_order_card_hides_retry_button_when_backend_disallows_retry() -> None:
     )
 
     assert "Повторить оплату" not in texts
+
+
+def test_order_card_displays_customer_comment() -> None:
+    screen = OrderCardScreen(
+        _order_card(
+            payment_status=None,
+            payment_confirmation_url=None,
+            payment_retry_available=False,
+        ),
+    )
+
+    assert "Комментарий заказчика: Позвонить перед визитом" in screen.build().text
 
 
 def test_order_card_displays_payment_attempt_count_once() -> None:

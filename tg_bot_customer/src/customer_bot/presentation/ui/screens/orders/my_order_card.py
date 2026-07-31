@@ -120,6 +120,9 @@ class _View(Protocol):
     @property
     def payment_retry_available(self) -> bool: ...
 
+    @property
+    def customer_comment(self) -> str | None: ...
+
 
 class Screen(BaseScreen[_View]):
     def _build_text(self) -> str:
@@ -137,6 +140,8 @@ class Screen(BaseScreen[_View]):
             f"Объектов: {self.data.objects_count}",
             f"Итого: {escape(str(self.data.total_amount))} ₽",
         ]
+        if self.data.customer_comment:
+            lines.append(f"Комментарий заказчика: {escape(self.data.customer_comment)}")
         if self.data.matching_mode is not None:
             lines.append(f"Подбор: {matching_mode_label(self.data.matching_mode)}")
         if self.data.status == "searching":

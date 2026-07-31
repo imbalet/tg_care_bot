@@ -356,6 +356,11 @@ def _my_order_card_from_json(data: dict[str, object]) -> MyOrderCardDTO:
         ),
         payment_max_attempts=int(cast(str | int, data.get("payment_max_attempts", 3))),
         payment_retry_available=bool(data.get("payment_retry_available", False)),
+        customer_comment=(
+            str(data["customer_comment"])
+            if isinstance(data.get("customer_comment"), str)
+            else None
+        ),
     )
 
 
