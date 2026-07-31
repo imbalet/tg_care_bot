@@ -351,6 +351,7 @@ async def test_refund_claim_batch_builds_gateway_commands() -> None:
 @pytest.mark.unit
 async def test_refund_worker_marks_success_and_failure(
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     session = AsyncMock()
     factory = Mock(return_value=_SessionContext(session))
@@ -396,6 +397,13 @@ async def test_refund_worker_marks_success_and_failure(
     )
     mark_failed.assert_awaited_once_with(refund_id=refund_id)
     assert session.commit.await_count == 2
+    failure_record = next(
+        record
+        for record in caplog.records
+        if record.message == "refund_execution_failed"
+    )
+    assert failure_record.refund_id == refund_id
+    assert failure_record.payment_id == payment_id
 
 
 @pytest.mark.unit

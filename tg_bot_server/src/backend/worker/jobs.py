@@ -314,6 +314,13 @@ class RefundWorkerJob:
                     ),
                 )
             except Exception:
+                logger.exception(
+                    "refund_execution_failed",
+                    extra={
+                        "refund_id": refund_id,
+                        "payment_id": payment_id,
+                    },
+                )
                 async with self._session_factory() as session:
                     await SqlAlchemyPaymentRepository(session).mark_refund_failed(
                         refund_id=refund_id,
