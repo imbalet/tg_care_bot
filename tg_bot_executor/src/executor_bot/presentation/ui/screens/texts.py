@@ -125,6 +125,10 @@ class MyOrderCardView(MyOrderSummaryView, Protocol):
     def payment_status(self) -> str | None:
         pass
 
+    @property
+    def customer_comment(self) -> str | None:
+        pass
+
 
 def retry_later_text() -> str:
     return "⚠️ <b>Сервис временно недоступен</b>\n\nПопробуйте еще раз чуть позже."
@@ -599,6 +603,8 @@ def my_order_card_text(
         f"Объектов: {order.objects_count}",
         f"Сумма заказа: {escape(str(order.total_amount))} ₽",
     ]
+    if order.customer_comment:
+        lines.append(f"Комментарий заказчика: {escape(order.customer_comment)}")
     if order.matching_mode is not None:
         lines.append(f"Подбор: {_matching_mode_label(order.matching_mode)}")
     if order.status == "searching":

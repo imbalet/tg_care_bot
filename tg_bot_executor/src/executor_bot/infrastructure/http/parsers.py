@@ -274,6 +274,11 @@ def order_match_from_json(data: dict[str, object]) -> OrderMatchDTO:
             if data.get("distance_km") is not None
             else None
         ),
+        customer_comment=(
+            str(data["customer_comment"])
+            if isinstance(data.get("customer_comment"), str)
+            else None
+        ),
     )
 
 
@@ -350,6 +355,11 @@ def my_order_card_from_json(data: dict[str, object]) -> MyOrderCardDTO:
         if isinstance(data["payment_status"], str)
         else None,
         payment_expires_at=payment_expires_at,
+        customer_comment=(
+            str(data["customer_comment"])
+            if isinstance(data.get("customer_comment"), str)
+            else None
+        ),
     )
 
 

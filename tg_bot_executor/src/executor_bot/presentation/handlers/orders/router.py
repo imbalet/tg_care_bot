@@ -371,6 +371,11 @@ async def executor_direct_response_card_callback(
                     if match.distance_km is not None
                     else ("Расстояние: нет координат",)
                 ),
+                *(
+                    (f"Комментарий заказчика: {escape(match.customer_comment)}",)
+                    if match.customer_comment
+                    else ()
+                ),
                 f"Ответить до: {_match_datetime(match.response_expires_at)}",
                 f"Статус: {_match_status_label(match.status)}",
             ),
@@ -478,12 +483,15 @@ async def notification_order_callback(
         )
         return
     if order is None:
-        await telegram_responder.update(
+        await _show_executor_order_card(
+            callback=callback,
             bot=bot,
-            event=callback,
-            telegram_id=telegram_user_context.telegram_id,
-            text=stale_action_text(),
-            reply_markup=stale_action_keyboard(),
+            backend_client=backend_client,
+            telegram_responder=telegram_responder,
+            telegram_user_context=telegram_user_context,
+            order_id=callback_data.order_id,
+            group="active",
+            page=1,
         )
         return
     await telegram_responder.update(

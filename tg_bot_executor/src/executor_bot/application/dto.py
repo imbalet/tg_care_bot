@@ -176,6 +176,7 @@ class OrderMatchDTO:
     service_name: str | None = None
     total_amount: Decimal | None = None
     distance_km: Decimal | None = None
+    customer_comment: str | None = None
 
 
 @dataclass(frozen=True)
@@ -257,6 +258,7 @@ class MyOrderSummaryDTO:
 class MyOrderCardDTO(MyOrderSummaryDTO):
     payment_status: str | None
     payment_expires_at: datetime | None
+    customer_comment: str | None = None
 
 
 @dataclass(frozen=True)

@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 
 from executor_bot.application.dto import AvailableOrderDTO
+from executor_bot.application.errors import BackendClientError
 from executor_bot.presentation.callbacks import NotificationOrderOpenCallback
 from executor_bot.presentation.handlers.orders.router import notification_order_callback
 
@@ -88,7 +89,9 @@ async def test_nearby_notification_shows_stale_action_for_unavailable_order() ->
             return_value=SimpleNamespace(performer=SimpleNamespace(id=uuid4())),
         ),
         list_available_orders=AsyncMock(return_value=()),
-        get_performer_order_card=AsyncMock(),
+        get_performer_order_card=AsyncMock(
+            side_effect=BackendClientError("Order not found"),
+        ),
     )
     responder = AsyncMock()
 
@@ -102,5 +105,5 @@ async def test_nearby_notification_shows_stale_action_for_unavailable_order() ->
         callback_data=NotificationOrderOpenCallback(order_id=str(uuid4())),
     )
 
-    backend.get_performer_order_card.assert_not_awaited()
+    backend.get_performer_order_card.assert_awaited_once()
     assert "устарел" in responder.update.await_args.kwargs["text"].lower()
