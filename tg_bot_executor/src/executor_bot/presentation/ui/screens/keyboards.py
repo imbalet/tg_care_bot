@@ -86,6 +86,17 @@ def _is_start_window_open(
     )
 
 
+def _is_finish_window_open(
+    *,
+    end_at: datetime | None,
+    now: datetime | None = None,
+) -> bool:
+    if end_at is None:
+        return False
+    current_time = now or datetime.now(UTC)
+    return current_time >= end_at - timedelta(minutes=15)
+
+
 class CityButtonView(Protocol):
     @property
     def name(self) -> str:
@@ -482,7 +493,8 @@ def my_order_card_keyboard_for_status(
         keyboard.button(
             "Не могу выполнить", ExecutorOrderCancelCallback(order_id=order_id)
         )
-    if order_id is not None and status == "in_progress":
+    finish_window_open = _is_finish_window_open(end_at=end_at)
+    if order_id is not None and status == "in_progress" and finish_window_open:
         keyboard.button(
             "Завершить выполнение", ExecutorOrderFinishCallback(order_id=order_id)
         )

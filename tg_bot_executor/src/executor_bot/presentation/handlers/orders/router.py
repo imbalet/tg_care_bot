@@ -56,6 +56,7 @@ from executor_bot.presentation.ui import (
     direct_rejected_text,
     direct_response_card_keyboard,
     fallback_keyboard,
+    finish_window_unavailable_text,
     my_order_card_keyboard_for_status,
     my_order_card_text,
     my_orders_page_keyboard,
@@ -688,12 +689,16 @@ async def order_finish_callback(
             context=telegram_user_context,
             order_id=UUID(callback_data.order_id),
         )
-    except BackendClientError, ValueError:
+    except (BackendClientError, ValueError) as exc:
         await telegram_responder.update(
             bot=bot,
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
-            text=stale_action_text(),
+            text=(
+                finish_window_unavailable_text()
+                if "finish window" in str(exc).lower()
+                else stale_action_text()
+            ),
             reply_markup=stale_action_keyboard(),
         )
 

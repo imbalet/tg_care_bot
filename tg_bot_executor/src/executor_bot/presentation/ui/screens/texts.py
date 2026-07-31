@@ -640,6 +640,13 @@ def start_window_unavailable_text() -> str:
     )
 
 
+def finish_window_unavailable_text() -> str:
+    return (
+        "<b>Пока нельзя завершить заказ</b>\n\n"
+        "Завершение доступно только за 15 минут до планового окончания."
+    )
+
+
 def support_text(*, label: str, telegram_url: str | None) -> str:
     if isinstance(telegram_url, str) and telegram_url.startswith("https://t.me/"):
         return f"<b>{escape(label)}</b>\n\nОткройте поддержку кнопкой ниже."
@@ -775,6 +782,7 @@ __all__ = [
     "services_updated_text",
     "stale_action_text",
     "start_window_unavailable_text",
+    "finish_window_unavailable_text",
     "summary_text",
     "support_text",
     "unavailable_action_text",
