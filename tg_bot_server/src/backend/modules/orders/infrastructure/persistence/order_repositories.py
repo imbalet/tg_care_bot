@@ -45,6 +45,8 @@ from backend.modules.performers.infrastructure import (
     PerformerServiceModel,
 )
 
+_FINISH_BUTTON_BEFORE_END_MINUTES = 15
+
 
 class SqlAlchemyOrderRepository(OrderRepository):
     def __init__(self, session: AsyncSession) -> None:
@@ -229,6 +231,8 @@ class SqlAlchemyOrderRepository(OrderRepository):
         if order.status != "in_progress":
             raise self._stale(order, "Order is not in progress")
         now = utc_now()
+        if now < order.end_at - timedelta(minutes=_FINISH_BUTTON_BEFORE_END_MINUTES):
+            raise ConflictError("Order finish window has not opened")
         order.status = "waiting_report"
         order.actual_finished_at = now
         order.report_due_at = report_due_at
