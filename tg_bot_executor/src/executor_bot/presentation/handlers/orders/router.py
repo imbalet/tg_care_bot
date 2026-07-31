@@ -1397,6 +1397,8 @@ async def _show_executor_order_card(
             order_id=str(order.id),
             group=group,
             page=page,
+            start_at=order.start_at,
+            end_at=order.end_at,
         ),
     )
 
