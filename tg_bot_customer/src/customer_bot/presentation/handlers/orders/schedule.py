@@ -24,6 +24,7 @@ from customer_bot.presentation.handlers.orders.state import (
     duration_unit,
     parse_local_datetime,
     parse_local_time,
+    start_is_past,
     start_is_valid,
 )
 from customer_bot.presentation.services import TelegramResponder
@@ -32,6 +33,7 @@ from customer_bot.presentation.ui.screens import (
     OrderDatetimeManualStepScreen,
     OrderDurationStepScreen,
     OrderStartTimeStepScreen,
+    PastDatetimeScreen,
 )
 from customer_bot.presentation.view_models import DateLabelView, DurationView
 
@@ -208,6 +210,17 @@ async def enter_start(
             create_new=True,
         )
         return
+    if start_is_past(start_at):
+        screen = PastDatetimeScreen().build()
+        await telegram_responder.update(
+            bot=bot,
+            event=message,
+            telegram_id=telegram_user_context.telegram_id,
+            text=screen.text,
+            reply_markup=screen.reply_markup,
+            create_new=True,
+        )
+        return
     if not start_is_valid(start_at):
         screen = InvalidDatetimeScreen().build()
         await telegram_responder.update(
@@ -237,6 +250,33 @@ async def _set_start_at_and_ask_duration(
     telegram_user_context: TelegramUserContext,
     start_at: datetime,
 ) -> None:
+    if start_is_past(start_at):
+        data = await state.get_data()
+        if isinstance(event, CallbackQuery):
+            start_date = _start_date_from_state(data)
+            if start_date is not None:
+                screen = OrderStartTimeStepScreen(
+                    DateLabelView(date_label=format_date(start_date))
+                ).build()
+                await telegram_responder.update(
+                    bot=bot,
+                    event=event,
+                    telegram_id=telegram_user_context.telegram_id,
+                    text=f"Время уже прошло. Выберите другое.\n\n{screen.text}",
+                    reply_markup=screen.reply_markup,
+                    create_new=True,
+                )
+                return
+        screen = PastDatetimeScreen().build()
+        await telegram_responder.update(
+            bot=bot,
+            event=event,
+            telegram_id=telegram_user_context.telegram_id,
+            text=screen.text,
+            reply_markup=screen.reply_markup,
+            create_new=True,
+        )
+        return
     if not start_is_valid(start_at):
         screen = InvalidDatetimeScreen().build()
         await telegram_responder.update(
