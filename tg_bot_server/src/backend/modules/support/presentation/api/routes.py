@@ -16,6 +16,7 @@ from backend.modules.files.application import UploadActorFileCommand
 
 from .schemas import (
     AccountDeletionPreflightResponse,
+    ContactDetailsResponse,
     ContactRequestResponse,
     CreateComplaintRequest,
     CreateContactRequest,
@@ -234,6 +235,20 @@ async def create_customer_contact_request(
         requested_method=record.record.requested_method,
         status=record.record.status,
         failure_reason=record.record.failure_reason,
+    )
+
+
+@customer_router.get("/by-telegram/{telegram_id}/orders/{order_id}/contacts")
+async def get_customer_contacts(
+    telegram_id: int,
+    order_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> ContactDetailsResponse:
+    record = await container.support.get_customer_contacts(
+        telegram_id=telegram_id,
+        order_id=order_id,
+    )
+    return ContactDetailsResponse(
         contact_name=record.contact_name,
         contact_phone=record.contact_phone,
         contact_telegram_username=record.contact_telegram_username,
@@ -257,6 +272,20 @@ async def create_performer_contact_request(
         requested_method=record.record.requested_method,
         status=record.record.status,
         failure_reason=record.record.failure_reason,
+    )
+
+
+@performer_router.get("/by-telegram/{telegram_id}/orders/{order_id}/contacts")
+async def get_performer_contacts(
+    telegram_id: int,
+    order_id: UUID,
+    container: Annotated[Container, Depends(get_container)],
+) -> ContactDetailsResponse:
+    record = await container.support.get_performer_contacts(
+        telegram_id=telegram_id,
+        order_id=order_id,
+    )
+    return ContactDetailsResponse(
         contact_name=record.contact_name,
         contact_phone=record.contact_phone,
         contact_telegram_username=record.contact_telegram_username,

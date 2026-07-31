@@ -36,6 +36,13 @@ class ContactRequestResult:
     contact_telegram_username: str | None
 
 
+@dataclass(frozen=True)
+class ContactDetailsResult:
+    contact_name: str
+    contact_phone: str | None
+    contact_telegram_username: str | None
+
+
 class SupportServices(Service):
     @staticmethod
     def _contact_details(
@@ -306,6 +313,103 @@ class SupportServices(Service):
             await uow.commit()
             return ContactRequestResult(
                 record=record,
+                contact_name=contact_name,
+                contact_phone=contact_phone,
+                contact_telegram_username=contact_telegram,
+            )
+
+    async def get_customer_contacts(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID,
+    ) -> ContactDetailsResult:
+        async with self._uow() as uow:
+            repository = SqlAlchemySupportRepository(uow.session)
+            customer = await repository.get_actor(
+                actor_type="customer",
+                telegram_id=telegram_id,
+            )
+            order = await uow.session.scalar(
+                select(OrderModel).where(
+                    OrderModel.id == order_id,
+                    OrderModel.customer_id == customer.id,
+                    OrderModel.selected_performer_id.is_not(None),
+                    OrderModel.status.in_(
+                        ("confirmed", "in_progress", "report_submitted")
+                    ),
+                    exists(
+                        select(PaymentModel.id).where(
+                            PaymentModel.id == OrderModel.active_payment_id,
+                            PaymentModel.status == "succeeded",
+                        )
+                    ),
+                )
+            )
+            if order is None or order.selected_performer_id is None:
+                raise ConflictError("Order is not available for contact")
+            performer = await uow.session.get(
+                PerformerModel, order.selected_performer_id
+            )
+            if performer is None:
+                raise ConflictError("Performer is not available for contact")
+            contact_name, contact_phone, contact_telegram = self._contact_details(
+                contact_method=performer.contact_method,
+                full_name=performer.full_name,
+                phone=performer.phone,
+                telegram_username=performer.telegram_username,
+            )
+            return ContactDetailsResult(
+                contact_name=contact_name,
+                contact_phone=contact_phone,
+                contact_telegram_username=contact_telegram,
+            )
+
+    async def get_performer_contacts(
+        self,
+        *,
+        telegram_id: int,
+        order_id: UUID,
+    ) -> ContactDetailsResult:
+        async with self._uow() as uow:
+            repository = SqlAlchemySupportRepository(uow.session)
+            performer = await repository.get_actor(
+                actor_type="performer",
+                telegram_id=telegram_id,
+            )
+            order = await uow.session.scalar(
+                select(OrderModel).where(
+                    OrderModel.id == order_id,
+                    OrderModel.selected_performer_id == performer.id,
+                    OrderModel.customer_id.is_not(None),
+                    OrderModel.status.in_(
+                        (
+                            "confirmed",
+                            "in_progress",
+                            "waiting_report",
+                            "report_submitted",
+                        )
+                    ),
+                    exists(
+                        select(PaymentModel.id).where(
+                            PaymentModel.id == OrderModel.active_payment_id,
+                            PaymentModel.status == "succeeded",
+                        )
+                    ),
+                )
+            )
+            if order is None or order.customer_id is None:
+                raise ConflictError("Order is not available for contact")
+            customer = await uow.session.get(CustomerModel, order.customer_id)
+            if customer is None:
+                raise ConflictError("Customer is not available for contact")
+            contact_name, contact_phone, contact_telegram = self._contact_details(
+                contact_method=customer.contact_method,
+                full_name=customer.full_name,
+                phone=customer.phone,
+                telegram_username=customer.telegram_username,
+            )
+            return ContactDetailsResult(
                 contact_name=contact_name,
                 contact_phone=contact_phone,
                 contact_telegram_username=contact_telegram,
