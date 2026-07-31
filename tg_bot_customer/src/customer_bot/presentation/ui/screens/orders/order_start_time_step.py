@@ -49,7 +49,10 @@ class Screen(BaseScreen[_View]):
                 OrderStartTimeCallback(value=_order_start_time_callback_value(value)),
             )
         return (
-            keyboard.button("Ввести вручную", OrderStartManualCallback(mode="time"))
+            keyboard.button(
+                "Ввести дату и время вручную",
+                OrderStartManualCallback(mode="datetime"),
+            )
             .button(MsgKey.MAIN_MENU, MainMenuCallback())
             .as_markup()
         )

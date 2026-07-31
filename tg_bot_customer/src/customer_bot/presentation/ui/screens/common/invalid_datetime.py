@@ -8,7 +8,7 @@ from customer_bot.presentation.ui.screens.screen import (
 
 class Screen(BaseScreenNoView):
     def _build_text(self) -> str:
-        return "Введите дату и время в формате ГГГГ-ММ-ДД ЧЧ:ММ."
+        return "Введите дату и время в формате ДД.ММ.ГГГГ ЧЧ:ММ."
 
     def _build_keyboard(self) -> Markup:
         return (

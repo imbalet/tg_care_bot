@@ -215,7 +215,7 @@ async def item_by_id(
 
 def parse_local_datetime(value: str) -> datetime | None:
     try:
-        return datetime.strptime(value.strip(), "%Y-%m-%d %H:%M")
+        return datetime.strptime(value.strip(), "%d.%m.%Y %H:%M")
     except ValueError:
         return None
 

@@ -29,12 +29,9 @@ from customer_bot.presentation.handlers.orders.state import (
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
     InvalidDatetimeScreen,
-    InvalidTimeScreen,
     OrderDatetimeManualStepScreen,
     OrderDurationStepScreen,
-    OrderStartStepScreen,
     OrderStartTimeStepScreen,
-    OrderTimeManualStepScreen,
 )
 from customer_bot.presentation.view_models import DateLabelView, DurationView
 
@@ -120,32 +117,7 @@ async def request_manual_start(
             "state": await state.get_state(),
         },
     )
-    data = await state.get_data()
-    if callback_data.mode == "time":
-        start_date = _start_date_from_state(data)
-        if start_date is None:
-            await telegram_responder.update(
-                bot=bot,
-                event=callback,
-                telegram_id=telegram_user_context.telegram_id,
-                text=(screen := OrderStartStepScreen().build()).text,
-                reply_markup=await start_calendar_keyboard(),
-            )
-            return
-        await state.update_data(order_start_manual_time=True)
-        await telegram_responder.update(
-            bot=bot,
-            event=callback,
-            telegram_id=telegram_user_context.telegram_id,
-            text=(
-                screen := OrderTimeManualStepScreen(
-                    DateLabelView(date_label=format_date(start_date))
-                ).build()
-            ).text,
-            reply_markup=screen.reply_markup,
-        )
-        return
-    if callback_data.mode != "datetime":
+    if callback_data.mode not in {"datetime", "time"}:
         await telegram_responder.acknowledge(callback)
         return
     await state.update_data(order_start_manual_time=False)
@@ -215,42 +187,23 @@ async def enter_start(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    data = await state.get_data()
-    manual_time = data.get("order_start_manual_time") is True
     if not message.text:
         await telegram_responder.update(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=(
-                screen := (
-                    InvalidTimeScreen() if manual_time else InvalidDatetimeScreen()
-                ).build()
-            ).text,
+            text=(screen := InvalidDatetimeScreen().build()).text,
             reply_markup=screen.reply_markup,
             create_new=True,
         )
         return
-    start_date = _start_date_from_state(data)
-    if manual_time and start_date is not None:
-        parsed_time = parse_local_time(message.text)
-        start_at = (
-            datetime.combine(start_date, parsed_time)
-            if parsed_time is not None
-            else None
-        )
-    else:
-        start_at = parse_local_datetime(message.text)
+    start_at = parse_local_datetime(message.text)
     if start_at is None:
         await telegram_responder.update(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=(
-                screen := (
-                    InvalidTimeScreen() if manual_time else InvalidDatetimeScreen()
-                ).build()
-            ).text,
+            text=(screen := InvalidDatetimeScreen().build()).text,
             reply_markup=screen.reply_markup,
             create_new=True,
         )
