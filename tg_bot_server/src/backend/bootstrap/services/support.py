@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from sqlalchemy import exists, select
 
 from backend.common.application import new_uuid
+from backend.modules.addresses.infrastructure import AddressModel
+from backend.modules.files.infrastructure.persistence.models import (
+    FileLinkModel,
+    FileModel,
+)
 from backend.modules.orders.infrastructure.exports import OrderModel
 from backend.modules.payments.infrastructure import PaymentModel
 
@@ -705,6 +710,21 @@ class SupportServices(Service):
         admin_comment: str | None,
         admin_id: UUID,
     ) -> Any:
+        allowed_statuses = {
+            "support": {"open", "in_progress", "waiting_user", "resolved", "closed"},
+            "complaint": {
+                "open",
+                "in_progress",
+                "waiting_user",
+                "resolved",
+                "closed",
+                "rejected",
+            },
+            "dispute": {"open", "in_progress", "waiting_user", "closed"},
+            "deletion": {"open", "in_progress", "resolved", "rejected"},
+        }
+        if status not in allowed_statuses.get(record_kind, set()):
+            raise ValidationError("Support status transition is invalid")
         async with self._uow() as uow:
             record = await SqlAlchemySupportRepository(uow.session).update_record(
                 model=self._support_model(record_kind),
@@ -731,7 +751,7 @@ class SupportServices(Service):
                 open_dispute = await uow.session.scalar(
                     select(DisputeModel.id).where(
                         DisputeModel.order_id == record.order_id,
-                        DisputeModel.status == "open",
+                        DisputeModel.status.in_(("open", "in_progress")),
                     )
                 )
                 if order is not None and open_dispute is None:
@@ -761,6 +781,105 @@ class SupportServices(Service):
             admin_comment=admin_comment,
             admin_id=admin_id,
         )
+
+    async def anonymize_deletion_request(
+        self,
+        *,
+        record_id: UUID,
+        admin_comment: str,
+        admin_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            record = await uow.session.get(
+                AccountDeletionRequestModel, record_id, with_for_update=True
+            )
+            if record is None:
+                raise ValidationError("Deletion request not found")
+            actor_type = "customer" if record.customer_id is not None else "performer"
+            actor_id = record.customer_id or record.performer_id
+            if actor_id is None:
+                raise ValidationError("Deletion request owner is missing")
+            repository = SqlAlchemySupportRepository(uow.session)
+            blockers = await repository.blockers(
+                actor_type=actor_type,
+                actor_id=actor_id,
+            )
+            if blockers:
+                raise ConflictError(
+                    "Account still has blocking obligations",
+                    details={"blockers": blockers},
+                )
+            model = CustomerModel if actor_type == "customer" else PerformerModel
+            actor = cast(
+                Any,
+                await uow.session.get(model, actor_id, with_for_update=True),
+            )
+            if actor is None:
+                raise ValidationError("Deletion request owner not found")
+            anonymous_telegram_id = -int(actor_id.hex[:17])
+            actor.telegram_id = anonymous_telegram_id
+            actor.full_name = f"Deleted user {actor_id.hex[:8]}"
+            actor.phone = ""
+            actor.telegram_username = None
+            actor.contact_method = "none"
+            actor.blocked_reason = None
+            actor.status = "deleted"
+            actor.deleted_at = utc_now()
+            actor.anonymized_at = actor.deleted_at
+            if actor_type == "performer":
+                actor.about_text = None
+                actor.is_accepting_orders = False
+                actor.is_nearby_order_notifications_enabled = False
+                actor.current_address_id = None
+                actor.payment_recipient_id = None
+            addresses = await uow.session.scalars(
+                select(AddressModel).where(
+                    (AddressModel.customer_id == actor_id)
+                    if actor_type == "customer"
+                    else (AddressModel.performer_id == actor_id)
+                )
+            )
+            for address in addresses:
+                address.address_text = ""
+                address.fias_id = None
+                address.latitude = None
+                address.longitude = None
+                address.entrance = None
+                address.floor = None
+                address.apartment = None
+                address.comment = None
+                address.deleted_at = utc_now()
+                address.anonymized_at = address.deleted_at
+            file_links = await uow.session.scalars(
+                select(FileLinkModel).where(
+                    FileLinkModel.entity_type == actor_type,
+                    FileLinkModel.entity_id == actor_id,
+                )
+            )
+            file_ids = [link.file_id for link in file_links]
+            if file_ids:
+                files = await uow.session.scalars(
+                    select(FileModel).where(FileModel.id.in_(file_ids))
+                )
+                for file in files:
+                    file.status = "deleted"
+                    file.deleted_at = utc_now()
+            record.status = "resolved"
+            record.admin_comment = admin_comment
+            record.resolved_at = utc_now()
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="anonymize_account",
+                entity_type="account_deletion_request",
+                entity_id=record_id,
+                reason=admin_comment,
+                audit_metadata={
+                    "account_type": actor_type,
+                    "account_id": str(actor_id),
+                },
+            )
+            await uow.commit()
+            return record
 
     @staticmethod
     def _support_model(record_kind: str) -> type[Any]:

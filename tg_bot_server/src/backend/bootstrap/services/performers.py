@@ -1,5 +1,9 @@
 from dataclasses import replace
 
+from sqlalchemy import select
+
+from backend.modules.admin.infrastructure import AdminViolationModel
+
 from ._shared import (
     UUID,
     ActivatePerformerUseCase,
@@ -194,6 +198,17 @@ class PerformerServices(Service):
             performer.is_accepting_orders = False
             performer.blocked_reason = reason
             performer.updated_at = utc_now()
+            uow.session.add(
+                AdminViolationModel(
+                    account_type="performer",
+                    performer_id=performer_id,
+                    violation_type=reason,
+                    action="block",
+                    reason=comment,
+                    status="open",
+                    created_by_admin_id=admin_id,
+                ),
+            )
             await SqlAlchemyAdminAuditRepository(uow.session).add(
                 admin_id=admin_id,
                 action="reject_performer",
@@ -204,6 +219,206 @@ class PerformerServices(Service):
             )
             await uow.commit()
             return performer
+
+    async def set_accepting_orders_as_admin(
+        self,
+        *,
+        performer_id: UUID,
+        is_accepting_orders: bool,
+        admin_id: UUID,
+        comment: str,
+    ) -> Any:
+        async with self._uow() as uow:
+            performer = await uow.session.get(PerformerModel, performer_id)
+            if performer is None:
+                raise NotFoundError("Performer not found")
+            result = await SetPerformerAcceptingOrdersUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(
+                SetPerformerAcceptingOrdersCommand(
+                    telegram_id=performer.telegram_id,
+                    is_accepting_orders=is_accepting_orders,
+                ),
+            )
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action=(
+                    "resume_performer_orders"
+                    if is_accepting_orders
+                    else "pause_performer_orders"
+                ),
+                entity_type="performer",
+                entity_id=performer_id,
+                reason=comment,
+            )
+            await uow.commit()
+            return result
+
+    async def block_performer(
+        self,
+        *,
+        performer_id: UUID,
+        reason: str,
+        comment: str,
+        admin_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            result = await uow.session.execute(
+                select(PerformerModel)
+                .where(PerformerModel.id == performer_id)
+                .with_for_update(),
+            )
+            performer = result.scalar_one_or_none()
+            if performer is None:
+                raise NotFoundError("Performer not found")
+            if performer.status == "deletion_pending":
+                raise ConflictError("Performer is pending deletion")
+            performer.status = "blocked"
+            performer.is_accepting_orders = False
+            performer.blocked_reason = reason
+            performer.updated_at = utc_now()
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="block_performer",
+                entity_type="performer",
+                entity_id=performer_id,
+                reason=comment,
+                audit_metadata={"blocked_reason": reason},
+            )
+            await uow.commit()
+            return performer
+
+    async def unblock_performer(
+        self,
+        *,
+        performer_id: UUID,
+        comment: str,
+        admin_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            result = await uow.session.execute(
+                select(PerformerModel)
+                .where(PerformerModel.id == performer_id)
+                .with_for_update(),
+            )
+            performer = result.scalar_one_or_none()
+            if performer is None:
+                raise NotFoundError("Performer not found")
+            if performer.status != "blocked":
+                raise ConflictError("Only blocked performers can be unblocked")
+            performer.status = "active"
+            performer.blocked_reason = None
+            performer.updated_at = utc_now()
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="unblock_performer",
+                entity_type="performer",
+                entity_id=performer_id,
+                reason=comment,
+            )
+            await uow.commit()
+            return performer
+
+    async def set_service_enabled_as_admin(
+        self,
+        *,
+        performer_id: UUID,
+        service_id: UUID,
+        is_enabled: bool,
+        admin_id: UUID,
+        comment: str,
+    ) -> Any:
+        async with self._uow() as uow:
+            performer = await uow.session.get(PerformerModel, performer_id)
+            if performer is None:
+                raise NotFoundError("Performer not found")
+            result = await SetPerformerServiceEnabledUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(
+                SetPerformerServiceEnabledCommand(
+                    telegram_id=performer.telegram_id,
+                    service_id=service_id,
+                    is_enabled=is_enabled,
+                ),
+            )
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action=(
+                    "enable_performer_service"
+                    if is_enabled
+                    else "disable_performer_service"
+                ),
+                entity_type="performer_service",
+                entity_id=result.id,
+                reason=comment,
+            )
+            await uow.commit()
+            return result
+
+    async def set_service_max_objects_as_admin(
+        self,
+        *,
+        performer_id: UUID,
+        service_id: UUID,
+        performer_max_objects: int,
+        admin_id: UUID,
+        comment: str,
+    ) -> Any:
+        async with self._uow() as uow:
+            performer = await uow.session.get(PerformerModel, performer_id)
+            if performer is None:
+                raise NotFoundError("Performer not found")
+            result = await SetPerformerServiceMaxObjectsUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(
+                SetPerformerServiceMaxObjectsCommand(
+                    telegram_id=performer.telegram_id,
+                    service_id=service_id,
+                    performer_max_objects=performer_max_objects,
+                ),
+            )
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="set_performer_service_max_objects",
+                entity_type="performer_service",
+                entity_id=result.id,
+                reason=comment,
+                audit_metadata={"performer_max_objects": performer_max_objects},
+            )
+            await uow.commit()
+            return result
+
+    async def update_performer_profile_as_admin(
+        self,
+        *,
+        performer_id: UUID,
+        phone: str,
+        contact_method: str,
+        admin_id: UUID,
+        comment: str,
+    ) -> Any:
+        async with self._uow() as uow:
+            performer = await uow.session.get(PerformerModel, performer_id)
+            if performer is None:
+                raise NotFoundError("Performer not found")
+            result = await UpdatePerformerProfileUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(
+                UpdatePerformerProfileCommand(
+                    telegram_id=performer.telegram_id,
+                    phone=phone,
+                    contact_method=contact_method,
+                ),
+            )
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="update_performer_profile",
+                entity_type="performer",
+                entity_id=performer_id,
+                reason=comment,
+            )
+            await uow.commit()
+            return result
 
     async def approve_performer_service(
         self,

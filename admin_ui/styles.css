@@ -1,0 +1,44 @@
+:root { --sidebar-width: 250px; --topbar-height: 56px; --ink: #1d2a3a; --muted: #6b778c; --line: #e5eaf1; }
+html, body { min-height: 100%; }
+body { background: #f5f7fb; color: var(--ink); }
+.login-shell { min-height: 100vh; display: grid; place-items: center; padding: 1rem; background: linear-gradient(135deg, #eef4ff, #f8f9fa); }
+.login-card { width: min(100%, 420px); border: 0; border-radius: 1rem; }
+.brand-mark { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; color: white; background: #0d6efd; font-weight: 700; }
+.sidebar { min-height: calc(100vh - var(--topbar-height)); width: var(--sidebar-width); }
+.sidebar .offcanvas-body { min-height: 0; }
+.sidebar .nav-link { color: #4c5d73; cursor: pointer; border-radius: .55rem; padding: .6rem .75rem; }
+.sidebar .nav-link.active { color: #fff; background: #0d6efd; box-shadow: 0 .15rem .45rem rgba(13, 110, 253, .22); font-weight: 600; }
+.sidebar .nav-link:hover { color: #0d6efd; background: #eaf2ff; }
+.content-area { min-height: calc(100vh - var(--topbar-height)); padding: 1.5rem; }
+.nav-heading { color: #9aa6b6; font-size: .68rem; font-weight: 700; letter-spacing: .08em; margin: 1rem .75rem .35rem; text-transform: uppercase; }
+.page-header { align-items: flex-start; display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.eyebrow { color: #7890ad; font-size: .68rem; font-weight: 700; letter-spacing: .11em; margin-bottom: .35rem; text-transform: uppercase; }
+.metric-card { border: 0; box-shadow: 0 .15rem .7rem rgba(38, 58, 87, .06); transition: transform .15s ease, box-shadow .15s ease; }
+.metric-card:hover { box-shadow: 0 .35rem 1rem rgba(38, 58, 87, .12); transform: translateY(-2px); }
+.metric-label { color: var(--muted); font-size: .82rem; }
+.metric-value { font-size: 2rem; font-weight: 700; line-height: 1.25; margin: .25rem 0 .35rem; }
+.queue-panel, .detail-card { border: 0; box-shadow: 0 .15rem .7rem rgba(38, 58, 87, .06); }
+.queue-icon { align-items: center; background: #eef4ff; border-radius: .65rem; display: inline-flex; font-size: 1.15rem; height: 2.2rem; justify-content: center; width: 2.2rem; }
+.queue-item { align-items: center; border-top: 1px solid var(--line); color: inherit; display: flex; gap: 1rem; justify-content: space-between; padding: .8rem 0; text-decoration: none; }
+.queue-item:hover { color: #0d6efd; }
+.queue-item-main { display: flex; flex-direction: column; min-width: 0; }
+.queue-item-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-list .queue-item { flex: 1; border-top: 0; padding: 0; }
+.queue-row { border: 0; box-shadow: 0 .1rem .5rem rgba(38, 58, 87, .05); }
+.detail-label { color: var(--muted); font-size: .75rem; margin-bottom: .2rem; text-transform: capitalize; }
+.detail-value { font-weight: 500; min-height: 1.4rem; }
+.empty-state { align-items: center; color: var(--muted); display: grid; min-height: 240px; place-items: center; }
+.empty-state.compact { min-height: 90px; }
+.table td, .table th { vertical-align: middle; white-space: nowrap; }
+.table td.json-cell { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+.toolbar { gap: .75rem; }
+@media (min-width: 992px) {
+  #app-view { min-height: 100vh; }
+  #app-view > .navbar { height: var(--topbar-height); }
+  #app-view > .container-fluid { height: calc(100vh - var(--topbar-height)); overflow: hidden; }
+  #app-view > .container-fluid > .row { height: 100%; flex-wrap: nowrap; }
+  #app-view .sidebar.offcanvas-lg { display: flex !important; flex: 0 0 var(--sidebar-width); height: calc(100vh - var(--topbar-height)) !important; max-width: var(--sidebar-width); min-height: 0; overflow: hidden; position: sticky !important; top: var(--topbar-height); transform: none !important; visibility: visible !important; width: var(--sidebar-width) !important; }
+  #app-view .sidebar .offcanvas-body { display: block !important; flex: 1 1 auto !important; height: 100%; overflow-x: hidden; overflow-y: auto; padding: .5rem !important; }
+  #app-view .content-area { flex: 1 1 auto; height: calc(100vh - var(--topbar-height)); min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; }
+}
+@media (max-width: 991.98px) { .content-area { padding: 1rem; } .sidebar { min-height: 100vh; } .page-header { flex-direction: column; } }

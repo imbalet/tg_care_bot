@@ -8,6 +8,7 @@ Create Date: 2026-07-28 00:35:00
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
@@ -26,7 +27,7 @@ def upgrade() -> None:
     op.execute(
         settings.update()
         .where(settings.c.key == "start_button_before_minutes")
-        .values(value=30)
+        .values(value=sa.cast(sa.literal("30"), postgresql.JSONB))
     )
 
 
@@ -39,5 +40,5 @@ def downgrade() -> None:
     op.execute(
         settings.update()
         .where(settings.c.key == "start_button_before_minutes")
-        .values(value=15)
+        .values(value=sa.cast(sa.literal("15"), postgresql.JSONB))
     )

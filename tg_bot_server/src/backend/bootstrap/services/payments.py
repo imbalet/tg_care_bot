@@ -1,5 +1,10 @@
 import logging
 
+from sqlalchemy import select
+
+from backend.modules.orders.infrastructure.exports import OrderModel
+from backend.modules.support.infrastructure import DisputeModel
+
 from ._shared import (
     UUID,
     AdminAuditLogModel,
@@ -21,6 +26,7 @@ from ._shared import (
     RetryPaymentOperationUseCase,
     SqlAlchemyPaymentRepository,
     ValidationError,
+    utc_now,
 )
 from .context import Service
 
@@ -28,6 +34,47 @@ logger = logging.getLogger(__name__)
 
 
 class PaymentServices(Service):
+    async def set_payout_block(
+        self,
+        *,
+        order_id: UUID,
+        blocked: bool,
+        reason: str,
+        admin_id: UUID,
+    ) -> Any:
+        async with self._uow() as uow:
+            order = await uow.session.get(OrderModel, order_id, with_for_update=True)
+            if order is None:
+                raise NotFoundError("Order not found")
+            if order.payout_status == "succeeded":
+                raise ValidationError("Completed payout cannot be changed")
+            if not blocked:
+                dispute = await uow.session.scalar(
+                    select(DisputeModel.id).where(
+                        DisputeModel.order_id == order_id,
+                        DisputeModel.status.in_(("open", "in_progress")),
+                    ),
+                )
+                if dispute is not None:
+                    raise ValidationError("Open dispute blocks payout")
+                order.payout_status = "ready"
+                order.payout_block_reason = None
+            else:
+                order.payout_status = "blocked"
+                order.payout_block_reason = reason
+            order.updated_at = utc_now()
+            uow.session.add(
+                AdminAuditLogModel(
+                    admin_id=admin_id,
+                    action="block_payout" if blocked else "allow_payout",
+                    entity_type="order",
+                    entity_id=order_id,
+                    reason=reason,
+                ),
+            )
+            await uow.commit()
+            return order
+
     async def mark_manual_payout(
         self,
         *,

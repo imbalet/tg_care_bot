@@ -4,8 +4,6 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from starlette.responses import Response
 
-from backend.modules.admin.presentation.surface import admin_csrf_middleware
-
 
 def register_middlewares(app: FastAPI) -> None:
     @app.middleware("http")
@@ -13,7 +11,14 @@ def register_middlewares(app: FastAPI) -> None:
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        return await admin_csrf_middleware(request, call_next)
+        if (
+            request.method in {"POST", "PUT", "PATCH", "DELETE"}
+            and request.url.path.startswith("/admin")
+            and request.url.path != "/admin/login"
+            and request.headers.get("X-CSRF-Token") is None
+        ):
+            return Response("CSRF check failed", status_code=403)
+        return await call_next(request)
 
     @app.middleware("http")
     async def bind_request_id(

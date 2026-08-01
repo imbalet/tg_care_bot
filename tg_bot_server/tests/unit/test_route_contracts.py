@@ -601,7 +601,31 @@ async def test_admin_routes_cover_session_csrf_notifications_and_operations() ->
     current = await admin_routes.get_current_admin(container, "session")
     assert current[0].id == str(admin_id)
     assert await admin_routes.me(current) == current[0]
+    session_response = await admin_routes.session(current)
+    assert session_response.admin == current[0]
+    assert session_response.csrf_token == csrf
     assert await admin_routes.require_admin_csrf(current, csrf) == current
+    container.admin.list_ui_resource = AsyncMock(
+        return_value=([{"id": str(uuid4()), "full_name": "Customer"}], 1),
+    )
+    container.admin.get_ui_resource = AsyncMock(
+        return_value={"item": {"id": str(uuid4())}, "related": {}},
+    )
+    resource_page = await admin_routes.list_ui_resource(
+        "customers",
+        container,
+        current,
+        page=1,
+        page_size=25,
+    )
+    assert resource_page.total == 1
+    resource_detail = await admin_routes.get_ui_resource(
+        "customers",
+        uuid4(),
+        container,
+        current,
+    )
+    assert resource_detail.related == {}
     page = await admin_routes.list_notifications(container, current)
     assert page.total == 1
     marked = await admin_routes.mark_notifications_read(

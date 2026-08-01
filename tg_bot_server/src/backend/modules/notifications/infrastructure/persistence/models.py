@@ -40,6 +40,9 @@ class NotificationModel(UuidPrimaryKeyMixin, TimestampMixin, Base):
     deduplication_key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
     attempts: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    admin_retry_count: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0
+    )
     claimed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

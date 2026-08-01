@@ -10,7 +10,6 @@ from backend.bootstrap.settings import Settings, get_settings
 from backend.common.infrastructure.logging import configure_logging
 from backend.common.presentation import register_error_handlers
 from backend.modules.admin.presentation.api.routes import router as admin_router
-from backend.modules.admin.presentation.surface import create_admin_surface
 from backend.modules.availability.presentation.api import (
     router as availability_router,
 )
@@ -55,9 +54,6 @@ def _create_lifespan(
         configure_logging(settings.log_level)
         container = container_factory(settings)
         app.state.container = container
-        if not getattr(app.state, "admin_surface_mounted", False):
-            create_admin_surface(container).mount_to(app)
-            app.state.admin_surface_mounted = True
         try:
             yield
         finally:

@@ -1,5 +1,13 @@
 from dataclasses import replace
 
+from sqlalchemy import select
+
+from backend.common.application import utc_now
+from backend.modules.orders.infrastructure.persistence.models import (
+    OrderMatchModel,
+    OrderModel,
+)
+
 from ._shared import (
     UUID,
     Any,
@@ -18,6 +26,7 @@ from ._shared import (
     FinishOrderUseCase,
     OrderReportDetailDTO,
     OrderReportFileDTO,
+    SqlAlchemyAdminAuditRepository,
     SqlAlchemyAvailabilityRepository,
     SqlAlchemyFileRepository,
     SqlAlchemyMatchingRepository,
@@ -166,6 +175,84 @@ class OrderServices(Service):
             await uow.commit()
             return match
 
+    async def invite_direct_performer_as_admin(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+        admin_id: UUID,
+        comment: str,
+    ) -> Any:
+        async with self._uow() as uow:
+            order = await SqlAlchemyOrderRepository(uow.session).get_order(order_id)
+            if order is None:
+                raise ValidationError("Order not found")
+            if order.customer_id is None:
+                raise ValidationError("Order has no customer")
+            match = await SqlAlchemyMatchingRepository(
+                uow.session,
+            ).invite_direct_performer(
+                order_id=order_id,
+                customer_id=order.customer_id,
+                performer_id=performer_id,
+            )
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="invite_direct_performer_as_admin",
+                entity_type="order",
+                entity_id=order_id,
+                reason=comment,
+                audit_metadata={"performer_id": str(performer_id)},
+            )
+            await uow.commit()
+            return match
+
+    async def reassign_performer_as_admin(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+        admin_id: UUID,
+        comment: str,
+    ) -> Any:
+        async with self._uow() as uow:
+            order = await uow.session.get(OrderModel, order_id, with_for_update=True)
+            if order is None or order.customer_id is None:
+                raise ValidationError("Order or customer not found")
+            if order.status != "searching":
+                raise ValidationError("Performer can only be changed before payment")
+            active_matches = await uow.session.scalars(
+                select(OrderMatchModel)
+                .where(
+                    OrderMatchModel.order_id == order_id,
+                    OrderMatchModel.status.in_(("pending", "active", "selected")),
+                )
+                .with_for_update()
+            )
+            now = utc_now()
+            for active_match in active_matches:
+                active_match.status = "rejected"
+                active_match.closed_at = now
+                active_match.close_reason = "admin_reassigned"
+            order.matching_mode = "direct"
+            match = await SqlAlchemyMatchingRepository(
+                uow.session
+            ).invite_direct_performer(
+                order_id=order_id,
+                customer_id=order.customer_id,
+                performer_id=performer_id,
+            )
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="reassign_performer_as_admin",
+                entity_type="order",
+                entity_id=order_id,
+                reason=comment,
+                audit_metadata={"performer_id": str(performer_id)},
+            )
+            await uow.commit()
+            return match
+
     async def publish_pool_order(self, *, order_id: UUID, customer_id: UUID) -> Any:
         async with self._uow() as uow:
             order = await SqlAlchemyMatchingRepository(uow.session).publish_pool(
@@ -186,6 +273,29 @@ class OrderServices(Service):
             await uow.commit()
             return order
 
+    async def start_order_as_admin(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+        admin_id: UUID,
+        comment: str,
+    ) -> Any:
+        async with self._uow() as uow:
+            order = await StartOrderUseCase(
+                SqlAlchemyOrderRepository(uow.session),
+                SqlAlchemyPricingRepository(uow.session),
+            ).execute(StartOrderCommand(order_id=order_id, performer_id=performer_id))
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="admin_start_order",
+                entity_type="order",
+                entity_id=order_id,
+                reason=comment,
+            )
+            await uow.commit()
+            return order
+
     async def finish_order(self, *, order_id: UUID, performer_id: UUID) -> Any:
         async with self._uow() as uow:
             order = await FinishOrderUseCase(
@@ -193,6 +303,29 @@ class OrderServices(Service):
                 SqlAlchemyPricingRepository(uow.session),
             ).execute(
                 FinishOrderCommand(order_id=order_id, performer_id=performer_id),
+            )
+            await uow.commit()
+            return order
+
+    async def finish_order_as_admin(
+        self,
+        *,
+        order_id: UUID,
+        performer_id: UUID,
+        admin_id: UUID,
+        comment: str,
+    ) -> Any:
+        async with self._uow() as uow:
+            order = await FinishOrderUseCase(
+                SqlAlchemyOrderRepository(uow.session),
+                SqlAlchemyPricingRepository(uow.session),
+            ).execute(FinishOrderCommand(order_id=order_id, performer_id=performer_id))
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="admin_finish_order",
+                entity_type="order",
+                entity_id=order_id,
+                reason=comment,
             )
             await uow.commit()
             return order
@@ -292,6 +425,36 @@ class OrderServices(Service):
                     reason="admin_decision" if actor_type == "admin" else None,
                     comment=comment,
                 ),
+            )
+            await uow.commit()
+            return order
+
+    async def force_close_order(
+        self,
+        *,
+        order_id: UUID,
+        admin_id: UUID,
+        comment: str,
+    ) -> Any:
+        async with self._uow() as uow:
+            order = await CancelOrderUseCase(
+                SqlAlchemyOrderRepository(uow.session),
+                SqlAlchemyPricingRepository(uow.session),
+            ).execute(
+                CancelOrderCommand(
+                    order_id=order_id,
+                    actor_type="admin",
+                    actor_id=admin_id,
+                    reason="admin_force_close",
+                    comment=comment,
+                ),
+            )
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="force_close_order",
+                entity_type="order",
+                entity_id=order_id,
+                reason=comment,
             )
             await uow.commit()
             return order

@@ -926,20 +926,6 @@ wheels = [
 ]
 
 [[package]]
-name = "starlette-admin"
-version = "0.17.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "jinja2" },
-    { name = "python-multipart" },
-    { name = "starlette" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/05/8b/fd9fb6165f280105fc2cba6582143f88e2ffd10546cda9b33b42be44819b/starlette_admin-0.17.0.tar.gz", hash = "sha256:ccc8229a8224d3da3b3cb4ef410c264eaedccc05d4d2f1ae5281374208110456", size = 2106612, upload-time = "2026-07-12T00:07:48.237Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/ac/9d4141d12cef26c37143c7e4975f4d60383c1883adaa590b7dbdf163c33a/starlette_admin-0.17.0-py3-none-any.whl", hash = "sha256:fe3d29dfc4073ba6e5a3eb68110aa87a7ce18f735a9e8df8bd9663907b153f03", size = 2183316, upload-time = "2026-07-12T00:07:49.973Z" },
-]
-
-[[package]]
 name = "tg-bot-server"
 version = "0.1.0"
 source = { editable = "." }
@@ -955,7 +941,6 @@ dependencies = [
     { name = "python-multipart" },
     { name = "redis" },
     { name = "sqlalchemy" },
-    { name = "starlette-admin" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -983,7 +968,6 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "redis", specifier = ">=8.0.1" },
     { name = "sqlalchemy", specifier = ">=2.0.51" },
-    { name = "starlette-admin", specifier = ">=0.17.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.51.0" },
 ]
 

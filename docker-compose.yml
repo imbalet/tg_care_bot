@@ -279,6 +279,20 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  admin_web:
+    build:
+      context: admin_ui
+    ports:
+      - "18001:80"
+    depends_on:
+      api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   postgres_data:
   redis_data:
