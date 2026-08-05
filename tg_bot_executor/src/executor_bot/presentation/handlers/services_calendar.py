@@ -568,9 +568,12 @@ def _parse_time(value: object) -> time | None:
     if not isinstance(value, str):
         return None
     try:
-        return time.fromisoformat(value.strip())
+        parsed = time.fromisoformat(value.strip())
     except ValueError:
         return None
+    if parsed.tzinfo is not None:
+        return None
+    return parsed
 
 
 @router.callback_query(CalendarCancelUnavailableCallback.filter())
