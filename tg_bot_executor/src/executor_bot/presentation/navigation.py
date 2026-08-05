@@ -10,6 +10,7 @@ from executor_bot.presentation.ui import (
     category_select_text,
     executor_main_menu_text,
     main_menu_keyboard,
+    no_available_categories_text,
 )
 
 
@@ -68,6 +69,16 @@ async def show_category_select(
         backend_client,
         telegram_id=telegram_user_context.telegram_id,
     )
+    if not categories:
+        await telegram_responder.update(
+            bot=bot,
+            event=event,
+            telegram_id=telegram_user_context.telegram_id,
+            text=no_available_categories_text(),
+            reply_markup=None,
+            create_new=force_create_new,
+        )
+        return
     await telegram_responder.update(
         bot=bot,
         event=event,

@@ -240,6 +240,14 @@ def category_select_text() -> str:
     return "<b>Выберите направление</b>"
 
 
+def no_available_categories_text() -> str:
+    return (
+        "<b>Нет доступных направлений</b>\n\n"
+        "Администратор добавит направление после проверки профиля. "
+        "Пожалуйста, подождите."
+    )
+
+
 def executor_main_menu_text(category: object | None = None) -> str:
     if category is None:
         return "<b>Главное меню</b>"
@@ -856,6 +864,7 @@ __all__ = [
     "legal_documents_text",
     "my_order_card_text",
     "my_orders_page_text",
+    "no_available_categories_text",
     "response_card_text",
     "no_invitation_text",
     "phone_step_text",

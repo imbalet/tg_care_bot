@@ -12,6 +12,7 @@ from executor_bot.presentation.callbacks import (
     ExecutorResponseCardCallback,
     ExecutorResponsesCallback,
 )
+from executor_bot.presentation.contexts import TelegramUserContext
 from executor_bot.presentation.handlers.addresses.router import _advance_or_create
 from executor_bot.presentation.handlers.avatar import _upload
 from executor_bot.presentation.handlers.orders.router import (
@@ -21,7 +22,7 @@ from executor_bot.presentation.handlers.services_calendar import (
     _parse_time,
     cancel_unavailable_period,
 )
-from executor_bot.presentation.navigation import list_categories
+from executor_bot.presentation.navigation import list_categories, show_category_select
 from executor_bot.presentation.ui import order_location_keyboard
 from executor_bot.presentation.ui.screens.keyboards import (
     fallback_keyboard,
@@ -221,6 +222,33 @@ async def test_executor_categories_include_only_approved_service_categories() ->
     categories = await list_categories(backend, telegram_id=123)
 
     assert [category.code for category in categories] == ["care_category"]
+
+
+@pytest.mark.asyncio
+async def test_empty_executor_categories_show_waiting_message_without_keyboard() -> (
+    None
+):
+    backend = AsyncMock()
+    backend.list_catalog_categories.return_value = ()
+    backend.list_performer_services.return_value = ()
+    responder = AsyncMock()
+
+    await show_category_select(
+        bot=AsyncMock(),
+        event=AsyncMock(),
+        telegram_user_context=TelegramUserContext(
+            telegram_id=123,
+            username=None,
+            chat_id=123,
+        ),
+        backend_client=backend,
+        telegram_responder=responder,
+    )
+
+    responder.update.assert_awaited_once()
+    kwargs = responder.update.await_args.kwargs
+    assert kwargs["reply_markup"] is None
+    assert "администратор добавит направление" in kwargs["text"].lower()
 
 
 @pytest.mark.asyncio

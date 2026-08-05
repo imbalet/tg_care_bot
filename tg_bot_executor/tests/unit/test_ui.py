@@ -47,6 +47,7 @@ from executor_bot.presentation.ui.screens.keyboards import (
 from executor_bot.presentation.ui.screens.texts import (
     available_orders_text,
     my_orders_page_text,
+    no_available_categories_text,
 )
 
 
@@ -103,6 +104,14 @@ def test_executor_setup_hint_lists_only_missing_setup_steps() -> None:
 
     address_text = executor_setup_hint_text(("address",))
     assert "добавьте и выберите рабочий адрес" in address_text
+
+
+def test_no_available_categories_text_explains_admin_setup() -> None:
+    text = no_available_categories_text()
+
+    assert "нет доступных направлений" in text.lower()
+    assert "администратор добавит направление" in text.lower()
+    assert "подождите" in text.lower()
 
 
 def test_calendar_text_describes_unavailability_period_not_exception() -> None:
