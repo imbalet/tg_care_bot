@@ -121,6 +121,19 @@ def _model_dict(instance: Any) -> dict[str, Any]:
     }
 
 
+def _performer_service_dict(instance: PerformerServiceModel) -> dict[str, Any]:
+    row = _model_dict(instance)
+    service = instance.service
+    row.update(
+        {
+            "service_code": service.code,
+            "service_name": service.name,
+            "service_price_type": service.price_type,
+        }
+    )
+    return row
+
+
 class SqlAlchemyAdminQueryService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -566,4 +579,7 @@ class SqlAlchemyAdminQueryService:
         result = await self._session.scalars(
             select(model).where(getattr(model, foreign_key) == entity_id)
         )
-        return [_model_dict(item) for item in result]
+        items = list(result)
+        if model is PerformerServiceModel:
+            return [_performer_service_dict(item) for item in items]
+        return [_model_dict(item) for item in items]

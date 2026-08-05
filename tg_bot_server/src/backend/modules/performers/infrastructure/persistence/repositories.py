@@ -278,7 +278,12 @@ class SqlAlchemyPerformerRepository(PerformerRepository):
         constraints: dict[str, Any],
         approved_by_admin_id: UUID,
     ) -> PerformerServiceDTO | None:
-        performer = await self._session.get(PerformerModel, performer_id)
+        performer_result = await self._session.execute(
+            select(PerformerModel)
+            .where(PerformerModel.id == performer_id)
+            .with_for_update(),
+        )
+        performer = performer_result.scalar_one_or_none()
         if performer is None:
             return None
         now = utc_now()

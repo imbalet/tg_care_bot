@@ -34,6 +34,7 @@ from backend.modules.performers.application import (
 
 from .mappers import admin_response
 from .schemas import (
+    AdminAddPerformerServiceRequest,
     AdminAssignPerformerRequest,
     AdminCatalogCityRequest,
     AdminCatalogResourceUpdateRequest,
@@ -540,6 +541,30 @@ async def ui_approve_service(
         audit_admin_id=UUID(current[0].id),
     )
     return {"id": str(service.id), "status": "approved"}
+
+
+@router.post("/ui/performers/{performer_id}/services", status_code=201)
+async def ui_add_performer_service(
+    performer_id: UUID,
+    request: AdminAddPerformerServiceRequest,
+    container: Annotated[Container, Depends(get_container)],
+    current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
+) -> dict[str, str | int | bool]:
+    service = await container.performers.add_performer_service_as_admin(
+        performer_id=performer_id,
+        service_id=request.service_id,
+        admin_max_objects=request.admin_max_objects,
+        constraints=request.constraints,
+        admin_id=UUID(current[0].id),
+        comment=request.comment,
+    )
+    return {
+        "id": str(service.id),
+        "service_id": str(service.service_id),
+        "status": "approved",
+        "is_enabled": service.is_enabled,
+        "admin_max_objects": service.admin_max_objects,
+    }
 
 
 @router.post("/ui/performers/{performer_id}/services/{service_id}/revoke")

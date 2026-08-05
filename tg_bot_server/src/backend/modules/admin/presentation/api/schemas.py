@@ -55,6 +55,11 @@ class AdminPerformerServiceRequest(BaseModel):
     constraints: dict[str, Any] = Field(default_factory=dict)
 
 
+class AdminAddPerformerServiceRequest(AdminPerformerServiceRequest):
+    service_id: UUID
+    comment: str = Field(min_length=1, max_length=5000)
+
+
 class AdminManualPayoutRequest(BaseModel):
     reference: str = Field(min_length=1, max_length=200)
     comment: str | None = Field(default=None, max_length=5000)

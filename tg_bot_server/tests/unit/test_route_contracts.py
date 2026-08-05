@@ -12,6 +12,7 @@ from starlette.requests import Request
 
 from backend.modules.admin.presentation.api import routes as admin_routes
 from backend.modules.admin.presentation.api.schemas import (
+    AdminAddPerformerServiceRequest,
     LoginRequest,
     ManualRefundRequest,
     MarkAdminNotificationsReadRequest,
@@ -654,6 +655,39 @@ async def test_admin_routes_cover_session_csrf_notifications_and_operations() ->
     await admin_routes.retry_payment_operation(refund.payment_id, container, current)
     await admin_routes.logout(response, container, current)
     container.admin.logout_admin.assert_awaited_once_with("session")
+
+
+@pytest.mark.unit
+async def test_admin_route_adds_performer_service_from_catalog() -> None:
+    performer_id = uuid4()
+    service_id = uuid4()
+    admin_id = uuid4()
+    service = SimpleNamespace(
+        id=uuid4(),
+        service_id=service_id,
+        is_enabled=False,
+        admin_max_objects=2,
+    )
+    container: Any = SimpleNamespace(performers=SimpleNamespace())
+    container.performers.add_performer_service_as_admin = AsyncMock(
+        return_value=service,
+    )
+    current = (SimpleNamespace(id=str(admin_id)), "csrf", "session")
+
+    result = await admin_routes.ui_add_performer_service(
+        performer_id,
+        AdminAddPerformerServiceRequest(
+            service_id=service_id,
+            admin_max_objects=2,
+            constraints={"accepted_age_groups": ["school_age"]},
+            comment="Добавить услугу после проверки профиля",
+        ),
+        container,
+        current,
+    )
+
+    assert result["service_id"] == str(service_id)
+    container.performers.add_performer_service_as_admin.assert_awaited_once()
 
 
 @pytest.mark.unit

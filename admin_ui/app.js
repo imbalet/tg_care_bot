@@ -180,17 +180,53 @@
 
   async function renderDetail(key, id) {
     $("page-content").innerHTML = `${pageHeader(labels[key] || key, `Карточка ${id}`, `<a class="btn btn-outline-secondary" href="#/${key}">← Назад</a>`)}<div id="detail-error" class="alert alert-danger d-none"></div><div id="detail-card"></div><div id="related" class="row g-3 mt-1"></div>`;
-    try { const data = await api(`/${key}/${id}`); state.detailItem = data.item; renderObjectCard(key, id, data.item); renderRelated(key, data.related || {}); } catch (error) { $("detail-error").textContent = error.message; $("detail-error").classList.remove("d-none"); }
+    try { const data = await api(`/${key}/${id}`); state.detailItem = data.item; renderObjectCard(key, id, data.item); renderRelated(key, data.related || {}, id); } catch (error) { $("detail-error").textContent = error.message; $("detail-error").classList.remove("d-none"); }
   }
   function renderObjectCard(key, id, item) {
     const actions = renderActions(key, id, item);
     const entries = Object.entries(item).filter(([field]) => !["id", "password_hash", "storage_key"].includes(field));
     $("detail-card").innerHTML = `<section class="detail-card card"><div class="card-body"><div class="d-flex justify-content-between align-items-start gap-3 mb-4"><div><div class="eyebrow">${esc(labels[key] || key)}</div><h2 class="h4 mb-1">${esc(item.full_name || item.service_name || item.text?.slice(0, 100) || id)}</h2><div class="text-secondary small">ID: ${esc(id)}</div></div><div class="d-flex flex-wrap gap-2">${item.status ? statusBadge(item.status) : ""}${actions}</div></div><div class="row g-3">${entries.map(([field, fieldValue]) => `<div class="col-sm-6 col-xl-4"><div class="detail-label">${esc(fieldLabel(field))}</div><div class="detail-value text-break">${field === "status" || field === "payout_status" ? statusBadge(fieldValue) : esc(value(fieldValue))}</div></div>`).join("")}</div></div></section>`;
   }
-  function renderRelated(parentKey, related) {
-    $("related").innerHTML = Object.entries(related).filter(([, rows]) => rows.length).map(([name, rows]) => `<div class="col-12"><section class="card"><div class="card-header bg-white"><strong>${esc(fieldLabel(name))}</strong><span class="text-secondary small ms-2">${rows.length}</span></div><div class="table-responsive"><table class="table table-sm table-hover mb-0"><tbody>${rows.map((row) => `<tr>${Object.entries(row).filter(([field]) => field !== "id").slice(0, 7).map(([field, fieldValue]) => `<td><span class="text-secondary">${esc(fieldLabel(field))}:</span> ${field === "status" ? statusBadge(fieldValue) : esc(value(fieldValue))}</td>`).join("")}<td class="text-end">${relatedAction(parentKey, name, row)}</td></tr>`).join("")}</tbody></table></div></section></div>`).join("");
+  function renderRelated(parentKey, related, entityId) {
+    const sections = [];
+    if (parentKey === "performers") {
+      sections.push(renderPerformerServices(related.services || [], entityId));
+    }
+    sections.push(...Object.entries(related)
+      .filter(([name, rows]) => rows.length && !(parentKey === "performers" && name === "services"))
+      .map(([name, rows]) => `<div class="col-12"><section class="card"><div class="card-header bg-white"><strong>${esc(fieldLabel(name))}</strong><span class="text-secondary small ms-2">${rows.length}</span></div><div class="table-responsive"><table class="table table-sm table-hover mb-0"><tbody>${rows.map((row) => `<tr>${Object.entries(row).filter(([field]) => field !== "id").slice(0, 7).map(([field, fieldValue]) => `<td><span class="text-secondary">${esc(fieldLabel(field))}:</span> ${field === "status" ? statusBadge(fieldValue) : esc(value(fieldValue))}</td>`).join("")}<td class="text-end">${relatedAction(parentKey, name, row)}</td></tr>`).join("")}</tbody></table></div></section></div>`));
+    $("related").innerHTML = sections.filter(Boolean).join("");
     $("related").querySelectorAll("[data-related-action]").forEach((button) => { button.onclick = () => runAction(button.dataset.relatedAction, button.dataset.id, JSON.parse(button.dataset.item || "{}")); });
     $("related").querySelectorAll("[data-file-id]").forEach((button) => { button.onclick = async () => { try { const result = await api(`/files/${button.dataset.fileId}/download-url`); window.open(result.url, "_blank", "noopener"); } catch (error) { flash(error.message, "danger"); } }; });
+    const addService = $("add-performer-service");
+    if (addService) addService.onclick = () => openAddPerformerServiceForm(addService.dataset.performerId, related.services || []);
+  }
+  async function openAddPerformerServiceForm(performerId, assignedRows) {
+    try {
+      const page = await api("/services?page=1&page_size=100");
+      const assigned = new Set(assignedRows.map((row) => row.service_id));
+      const options = page.items.filter((item) => item.is_active && !assigned.has(item.id)).map((item) => ({ value: item.id, label: `${item.name} (${item.code})` }));
+      if (!options.length) { flash("Нет доступных услуг для добавления", "warning"); return; }
+      openForm("Добавить услугу исполнителю", [
+        { name: "service_id", label: "Услуга", type: "select", options, required: true },
+        { name: "admin_max_objects", label: "Лимит объектов", type: "number", value: "1", required: true },
+        { name: "constraints", label: "Ограничения JSON", type: "textarea", value: "{}", required: true },
+        { name: "comment", label: "Причина добавления", type: "textarea", required: true },
+      ], async (form) => api(`/performers/${performerId}/services`, { method: "POST", headers: csrfHeaders(), body: JSON.stringify({ service_id: form.service_id, admin_max_objects: Number(form.admin_max_objects), constraints: JSON.parse(form.constraints), comment: form.comment }) }));
+    } catch (error) { flash(error.message, "danger"); }
+  }
+  function renderPerformerServices(rows, performerId) {
+    const body = rows.length
+      ? rows.map((row) => `<tr><td><div class="fw-semibold">${esc(row.service_name || row.service_code || row.service_id)}</div><div class="small text-secondary">${esc(row.service_code || row.service_id)}</div></td><td>${row.is_approved ? statusBadge(row.is_enabled ? "active" : "disabled") : statusBadge("pending")}</td><td>${esc(value(row.admin_max_objects))}</td><td>${esc(value(row.performer_max_objects))}</td><td class="text-break">${esc(value(row.constraints))}</td><td class="text-end text-nowrap">${performerServiceActions(row)}</td></tr>`).join("")
+      : '<tr><td colspan="6" class="text-secondary">У исполнителя нет назначенных услуг.</td></tr>';
+    const addButton = performerId ? `<button id="add-performer-service" data-performer-id="${esc(performerId)}" class="btn btn-sm btn-primary">Добавить услугу</button>` : "";
+    return `<div class="col-12"><section class="card"><div class="card-header bg-white d-flex justify-content-between align-items-center"><strong>Услуги исполнителя</strong><div class="d-flex gap-2 align-items-center">${addButton}<span class="text-secondary small">${rows.length}</span></div></div><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0"><thead><tr><th>Услуга</th><th>Статус</th><th>Лимит админа</th><th>Лимит исполнителя</th><th>Ограничения</th><th></th></tr></thead><tbody>${body}</tbody></table></div></section></div>`;
+  }
+  function performerServiceActions(row) {
+    if (!row.is_approved) return `<button class="btn btn-sm btn-outline-success" data-related-action="approve-service" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>Одобрить</button>`;
+    const toggle = row.is_enabled ? "disable-service" : "enable-service";
+    const toggleLabel = row.is_enabled ? "Деактивировать" : "Активировать";
+    return `<div class="d-flex gap-1 justify-content-end"><button class="btn btn-sm btn-outline-${row.is_enabled ? "warning" : "success"}" data-related-action="${toggle}" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>${toggleLabel}</button><button class="btn btn-sm btn-outline-secondary" data-related-action="service-limits" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>Лимит</button><button class="btn btn-sm btn-outline-danger" data-related-action="revoke-service" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>Отозвать</button></div>`;
   }
   function relatedAction(parentKey, name, row) {
     if (parentKey === "performers" && name === "services" && !row.is_approved) return `<button class="btn btn-sm btn-outline-success" data-related-action="approve-service" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>Одобрить</button>`;
@@ -263,7 +299,7 @@
     setting: ["Изменить настройку", [{ name: "value", label: "Новое значение JSON", type: "textarea", required: true }]],
     "approve-service": ["Одобрить услугу", [{ name: "admin_max_objects", label: "Лимит объектов", type: "number", required: true }, { name: "constraints", label: "Ограничения JSON", type: "textarea", value: "{}", required: true }]],
   };
-  function formMarkup(fields) { return fields.map((field) => `<div class="mb-3"><label class="form-label" for="action-${field.name}">${esc(field.label)}</label>${field.type === "textarea" ? `<textarea class="form-control" name="${field.name}" id="action-${field.name}" ${field.required ? "required" : ""}>${esc(field.value || "")}</textarea>` : field.type === "select" ? `<select class="form-select" name="${field.name}" id="action-${field.name}" ${field.required ? "required" : ""}>${field.options.map((option) => `<option value="${esc(option)}" ${option === field.value ? "selected" : ""}>${esc(option)}</option>`).join("")}</select>` : `<input class="form-control" name="${field.name}" id="action-${field.name}" type="${field.type || "text"}" value="${esc(field.value || "")}" ${field.step ? `step="${field.step}"` : ""} ${field.required ? "required" : ""}>`}</div>`).join(""); }
+  function formMarkup(fields) { return fields.map((field) => `<div class="mb-3"><label class="form-label" for="action-${field.name}">${esc(field.label)}</label>${field.type === "textarea" ? `<textarea class="form-control" name="${field.name}" id="action-${field.name}" ${field.required ? "required" : ""}>${esc(field.value || "")}</textarea>` : field.type === "select" ? `<select class="form-select" name="${field.name}" id="action-${field.name}" ${field.required ? "required" : ""}>${field.options.map((option) => { const optionValue = typeof option === "string" ? option : option.value; const optionLabel = typeof option === "string" ? option : option.label; return `<option value="${esc(optionValue)}" ${optionValue === field.value ? "selected" : ""}>${esc(optionLabel)}</option>`; }).join("")}</select>` : `<input class="form-control" name="${field.name}" id="action-${field.name}" type="${field.type || "text"}" value="${esc(field.value || "")}" ${field.step ? `step="${field.step}"` : ""} ${field.required ? "required" : ""}>`}</div>`).join(""); }
   function openForm(title, fields, submit) { $("action-title").textContent = title; $("action-fields").innerHTML = formMarkup(fields); const form = $("action-form"); form.onsubmit = async (event) => { event.preventDefault(); const submitButton = form.querySelector("[type=submit]"); submitButton.disabled = true; try { await submit(Object.fromEntries(new FormData(form))); modal().hide(); flash("Операция выполнена"); await renderRoute(); } catch (error) { flash(error.message, "danger"); } finally { submitButton.disabled = false; } }; modal().show(); }
 
   function runAction(action, id, item = state.detailItem || {}) {

@@ -490,6 +490,43 @@ class PerformerServices(Service):
             await uow.commit()
             return result
 
+    async def add_performer_service_as_admin(
+        self,
+        *,
+        performer_id: UUID,
+        service_id: UUID,
+        admin_max_objects: int,
+        constraints: dict[str, Any],
+        admin_id: UUID,
+        comment: str,
+    ) -> Any:
+        async with self._uow() as uow:
+            service = await ApprovePerformerServiceUseCase(
+                SqlAlchemyPerformerRepository(uow.session),
+            ).execute(
+                ApprovePerformerServiceCommand(
+                    performer_id=performer_id,
+                    service_id=service_id,
+                    admin_max_objects=admin_max_objects,
+                    constraints=constraints,
+                    approved_by_admin_id=admin_id,
+                ),
+            )
+            await SqlAlchemyAdminAuditRepository(uow.session).add(
+                admin_id=admin_id,
+                action="approve_performer_service",
+                entity_type="performer_service",
+                entity_id=service.id,
+                reason=comment,
+                audit_metadata={
+                    "performer_id": str(performer_id),
+                    "service_id": str(service_id),
+                    "admin_max_objects": admin_max_objects,
+                },
+            )
+            await uow.commit()
+            return service
+
     async def list_performer_services_by_id(self, performer_id: UUID) -> Any:
         async with self._uow() as uow:
             return await ListPerformerServicesUseCase(
