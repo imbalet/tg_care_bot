@@ -248,7 +248,6 @@
     if (key === "orders" && !["cancelled", "completed", "expired"].includes(item.status)) actions.push(["cancel", "Отменить", "outline-danger"], ["force-close", "Закрыть вручную", "danger"]);
     if (key === "orders" && ["confirmed"].includes(item.status)) actions.push(["start-order", "Подтвердить начало", "outline-primary"]);
     if (key === "orders" && ["in_progress", "waiting_report", "report_submitted"].includes(item.status)) actions.push(["finish-order", "Подтвердить завершение", "outline-primary"]);
-    if (key === "orders" && item.status === "searching") actions.push([item.selected_performer_id ? "reassign" : "assign", item.selected_performer_id ? "Сменить исполнителя" : "Назначить исполнителя", "outline-primary"]);
     if (key === "orders" && item.payout_status === "ready") actions.push(["payout", "Отметить выплату", "outline-success"]);
     if (key === "orders" && item.payout_status === "ready") actions.push(["block-payout", "Заблокировать выплату", "outline-danger"]);
     if (key === "orders" && item.payout_status === "blocked") actions.push(["allow-payout", "Разрешить выплату", "outline-success"]);
@@ -268,8 +267,6 @@
   const actionDefinitions = {
     cancel: ["Отменить заказ", [{ name: "comment", label: "Причина решения", type: "textarea", required: true }]],
     "force-close": ["Принудительно закрыть заказ", [{ name: "comment", label: "Причина решения", type: "textarea", required: true }]],
-    assign: ["Назначить исполнителя", [{ name: "performer_id", label: "ID исполнителя", required: true }, { name: "comment", label: "Причина назначения", type: "textarea", required: true }]],
-    reassign: ["Сменить исполнителя до оплаты", [{ name: "performer_id", label: "ID нового исполнителя", required: true }, { name: "comment", label: "Причина смены", type: "textarea", required: true }]],
     "start-order": ["Подтвердить начало заказа", [{ name: "performer_id", label: "ID исполнителя", required: true }, { name: "comment", label: "Комментарий", type: "textarea", required: true }]],
     "finish-order": ["Подтвердить завершение заказа", [{ name: "performer_id", label: "ID исполнителя", required: true }, { name: "comment", label: "Комментарий", type: "textarea", required: true }]],
     payout: ["Разрешить выплату", [{ name: "reference", label: "Номер/ссылка подтверждения", required: true }, { name: "comment", label: "Комментарий", type: "textarea", required: true }]],
@@ -315,8 +312,6 @@
     openForm(definition[0], fields, async (form) => {
       let path; let method = "POST"; let body = form;
       if (["cancel", "force-close"].includes(action)) path = `/orders/${id}/${action}`;
-      if (action === "assign") { path = `/orders/${id}/assign-performer`; body = { performer_id: form.performer_id, comment: form.comment }; }
-      if (action === "reassign") { path = `/orders/${id}/reassign-performer`; body = { performer_id: form.performer_id, comment: form.comment }; }
       if (["start-order", "finish-order"].includes(action)) { path = `/orders/${id}/${action === "start-order" ? "start" : "finish"}`; body = { performer_id: form.performer_id, comment: form.comment }; }
       if (action === "payout") path = `/orders/${id}/manual-payout`;
       if (["block-payout", "allow-payout"].includes(action)) path = `/orders/${id}/payout/${action === "block-payout" ? "block" : "allow"}`;
