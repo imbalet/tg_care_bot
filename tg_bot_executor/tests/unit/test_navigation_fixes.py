@@ -31,6 +31,7 @@ from executor_bot.presentation.handlers.services_calendar import (
 from executor_bot.presentation.navigation import list_categories, show_category_select
 from executor_bot.presentation.ui import order_location_keyboard
 from executor_bot.presentation.ui.screens.keyboards import (
+    direct_response_card_keyboard,
     fallback_keyboard,
     response_card_keyboard,
     responses_keyboard,
@@ -172,6 +173,24 @@ def test_response_card_has_back_to_order_button() -> None:
     assert back_button.callback_data is not None
     callback = ExecutorOrderCardCallback.unpack(back_button.callback_data)
     assert callback.order_id == order_id
+
+
+def test_direct_response_card_has_back_to_order_button() -> None:
+    match_id = str(uuid4())
+    order_id = str(uuid4())
+
+    markup = direct_response_card_keyboard(match_id, order_id)
+    back_button = next(
+        button
+        for row in markup.inline_keyboard
+        for button in row
+        if button.text == "Назад к заказу"
+    )
+
+    assert back_button.callback_data is not None
+    callback = ExecutorOrderCardCallback.unpack(back_button.callback_data)
+    assert callback.order_id == order_id
+    assert callback.group == "direct"
 
 
 @pytest.mark.asyncio
