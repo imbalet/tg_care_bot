@@ -77,7 +77,7 @@ class Screen(BaseScreen[_View]):
     def _build_keyboard(self) -> Markup:
         keyboard = InlineKeyboardFactory()
         keyboard.button(
-            "Проверить удаление аккаунта",
+            "Удалить аккаунт",
             ProfileDeletionCheckCallback(),
         )
         return (
