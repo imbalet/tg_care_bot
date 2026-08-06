@@ -228,6 +228,17 @@ def test_notification_registry_and_timezone_rules_are_deterministic() -> None:
     callback_data = actions[0][0]["callback_data"]
     assert isinstance(callback_data, str)
     assert callback_data.startswith("direct_accept:")
+    performer_id = str(uuid4())
+    response_actions = notification_actions(
+        "pool_response_created",
+        entity_id,
+        {"performer_id": performer_id},
+    )
+    assert response_actions is not None
+    assert response_actions[0][-1] == {
+        "text": "Открыть карточку исполнителя",
+        "callback_data": f"order_resp_profile:{performer_id}",
+    }
     assert notification_actions("direct_invitation_created", "invalid") is None
     assert notification_actions("unknown", entity_id) is None
     payment_failed_actions = notification_actions("payment_failed", entity_id)

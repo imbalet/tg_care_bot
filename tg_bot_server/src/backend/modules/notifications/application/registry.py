@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -6,6 +7,7 @@ from uuid import UUID
 class NotificationAction:
     label: str
     callback_prefix: str
+    entity_key: str = "entity_id"
 
     def callback_data(self, entity_id: str | None) -> str | None:
         if entity_id is None:
@@ -26,6 +28,11 @@ _ACTIONS: dict[str, tuple[NotificationAction, ...]] = {
     "pool_response_created": (
         NotificationAction("Выбрать", "order_resp_select"),
         NotificationAction("Отклонить", "order_resp_reject"),
+        NotificationAction(
+            "Открыть карточку исполнителя",
+            "order_resp_profile",
+            entity_key="performer_id",
+        ),
     ),
 }
 
@@ -105,7 +112,9 @@ _BODIES = {
 
 
 def notification_actions(
-    notification_type: str, entity_id: str | None
+    notification_type: str,
+    entity_id: str | None,
+    payload: Mapping[str, object] | None = None,
 ) -> list[list[dict[str, object]]] | None:
     actions = _ACTIONS.get(notification_type)
     if actions is None and notification_type in _OPEN_ORDER_TYPES:
@@ -114,7 +123,11 @@ def notification_actions(
         return None
     buttons: list[dict[str, object]] = []
     for action in actions:
-        callback_data = action.callback_data(entity_id)
+        action_entity_id = entity_id
+        if action.entity_key != "entity_id" and payload is not None:
+            value = payload.get(action.entity_key)
+            action_entity_id = value if isinstance(value, str) else None
+        callback_data = action.callback_data(action_entity_id)
         if callback_data is None:
             return None
         buttons.append({"text": action.label, "callback_data": callback_data})

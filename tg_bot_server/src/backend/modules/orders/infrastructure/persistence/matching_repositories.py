@@ -265,6 +265,7 @@ class SqlAlchemyMatchingRepository:
         payload = {
             "order_id": str(order.id),
             "match_id": str(match.id),
+            "performer_id": str(match.performer_id),
             "service_name": order.service_name,
             "start_at": to_timezone(order.start_at, timezone).isoformat(),
             "end_at": to_timezone(order.end_at, timezone).isoformat(),

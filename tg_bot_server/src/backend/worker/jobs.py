@@ -1128,6 +1128,7 @@ def _notification_keyboard(notification: NotificationModel) -> dict[str, object]
     buttons = notification_actions(
         notification.type,
         notification_action_entity_id(notification.type, notification.payload),
+        notification.payload,
     )
     return {"inline_keyboard": buttons} if buttons else None
 
