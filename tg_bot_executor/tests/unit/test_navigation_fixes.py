@@ -12,9 +12,13 @@ from executor_bot.presentation.callbacks import (
     ExecutorOrderCardCallback,
     ExecutorResponseCardCallback,
     ExecutorResponsesCallback,
+    WorkAddressDeleteCallback,
 )
 from executor_bot.presentation.contexts import TelegramUserContext
-from executor_bot.presentation.handlers.addresses.router import _advance_or_create
+from executor_bot.presentation.handlers.addresses.router import (
+    _advance_or_create,
+    delete_address,
+)
 from executor_bot.presentation.handlers.avatar import _upload
 from executor_bot.presentation.handlers.orders.router import (
     executor_response_card_callback,
@@ -413,3 +417,30 @@ async def test_avatar_upload_creates_new_menu_message() -> None:
 
     assert responder.update.await_args.kwargs["create_new"] is True
     assert responder.update.await_args.kwargs["reply_markup"] is not None
+
+
+@pytest.mark.asyncio
+async def test_delete_current_work_address_shows_validation_error() -> None:
+    address_id = uuid4()
+    backend = AsyncMock()
+    backend.delete_work_address.side_effect = BackendValidationError(
+        "Current performer address cannot be deleted",
+    )
+    state = AsyncMock()
+    state.get_data.return_value = {
+        "work_addresses": [{"id": str(address_id)}],
+    }
+    responder = AsyncMock()
+    context = type("Context", (), {"telegram_id": 123})()
+
+    await delete_address(
+        callback=object(),
+        bot=object(),
+        state=state,
+        backend_client=backend,
+        telegram_responder=responder,
+        telegram_user_context=context,
+        callback_data=WorkAddressDeleteCallback(index=0),
+    )
+
+    assert "нельзя удалить" in responder.update.await_args.kwargs["text"]

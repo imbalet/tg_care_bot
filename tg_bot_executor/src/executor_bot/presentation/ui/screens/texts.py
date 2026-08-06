@@ -389,6 +389,15 @@ def work_address_deleted_text() -> str:
     return "Рабочий адрес удален."
 
 
+def work_address_delete_validation_error_text(message: str) -> str:
+    if "Current performer address cannot be deleted" in message:
+        return (
+            "<b>Текущий рабочий адрес нельзя удалить</b>\n\n"
+            "Сначала выберите другой рабочий адрес текущим."
+        )
+    return "<b>Рабочий адрес не удален</b>\n\n" "Проверьте данные и попробуйте еще раз."
+
+
 def work_address_current_text() -> str:
     return "Текущий рабочий адрес обновлен."
 

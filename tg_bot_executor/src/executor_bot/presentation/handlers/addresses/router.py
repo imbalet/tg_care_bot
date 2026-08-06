@@ -30,6 +30,7 @@ from executor_bot.presentation.ui import (
     work_address_created_keyboard,
     work_address_created_text,
     work_address_current_text,
+    work_address_delete_validation_error_text,
     work_address_deleted_text,
     work_address_extra_step_text,
     work_address_query_step_text,
@@ -457,6 +458,15 @@ async def delete_address(
             telegram_id=telegram_user_context.telegram_id,
             address_id=UUID(str(item["id"])),
         )
+    except BackendValidationError as exc:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=work_address_delete_validation_error_text(str(exc)),
+            reply_markup=work_addresses_keyboard(()),
+        )
+        return
     except BackendClientError:
         await telegram_responder.update(
             bot=bot,
