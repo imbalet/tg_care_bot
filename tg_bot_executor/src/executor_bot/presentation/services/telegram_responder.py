@@ -7,6 +7,7 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardMarkup,
     Message,
+    ReplyKeyboardRemove,
     ReplyMarkupUnion,
 )
 
@@ -186,6 +187,23 @@ class TelegramResponder:
         if isinstance(callback.message, Message):
             await _delete_message(callback.message)
         await callback.answer()
+
+    async def clear_reply_keyboard(
+        self,
+        *,
+        bot: Bot,
+        event: Message | CallbackQuery,
+        telegram_id: int,
+    ) -> None:
+        message = event if isinstance(event, Message) else event.message
+        if not isinstance(message, Message):
+            return
+        sent = await bot.send_message(
+            chat_id=message.chat.id,
+            text="\u2063",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        await self._message_store.set(telegram_id, sent.message_id)
 
     async def _send(
         self,
