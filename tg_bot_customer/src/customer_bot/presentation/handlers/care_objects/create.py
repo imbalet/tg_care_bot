@@ -225,6 +225,27 @@ async def enter_species(
     )
 
 
+@router.callback_query(
+    CareObjectManagement.species,
+    CareObjectSkipCallback.filter(),
+)
+async def skip_species(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    await state.set_state(CareObjectManagement.breed)
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=(screen := CareObjectBreedStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
+    )
+
+
 @router.message(CareObjectManagement.breed)
 async def enter_breed(
     message: Message,
@@ -284,6 +305,27 @@ async def enter_size(
     draft = care_object_draft(data)
     draft["pet_size"] = size
     await state.update_data(draft=draft)
+    await state.set_state(CareObjectManagement.notes)
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=(screen := CareObjectNotesStepScreen().build()).text,
+        reply_markup=screen.reply_markup,
+    )
+
+
+@router.callback_query(
+    CareObjectManagement.size,
+    CareObjectSkipCallback.filter(),
+)
+async def skip_size(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
     await state.set_state(CareObjectManagement.notes)
     await telegram_responder.update(
         bot=bot,
