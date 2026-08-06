@@ -50,6 +50,7 @@ async def show_category_select(
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     force_create_new: bool = False,
+    clear_reply_keyboard: bool = False,
 ) -> None:
     categories = await list_categories(backend_client)
     screen = CategorySelectScreen(categories).build()
@@ -60,6 +61,7 @@ async def show_category_select(
         text=screen.text,
         reply_markup=screen.reply_markup,
         create_new=force_create_new,
+        clear_reply_keyboard=clear_reply_keyboard,
     )
 
 
@@ -71,6 +73,7 @@ async def show_category_menu(
     telegram_responder: TelegramResponder,
     category: ServiceCategoryDTO,
     force_create_new: bool = False,
+    clear_reply_keyboard: bool = False,
 ) -> None:
     screen = MenuScreen(category).build()
     await telegram_responder.update(
@@ -80,4 +83,5 @@ async def show_category_menu(
         text=screen.text,
         reply_markup=screen.reply_markup,
         create_new=force_create_new,
+        clear_reply_keyboard=clear_reply_keyboard,
     )

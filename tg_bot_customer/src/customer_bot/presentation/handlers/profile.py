@@ -4,7 +4,7 @@ from dataclasses import replace
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.types import CallbackQuery, Message
 
 from customer_bot.application.errors import BackendClientError
 from customer_bot.application.ports import BackendPort
@@ -97,14 +97,6 @@ async def profile_edit_phone(
         return
     await state.update_data(profile_phone=contact.phone_number)
     await state.set_state(ProfileEditForm.contact_method)
-    await telegram_responder.update(
-        bot=bot,
-        event=message,
-        telegram_id=telegram_user_context.telegram_id,
-        text="Телефон получен.",
-        reply_markup=ReplyKeyboardRemove(),
-        create_new=True,
-    )
     await telegram_responder.update(
         bot=bot,
         event=message,

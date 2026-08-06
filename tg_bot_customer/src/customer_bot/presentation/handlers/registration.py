@@ -242,6 +242,7 @@ async def enter_phone(
         text=screen.text,
         reply_markup=screen.reply_markup,
         create_new=True,
+        clear_reply_keyboard=True,
     )
 
 

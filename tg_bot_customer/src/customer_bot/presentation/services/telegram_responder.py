@@ -43,6 +43,7 @@ class TelegramResponder:
         reply_markup: ReplyMarkupUnion | None = None,
         create_new: bool = False,
         delete_event_message: bool = False,
+        clear_reply_keyboard: bool = False,
     ) -> Message | None:
         message = event if isinstance(event, Message) else event.message
         if not isinstance(message, Message):
@@ -59,6 +60,33 @@ class TelegramResponder:
 
         if isinstance(event, CallbackQuery):
             await event.answer()
+
+        if clear_reply_keyboard:
+            sent = await bot.send_message(
+                chat_id=message.chat.id,
+                text=text,
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            if isinstance(reply_markup, InlineKeyboardMarkup):
+                try:
+                    await bot.edit_message_text(
+                        chat_id=message.chat.id,
+                        message_id=sent.message_id,
+                        text=text,
+                        reply_markup=reply_markup,
+                    )
+                except TelegramAPIError as exc:
+                    logger.warning(
+                        "Telegram menu inline keyboard edit failed",
+                        extra={
+                            "telegram_id": telegram_id,
+                            "chat_id": message.chat.id,
+                            "message_id": sent.message_id,
+                            "exception_type": type(exc).__name__,
+                        },
+                    )
+            await self._message_store.set(telegram_id, sent.message_id)
+            return sent
 
         target_message_id = await self._message_store.get(telegram_id)
         if (
@@ -225,23 +253,6 @@ class TelegramResponder:
         if isinstance(callback.message, Message):
             await _delete_message(callback.message)
         await callback.answer()
-
-    async def clear_reply_keyboard(
-        self,
-        *,
-        bot: Bot,
-        event: Message | CallbackQuery,
-        telegram_id: int,
-    ) -> None:
-        message = event if isinstance(event, Message) else event.message
-        if not isinstance(message, Message):
-            return
-        sent = await bot.send_message(
-            chat_id=message.chat.id,
-            text="\u2063",
-            reply_markup=ReplyKeyboardRemove(),
-        )
-        await self._message_store.set(telegram_id, sent.message_id)
 
     async def _send(
         self,

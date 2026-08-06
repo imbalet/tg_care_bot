@@ -51,6 +51,7 @@ async def start(
         telegram_user_context=telegram_user_context,
         start_registration_if_missing=True,
         force_create_new=True,
+        clear_reply_keyboard=True,
     )
 
 
@@ -154,6 +155,7 @@ async def _open_start_or_menu(
     telegram_user_context: TelegramUserContext,
     start_registration_if_missing: bool,
     force_create_new: bool = False,
+    clear_reply_keyboard: bool = False,
 ) -> None:
     try:
         profile = await backend_client.get_customer_profile(
@@ -174,6 +176,7 @@ async def _open_start_or_menu(
             telegram_id=telegram_user_context.telegram_id,
             text=screen.text,
             create_new=True,
+            clear_reply_keyboard=clear_reply_keyboard,
         )
         return
     if profile is not None:
@@ -194,6 +197,7 @@ async def _open_start_or_menu(
                 backend_client=backend_client,
                 telegram_responder=telegram_responder,
                 force_create_new=force_create_new,
+                clear_reply_keyboard=clear_reply_keyboard,
             )
             return
         await show_category_menu(
@@ -203,6 +207,7 @@ async def _open_start_or_menu(
             telegram_responder=telegram_responder,
             category=category,
             force_create_new=force_create_new,
+            clear_reply_keyboard=clear_reply_keyboard,
         )
         return
     if start_registration_if_missing:
@@ -242,4 +247,5 @@ async def _open_start_or_menu(
         text=screen.text,
         reply_markup=screen.reply_markup,
         create_new=True,
+        clear_reply_keyboard=clear_reply_keyboard,
     )
