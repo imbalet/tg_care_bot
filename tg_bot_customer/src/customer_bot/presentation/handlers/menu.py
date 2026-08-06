@@ -52,6 +52,11 @@ async def main_menu_callback(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
+    await telegram_responder.clear_reply_keyboard(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+    )
     try:
         profile = await backend_client.get_customer_profile(
             telegram_user_context.telegram_id,
