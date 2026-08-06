@@ -335,7 +335,10 @@ async def executor_response_card_callback(
         if match is None:
             raise ValueError("Response is unavailable")
         text = response_card_text(match)
-        reply_markup = response_card_keyboard(callback_data.group)
+        reply_markup = response_card_keyboard(
+            callback_data.group,
+            str(match.order_id),
+        )
     except BackendClientError, ValueError:
         text = stale_action_text()
         reply_markup = stale_action_keyboard()
@@ -401,7 +404,10 @@ async def executor_direct_response_card_callback(
                 f"Статус: {_match_status_label(match.status)}",
             ),
         )
-        reply_markup = direct_response_card_keyboard(str(match.id))
+        reply_markup = direct_response_card_keyboard(
+            str(match.id),
+            str(match.order_id),
+        )
     except BackendClientError, ValueError:
         text = stale_action_text()
         reply_markup = stale_action_keyboard()

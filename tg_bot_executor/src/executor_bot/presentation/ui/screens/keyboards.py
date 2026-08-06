@@ -302,21 +302,29 @@ def responses_keyboard(items: Sequence[object], group: str) -> InlineKeyboardMar
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
-def response_card_keyboard(group: str) -> InlineKeyboardMarkup:
+def response_card_keyboard(group: str, order_id: str) -> InlineKeyboardMarkup:
     return (
         InlineKeyboardFactory()
         .button("К откликам", ExecutorResponsesCallback(group=group))
+        .button(
+            "Назад к заказу",
+            ExecutorOrderCardCallback(order_id=order_id, group=group),
+        )
         .button(MsgKey.MAIN_MENU, MainMenuCallback())
         .as_markup()
     )
 
 
-def direct_response_card_keyboard(match_id: str) -> InlineKeyboardMarkup:
+def direct_response_card_keyboard(match_id: str, order_id: str) -> InlineKeyboardMarkup:
     return (
         InlineKeyboardFactory()
         .button("Принять", DirectAcceptCallback(match_id=match_id))
         .button("Отклонить", DirectRejectCallback(match_id=match_id))
         .button("К direct", ExecutorResponsesCallback(group="direct"))
+        .button(
+            "Назад к заказу",
+            ExecutorOrderCardCallback(order_id=order_id, group="direct"),
+        )
         .button(MsgKey.MAIN_MENU, MainMenuCallback())
         .as_markup()
     )

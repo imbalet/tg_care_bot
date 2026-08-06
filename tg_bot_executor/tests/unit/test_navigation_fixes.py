@@ -27,6 +27,7 @@ from executor_bot.presentation.navigation import list_categories, show_category_
 from executor_bot.presentation.ui import order_location_keyboard
 from executor_bot.presentation.ui.screens.keyboards import (
     fallback_keyboard,
+    response_card_keyboard,
     responses_keyboard,
     work_address_created_keyboard,
     work_address_suggestions_keyboard,
@@ -148,6 +149,24 @@ def test_response_card_text_contains_match_details() -> None:
     assert "Прогулка" in text
     assert "1200.00" in text
     assert "Позвоните перед визитом" in text
+
+
+def test_response_card_has_back_to_order_button() -> None:
+    order_id = str(uuid4())
+
+    markup = response_card_keyboard("active", order_id)
+    labels = [button.text for row in markup.inline_keyboard for button in row]
+
+    assert "Назад к заказу" in labels
+    back_button = next(
+        button
+        for row in markup.inline_keyboard
+        for button in row
+        if button.text == "Назад к заказу"
+    )
+    assert back_button.callback_data is not None
+    callback = ExecutorOrderCardCallback.unpack(back_button.callback_data)
+    assert callback.order_id == order_id
 
 
 @pytest.mark.asyncio
