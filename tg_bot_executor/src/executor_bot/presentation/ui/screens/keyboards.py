@@ -37,7 +37,6 @@ from executor_bot.presentation.callbacks import (
     ExecutorOrdersOpenCallback,
     ExecutorOrdersPageCallback,
     ExecutorOrderStartCallback,
-    ExecutorOrderSupportCallback,
     ExecutorResponseCardCallback,
     ExecutorResponsesCallback,
     HelpCallback,
@@ -52,7 +51,6 @@ from executor_bot.presentation.callbacks import (
     RegistrationLegalAcceptCallback,
     ServicesOpenCallback,
     ServiceToggleCallback,
-    SupportOpenCallback,
     WorkAddressAddCallback,
     WorkAddressCityCallback,
     WorkAddressCurrentCallback,
@@ -213,17 +211,12 @@ def fallback_keyboard(
         keyboard.url_button(support_label, support_url)
     if include_help:
         keyboard.button(MsgKey.HELP, HelpCallback())
-    if include_support:
-        keyboard.button("Связаться с поддержкой", SupportOpenCallback())
     return keyboard.as_markup()
 
 
 def stale_action_keyboard() -> InlineKeyboardMarkup:
     return (
-        InlineKeyboardFactory()
-        .button(MsgKey.MAIN_MENU, MainMenuCallback())
-        .button("Поддержка", SupportOpenCallback())
-        .as_markup()
+        InlineKeyboardFactory().button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
     )
 
 
@@ -443,11 +436,7 @@ def my_orders_page_keyboard(page: object, group: str) -> InlineKeyboardMarkup:
             "Дальше",
             ExecutorOrdersPageCallback(group=group, page=page_number + 1),
         )
-    return (
-        keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
-        .button("Поддержка", SupportOpenCallback())
-        .as_markup()
-    )
+    return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 
 def my_order_card_keyboard(*, group: str, page: int) -> InlineKeyboardMarkup:
@@ -529,14 +518,12 @@ def my_order_card_keyboard_for_status(
         "report_submitted",
         "completed",
     }:
-        keyboard.button("Поддержка", ExecutorOrderSupportCallback(order_id=order_id))
         keyboard.button(
             "Подать жалобу", ExecutorOrderComplaintCallback(order_id=order_id)
         )
     return (
         keyboard.button("К списку", ExecutorOrdersPageCallback(group=group, page=page))
         .button(MsgKey.MAIN_MENU, MainMenuCallback())
-        .button("Поддержка", SupportOpenCallback())
         .as_markup()
     )
 
