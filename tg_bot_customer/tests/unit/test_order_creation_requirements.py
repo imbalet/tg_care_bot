@@ -10,6 +10,9 @@ from customer_bot.presentation.callbacks import (
     CareObjectAddCallback,
 )
 from customer_bot.presentation.handlers.orders.create import start_order_creation
+from customer_bot.presentation.ui.screens.orders.order_no_addresses import (
+    Screen as OrderNoAddressesScreen,
+)
 from customer_bot.presentation.ui.screens.orders.order_requirements import Screen
 from customer_bot.presentation.view_models import OrderRequirementsView
 
@@ -48,6 +51,14 @@ def _care_object(object_type: str) -> CareObjectDTO:
         routine_notes=None,
         behavior_notes=None,
     )
+
+
+def test_no_address_order_screen_uses_global_address_creation_callback() -> None:
+    result = OrderNoAddressesScreen().build()
+
+    callbacks = _callback_data(result.reply_markup)
+
+    assert callbacks[0] == AddressAddCallback().pack()
 
 
 @pytest.mark.parametrize(
