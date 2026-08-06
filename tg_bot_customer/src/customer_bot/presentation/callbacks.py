@@ -80,7 +80,6 @@ class OrderResponseRejectCallback(CallbackData, prefix="order_resp_reject"):
 
 class OrderResponsePerformerProfileCallback(CallbackData, prefix="order_resp_profile"):
     performer_id: UUID
-    order_id: UUID | None = None
 
 
 class PaymentRefreshCallback(CallbackData, prefix="payment_refresh"):

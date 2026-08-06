@@ -2,6 +2,7 @@ import logging
 from uuid import UUID
 
 from aiogram import Bot, Router
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from customer_bot.application.errors import BackendClientError, BackendValidationError
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 async def response_performer_profile(
     callback: CallbackQuery,
     bot: Bot,
+    state: FSMContext,
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
@@ -53,6 +55,8 @@ async def response_performer_profile(
         )
         return
     await telegram_responder.acknowledge(callback)
+    data = await state.get_data()
+    response_order_id = _stored_uuid(data.get("order_responses_order_id"))
     await show_performer_profile(
         bot=bot,
         event=callback,
@@ -60,7 +64,7 @@ async def response_performer_profile(
         profile=profile,
         backend_client=backend_client,
         telegram_responder=telegram_responder,
-        back_responses_order_id=callback_data.order_id,
+        back_responses_order_id=response_order_id,
     )
 
 
@@ -68,6 +72,7 @@ async def response_performer_profile(
 async def open_order_matches(
     callback: CallbackQuery,
     bot: Bot,
+    state: FSMContext,
     backend_client: BackendPort,
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
@@ -120,6 +125,7 @@ async def open_order_matches(
         text=(screen := OrderMatchesScreen(matches).build()).text,
         reply_markup=screen.reply_markup,
     )
+    await state.update_data(order_responses_order_id=str(callback_data.order_id))
 
 
 @router.callback_query(OrderResponseSelectCallback.filter())
@@ -365,3 +371,12 @@ async def _customer_id(*, backend_client: BackendPort, telegram_id: int) -> UUID
     if profile is None:
         raise BackendClientError("Customer profile is missing")
     return profile.id
+
+
+def _stored_uuid(value: object) -> UUID | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return UUID(value)
+    except ValueError:
+        return None
