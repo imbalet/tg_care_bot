@@ -50,10 +50,17 @@ def _care_object(object_type: str) -> CareObjectDTO:
     )
 
 
-def test_nanny_requirements_ignore_pet_only() -> None:
+@pytest.mark.parametrize(
+    ("object_type", "object_label"),
+    (("child", "ребенка"), ("ward", "подопечного"), ("pet", "питомца")),
+)
+def test_requirements_use_the_selected_direction(
+    object_type: str,
+    object_label: str,
+) -> None:
     result = Screen(
         OrderRequirementsView(
-            object_type="child",
+            object_type=object_type,
             has_address=True,
             has_care_object=False,
         )
@@ -61,8 +68,8 @@ def test_nanny_requirements_ignore_pet_only() -> None:
 
     callbacks = _callback_data(result.reply_markup)
 
-    assert "добавьте ребенка" in result.text
-    assert CareObjectAddCallback(object_type="child").pack() in callbacks
+    assert f"добавьте {object_label}" in result.text
+    assert CareObjectAddCallback(object_type=object_type).pack() in callbacks
     assert AddressAddCallback().pack() not in callbacks
 
 
