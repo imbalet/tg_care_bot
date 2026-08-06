@@ -299,7 +299,6 @@ def responses_keyboard(items: Sequence[object], group: str) -> InlineKeyboardMar
     keyboard.button("Активные", ExecutorResponsesCallback(group="active"))
     keyboard.button("Выбранные", ExecutorResponsesCallback(group="selected"))
     keyboard.button("Закрытые", ExecutorResponsesCallback(group="closed"))
-    keyboard.button("Direct", ExecutorResponsesCallback(group="direct"))
     return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()
 
 

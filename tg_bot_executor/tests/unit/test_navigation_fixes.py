@@ -87,11 +87,11 @@ def test_work_address_views_mark_current_address() -> None:
     assert "Текущий рабочий адрес" in work_address_card_text(item)
 
 
-def test_responses_keyboard_has_direct_section() -> None:
+def test_responses_keyboard_hides_direct_section() -> None:
     keyboard = responses_keyboard((), "direct")
     labels = [button.text for row in keyboard.inline_keyboard for button in row]
 
-    assert labels == ["Активные", "Выбранные", "Закрытые", "Direct", "Главное меню"]
+    assert labels == ["Активные", "Выбранные", "Закрытые", "Главное меню"]
 
 
 def test_response_button_points_to_match_card() -> None:
