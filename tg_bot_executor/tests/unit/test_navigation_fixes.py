@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from executor_bot.application.dto import AddressDTO, CalendarDTO, OrderMatchDTO
+from executor_bot.application.errors import BackendValidationError
 from executor_bot.presentation.callbacks import (
     CalendarCancelUnavailableCallback,
     ExecutorOrderCardCallback,
@@ -219,6 +220,9 @@ async def test_response_card_loads_match_instead_of_selected_order_card() -> Non
 def test_unavailable_period_time_parser_accepts_clock_values() -> None:
     assert _parse_time("09:30") is not None
     assert _parse_time("25:00") is None
+    assert _parse_time("9:00") is None
+    assert _parse_time("0900") is None
+    assert _parse_time("09.30") is None
     assert _parse_time("09:30+03:00") is None
 
 
@@ -246,6 +250,36 @@ async def test_unavailable_end_time_rejects_timezone_offset_without_crashing() -
 
     backend.add_unavailable.assert_not_awaited()
     assert "формате ЧЧ:ММ" in responder.update.await_args.kwargs["text"]
+
+
+@pytest.mark.asyncio
+async def test_unavailable_backend_conflict_keeps_end_time_step() -> None:
+    backend = AsyncMock()
+    backend.add_unavailable.side_effect = BackendValidationError("conflict")
+    responder = AsyncMock()
+    state = AsyncMock()
+    state.get_data.return_value = {
+        "unavailable_start_date": "2026-08-06",
+        "unavailable_end_date": "2026-08-07",
+        "unavailable_start_time": "09:00",
+    }
+    context = type("Context", (), {"telegram_id": 123})()
+    message = type("Message", (), {"text": "18:00"})()
+
+    await save_unavailable_end_time(
+        message=message,
+        bot=object(),
+        state=state,
+        backend_client=backend,
+        telegram_responder=responder,
+        telegram_user_context=context,
+    )
+
+    state.clear.assert_not_awaited()
+    state.set_state.assert_awaited_once()
+    assert "Введите время окончания снова" in responder.update.await_args.kwargs[
+        "text"
+    ]
 
 
 @pytest.mark.asyncio

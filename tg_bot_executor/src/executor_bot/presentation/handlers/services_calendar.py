@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime, time
 from typing import cast
 from uuid import UUID
@@ -505,26 +506,29 @@ async def save_unavailable_end_time(
             ends_at=ends_at.isoformat(timespec="minutes"),
         )
     except BackendValidationError:
-        await state.clear()
+        await state.set_state(CalendarUnavailableForm.end_time)
         await telegram_responder.update(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text=(
                 "Период некорректен или уже есть запланированная недоступность. "
-                "Проверьте даты и попробуйте снова."
+                "Введите время окончания снова."
             ),
-            reply_markup=calendar_keyboard(),
+            create_new=True,
         )
         return
     except BackendClientError:
-        await state.clear()
+        await state.set_state(CalendarUnavailableForm.end_time)
         await telegram_responder.update(
             bot=bot,
             event=message,
             telegram_id=telegram_user_context.telegram_id,
-            text=retry_later_text(),
-            reply_markup=calendar_keyboard(),
+            text=(
+                f"{retry_later_text()}\n\n"
+                "Введите время окончания недоступности ещё раз."
+            ),
+            create_new=True,
         )
         return
     await state.clear()
@@ -567,8 +571,11 @@ def _stored_date(value: object) -> date | None:
 def _parse_time(value: object) -> time | None:
     if not isinstance(value, str):
         return None
+    value = value.strip()
+    if re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value) is None:
+        return None
     try:
-        parsed = time.fromisoformat(value.strip())
+        parsed = time.fromisoformat(value)
     except ValueError:
         return None
     if parsed.tzinfo is not None:
