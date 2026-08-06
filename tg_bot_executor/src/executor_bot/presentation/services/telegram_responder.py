@@ -71,12 +71,13 @@ class TelegramResponder:
             )
             if isinstance(reply_markup, InlineKeyboardMarkup):
                 try:
-                    await bot.edit_message_text(
+                    await _delete_message(sent)
+                    sent = await bot.send_message(
                         chat_id=message.chat.id,
-                        message_id=sent.message_id,
                         text=text,
                         reply_markup=reply_markup,
                     )
+                    await self._message_store.set(telegram_id, sent.message_id)
                 except TelegramAPIError as exc:
                     logger.warning(
                         "Telegram menu inline keyboard edit failed",
