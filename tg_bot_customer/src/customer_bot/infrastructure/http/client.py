@@ -37,6 +37,7 @@ from customer_bot.application.ports import BackendPort
 
 from .errors import (
     BackendClientError,
+    BackendConflictError,
     BackendNotFoundError,
     BackendUnauthorizedError,
     BackendUnavailableError,
@@ -947,5 +948,7 @@ class BackendClient(BackendPort):
             raise BackendNotFoundError("Backend resource not found")
         if response.status_code == 422:
             raise BackendValidationError(_error_message(response))
+        if response.status_code == 409:
+            raise BackendConflictError(_error_message(response))
         if response.status_code >= 400:
             raise BackendUnavailableError("Backend request failed")

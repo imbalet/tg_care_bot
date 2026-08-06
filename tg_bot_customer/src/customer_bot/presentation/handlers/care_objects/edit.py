@@ -5,7 +5,11 @@ from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
-from customer_bot.application.errors import BackendClientError, BackendValidationError
+from customer_bot.application.errors import (
+    BackendClientError,
+    BackendConflictError,
+    BackendValidationError,
+)
 from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
     CareObjectDeleteCallback,
@@ -166,7 +170,7 @@ async def confirm_delete_care_object(
             telegram_id=telegram_user_context.telegram_id,
             care_object_id=UUID(str(item["id"])),
         )
-    except BackendValidationError:
+    except BackendConflictError, BackendValidationError:
         logger.warning(
             "Backend rejected care object delete",
             extra={

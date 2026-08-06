@@ -13,6 +13,7 @@ from customer_bot.application.dto import (
 from .client import BackendClient
 from .errors import (
     BackendClientError,
+    BackendConflictError,
     BackendNotFoundError,
     BackendUnauthorizedError,
     BackendUnavailableError,
@@ -22,6 +23,7 @@ from .errors import (
 __all__ = [
     "BackendClient",
     "BackendClientError",
+    "BackendConflictError",
     "BackendNotFoundError",
     "BackendUnauthorizedError",
     "BackendUnavailableError",

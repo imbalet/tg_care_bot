@@ -16,3 +16,7 @@ class BackendNotFoundError(BackendClientError):
 
 class BackendValidationError(BackendClientError):
     """Backend rejected user-provided data."""
+
+
+class BackendConflictError(BackendClientError):
+    """Backend rejected an operation because of the current resource state."""

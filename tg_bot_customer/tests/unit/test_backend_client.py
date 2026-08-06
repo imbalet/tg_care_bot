@@ -7,6 +7,7 @@ import pytest
 
 from customer_bot.infrastructure.http import (
     BackendClient,
+    BackendConflictError,
     BackendUnauthorizedError,
     BackendUnavailableError,
     BackendValidationError,
@@ -392,6 +393,29 @@ async def test_register_customer_maps_validation_error() -> None:
             telegram_username=None,
             accepted_legal_document_ids=(uuid4(),),
         )
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_delete_care_object_maps_conflict_error() -> None:
+    client = BackendClient(
+        base_url="http://backend",
+        service_key="secret",
+        timeout_seconds=1,
+        transport=httpx.MockTransport(
+            lambda _request: httpx.Response(
+                409,
+                json={
+                    "error": {
+                        "message": "Care object is used by an active order"
+                    }
+                },
+            )
+        ),
+    )
+
+    with pytest.raises(BackendConflictError, match="Care object is used"):
+        await client.delete_care_object(telegram_id=123, care_object_id=uuid4())
     await client.close()
 
 

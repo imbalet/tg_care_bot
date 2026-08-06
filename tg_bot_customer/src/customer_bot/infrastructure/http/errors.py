@@ -1,5 +1,6 @@
 from customer_bot.application.errors import (
     BackendClientError,
+    BackendConflictError,
     BackendNotFoundError,
     BackendUnauthorizedError,
     BackendUnavailableError,
@@ -8,6 +9,7 @@ from customer_bot.application.errors import (
 
 __all__ = [
     "BackendClientError",
+    "BackendConflictError",
     "BackendNotFoundError",
     "BackendUnauthorizedError",
     "BackendUnavailableError",
