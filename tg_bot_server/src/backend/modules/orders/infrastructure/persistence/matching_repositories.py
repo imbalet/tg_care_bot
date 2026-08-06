@@ -99,6 +99,16 @@ class SqlAlchemyMatchingRepository:
                 OrderModel.matching_mode == "pool",
                 OrderModel.status == "searching",
                 OrderModel.matching_deadline_at > now,
+                exists(
+                    select(PerformerServiceModel.id).where(
+                        PerformerServiceModel.performer_id == performer_id,
+                        PerformerServiceModel.service_id == OrderModel.service_id,
+                        PerformerServiceModel.is_approved.is_(True),
+                        PerformerServiceModel.is_enabled.is_(True),
+                        PerformerServiceModel.performer_max_objects
+                        >= OrderModel.objects_count,
+                    ),
+                ),
                 ~exists(
                     select(OrderMatchModel.id).where(
                         OrderMatchModel.order_id == OrderModel.id,
@@ -210,6 +220,8 @@ class SqlAlchemyMatchingRepository:
             raise ValidationError("Performer cannot respond to orders")
         if performer.current_address_id is None:
             raise ValidationError("Performer work address is required")
+        if not await self._performer_can_receive_order(order, performer.id):
+            raise ConflictError("Performer is not suitable for this order")
         await self._ensure_no_historical_match(order.id, performer.id)
         await self._lock_overlapping_resources(
             performer_id=performer.id,
