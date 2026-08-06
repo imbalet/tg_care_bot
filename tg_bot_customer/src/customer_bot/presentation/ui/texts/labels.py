@@ -24,7 +24,6 @@ class MsgKey(StrEnum):
     PETS = "pets"
     PROFILE = "profile"
     PUBLISH_POOL = "publish_pool"
-    PUBLISH_DIRECT = "publish_direct"
     SERVICES_PRICES = "services_prices"
     SKIP = "skip"
     SWITCH_CATEGORY = "switch_category"
@@ -54,7 +53,6 @@ TEXTS: dict[MsgKey, str] = {
     MsgKey.PETS: "Питомцы",
     MsgKey.PROFILE: "Профиль",
     MsgKey.PUBLISH_POOL: "Опубликовать в пул",
-    MsgKey.PUBLISH_DIRECT: "Выбрать исполнителя",
     MsgKey.SERVICES_PRICES: "Услуги и цены",
     MsgKey.SKIP: "Пропустить",
     MsgKey.SWITCH_CATEGORY: "Сменить направление",

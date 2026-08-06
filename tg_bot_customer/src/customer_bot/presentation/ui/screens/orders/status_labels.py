@@ -33,7 +33,7 @@ def payment_status_label(status: str) -> str:
 
 
 def matching_mode_label(mode: str) -> str:
-    return {"pool": "общий подбор", "direct": "прямой заказ"}.get(
+    return {"pool": "общий подбор", "direct": "заказ"}.get(
         mode,
         escape(mode),
     )
