@@ -380,7 +380,7 @@ async def profile_callback(
     reply_markup = (
         InlineKeyboardFactory()
         .button("Редактировать профиль", ProfileEditCallback())
-        .button("Проверить удаление аккаунта", ProfileDeletionCheckCallback())
+        .button("Удалить аккаунт", ProfileDeletionCheckCallback())
         .button(MsgKey.MAIN_MENU, MainMenuCallback())
         .as_markup()
     )
