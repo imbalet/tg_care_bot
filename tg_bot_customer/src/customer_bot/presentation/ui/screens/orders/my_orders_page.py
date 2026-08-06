@@ -8,7 +8,6 @@ from customer_bot.presentation.callbacks import (
     MainMenuCallback,
     OrderCardOpenCallback,
     OrdersPageCallback,
-    SupportOpenCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.orders.status_labels import (
@@ -186,8 +185,4 @@ class Screen(BaseScreen[_View]):
                     category_code=self.data.category_code,
                 ),
             )
-        return (
-            keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
-            .button("Поддержка", SupportOpenCallback())
-            .as_markup()
-        )
+        return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()

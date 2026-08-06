@@ -1,7 +1,4 @@
-from customer_bot.presentation.callbacks import (
-    MainMenuCallback,
-    SupportOpenCallback,
-)
+from customer_bot.presentation.callbacks import MainMenuCallback
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.screen import (
     BaseScreenNoView,
@@ -14,13 +11,12 @@ class Screen(BaseScreenNoView):
     def _build_text(self) -> str:
         return (
             "<b>Действие устарело или уже недоступно</b>\n\n"
-            "Откройте главное меню или обратитесь в поддержку."
+            "Откройте главное меню и повторите действие."
         )
 
     def _build_keyboard(self) -> Markup:
         return (
             InlineKeyboardFactory()
             .button(MsgKey.MAIN_MENU, MainMenuCallback())
-            .button("Поддержка", SupportOpenCallback())
             .as_markup()
         )

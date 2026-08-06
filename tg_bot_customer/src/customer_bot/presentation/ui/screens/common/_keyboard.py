@@ -5,7 +5,6 @@ from aiogram.types import (
 from customer_bot.presentation.callbacks import (
     HelpCallback,
     MainMenuCallback,
-    SupportOpenCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.texts.labels import MsgKey
@@ -31,8 +30,6 @@ def fallback_keyboard(
         keyboard.url_button(support_label, support_url)
     if include_help:
         keyboard.button(MsgKey.HELP, HelpCallback())
-    if include_support:
-        keyboard.button("Связаться с поддержкой", SupportOpenCallback())
     return keyboard.as_markup()
 
 
