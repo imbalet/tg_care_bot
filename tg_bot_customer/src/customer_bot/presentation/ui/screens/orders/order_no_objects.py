@@ -2,8 +2,8 @@ from html import escape
 from typing import Protocol
 
 from customer_bot.presentation.callbacks import (
+    CareObjectAddCallback,
     MainMenuCallback,
-    OrderAddObjectCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.screen import (
@@ -44,7 +44,10 @@ class Screen(BaseScreen[_View]):
     def _build_keyboard(self) -> Markup:
         return (
             InlineKeyboardFactory()
-            .button("Добавить карточку", OrderAddObjectCallback())
+            .button(
+                "Добавить карточку",
+                CareObjectAddCallback(object_type=self.data.object_type),
+            )
             .button(MsgKey.MAIN_MENU, MainMenuCallback())
             .as_markup()
         )

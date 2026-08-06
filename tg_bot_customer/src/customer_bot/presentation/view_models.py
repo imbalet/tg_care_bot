@@ -47,6 +47,13 @@ class ObjectTypeView:
 
 
 @dataclass(frozen=True, slots=True)
+class OrderRequirementsView:
+    object_type: str
+    has_address: bool
+    has_care_object: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ObjectNameView:
     object_type_label: str
 

@@ -1,6 +1,6 @@
 from customer_bot.presentation.callbacks import (
+    AddressAddCallback,
     MainMenuCallback,
-    OrderAddAddressCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.screen import (
@@ -17,7 +17,7 @@ class Screen(BaseScreenNoView):
     def _build_keyboard(self) -> Markup:
         return (
             InlineKeyboardFactory()
-            .button(MsgKey.ADD_ADDRESS, OrderAddAddressCallback())
+            .button(MsgKey.ADD_ADDRESS, AddressAddCallback())
             .button(MsgKey.MAIN_MENU, MainMenuCallback())
             .as_markup()
         )

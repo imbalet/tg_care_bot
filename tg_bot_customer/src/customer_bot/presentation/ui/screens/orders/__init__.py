@@ -19,6 +19,7 @@ from .order_options_step import Screen as OrderOptionsStepScreen
 from .order_photo_consent_step import Screen as OrderPhotoConsentStepScreen
 from .order_published import Screen as OrderPublishedScreen
 from .order_report import Screen as OrderReportScreen
+from .order_requirements import Screen as OrderRequirementsScreen
 from .order_response_rejected import Screen as OrderResponseRejectedScreen
 from .order_response_selected import Screen as OrderResponseSelectedScreen
 from .order_response_unavailable import Screen as OrderResponseUnavailableScreen
@@ -51,6 +52,7 @@ __all__ = [
     "OrderOptionsStepScreen",
     "OrderPhotoConsentStepScreen",
     "OrderPublishedScreen",
+    "OrderRequirementsScreen",
     "OrderResponseRejectedScreen",
     "OrderResponseSelectedScreen",
     "OrderResponseUnavailableScreen",

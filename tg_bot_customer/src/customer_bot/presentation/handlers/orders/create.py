@@ -19,11 +19,13 @@ from customer_bot.presentation.navigation import active_category
 from customer_bot.presentation.services import TelegramResponder
 from customer_bot.presentation.ui.screens import (
     OrderNoServicesScreen,
+    OrderRequirementsScreen,
     OrderServicesStepScreen,
     RetryLaterScreen,
     StaleActionScreen,
 )
 from customer_bot.presentation.view_models import (
+    OrderRequirementsView,
     ServicesView,
 )
 
@@ -74,6 +76,51 @@ async def start_order_creation(
             event=callback,
             telegram_id=telegram_user_context.telegram_id,
             text=(screen := StaleActionScreen().build()).text,
+            reply_markup=screen.reply_markup,
+        )
+        return
+    try:
+        addresses = await backend_client.list_addresses(
+            telegram_id=telegram_user_context.telegram_id,
+        )
+        care_objects = await backend_client.list_care_objects(
+            telegram_id=telegram_user_context.telegram_id,
+            object_type=category.care_object_type,
+        )
+    except BackendClientError as exc:
+        logger.warning(
+            "Failed to check order creation requirements",
+            extra={
+                "telegram_id": telegram_user_context.telegram_id,
+                "category_code": category.code,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=(screen := RetryLaterScreen().build()).text,
+            reply_markup=screen.reply_markup,
+        )
+        return
+    matching_care_objects = tuple(
+        item for item in care_objects if item.object_type == category.care_object_type
+    )
+    if not addresses or not matching_care_objects:
+        await state.clear()
+        screen = OrderRequirementsScreen(
+            OrderRequirementsView(
+                object_type=category.care_object_type,
+                has_address=bool(addresses),
+                has_care_object=bool(matching_care_objects),
+            )
+        ).build()
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=screen.text,
             reply_markup=screen.reply_markup,
         )
         return
