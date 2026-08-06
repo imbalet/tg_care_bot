@@ -66,6 +66,7 @@ class Screen(BaseScreen[_View]):
                 "Открыть профиль",
                 OrderResponsePerformerProfileCallback(
                     performer_id=item.performer_id,
+                    order_id=getattr(item, "order_id", None),
                 ),
             )
         return keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback()).as_markup()

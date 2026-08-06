@@ -8,6 +8,7 @@ from customer_bot.application.dto import (
 from customer_bot.presentation.callbacks import (
     OrderCardOpenCallback,
     OrderDirectBackCallback,
+    OrderResponsesOpenCallback,
 )
 from customer_bot.presentation.ui.screens.orders.performer_profile import Screen
 
@@ -71,3 +72,22 @@ def test_performer_profile_has_direct_back_button() -> None:
     callback = markup.inline_keyboard[0][0].callback_data
     assert callback is not None
     assert OrderDirectBackCallback.unpack(callback) is not None
+
+
+def test_performer_profile_has_responses_back_button() -> None:
+    order_id = uuid4()
+    profile = PerformerProfileDTO(
+        performer_id=uuid4(),
+        full_name="Исполнитель",
+        about_text=None,
+        city_name="Ростов-на-Дону",
+        avatar_url=None,
+        services=(),
+    )
+
+    markup = Screen(profile, back_responses_order_id=order_id).build().reply_markup
+
+    assert markup is not None
+    callback = markup.inline_keyboard[0][0].callback_data
+    assert callback is not None
+    assert OrderResponsesOpenCallback.unpack(callback).order_id == order_id

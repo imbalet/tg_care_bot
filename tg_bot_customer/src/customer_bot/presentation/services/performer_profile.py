@@ -23,6 +23,7 @@ async def show_performer_profile(
     back_group: str = "active",
     back_page: int = 1,
     back_direct: bool = False,
+    back_responses_order_id: UUID | None = None,
 ) -> None:
     screen = PerformerProfileScreen(
         profile,
@@ -30,6 +31,7 @@ async def show_performer_profile(
         back_group=back_group,
         back_page=back_page,
         back_direct=back_direct,
+        back_responses_order_id=back_responses_order_id,
     ).build()
     if profile.avatar_url:
         try:

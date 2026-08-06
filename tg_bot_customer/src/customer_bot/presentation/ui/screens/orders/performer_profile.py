@@ -6,6 +6,7 @@ from customer_bot.presentation.callbacks import (
     MainMenuCallback,
     OrderCardOpenCallback,
     OrderDirectBackCallback,
+    OrderResponsesOpenCallback,
 )
 from customer_bot.presentation.ui.keyboard_builder import InlineKeyboardFactory
 from customer_bot.presentation.ui.screens.screen import BaseScreen, Markup
@@ -26,12 +27,14 @@ class Screen(BaseScreen[PerformerProfileDTO]):
         back_group: str = "active",
         back_page: int = 1,
         back_direct: bool = False,
+        back_responses_order_id: UUID | None = None,
     ) -> None:
         super().__init__(data)
         self._back_order_id = back_order_id
         self._back_group = back_group
         self._back_page = back_page
         self._back_direct = back_direct
+        self._back_responses_order_id = back_responses_order_id
 
     def _build_text(self) -> str:
         profile = self.data
@@ -63,6 +66,11 @@ class Screen(BaseScreen[PerformerProfileDTO]):
         keyboard = InlineKeyboardFactory()
         if self._back_direct:
             keyboard.button("Назад", OrderDirectBackCallback())
+        elif self._back_responses_order_id is not None:
+            keyboard.button(
+                "К откликам",
+                OrderResponsesOpenCallback(order_id=self._back_responses_order_id),
+            )
         elif self._back_order_id is not None:
             keyboard.button(
                 "К заказу",
