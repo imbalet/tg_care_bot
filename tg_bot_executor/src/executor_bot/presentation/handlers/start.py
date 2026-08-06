@@ -140,21 +140,6 @@ async def _open_start_or_menu(
             "Opening executor menu",
             extra={"telegram_id": telegram_user_context.telegram_id},
         )
-        category = await active_category(
-            backend_client=backend_client,
-            active_category_store=active_category_store,
-            telegram_id=telegram_user_context.telegram_id,
-        )
-        if category is None:
-            await show_category_select(
-                bot=bot,
-                event=message,
-                telegram_user_context=telegram_user_context,
-                backend_client=backend_client,
-                telegram_responder=telegram_responder,
-                force_create_new=True,
-            )
-            return
         setup_hint = await _setup_hint(
             backend_client=backend_client,
             telegram_id=telegram_user_context.telegram_id,
@@ -174,6 +159,21 @@ async def _open_start_or_menu(
                 telegram_id=telegram_user_context.telegram_id,
                 text=setup_hint,
             )
+        category = await active_category(
+            backend_client=backend_client,
+            active_category_store=active_category_store,
+            telegram_id=telegram_user_context.telegram_id,
+        )
+        if category is None:
+            await show_category_select(
+                bot=bot,
+                event=message,
+                telegram_user_context=telegram_user_context,
+                backend_client=backend_client,
+                telegram_responder=telegram_responder,
+                force_create_new=True,
+            )
+            return
         await show_category_menu(
             bot=bot,
             event=message,
