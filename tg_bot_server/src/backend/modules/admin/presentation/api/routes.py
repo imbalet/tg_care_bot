@@ -23,6 +23,7 @@ from backend.modules.availability.application import (
     AddCalendarOverrideCommand,
     SetPerformerScheduleCommand,
 )
+from backend.modules.orders.application.features import ensure_direct_orders_enabled
 from backend.modules.payments.application import (
     CreateManualRefundCommand,
     RetryPaymentOperationCommand,
@@ -192,6 +193,7 @@ async def ui_assign_performer(
     container: Annotated[Container, Depends(get_container)],
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> dict[str, str]:
+    ensure_direct_orders_enabled()
     match = await container.orders.invite_direct_performer_as_admin(
         order_id=order_id,
         performer_id=request.performer_id,
@@ -208,6 +210,7 @@ async def ui_reassign_performer(
     container: Annotated[Container, Depends(get_container)],
     current: Annotated[tuple[AdminResponse, str, str], Depends(require_admin_csrf)],
 ) -> dict[str, str]:
+    ensure_direct_orders_enabled()
     match = await container.orders.reassign_performer_as_admin(
         order_id=order_id,
         performer_id=request.performer_id,

@@ -10,6 +10,7 @@ from backend.common.presentation import require_service_key
 from backend.modules.orders.application import (
     CalculatePricePreviewCommand,
 )
+from backend.modules.orders.application.features import ensure_direct_orders_enabled
 
 from .mappers import (
     cancellation_preview_response,
@@ -69,6 +70,7 @@ async def create_direct(
     request: DirectOrderRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderResponse:
+    ensure_direct_orders_enabled()
     order = await container.orders.create_direct_order(
         create_direct_command(request),
     )
@@ -285,6 +287,8 @@ async def list_performer_responses(
         Query(pattern="^(active|selected|closed|direct)$"),
     ] = "active",
 ) -> list[OrderMatchResponse]:
+    if group == "direct":
+        ensure_direct_orders_enabled()
     matches = await container.orders.list_performer_responses(
         performer_id=performer_id,
         group=group,
@@ -341,6 +345,7 @@ async def invite_direct_performer(
     request: CustomerDirectPerformerRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderMatchResponse:
+    ensure_direct_orders_enabled()
     match = await container.orders.invite_direct_performer(
         order_id=order_id,
         customer_id=request.customer_id,
@@ -381,6 +386,7 @@ async def accept_direct_match(
     request: PerformerMatchActionRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> MatchActionResponse:
+    ensure_direct_orders_enabled()
     result = await container.orders.accept_direct_match(
         match_id=match_id,
         performer_id=request.performer_id,
@@ -394,6 +400,7 @@ async def reject_direct_match(
     request: PerformerMatchActionRequest,
     container: Annotated[Container, Depends(get_container)],
 ) -> OrderMatchResponse:
+    ensure_direct_orders_enabled()
     match = await container.orders.reject_direct_match(
         match_id=match_id,
         performer_id=request.performer_id,

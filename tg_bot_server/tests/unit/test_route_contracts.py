@@ -38,6 +38,7 @@ from backend.modules.customers.presentation.api.schemas import (
     RegisterCustomerRequest,
     UpdateTelegramUsernameRequest,
 )
+from backend.modules.orders.application import features as order_features
 from backend.modules.orders.application.dto import (
     MatchActionDTO,
     OrderDTO,
@@ -120,9 +121,10 @@ def _match(order: OrderDTO) -> OrderMatchDTO:
 
 
 @pytest.mark.unit
-async def test_order_routes_forward_pool_direct_matching_and_lifecycle_commands() -> (
-    None
-):
+async def test_order_routes_forward_pool_direct_matching_and_lifecycle_commands(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(order_features, "DIRECT_ORDERS_ENABLED", True)
     service: Any = SimpleNamespace()
     service.orders = SimpleNamespace()
     order = _order()
