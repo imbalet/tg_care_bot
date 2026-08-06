@@ -14,8 +14,10 @@ from customer_bot.application.dto import (
 from customer_bot.presentation.callbacks import (
     OrderContactCallback,
     OrderReportOpenCallback,
+    OrderResponsePerformerProfileCallback,
 )
 from customer_bot.presentation.handlers import customer_orders
+from customer_bot.presentation.handlers.orders import matches
 from customer_bot.presentation.handlers.orders import customer_details
 from customer_bot.presentation.services.performer_profile import show_performer_profile
 
@@ -83,6 +85,43 @@ async def test_performer_profile_avatar_uses_photo_replacement() -> None:
     responder.replace_with_photo.assert_awaited_once()
     photo = responder.replace_with_photo.await_args.kwargs["photo"]
     assert photo.data == b"avatar"
+
+
+@pytest.mark.asyncio
+async def test_response_performer_profile_keeps_responses_order_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order_id = uuid4()
+    profile = PerformerProfileDTO(
+        performer_id=uuid4(),
+        full_name="Исполнитель",
+        about_text=None,
+        city_name="Ростов-на-Дону",
+        avatar_url=None,
+        services=(),
+    )
+    show_profile = AsyncMock()
+    monkeypatch.setattr(matches, "show_performer_profile", show_profile)
+
+    state = AsyncMock()
+    state.get_data.return_value = {"order_responses_order_id": str(order_id)}
+    backend = AsyncMock()
+    backend.get_public_performer_profile.return_value = profile
+    responder = AsyncMock()
+
+    await matches.response_performer_profile(
+        callback=object(),
+        bot=object(),
+        state=state,
+        backend_client=backend,
+        telegram_responder=responder,
+        telegram_user_context=type("Context", (), {"telegram_id": 123})(),
+        callback_data=OrderResponsePerformerProfileCallback(
+            performer_id=profile.performer_id,
+        ),
+    )
+
+    assert show_profile.await_args.kwargs["back_responses_order_id"] == order_id
 
 
 @pytest.mark.asyncio
