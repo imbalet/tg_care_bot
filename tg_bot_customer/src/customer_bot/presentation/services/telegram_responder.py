@@ -69,7 +69,7 @@ class TelegramResponder:
             )
             if isinstance(reply_markup, InlineKeyboardMarkup):
                 try:
-                    await _delete_message(event)
+                    await _delete_message(sent)
                     sent = await bot.send_message(
                         chat_id=message.chat.id,
                         text=text,
