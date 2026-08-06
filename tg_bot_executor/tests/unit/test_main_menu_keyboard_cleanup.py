@@ -7,7 +7,7 @@ from executor_bot.presentation.handlers.fallback import main_menu_callback
 
 
 @pytest.mark.asyncio
-async def test_main_menu_clears_reply_keyboard_before_rendering_menu() -> None:
+async def test_main_menu_does_not_send_keyboard_cleanup_message() -> None:
     backend = AsyncMock()
     backend.get_registration_state.return_value = SimpleNamespace(
         state="no_invitation",
@@ -24,4 +24,4 @@ async def test_main_menu_clears_reply_keyboard_before_rendering_menu() -> None:
         telegram_user_context=SimpleNamespace(telegram_id=123),
     )
 
-    responder.clear_reply_keyboard.assert_awaited_once()
+    responder.clear_reply_keyboard.assert_not_awaited()

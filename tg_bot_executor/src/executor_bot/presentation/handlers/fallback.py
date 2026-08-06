@@ -1,7 +1,7 @@
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import BufferedInputFile, CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
 from executor_bot.application.errors import BackendClientError
 from executor_bot.application.ports import ActiveCategoryStore, BackendPort
@@ -88,13 +88,6 @@ async def profile_edit_phone(
         return
     await state.update_data(profile_phone=contact.phone_number)
     await state.set_state(ProfileEditForm.contact_method)
-    await telegram_responder.update(
-        bot=bot,
-        event=message,
-        telegram_id=telegram_user_context.telegram_id,
-        text="Телефон получен.",
-        reply_markup=ReplyKeyboardRemove(),
-    )
     await telegram_responder.update(
         bot=bot,
         event=message,
@@ -210,11 +203,6 @@ async def main_menu_callback(
     telegram_responder: TelegramResponder,
     telegram_user_context: TelegramUserContext,
 ) -> None:
-    await telegram_responder.clear_reply_keyboard(
-        bot=bot,
-        event=callback,
-        telegram_id=telegram_user_context.telegram_id,
-    )
     message = callback.message
     if not isinstance(message, Message):
         await telegram_responder.acknowledge(

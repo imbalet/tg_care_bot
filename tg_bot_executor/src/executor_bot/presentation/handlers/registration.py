@@ -4,7 +4,7 @@ from uuid import UUID
 from aiogram import Bot, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.types import CallbackQuery, Message
 
 from executor_bot.application.errors import BackendClientError, BackendValidationError
 from executor_bot.application.ports import BackendPort
@@ -29,7 +29,6 @@ from executor_bot.presentation.ui import (
     legal_acceptance_keyboard,
     legal_documents_text,
     phone_contact_keyboard,
-    phone_contact_received_text,
     phone_step_text,
     registration_complete_text,
     registration_summary_keyboard,
@@ -200,15 +199,9 @@ async def enter_phone(
         bot=bot,
         event=message,
         telegram_id=telegram_user_context.telegram_id,
-        text=phone_contact_received_text(),
-        reply_markup=ReplyKeyboardRemove(),
-    )
-    await telegram_responder.update(
-        bot=bot,
-        event=message,
-        telegram_id=telegram_user_context.telegram_id,
         text=select_city_text(),
         reply_markup=select_city_keyboard(_cities_from_state(data)),
+        clear_reply_keyboard=True,
     )
 
 

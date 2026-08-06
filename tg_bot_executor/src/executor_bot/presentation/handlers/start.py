@@ -47,6 +47,7 @@ async def start(
         active_category_store=active_category_store,
         telegram_user_context=telegram_user_context,
         start_registration_if_invited=True,
+        clear_reply_keyboard=True,
     )
 
 
@@ -115,6 +116,7 @@ async def _open_start_or_menu(
     active_category_store: ActiveCategoryStore,
     telegram_user_context: TelegramUserContext,
     start_registration_if_invited: bool,
+    clear_reply_keyboard: bool = False,
 ) -> None:
     try:
         registration_state = await backend_client.get_registration_state(
@@ -133,6 +135,7 @@ async def _open_start_or_menu(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
+            clear_reply_keyboard=clear_reply_keyboard,
         )
         return
     if registration_state.state == "registered":
@@ -172,6 +175,7 @@ async def _open_start_or_menu(
                 backend_client=backend_client,
                 telegram_responder=telegram_responder,
                 force_create_new=True,
+                clear_reply_keyboard=clear_reply_keyboard,
             )
             return
         await show_category_menu(
@@ -181,6 +185,7 @@ async def _open_start_or_menu(
             telegram_responder=telegram_responder,
             category=category,
             force_create_new=True,
+            clear_reply_keyboard=clear_reply_keyboard,
         )
         return
     if registration_state.state == "no_invitation":
@@ -189,6 +194,7 @@ async def _open_start_or_menu(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text=no_invitation_text(),
+            clear_reply_keyboard=clear_reply_keyboard,
         )
         return
     if start_registration_if_invited:
@@ -211,6 +217,7 @@ async def _open_start_or_menu(
         telegram_id=telegram_user_context.telegram_id,
         text=help_text(),
         reply_markup=fallback_keyboard(include_main_menu=True),
+        clear_reply_keyboard=clear_reply_keyboard,
     )
 
 
