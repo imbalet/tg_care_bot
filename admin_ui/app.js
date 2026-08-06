@@ -222,15 +222,15 @@
     const addButton = performerId ? `<button id="add-performer-service" data-performer-id="${esc(performerId)}" class="btn btn-sm btn-primary">Добавить услугу</button>` : "";
     return `<div class="col-12"><section class="card"><div class="card-header bg-white d-flex justify-content-between align-items-center"><strong>Услуги исполнителя</strong><div class="d-flex gap-2 align-items-center">${addButton}<span class="text-secondary small">${rows.length}</span></div></div><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0"><thead><tr><th>Услуга</th><th>Статус</th><th>Лимит админа</th><th>Лимит исполнителя</th><th>Ограничения</th><th></th></tr></thead><tbody>${body}</tbody></table></div></section></div>`;
   }
-  function performerServiceActions(row) {
-    if (!row.is_approved) return `<button class="btn btn-sm btn-outline-success" data-related-action="approve-service" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>Одобрить</button>`;
+  function performerServiceActions(row, performerId) {
+    const actionData = `data-id="${esc(row.id)}" data-performer-id="${esc(performerId)}" data-service-id="${esc(row.service_id)}" data-item='${esc(JSON.stringify(row))}'`;
+    if (!row.is_approved) return `<button class="btn btn-sm btn-outline-success" data-related-action="approve-service" ${actionData}>Одобрить</button>`;
     const toggle = row.is_enabled ? "disable-service" : "enable-service";
     const toggleLabel = row.is_enabled ? "Деактивировать" : "Активировать";
-    return `<div class="d-flex gap-1 justify-content-end"><button class="btn btn-sm btn-outline-${row.is_enabled ? "warning" : "success"}" data-related-action="${toggle}" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>${toggleLabel}</button><button class="btn btn-sm btn-outline-secondary" data-related-action="service-limits" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>Лимит</button><button class="btn btn-sm btn-outline-danger" data-related-action="revoke-service" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>Отозвать</button></div>`;
+    return `<div class="d-flex gap-1 justify-content-end"><button class="btn btn-sm btn-outline-${row.is_enabled ? "warning" : "success"}" data-related-action="${toggle}" ${actionData}>${toggleLabel}</button><button class="btn btn-sm btn-outline-secondary" data-related-action="service-limits" ${actionData}>Лимит</button><button class="btn btn-sm btn-outline-danger" data-related-action="revoke-service" ${actionData}>Отозвать</button></div>`;
   }
   function relatedAction(parentKey, name, row) {
-    if (parentKey === "performers" && name === "services" && !row.is_approved) return `<button class="btn btn-sm btn-outline-success" data-related-action="approve-service" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>Одобрить</button>`;
-    if (parentKey === "performers" && name === "services" && row.is_approved) return `<div class="d-flex gap-1 justify-content-end"><button class="btn btn-sm btn-outline-${row.is_enabled ? "warning" : "success"}" data-related-action="${row.is_enabled ? "disable-service" : "enable-service"}" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>${row.is_enabled ? "Выключить" : "Включить"}</button><button class="btn btn-sm btn-outline-secondary" data-related-action="service-limits" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>Лимит</button><button class="btn btn-sm btn-outline-danger" data-related-action="revoke-service" data-id="${esc(row.id)}" data-item='${esc(JSON.stringify(row))}'>Отозвать</button></div>`;
+    if (parentKey === "performers" && name === "services") return performerServiceActions(row, row.performer_id);
     if (["order", "customer", "performer"].includes(name) && row.id) return `<a class="btn btn-sm btn-outline-primary" href="#/${name === "order" ? "orders" : name === "customer" ? "customers" : "performers"}/${esc(row.id)}">Открыть</a>`;
     if (["payments", "refunds", "reports"].includes(name) && row.id) return `<a class="btn btn-sm btn-outline-primary" href="#/${name}/${esc(row.id)}">Открыть</a>`;
     if (name === "files" && row.id) return `<button class="btn btn-sm btn-outline-primary" data-file-id="${esc(row.id)}">Открыть файл</button>`;
@@ -350,7 +350,18 @@
 
   function openInvitationForm() { openForm("Пригласить исполнителя", [{ name: "telegram_id", label: "Telegram ID", type: "number", required: true }, { name: "expires_at", label: "Срок действия", type: "datetime-local" }], async (form) => api("/invitations", { method: "POST", headers: csrfHeaders(), body: JSON.stringify({ telegram_id: Number(form.telegram_id), expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null }) })); }
 
-  $("page-content").addEventListener("click", (event) => { const button = event.target.closest("[data-action]"); if (button) runAction(button.dataset.action, button.dataset.id); });
+  $("page-content").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-action], [data-related-action]");
+    if (!button) return;
+    if (button.dataset.relatedAction) {
+      const item = JSON.parse(button.dataset.item || "{}");
+      item.performer_id = button.dataset.performerId || item.performer_id;
+      item.service_id = button.dataset.serviceId || item.service_id;
+      runAction(button.dataset.relatedAction, button.dataset.id, item);
+      return;
+    }
+    runAction(button.dataset.action, button.dataset.id);
+  });
   $("login-form").onsubmit = async (event) => { event.preventDefault(); const form = new FormData(event.currentTarget); try { const response = await fetch("/admin/login", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: form.get("email"), password: form.get("password") }) }); const data = await response.json(); if (!response.ok) throw new Error(data?.error?.message || "Неверный логин или пароль"); state.admin = data.admin; state.csrf = data.csrf_token; showApp(); navigate("#/dashboard"); await renderRoute(); } catch (error) { $("login-error").textContent = error.message; $("login-error").classList.remove("d-none"); } };
   $("logout").onclick = async () => { try { await fetch("/admin/logout", { method: "POST", credentials: "same-origin", headers: csrfHeaders() }); } finally { showLogin(); } };
   window.onhashchange = () => state.admin && renderRoute();
