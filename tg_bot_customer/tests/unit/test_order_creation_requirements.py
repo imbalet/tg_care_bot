@@ -13,6 +13,9 @@ from customer_bot.presentation.handlers.orders.create import start_order_creatio
 from customer_bot.presentation.ui.screens.orders.order_no_addresses import (
     Screen as OrderNoAddressesScreen,
 )
+from customer_bot.presentation.ui.screens.orders.order_no_objects import (
+    Screen as OrderNoObjectsScreen,
+)
 from customer_bot.presentation.ui.screens.orders.order_requirements import Screen
 from customer_bot.presentation.view_models import OrderRequirementsView
 
@@ -59,6 +62,17 @@ def test_no_address_order_screen_uses_global_address_creation_callback() -> None
     callbacks = _callback_data(result.reply_markup)
 
     assert callbacks[0] == AddressAddCallback().pack()
+
+
+@pytest.mark.parametrize("object_type", ("child", "ward", "pet"))
+def test_no_object_order_screen_uses_care_object_callback(object_type: str) -> None:
+    result = OrderNoObjectsScreen(
+        SimpleNamespace(object_type=object_type),
+    ).build()
+
+    callbacks = _callback_data(result.reply_markup)
+
+    assert CareObjectAddCallback(object_type=object_type).pack() in callbacks
 
 
 @pytest.mark.parametrize(
