@@ -31,7 +31,7 @@ class TelegramResponder:
         *,
         show_alert: bool | None = None,
     ) -> None:
-        await callback.answer(text, show_alert=show_alert)
+        await _answer_callback(callback, text=text, show_alert=show_alert)
 
     async def update(
         self,
@@ -48,7 +48,9 @@ class TelegramResponder:
         message = event if isinstance(event, Message) else event.message
         if not isinstance(message, Message):
             if isinstance(event, CallbackQuery):
-                await event.answer("Сообщение недоступно", show_alert=True)
+                await _answer_callback(
+                    event, text="Сообщение недоступно", show_alert=True
+                )
             logger.warning(
                 "Telegram event has no message to update",
                 extra={
@@ -59,7 +61,7 @@ class TelegramResponder:
             return None
 
         if isinstance(event, CallbackQuery):
-            await event.answer()
+            await _answer_callback(event)
 
         if clear_reply_keyboard:
             sent = await bot.send_message(
@@ -190,10 +192,12 @@ class TelegramResponder:
         message = event if isinstance(event, Message) else event.message
         if not isinstance(message, Message):
             if isinstance(event, CallbackQuery):
-                await event.answer("Сообщение недоступно", show_alert=True)
+                await _answer_callback(
+                    event, text="Сообщение недоступно", show_alert=True
+                )
             return None
         if isinstance(event, CallbackQuery):
-            await event.answer()
+            await _answer_callback(event)
 
         target_message_id = await self._message_store.get(telegram_id)
         if target_message_id is None and isinstance(event, CallbackQuery):
@@ -214,7 +218,7 @@ class TelegramResponder:
     async def delete_clicked_message(self, callback: CallbackQuery) -> None:
         if isinstance(callback.message, Message):
             await _delete_message(callback.message)
-        await callback.answer()
+            await _answer_callback(callback)
 
     async def _send(
         self,
@@ -229,7 +233,9 @@ class TelegramResponder:
         message = event if isinstance(event, Message) else event.message
         if not isinstance(message, Message):
             if isinstance(event, CallbackQuery):
-                await event.answer("Сообщение недоступно", show_alert=True)
+                await _answer_callback(
+                    event, text="Сообщение недоступно", show_alert=True
+                )
             logger.warning(
                 "Telegram event has no message to answer",
                 extra={
@@ -240,7 +246,7 @@ class TelegramResponder:
             return None
 
         if isinstance(event, CallbackQuery):
-            await event.answer()
+            await _answer_callback(event)
 
         sent = await bot.send_message(
             chat_id=message.chat.id,
@@ -250,6 +256,24 @@ class TelegramResponder:
         if store_message:
             await self._message_store.set(telegram_id, sent.message_id)
         return sent
+
+
+async def _answer_callback(
+    callback: CallbackQuery,
+    *,
+    text: str | None = None,
+    show_alert: bool | None = None,
+) -> None:
+    try:
+        await callback.answer(text, show_alert=show_alert)
+    except TelegramAPIError as exc:
+        logger.warning(
+            "Telegram callback answer failed",
+            extra={
+                "callback_id": callback.id,
+                "exception_type": type(exc).__name__,
+            },
+        )
 
 
 async def _delete_message(message: Message) -> None:
