@@ -1,0 +1,214 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio_init:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}"
+        "$${MINIO_ROOT_PASSWORD}" >/dev/null
+        && mc mb --ignore-existing "local/$${S3_BUCKET}"
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+
+  migrate:
+    image: ${IMAGE_NAMESPACE:-ghcr.io/imbalet/tg_care_bot}/server:${IMAGE_TAG:-latest}
+    environment: &server_environment
+      APP_ENV: ${APP_ENV:?APP_ENV is required}
+      APP_NAME: ${APP_NAME:?APP_NAME is required}
+      LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:?POSTGRES_DB is required}
+      DB_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      DB_PASS: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      SERVICE_KEY: ${SERVICE_KEY:?SERVICE_KEY is required}
+      WORKER_POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:?WORKER_POLL_INTERVAL_SECONDS is required}
+      WORKER_BATCH_LIMIT: ${WORKER_BATCH_LIMIT:?WORKER_BATCH_LIMIT is required}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:?S3_ENDPOINT_URL is required}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      S3_REGION: ${S3_REGION:?S3_REGION is required}
+      S3_SIGNED_URL_TTL_SECONDS: ${S3_SIGNED_URL_TTL_SECONDS:?S3_SIGNED_URL_TTL_SECONDS is required}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:?DEFAULT_ADMIN_EMAIL is required}
+      DEFAULT_ADMIN_FULL_NAME: ${DEFAULT_ADMIN_FULL_NAME:?DEFAULT_ADMIN_FULL_NAME is required}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:?DEFAULT_ADMIN_PASSWORD is required}
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio_init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  api:
+    image: ${IMAGE_NAMESPACE:-ghcr.io/imbalet/tg_care_bot}/server:${IMAGE_TAG:-latest}
+    environment:
+      <<: *server_environment
+      DADATA_API_KEY: ${DADATA_API_KEY:-}
+      DADATA_SECRET_KEY: ${DADATA_SECRET_KEY:-}
+      DADATA_BASE_URL: ${DADATA_BASE_URL:?DADATA_BASE_URL is required}
+      DADATA_TIMEOUT_SECONDS: ${DADATA_TIMEOUT_SECONDS:?DADATA_TIMEOUT_SECONDS is required}
+      DADATA_RETRY_COUNT: ${DADATA_RETRY_COUNT:?DADATA_RETRY_COUNT is required}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:?PAYMENT_PROVIDER is required}
+      TBANK_BASE_URL: ${TBANK_BASE_URL:?TBANK_BASE_URL is required}
+      TBANK_TERMINAL_KEY: ${TBANK_TERMINAL_KEY:?TBANK_TERMINAL_KEY is required}
+      TBANK_PASSWORD: ${TBANK_PASSWORD:?TBANK_PASSWORD is required}
+      TBANK_TIMEOUT_SECONDS: ${TBANK_TIMEOUT_SECONDS:?TBANK_TIMEOUT_SECONDS is required}
+      TBANK_NOTIFICATION_URL: ${TBANK_NOTIFICATION_URL:-}
+      PAYMENT_RECEIPT_TAXATION: ${PAYMENT_RECEIPT_TAXATION:?PAYMENT_RECEIPT_TAXATION is required}
+      PAYMENT_RECEIPT_TAX: ${PAYMENT_RECEIPT_TAX:?PAYMENT_RECEIPT_TAX is required}
+      PAYMENT_RECEIPT_METHOD: ${PAYMENT_RECEIPT_METHOD:?PAYMENT_RECEIPT_METHOD is required}
+      PAYMENT_RECEIPT_OBJECT: ${PAYMENT_RECEIPT_OBJECT:?PAYMENT_RECEIPT_OBJECT is required}
+      PAYMENT_RECEIPT_DEFAULTS_ALLOWED: ${PAYMENT_RECEIPT_DEFAULTS_ALLOWED:?PAYMENT_RECEIPT_DEFAULTS_ALLOWED is required}
+    command: ["uvicorn", "backend.bootstrap.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "${API_PORT:-18000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    image: ${IMAGE_NAMESPACE:-ghcr.io/imbalet/tg_care_bot}/server:${IMAGE_TAG:-latest}
+    environment:
+      <<: *server_environment
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:?PAYMENT_PROVIDER is required}
+      TBANK_BASE_URL: ${TBANK_BASE_URL:?TBANK_BASE_URL is required}
+      TBANK_TERMINAL_KEY: ${TBANK_TERMINAL_KEY:?TBANK_TERMINAL_KEY is required}
+      TBANK_PASSWORD: ${TBANK_PASSWORD:?TBANK_PASSWORD is required}
+      TBANK_TIMEOUT_SECONDS: ${TBANK_TIMEOUT_SECONDS:?TBANK_TIMEOUT_SECONDS is required}
+      TBANK_NOTIFICATION_URL: ${TBANK_NOTIFICATION_URL:-}
+      PAYMENT_RECEIPT_TAXATION: ${PAYMENT_RECEIPT_TAXATION:?PAYMENT_RECEIPT_TAXATION is required}
+      PAYMENT_RECEIPT_TAX: ${PAYMENT_RECEIPT_TAX:?PAYMENT_RECEIPT_TAX is required}
+      PAYMENT_RECEIPT_METHOD: ${PAYMENT_RECEIPT_METHOD:?PAYMENT_RECEIPT_METHOD is required}
+      PAYMENT_RECEIPT_OBJECT: ${PAYMENT_RECEIPT_OBJECT:?PAYMENT_RECEIPT_OBJECT is required}
+      PAYMENT_RECEIPT_DEFAULTS_ALLOWED: ${PAYMENT_RECEIPT_DEFAULTS_ALLOWED:?PAYMENT_RECEIPT_DEFAULTS_ALLOWED is required}
+      CUSTOMER_BOT_TOKEN: ${CUSTOMER_BOT_TOKEN:-}
+      EXECUTOR_BOT_TOKEN: ${EXECUTOR_BOT_TOKEN:-}
+      TELEGRAM_API_BASE_URL: ${TELEGRAM_API_BASE_URL:-https://api.telegram.org}
+      TELEGRAM_TIMEOUT_SECONDS: ${TELEGRAM_TIMEOUT_SECONDS:-5}
+    command: ["python", "-m", "backend.worker.main"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  customer_bot:
+    image: ${IMAGE_NAMESPACE:-ghcr.io/imbalet/tg_care_bot}/customer:${IMAGE_TAG:-latest}
+    profiles: ["bots"]
+    environment: &bot_environment
+      LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
+      BOT_TOKEN: ${CUSTOMER_BOT_TOKEN:?CUSTOMER_BOT_TOKEN is required}
+      BACKEND_SCHEME: http
+      BACKEND_HOST: api
+      BACKEND_PORT: "8000"
+      SERVICE_KEY: ${SERVICE_KEY:?SERVICE_KEY is required}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "1"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REQUEST_TIMEOUT_SECONDS: ${BOT_REQUEST_TIMEOUT_SECONDS:?BOT_REQUEST_TIMEOUT_SECONDS is required}
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  executor_bot:
+    image: ${IMAGE_NAMESPACE:-ghcr.io/imbalet/tg_care_bot}/executor:${IMAGE_TAG:-latest}
+    profiles: ["bots"]
+    environment:
+      <<: *bot_environment
+      BOT_TOKEN: ${EXECUTOR_BOT_TOKEN:?EXECUTOR_BOT_TOKEN is required}
+      REDIS_DB: "2"
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  admin_web:
+    image: ${IMAGE_NAMESPACE:-ghcr.io/imbalet/tg_care_bot}/admin-ui:${IMAGE_TAG:-latest}
+    ports:
+      - "${ADMIN_PORT:-18001}:80"
+    depends_on:
+      api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  tbank_mock:
+    image: ${IMAGE_NAMESPACE:-ghcr.io/imbalet/tg_care_bot}/tbank-mock:${IMAGE_TAG:-latest}
+    profiles: ["payment-mock"]
+    environment:
+      TBANK_MOCK_TERMINAL_KEY: ${TBANK_TERMINAL_KEY:-mock-terminal}
+      TBANK_MOCK_PASSWORD: ${TBANK_PASSWORD:-mock-password}
+      TBANK_MOCK_DATABASE_PATH: /data/tbank-mock.db
+      TBANK_MOCK_PUBLIC_BASE_URL: ${TBANK_MOCK_PUBLIC_BASE_URL:-http://localhost:18080}
+      TBANK_MOCK_HOST: 0.0.0.0
+      TBANK_MOCK_PORT: "8080"
+      TBANK_MOCK_WEBHOOK_TIMEOUT_SECONDS: ${TBANK_MOCK_WEBHOOK_TIMEOUT_SECONDS:-3}
+      TBANK_MOCK_WEBHOOK_RETRY_COUNT: ${TBANK_MOCK_WEBHOOK_RETRY_COUNT:-5}
+      TBANK_MOCK_WEBHOOK_RETRY_DELAY_SECONDS: ${TBANK_MOCK_WEBHOOK_RETRY_DELAY_SECONDS:-1}
+    ports:
+      - "${TBANK_MOCK_PORT:-18080}:8080"
+    volumes:
+      - tbank_mock_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  tbank_mock_data:

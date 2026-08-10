@@ -13,6 +13,7 @@ Backend является единственным владельцем бизн�
 ```text
 tg_care_bot/
 ├── docker-compose.yml       # локальный полный стек
+├── docker-compose.deploy.yml # стек из опубликованных образов
 ├── tg_bot_server/           # FastAPI backend, миграции и worker
 ├── tg_bot_customer/         # Telegram-бот заказчика
 ├── tg_bot_executor/         # Telegram-бот исполнителя
@@ -41,6 +42,9 @@ tg_care_bot/
 - Docker Engine;
 - Docker Compose v2 (`docker compose`);
 - Git.
+
+Для deployment-стека дополнительно нужен доступ к GHCR. Если пакеты приватные,
+выполните `docker login ghcr.io` с GitHub token, имеющим `read:packages`.
 
 Для запуска Python-компонентов и тестов вне Docker дополнительно нужны:
 
@@ -262,6 +266,57 @@ docker compose --env-file .env down -v --remove-orphans
 
 Последняя команда удаляет локальные данные PostgreSQL, Redis, MinIO и mock
 платежей. Используйте её только если данные больше не нужны.
+
+## Сборка и deployment образов через GitHub Actions
+
+Workflow `.github/workflows/docker-images.yml` собирает пять образов:
+
+- `server`;
+- `customer`;
+- `executor`;
+- `admin-ui`;
+- `tbank-mock`.
+
+Pull request проверяет сборку без публикации. Каждый push публикует образы в
+GHCR с SHA-тегом и тегом ветки. Для default branch дополнительно обновляется
+`latest`, а Git-теги вида `v1.2.3` получают version-теги.
+
+Для запуска уже собранных образов скопируйте deployment-конфигурацию:
+
+```bash
+cp .env.deploy.example .env.deploy
+```
+
+В `.env.deploy.example` уже перечислены все переменные deployment-стека.
+Скопируйте файл и замените все значения `replace-with-*` реальными секретами.
+Координаты образов можно переопределить, например:
+
+```dotenv
+IMAGE_NAMESPACE=ghcr.io/imbalet/tg_care_bot
+IMAGE_TAG=sha-0123456789abcdef
+```
+
+Запуск выполняется без сборки:
+
+```bash
+docker compose -f docker-compose.deploy.yml --env-file .env.deploy pull
+docker compose -f docker-compose.deploy.yml --env-file .env.deploy up -d
+```
+
+Telegram-боты запускаются профилем `bots`:
+
+```bash
+docker compose -f docker-compose.deploy.yml \
+  --env-file .env.deploy --profile bots up -d
+```
+
+Локальный T-Bank mock запускается отдельно профилем `payment-mock`; в
+production используйте внешний платёжный API.
+
+Deployment Compose содержит self-hosted PostgreSQL, Redis и MinIO. Перед
+production-эксплуатацией настройте резервное копирование PostgreSQL, TLS и
+ограничение доступа к серверу. Для отката задайте предыдущий SHA-тег в
+`IMAGE_TAG` и снова выполните `pull` и `up -d`.
 
 ## Переменные окружения
 
