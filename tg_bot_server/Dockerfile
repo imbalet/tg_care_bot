@@ -53,7 +53,6 @@ COPY pyproject.toml uv.lock README.md ./
 COPY alembic.ini alembic.ini
 COPY alembic alembic
 COPY src src
-COPY templates templates
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
