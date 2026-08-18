@@ -11,13 +11,13 @@ class Screen(BaseScreenNoView):
     def _build_text(self) -> str:
         return (
             "<b>Подходящих исполнителей нет</b>\n\n"
-            "Можно вернуться к выбору способа публикации или опубликовать заказ в пул."
+            "Можно вернуться к выбору способа публикации или опубликовать заказ."
         )
 
     def _build_keyboard(self) -> Markup:
         return (
             InlineKeyboardFactory()
-            .button("Опубликовать в пул", OrderPublishPoolCallback())
+            .button("Опубликовать заказ", OrderPublishPoolCallback())
             .button("Назад", OrderDirectBackCallback())
             .button("Главное меню", MainMenuCallback())
             .as_markup()

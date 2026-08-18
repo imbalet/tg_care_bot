@@ -202,7 +202,7 @@ def fallback_keyboard(
 ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardFactory()
     if include_main_menu:
-        keyboard.button(MsgKey.MAIN_MENU, MainMenuCallback())
+        keyboard.button("Назад", MainMenuCallback())
     for index, document in enumerate(legal_documents, start=1):
         url = str(getattr(document, "content_url", ""))
         if url.startswith(("https://", "http://")):

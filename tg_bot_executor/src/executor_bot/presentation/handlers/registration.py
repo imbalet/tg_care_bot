@@ -9,6 +9,7 @@ from aiogram.types import CallbackQuery, Message
 from executor_bot.application.errors import BackendClientError, BackendValidationError
 from executor_bot.application.ports import BackendPort
 from executor_bot.presentation.callbacks import (
+    MainMenuCallback,
     RegistrationCityCallback,
     RegistrationConfirmCallback,
     RegistrationContactCallback,
@@ -94,6 +95,36 @@ async def start_registration(
     await telegram_responder.update(
         bot=bot,
         event=message,
+        telegram_id=telegram_user_context.telegram_id,
+        text=legal_documents_text(documents),
+        reply_markup=legal_acceptance_keyboard(documents),
+    )
+
+
+@router.callback_query(
+    ExecutorRegistration.legal_acceptance,
+    MainMenuCallback.filter(),
+)
+async def back_to_documents(
+    callback: CallbackQuery,
+    bot: Bot,
+    backend_client: BackendPort,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    try:
+        documents = await backend_client.list_active_legal_documents()
+    except BackendClientError:
+        await telegram_responder.update(
+            bot=bot,
+            event=callback,
+            telegram_id=telegram_user_context.telegram_id,
+            text=retry_later_text(),
+        )
+        return
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
         telegram_id=telegram_user_context.telegram_id,
         text=legal_documents_text(documents),
         reply_markup=legal_acceptance_keyboard(documents),

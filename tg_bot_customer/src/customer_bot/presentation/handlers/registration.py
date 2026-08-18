@@ -10,6 +10,7 @@ from aiogram.types import CallbackQuery, Message
 from customer_bot.application.errors import BackendClientError, BackendValidationError
 from customer_bot.application.ports import BackendPort
 from customer_bot.presentation.callbacks import (
+    MainMenuCallback,
     RegistrationCityCallback,
     RegistrationConfirmCallback,
     RegistrationContactCallback,
@@ -104,6 +105,28 @@ async def start_registration(
         text=screen.text,
         reply_markup=screen.reply_markup,
         create_new=True,
+    )
+
+
+@router.callback_query(
+    CustomerRegistration.legal_acceptance,
+    MainMenuCallback.filter(),
+)
+async def back_to_documents(
+    callback: CallbackQuery,
+    bot: Bot,
+    state: FSMContext,
+    telegram_responder: TelegramResponder,
+    telegram_user_context: TelegramUserContext,
+) -> None:
+    registration = await _get_registration_data(state)
+    screen = DocumentsScreen(registration.legal_documents).build()
+    await telegram_responder.update(
+        bot=bot,
+        event=callback,
+        telegram_id=telegram_user_context.telegram_id,
+        text=screen.text,
+        reply_markup=screen.reply_markup,
     )
 
 

@@ -93,7 +93,7 @@ async def main() -> None:
         logger.info("Configuring Telegram bot commands")
         await bot.set_my_commands(
             [
-                BotCommand(command="start", description="Открыть главное меню"),
+                BotCommand(command="start", description="Перезапуск бота"),
                 BotCommand(command="menu", description="Вернуться в главное меню"),
                 BotCommand(command="help", description="Помощь"),
             ],

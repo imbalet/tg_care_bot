@@ -52,7 +52,7 @@ TEXTS: dict[MsgKey, str] = {
     MsgKey.OK: "ОК",
     MsgKey.PETS: "Питомцы",
     MsgKey.PROFILE: "Профиль",
-    MsgKey.PUBLISH_POOL: "Опубликовать в пул",
+    MsgKey.PUBLISH_POOL: "Опубликовать",
     MsgKey.SERVICES_PRICES: "Услуги и цены",
     MsgKey.SKIP: "Пропустить",
     MsgKey.SWITCH_CATEGORY: "Сменить направление",

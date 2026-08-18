@@ -32,7 +32,7 @@ def test_help_screen_does_not_repeat_help_or_broken_support_action() -> None:
 
     assert "Помощь" not in labels
     assert "Связаться с поддержкой" not in labels
-    assert "Главное меню" in labels
+    assert "Назад" in labels
     assert "Аккаунт поддержки" in labels
     assert any(
         button.url == "https://t.me/support"

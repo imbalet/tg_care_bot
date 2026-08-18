@@ -219,7 +219,7 @@ async def enter_query(
             event=message,
             telegram_id=telegram_user_context.telegram_id,
             text="Адрес не найден. Уточните строку.",
-            create_new=True
+            create_new=True,
         )
         return
     await state.update_data(
@@ -235,7 +235,7 @@ async def enter_query(
         telegram_id=telegram_user_context.telegram_id,
         text=work_address_suggestion_step_text(suggestions),
         reply_markup=work_address_suggestions_keyboard(suggestions),
-        create_new=True
+        create_new=True,
     )
 
 
@@ -504,7 +504,7 @@ async def _advance_or_create(
             telegram_id=telegram_user_context.telegram_id,
             text=work_address_extra_step_text(EXTRA_FIELDS[index][1]),
             reply_markup=work_address_skip_keyboard(),
-            create_new=isinstance(event, Message)
+            create_new=isinstance(event, Message),
         )
         return
     try:
@@ -524,7 +524,7 @@ async def _advance_or_create(
             telegram_id=telegram_user_context.telegram_id,
             text=retry_later_text(),
             reply_markup=work_address_created_keyboard(),
-            create_new=True
+            create_new=True,
         )
         return
     await state.clear()
@@ -534,7 +534,7 @@ async def _advance_or_create(
         telegram_id=telegram_user_context.telegram_id,
         text=work_address_created_text(),
         reply_markup=work_address_created_keyboard(),
-        create_new=isinstance(event, Message)
+        create_new=isinstance(event, Message),
     )
 
 

@@ -78,7 +78,7 @@ def test_help_fallback_does_not_repeat_help_or_support() -> None:
     )
     labels = [button.text for row in markup.inline_keyboard for button in row]
 
-    assert labels == ["Главное меню", "Аккаунт поддержки"]
+    assert labels == ["Назад", "Аккаунт поддержки"]
     assert "Связаться с поддержкой" not in labels
     assert markup.inline_keyboard[1][0].url == "https://t.me/support"
 

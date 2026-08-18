@@ -90,7 +90,6 @@ class Screen(BaseScreen[_View]):
                 "Опции: учтены в заказе",
                 "Расчёт: стоимость услуги + комиссия платформы",
                 f"Услуга: {escape(str(self.data.service_amount))} ₽",
-                f"Комиссия платформы: {escape(str(self.data.platform_fee_amount))} ₽",
                 f"Итого к оплате: {escape(str(self.data.total_amount))} ₽",
                 f"Подходящих исполнителей: {self.data.performers_count}",
                 "",
